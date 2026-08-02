@@ -43,7 +43,8 @@ import {
   recurringOccurrenceId,
 } from "@/lib/choreOccurrences";
 import { choreCompletionTransition } from "@/lib/choreCompletion";
-import { resolveChorePermissions } from "@/lib/chorePermissions";
+import { isActiveSweetMember, resolveChorePermissions } from "@/lib/chorePermissions";
+import { logChorePermissionCheck } from "@/lib/choreDiagnostics";
 import { choreNow } from "@/lib/choreClock";
 import { recurringChoreClaims } from "@/lib/recurringChoreClaims";
 import type {
@@ -2974,18 +2975,19 @@ export function AppProvider({
     return id;
   }, [currentUserId, householdId, roommates, session?.user.id]);
 
+  const activeSweet = useMemo(
+    () => memberships.find((membership) => membership.sweetId === householdId) ?? null,
+    [householdId, memberships],
+  );
+
   const permissionsForChore = useCallback((chore: Chore) =>
     resolveChorePermissions({
       currentUserId: session?.user.id ?? "",
-      isActiveMember: memberships.some((membership) =>
-        membership.sweetId === householdId &&
-        membership.userId === session?.user.id &&
-        membership.status === "active"
-      ),
+      isActiveMember: isActiveSweetMember(activeSweet, householdId, session?.user.id),
       isOwner: isHost,
       chore,
     }),
-  [householdId, isHost, memberships, session?.user.id]);
+  [activeSweet, householdId, isHost, session?.user.id]);
 
   const canManageChore = useCallback((chore: Chore) =>
     permissionsForChore(chore).canEdit,
@@ -3079,7 +3081,16 @@ export function AppProvider({
   // awarding points twice.
   const setChoreCompleted = useCallback((id: string, completed: boolean) => {
     const chore = choresRef.current.find((c) => c.id === id);
-    if (!chore || !permissionsForChore(chore).canComplete) return;
+    const allowed = Boolean(chore) && permissionsForChore(chore!).canComplete;
+    logChorePermissionCheck("complete", {
+      choreId: id,
+      currentUserId: session?.user.id,
+      householdId,
+      isActiveMember: isActiveSweetMember(activeSweet, householdId, session?.user.id),
+      isOwner: isHost,
+      allowed,
+    });
+    if (!chore || !allowed) return;
     const transition = choreCompletionTransition(
       chore.completed,
       completed,
@@ -3281,7 +3292,7 @@ export function AppProvider({
         },
       );
     }
-  }, [cloudReady, currentUserId, householdId, permissionsForChore, roommates, session?.user.id]);
+  }, [activeSweet, cloudReady, currentUserId, householdId, isHost, permissionsForChore, roommates, session?.user.id]);
 
   const completeChore = useCallback((id: string) => {
     const chore = choresRef.current.find((candidate) => candidate.id === id);
@@ -4364,10 +4375,6 @@ export function AppProvider({
   // realtime readiness, auth token refreshes). Those updates should not
   // broadcast a brand-new context object to every mounted tab when none of
   // the values that screens consume changed.
-  const activeSweet = useMemo(
-    () => memberships.find((membership) => membership.sweetId === householdId) ?? null,
-    [householdId, memberships],
-  );
   const visibleAppAlerts = useMemo(
     () => householdId
       ? appAlerts.filter((alert) => alert.deduplicationKey.includes(`:${householdId}:`))

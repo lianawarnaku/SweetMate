@@ -363,3 +363,70 @@ override.
 8. Add explicit edit scope (“this occurrence” / “this and future” / “series”), recurrence weekdays/end date if required, and matching tests.
 9. Centralize date labels and week-start rules.
 10. Add a React Native component harness and local Supabase CI before changing recurrence behavior.
+
+## 2026-08-02 non-host chore control re-audit
+
+Follow-up to the August 2, 2026 identity fix (commit `d4ac2a1`). That commit
+was correct in substance — session identity as the sole current-user
+authority, active-membership gating instead of host-only gating, and an RLS
+`status = 'active'` filter — but it left the same `isActiveMember` comparison
+(`activeSweet?.sweetId === householdId && activeSweet.userId === currentUserId
+&& activeSweet.status === "active"`) independently duplicated three times:
+inline in `app/(tabs)/index.tsx`, inline in `app/(tabs)/group.tsx`, and as a
+`memberships.some(...)` scan inside `AppContext`'s own `permissionsForChore`.
+Three independent copies of the same identity check is exactly the shape of
+bug that produced the original defect: any future edit to one copy and not
+the other two reintroduces "host works, non-host silently doesn't" without a
+type error or a failing existing test, because none of the three files
+imported from each other.
+
+This pass did not find that the three copies had actually diverged as of
+`d4ac2a1` — re-deriving each by hand and comparing byte-for-byte showed they
+agreed. So this re-audit could not reproduce a currently-broken checkbox or
+three-dot menu for an active non-host member through static inspection of the
+reachable code path (permission matrix → screen-local gate → `AppContext`
+mutation gate → RLS). If the reported break is still observed at runtime
+after pulling this commit, it is most likely one of: (a) a build/session that
+predates `d4ac2a1`, or (b) a runtime-only timing issue (membership/session
+hydration ordering, a stale Realtime snapshot arriving after a local
+optimistic completion) that cannot be confirmed without a device — see the
+development diagnostics and human verification checklist below.
+
+Changes made:
+
+- Extracted the identity check into one function, `isActiveSweetMember` in
+  `lib/chorePermissions.ts`, and pointed all three call sites at it. The
+  `activeSweet` memo inside `AppContext` was moved earlier in the provider so
+  its own `permissionsForChore` could reuse it instead of re-deriving
+  membership from `memberships.some(...)`.
+- Added `lib/choreDiagnostics.ts`: a `__DEV__`-only `logChorePermissionCheck`
+  helper. It is called from `AppContext.setChoreCompleted` (the checkbox/pick-
+  up write boundary) and from both screens' `openChoreActions` /
+  `handleChorePress`, logging the resolved user/household ids (presence only,
+  not values), `isActiveMember`, `isOwner`, and whether the action was
+  allowed. See "Reading the diagnostics" below.
+- `lib/chorePermissions.test.ts` gained a fixture-based regression test (one
+  household, one owner, one regular member, one assigned task, one shared
+  task, one completed occurrence) exercising `isActiveSweetMember` and
+  `resolveChorePermissions` together, rather than only the pure permission
+  function in isolation.
+- `lib/chorePermissions.test.ts` was wired into the `pnpm test` chain in
+  `package.json` — it previously only ran via a separate, easy-to-forget
+  `test:chore-permissions` script and was not part of the default test run.
+- `lib/choreUi.test.ts` was updated to assert that My Home, Group, and
+  `AppContext` all resolve membership through `isActiveSweetMember` and that
+  none of the three still inlines its own `activeSweet.status === "active"`
+  comparison, so a future regression of this exact kind fails the test suite.
+
+### Reading the diagnostics
+
+Run a development build (`pnpm --filter @workspace/mobile run dev`) signed in
+as the non-host account and watch the Metro/device log for lines prefixed
+`[chore-diagnostics]`. Each line reports the event (`checkbox-tap`,
+`open-menu`, `complete`), whether a household/user id was present, whether
+membership resolved as active, whether the account is the owner, and whether
+the action was allowed. If `allowed: false` appears for a non-host tapping
+their own assigned, active chore, the accompanying `isActiveMember`/
+`isOwner` fields identify which side of the gate is wrong — that is the
+fastest path to root-causing a runtime-only recurrence of this bug without a
+debugger attached.

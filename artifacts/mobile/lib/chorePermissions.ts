@@ -10,6 +10,35 @@ export type ChorePermissionInput = {
   };
 };
 
+export type ActiveSweetMembership = {
+  sweetId: string;
+  userId: string;
+  status: "active" | "invited" | "left" | "removed";
+} | null | undefined;
+
+/**
+ * Single source of truth for "is this authenticated user an active member of
+ * the currently selected household?". My Home, Group, and AppContext's own
+ * mutation gates each used to reimplement this comparison independently; any
+ * one of the three drifting out of sync silently disabled chore controls for
+ * non-host members. Every caller must go through this function instead of
+ * inlining the sweetId/userId/status comparison again.
+ */
+export function isActiveSweetMember(
+  activeSweet: ActiveSweetMembership,
+  householdId: string | null | undefined,
+  currentUserId: string | null | undefined,
+): boolean {
+  return Boolean(
+    activeSweet &&
+      householdId &&
+      currentUserId &&
+      activeSweet.sweetId === householdId &&
+      activeSweet.userId === currentUserId &&
+      activeSweet.status === "active",
+  );
+}
+
 export type ChorePermissions = {
   canView: boolean;
   canComplete: boolean;

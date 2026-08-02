@@ -43,7 +43,8 @@ import {
   type ExternalTaskDestination,
 } from "@/lib/externalTasks";
 import { reportRuntimeError } from "@/lib/runtimeDiagnostics";
-import { resolveChorePermissions } from "@/lib/chorePermissions";
+import { isActiveSweetMember, resolveChorePermissions } from "@/lib/chorePermissions";
+import { logChorePermissionCheck } from "@/lib/choreDiagnostics";
 import {
   deriveCalendarItems,
   groupCalendarItemsByDate,
@@ -699,10 +700,7 @@ export default function MyChoresScreen() {
     : undefined;
   const permissionsForChore = (chore: Chore) => resolveChorePermissions({
     currentUserId,
-    isActiveMember:
-      activeSweet?.sweetId === householdId &&
-      activeSweet.userId === currentUserId &&
-      activeSweet.status === "active",
+    isActiveMember: isActiveSweetMember(activeSweet, householdId, currentUserId),
     isOwner: isHost,
     chore,
   });
@@ -742,7 +740,16 @@ export default function MyChoresScreen() {
     );
   };
   const openChoreActions = (chore: Chore) => {
-    if (!permissionsForChore(chore).canView) return;
+    const allowed = permissionsForChore(chore).canView;
+    logChorePermissionCheck("open-menu", {
+      choreId: chore.id,
+      currentUserId,
+      householdId,
+      isActiveMember: isActiveSweetMember(activeSweet, householdId, currentUserId),
+      isOwner: isHost,
+      allowed,
+    });
+    if (!allowed) return;
     setActionChoreId(chore.id);
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };

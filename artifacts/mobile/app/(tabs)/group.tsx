@@ -35,7 +35,8 @@ import {
 } from "@/context/AppContext";
 import { useTheme } from "@/constants/colors";
 import { error as hapticError, success as hapticSuccess } from "@/lib/haptics";
-import { resolveChorePermissions } from "@/lib/chorePermissions";
+import { isActiveSweetMember, resolveChorePermissions } from "@/lib/chorePermissions";
+import { logChorePermissionCheck } from "@/lib/choreDiagnostics";
 import { useConfirm } from "@/hooks/useConfirm";
 import { useDraggableSheet } from "@/hooks/useDraggableSheet";
 import { useChoreLifecycleNow } from "@/hooks/useChoreLifecycleNow";
@@ -324,10 +325,7 @@ export default function GroupChoresScreen() {
 
   const permissionsForChore = (chore: Chore) => resolveChorePermissions({
     currentUserId,
-    isActiveMember:
-      activeSweet?.sweetId === householdId &&
-      activeSweet.userId === currentUserId &&
-      activeSweet.status === "active",
+    isActiveMember: isActiveSweetMember(activeSweet, householdId, currentUserId),
     isOwner: isHost,
     chore,
   });
@@ -373,6 +371,14 @@ export default function GroupChoresScreen() {
     );
   };
   const openChoreActions = (chore: Chore) => {
+    logChorePermissionCheck("open-menu", {
+      choreId: chore.id,
+      currentUserId,
+      householdId,
+      isActiveMember: isActiveSweetMember(activeSweet, householdId, currentUserId),
+      isOwner: isHost,
+      allowed: permissionsForChore(chore).canView,
+    });
     setActionChoreId(chore.id);
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
@@ -491,6 +497,14 @@ export default function GroupChoresScreen() {
   const handleChorePress = (choreId: string, assignedTo: string, choreName: string, chorePoints: number) => {
     const chore = chores.find((c) => c.id === choreId);
     if (!chore) return;
+    logChorePermissionCheck("checkbox-tap", {
+      choreId,
+      currentUserId,
+      householdId,
+      isActiveMember: isActiveSweetMember(activeSweet, householdId, currentUserId),
+      isOwner: isHost,
+      allowed: permissionsForChore(chore).canComplete,
+    });
 
     // If already completed, only allow the ORIGINAL ASSIGNEE (or the current
     // user if it's their own chore) to un-complete it. Picked-up chores are

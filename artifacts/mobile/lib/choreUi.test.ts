@@ -12,13 +12,23 @@ const borrowing = readFileSync(resolve(appRoot, "borrow.tsx"), "utf8");
 const expenses = readFileSync(resolve(appRoot, "expenses.tsx"), "utf8");
 const shopping = readFileSync(resolve(appRoot, "shopping.tsx"), "utf8");
 const context = readFileSync(resolve(process.cwd(), "context/AppContext.tsx"), "utf8");
+const chorePermissionsLib = readFileSync(resolve(process.cwd(), "lib/chorePermissions.ts"), "utf8");
 
 assert(
     context.includes("setCurrentUserIdState(session?.user.id ?? CURRENT_USER_ID)") &&
     !context.includes("setCurrentUserIdState(data.currentUserId)") &&
-    context.includes('membership.status === "active"') &&
+    context.includes("isActiveSweetMember(activeSweet, householdId, session?.user.id)") &&
     context.includes("addChores, setChoreCompleted, completeChore"),
   "authenticated session identity and active membership must authorize chore actions",
+);
+
+assert(
+  chorePermissionsLib.includes("export function isActiveSweetMember") &&
+    home.includes("isActiveSweetMember(activeSweet, householdId, currentUserId)") &&
+    group.includes("isActiveSweetMember(activeSweet, householdId, currentUserId)") &&
+    !home.includes('activeSweet.status === "active"') &&
+    !group.includes('activeSweet.status === "active"'),
+  "My Home, Group, and AppContext must resolve active membership through the single isActiveSweetMember helper instead of three independently drifting inline comparisons",
 );
 
 assert(
