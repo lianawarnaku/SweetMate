@@ -35,6 +35,7 @@ import {
 } from "@/context/AppContext";
 import { useTheme } from "@/constants/colors";
 import { error as hapticError, success as hapticSuccess } from "@/lib/haptics";
+import { resolveChorePermissions } from "@/lib/chorePermissions";
 import { useConfirm } from "@/hooks/useConfirm";
 import { useDraggableSheet } from "@/hooks/useDraggableSheet";
 import { useChoreLifecycleNow } from "@/hooks/useChoreLifecycleNow";
@@ -319,8 +320,13 @@ export default function GroupChoresScreen() {
     setShowAddChoreModal(true);
   };
 
-  const canManageChore = (chore: Chore) =>
-    isHost || chore.creatorId === currentUserId;
+  const permissionsForChore = (chore: Chore) => resolveChorePermissions({
+    currentUserId,
+    isActiveMember: roommates.some((member) => member.id === currentUserId),
+    isOwner: isHost,
+    chore,
+  });
+  const canManageChore = (chore: Chore) => permissionsForChore(chore).canEdit;
   const editingChore = editingChoreId
     ? chores.find((chore) => chore.id === editingChoreId)
     : undefined;
@@ -428,15 +434,19 @@ export default function GroupChoresScreen() {
       );
     });
 
-  const addChoreToCalendar = async (chore: Chore) => {
-    if (calendarExportsInFlight.current.has(chore.id)) return;
-    calendarExportsInFlight.current.add(chore.id);
+  const addChoreToCalendar = async (choreId: string) => {
+    if (calendarExportsInFlight.current.has(choreId)) return;
+    calendarExportsInFlight.current.add(choreId);
     try {
+      const chore = chores.find((candidate) => candidate.id === choreId);
+      if (!chore) {
+        throw new Error("This chore is no longer available.");
+      }
       const destination =
         calendarDestination ?? (await chooseCalendarDestination());
       if (!destination) return;
       const assignedRoommate = roommates.find((roommate) => roommate.id === chore.assignedTo);
-      await exportChoreToDestinations(
+      const result = await exportChoreToDestinations(
         currentUserId,
         {
           id: chore.id,
@@ -452,15 +462,15 @@ export default function GroupChoresScreen() {
         destination,
       );
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (result.googleAlreadyAdded) {
+        throw new Error("Already added to Google Calendar.");
+      }
     } catch (error) {
-      reportRuntimeError("Add group chore to calendar", error, { choreId: chore.id });
+      reportRuntimeError("Add group chore to calendar", error, { choreId });
       hapticError();
-      Alert.alert(
-        "Couldn't add this chore",
-        error instanceof Error ? error.message : "Please try again.",
-      );
+      throw error;
     } finally {
-      calendarExportsInFlight.current.delete(chore.id);
+      calendarExportsInFlight.current.delete(choreId);
     }
   };
 
@@ -1282,7 +1292,7 @@ export default function GroupChoresScreen() {
         subtitle="Manage this chore"
         onClose={closeChoreActions}
         actions={actionChore ? [
-          ...(!actionChore.completed ? [{
+          ...(permissionsForChore(actionChore).canNudge ? [{
             key: "nudge",
             label: nudgedChores.has(`${actionChore.assignedTo}-${actionChore.id}`)
               ? "Remove nudge"
@@ -1297,11 +1307,12 @@ export default function GroupChoresScreen() {
             key: "calendar",
             label: "Add to calendar",
             icon: "calendar" as const,
+            successMessage: "Added to Google Calendar",
             onPress: () => {
-              void addChoreToCalendar(actionChore);
+              return addChoreToCalendar(actionChore.id);
             },
           },
-          ...(canManageChore(actionChore) ? [
+          ...(permissionsForChore(actionChore).canEdit ? [
           {
             key: "edit",
             label: "Edit or reassign",
@@ -1310,7 +1321,7 @@ export default function GroupChoresScreen() {
               setPendingEditChoreId(actionChore.id);
             },
           },
-          {
+          ...(permissionsForChore(actionChore).canDelete ? [{
             key: "delete",
             label: "Delete chore",
             icon: "trash-2" as const,
@@ -1323,7 +1334,7 @@ export default function GroupChoresScreen() {
                   confirmLabel: "Delete chore",
                 },
             onPress: () => confirmDeleteChore(actionChore),
-          },
+          }] : []),
           ] : []),
         ] : []}
       />

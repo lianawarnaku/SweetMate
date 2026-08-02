@@ -43,6 +43,7 @@ import {
   type ExternalTaskDestination,
 } from "@/lib/externalTasks";
 import { reportRuntimeError } from "@/lib/runtimeDiagnostics";
+import { resolveChorePermissions } from "@/lib/chorePermissions";
 import {
   deriveCalendarItems,
   groupCalendarItemsByDate,
@@ -208,6 +209,10 @@ function ChoreRow({
           },
         ]}
         onPress={handleCheckPress}
+        accessibilityRole="checkbox"
+        accessibilityState={{ checked: chore.completed }}
+        accessibilityLabel={`${chore.completed ? "Mark incomplete" : "Mark complete"}: ${chore.title}`}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       >
         {chore.completed ? (
           <Feather name="check" size={14} color={colors.success} />
@@ -553,10 +558,14 @@ export default function MyChoresScreen() {
       : calendarDestination === "reminders"
         ? "Apple Reminders"
         : "Google Calendar";
-  const addChoreToCalendar = async (chore: Chore) => {
-    if (calendarExportsInFlight.current.has(chore.id)) return;
-    calendarExportsInFlight.current.add(chore.id);
+  const addChoreToCalendar = async (choreId: string) => {
+    if (calendarExportsInFlight.current.has(choreId)) return;
+    calendarExportsInFlight.current.add(choreId);
     try {
+      const chore = chores.find((candidate) => candidate.id === choreId);
+      if (!chore) {
+        throw new Error("This chore is no longer available.");
+      }
       const savedDestination =
         calendarDestination === undefined
           ? await getExternalTaskDestination(currentUserId)
@@ -567,7 +576,7 @@ export default function MyChoresScreen() {
       const destination =
         savedDestination ?? (await chooseCalendarDestination());
       if (!destination) return;
-      await exportChoreToDestinations(
+      const result = await exportChoreToDestinations(
         currentUserId,
         {
           id: chore.id,
@@ -583,16 +592,16 @@ export default function MyChoresScreen() {
         destination,
       );
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (result.googleAlreadyAdded) {
+        throw new Error("Already added to Google Calendar.");
+      }
     } catch (error) {
       reportRuntimeError(`Add chore to ${calendarDestinationLabel}`, error, {
-        choreId: chore.id,
+        choreId,
       });
-      Alert.alert(
-        "Couldn't add this chore",
-        error instanceof Error ? error.message : "Please try again.",
-      );
+      throw error;
     } finally {
-      calendarExportsInFlight.current.delete(chore.id);
+      calendarExportsInFlight.current.delete(choreId);
     }
   };
   const weekDays = useMemo(() => {
@@ -687,8 +696,13 @@ export default function MyChoresScreen() {
   const actionChore = actionChoreId
     ? chores.find((chore) => chore.id === actionChoreId)
     : undefined;
-  const canManageChore = (chore: Chore) =>
-    isHost || chore.creatorId === currentUserId;
+  const permissionsForChore = (chore: Chore) => resolveChorePermissions({
+    currentUserId,
+    isActiveMember: roommates.some((member) => member.id === currentUserId),
+    isOwner: isHost,
+    chore,
+  });
+  const canManageChore = (chore: Chore) => permissionsForChore(chore).canEdit;
   const confirmDeleteChore = (chore: Chore) => {
     const remove = (scope: "occurrence" | "future" | "series") => {
       if (deleteChore(chore.id, scope)) {
@@ -724,7 +738,7 @@ export default function MyChoresScreen() {
     );
   };
   const openChoreActions = (chore: Chore) => {
-    if (!canManageChore(chore)) return;
+    if (!permissionsForChore(chore).canView) return;
     setActionChoreId(chore.id);
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
@@ -950,7 +964,7 @@ export default function MyChoresScreen() {
                 setDayDetailsOpen(false);
                 if (item.type === "chore") {
                   const chore = chores.find((candidate) => candidate.id === item.sourceId);
-                  if (chore && canManageChore(chore)) openChoreActions(chore);
+                  if (chore) openChoreActions(chore);
                 } else if (item.type === "expense") {
                   router.push("/(tabs)/expenses");
                 } else {
@@ -1119,12 +1133,19 @@ export default function MyChoresScreen() {
         subtitle="Manage this chore"
         onClose={() => setActionChoreId(null)}
         actions={actionChore ? [
+          ...(permissionsForChore(actionChore).canComplete ? [{
+            key: actionChore.completed ? "uncomplete" : "complete",
+            label: actionChore.completed ? "Mark incomplete" : "Mark as done",
+            icon: actionChore.completed ? "rotate-ccw" as const : "check-circle" as const,
+            onPress: () => setChoreCompleted(actionChore.id, !actionChore.completed),
+          }] : []),
           {
             key: "calendar",
             label: `Add to ${calendarDestinationLabel}`,
             icon: "calendar" as const,
+            successMessage: "Added to Google Calendar",
             onPress: () => {
-              void addChoreToCalendar(actionChore);
+              return addChoreToCalendar(actionChore.id);
             },
           },
           {
@@ -1135,7 +1156,7 @@ export default function MyChoresScreen() {
               void chooseCalendarDestination(true);
             },
           },
-          ...(canManageChore(actionChore) ? [
+          ...(permissionsForChore(actionChore).canEdit ? [
           {
             key: "edit",
             label: "Edit or reassign",
@@ -1145,7 +1166,7 @@ export default function MyChoresScreen() {
               setShowModal(true);
             },
           },
-          {
+          ...(permissionsForChore(actionChore).canDelete ? [{
             key: "delete",
             label: "Delete chore",
             icon: "trash-2" as const,
@@ -1158,7 +1179,7 @@ export default function MyChoresScreen() {
                   confirmLabel: "Delete chore",
                 },
             onPress: () => confirmDeleteChore(actionChore),
-          },
+          }] : []),
           ] : []),
         ] : []}
       />

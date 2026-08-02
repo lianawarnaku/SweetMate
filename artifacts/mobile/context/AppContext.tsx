@@ -43,6 +43,7 @@ import {
   recurringOccurrenceId,
 } from "@/lib/choreOccurrences";
 import { choreCompletionTransition } from "@/lib/choreCompletion";
+import { resolveChorePermissions } from "@/lib/chorePermissions";
 import { choreNow } from "@/lib/choreClock";
 import { recurringChoreClaims } from "@/lib/recurringChoreClaims";
 import type {
@@ -145,6 +146,7 @@ export interface Chore {
   recurrenceEndsOn?: string;
   completed: boolean;
   completedAt?: string;
+  completedByUserId?: string;
   points: number;
   category: ChoreCategory;
   recurring?: ChoreRecurrence;
@@ -2968,9 +2970,18 @@ export function AppProvider({
     return id;
   }, [currentUserId, householdId, roommates, session?.user.id]);
 
-  const canManageChore = useCallback((chore: Chore) =>
-    isHost || chore.creatorId === currentUserId,
+  const permissionsForChore = useCallback((chore: Chore) =>
+    resolveChorePermissions({
+      currentUserId,
+      isActiveMember: roommatesRef.current.some((member) => member.id === currentUserId),
+      isOwner: isHost,
+      chore,
+    }),
   [currentUserId, isHost]);
+
+  const canManageChore = useCallback((chore: Chore) =>
+    permissionsForChore(chore).canEdit,
+  [permissionsForChore]);
 
   const updateChore = useCallback((
     id: string,
@@ -3060,7 +3071,7 @@ export function AppProvider({
   // awarding points twice.
   const setChoreCompleted = useCallback((id: string, completed: boolean) => {
     const chore = choresRef.current.find((c) => c.id === id);
-    if (!chore) return;
+    if (!chore || !permissionsForChore(chore).canComplete) return;
     const transition = choreCompletionTransition(
       chore.completed,
       completed,
@@ -3089,6 +3100,7 @@ export function AppProvider({
                 ...candidate,
                 completed: false,
                 completedAt: undefined,
+                completedByUserId: undefined,
                 nextOccurrenceId: generated?.completed
                   ? candidate.nextOccurrenceId
                   : undefined,
@@ -3138,6 +3150,7 @@ export function AppProvider({
                 ...candidate,
                 completed: true,
                 completedAt,
+                completedByUserId: currentUserId,
                 nextOccurrenceId: undefined,
                 updatedAt: completedAt,
               }
@@ -3185,6 +3198,7 @@ export function AppProvider({
           nextDueDate,
           completed: false,
           completedAt: undefined,
+          completedByUserId: undefined,
           occurrenceIndex: (chore.occurrenceIndex ?? 0) + recurrenceSteps,
           nextOccurrenceId: undefined,
           createdAt: completedAt,
@@ -3196,6 +3210,7 @@ export function AppProvider({
                 ...candidate,
                 completed: true,
                 completedAt,
+                completedByUserId: currentUserId,
                 nextOccurrenceId: nextId,
                 updatedAt: completedAt,
               }
@@ -3210,6 +3225,7 @@ export function AppProvider({
               ...candidate,
               completed: true,
               completedAt,
+              completedByUserId: currentUserId,
               updatedAt: completedAt,
             }
           : candidate,
@@ -3257,7 +3273,7 @@ export function AppProvider({
         },
       );
     }
-  }, [cloudReady, householdId, roommates, session?.user.id]);
+  }, [cloudReady, currentUserId, householdId, permissionsForChore, roommates, session?.user.id]);
 
   const completeChore = useCallback((id: string) => {
     const chore = choresRef.current.find((candidate) => candidate.id === id);
@@ -3298,7 +3314,7 @@ export function AppProvider({
     scope: RecurringChoreDeleteScope = "occurrence",
   ): boolean => {
     const target = choresRef.current.find((chore) => chore.id === id);
-    if (!target || !canManageChore(target)) return false;
+    if (!target || !permissionsForChore(target).canDelete) return false;
     const changedAt = choreNow().toISOString();
     const next = deleteRecurringChore(
       choresRef.current,
@@ -3310,7 +3326,7 @@ export function AppProvider({
     setChores(next);
     track.choreDeleted({ recurring: Boolean(target.recurring) });
     return true;
-  }, [canManageChore]);
+  }, [permissionsForChore]);
 
   const addExpense = useCallback((expense: Omit<Expense, "id">) => {
     const activeMemberIds = new Set(roommates.map((roommate) => roommate.id));

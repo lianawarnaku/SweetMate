@@ -2,6 +2,28 @@
 
 Audited against `main` after commit `45a303b` on July 27, 2026.
 
+## Chore action permission matrix (updated August 2, 2026)
+
+The authenticated user ID and active `household_members` roster are
+authoritative. `owner` is the only elevated household role in the live schema;
+the UI's “host” flag maps to that role.
+
+| Action | Membership/relationship rule | Owner override |
+| --- | --- | --- |
+| View/details | Any active household member | Yes |
+| Complete open occurrence/pick up | Any active household member | Yes |
+| Reverse completion | Assignee | Yes |
+| Add to own calendar | Any active household member | Yes |
+| Nudge | Active member; another member's open chore | Yes |
+| Edit/reassign | Assignee or creator | Yes |
+| Delete occurrence/series | Creator | Yes |
+
+`resolveChorePermissions` is the shared client matrix. Supabase RLS separately
+requires active membership for the canonical `household_states` row and rejects
+former members and cross-household users. Every active member can open the one
+shared action menu; its tiles are filtered by the matrix instead of by a
+host-only gate.
+
 ## 1. Chore-system overview
 
 Status labels in this report:

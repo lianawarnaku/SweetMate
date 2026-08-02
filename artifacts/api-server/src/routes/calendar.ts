@@ -1,6 +1,10 @@
 // Google Calendar integration via @replit/connectors-sdk
 import { Router } from "express";
 import { ReplitConnectors } from "@replit/connectors-sdk";
+import {
+  buildChoreCalendarEvent,
+  type ChoreCalendarInput,
+} from "../lib/choreCalendarEvent";
 
 const router = Router();
 
@@ -8,40 +12,25 @@ const router = Router();
 // Body: { title, dueDate, category, points }
 // Creates a Google Calendar event for a chore on its due date
 router.post("/calendar/add-chore", async (req, res) => {
-  const { title, dueDate, category, points } = req.body as {
-    title: string;
-    dueDate: string;
-    category?: string;
-    points?: number;
-  };
+  const input = req.body as Partial<ChoreCalendarInput>;
 
-  if (!title || !dueDate) {
-    res.status(400).json({ error: "title and dueDate are required" });
+  if (
+    typeof input.choreId !== "string" ||
+    !input.choreId.trim() ||
+    typeof input.title !== "string" ||
+    !input.title.trim() ||
+    typeof input.dueDate !== "string"
+  ) {
+    res.status(400).json({
+      code: "INVALID_CHORE",
+      error: "A chore ID, title, and due date are required.",
+    });
     return;
   }
 
   try {
     const connectors = new ReplitConnectors();
-
-    // Build an all-day event on the due date
-    const dateStr = new Date(dueDate).toISOString().split("T")[0];
-
-    const event = {
-      summary: `🏠 ${title}`,
-      description: [
-        `Homie chore reminder`,
-        category ? `Category: ${category}` : null,
-        points ? `Points: +${points}` : null,
-      ]
-        .filter(Boolean)
-        .join("\n"),
-      start: { date: dateStr },
-      end: { date: dateStr },
-      reminders: {
-        useDefault: false,
-        overrides: [{ method: "popup", minutes: 480 }], // 8am reminder
-      },
-    };
+    const event = buildChoreCalendarEvent(input as ChoreCalendarInput);
 
     const response = await connectors.proxy(
       "google-calendar",
@@ -54,17 +43,44 @@ router.post("/calendar/add-chore", async (req, res) => {
     );
 
     if (!response.ok) {
-      const errBody = await response.text();
-      req.log.error({ status: response.status, body: errBody }, "Google Calendar API error");
-      res.status(502).json({ error: "Google Calendar API error", detail: errBody });
+      // A deterministic event ID makes concurrent taps and network retries
+      // converge on the same Google event. Conflict means it already exists.
+      if (response.status === 409) {
+        res.json({ success: true, alreadyAdded: true, eventId: event.id });
+        return;
+      }
+      await response.text(); // drain without logging provider/auth details
+      const reconnect = response.status === 401 || response.status === 403;
+      req.log.warn({ status: response.status }, "Google Calendar request rejected");
+      res.status(reconnect ? 401 : 502).json({
+        code: reconnect ? "GOOGLE_RECONNECT_REQUIRED" : "GOOGLE_CALENDAR_ERROR",
+        error: reconnect
+          ? "Connect Google Calendar again, then retry this chore."
+          : "Google Calendar could not create the event. Please try again.",
+      });
       return;
     }
 
-    const created = await response.json() as { id: string; htmlLink: string };
-    res.json({ success: true, eventId: created.id, link: created.htmlLink });
+    const created = await response.json() as { id: string; htmlLink?: string };
+    res.json({
+      success: true,
+      alreadyAdded: false,
+      eventId: created.id,
+      link: created.htmlLink,
+    });
   } catch (err) {
-    req.log.error({ err }, "Failed to create calendar event");
-    res.status(500).json({ error: "Failed to create calendar event" });
+    if (err instanceof Error && err.message === "INVALID_DUE_DATE") {
+      res.status(400).json({
+        code: "INVALID_DUE_DATE",
+        error: "This chore needs a valid due date before it can be added.",
+      });
+      return;
+    }
+    req.log.error({ errorName: err instanceof Error ? err.name : "unknown" }, "Calendar connector failed");
+    res.status(503).json({
+      code: "CONNECTOR_UNAVAILABLE",
+      error: "Google Calendar is unavailable right now. Please try again.",
+    });
   }
 });
 

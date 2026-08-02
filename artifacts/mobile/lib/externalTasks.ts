@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Calendar from "expo-calendar";
-import { Linking, Platform } from "react-native";
+import { Platform } from "react-native";
 
 const REMINDER_LIST_TITLE = "SweetMate";
 const MAPPING_KEY_PREFIX = "@sweetmate/external-task/v1";
@@ -21,6 +21,7 @@ export type ExternalTaskChore = {
   assignedToName?: string;
   points?: number;
   includePoints?: boolean;
+  householdName?: string;
 };
 
 type StoredExternalTask = {
@@ -57,7 +58,9 @@ export class ExternalTaskError extends Error {
       | "PERMISSION_RESTRICTED"
       | "NATIVE_MODULE_UNAVAILABLE"
       | "NO_WRITABLE_LIST"
-      | "EXPORT_FAILED",
+      | "EXPORT_FAILED"
+      | "RECONNECT_REQUIRED"
+      | "ALREADY_ADDED",
     message: string,
   ) {
     super(message);
@@ -383,41 +386,47 @@ export async function exportChoresToExternalTasks(
   return result;
 }
 
-export async function openChoreInGoogleCalendar(chore: ExternalTaskChore) {
-  const due = new Date(chore.dueDate);
-  if (Number.isNaN(due.getTime())) {
+function apiBaseUrl() {
+  return process.env.EXPO_PUBLIC_API_URL ??
+    (process.env.EXPO_PUBLIC_DOMAIN
+      ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
+      : "");
+}
+
+export async function addChoreToGoogleCalendar(chore: ExternalTaskChore) {
+  if (!/^\d{4}-\d{2}-\d{2}/.test(chore.dueDate)) {
     throw new ExternalTaskError("EXPORT_FAILED", "This chore has an invalid due date.");
   }
-
-  const pad = (value: number) => String(value).padStart(2, "0");
-  const formatDate = (date: Date) =>
-    `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}`;
-  const next = new Date(due);
-  next.setDate(due.getDate() + 1);
-  const notes = [
-    "Added from SweetMate",
-    chore.assignedToName ? `Assigned to: ${chore.assignedToName}` : null,
-    chore.category ? `Category: ${chore.category}` : null,
-    chore.recurrence ? `Repeats: ${chore.recurrence}` : null,
-    chore.description || null,
-    chore.includePoints && chore.points ? `Points: +${chore.points}` : null,
-  ]
-    .filter(Boolean)
-    .join("\n");
-  const params = new URLSearchParams({
-    action: "TEMPLATE",
-    text: `🏠 ${chore.title}`,
-    dates: `${formatDate(due)}/${formatDate(next)}`,
-    details: notes,
+  const baseUrl = apiBaseUrl();
+  if (!baseUrl) {
+    throw new ExternalTaskError("EXPORT_FAILED", "Google Calendar is unavailable in this build.");
+  }
+  const response = await fetch(`${baseUrl}/api/calendar/add-chore`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      choreId: chore.id,
+      title: chore.title,
+      dueDate: chore.dueDate,
+      category: chore.category,
+      description: chore.description,
+      assignee: chore.assignedToName,
+      household: chore.householdName,
+      points: chore.includePoints ? chore.points : undefined,
+    }),
   });
-  const url = `https://calendar.google.com/calendar/render?${params.toString()}`;
-  if (!(await Linking.canOpenURL(url))) {
+  const result = await response.json().catch(() => null) as
+    | { error?: string; code?: string; alreadyAdded?: boolean }
+    | null;
+  if (!response.ok) {
     throw new ExternalTaskError(
-      "EXPORT_FAILED",
-      "Google Calendar could not be opened on this device.",
+      result?.code === "GOOGLE_RECONNECT_REQUIRED"
+        ? "RECONNECT_REQUIRED"
+        : "EXPORT_FAILED",
+      result?.error ?? "Google Calendar could not create the event. Please try again.",
     );
   }
-  await Linking.openURL(url);
+  return { alreadyAdded: result?.alreadyAdded === true };
 }
 
 export async function exportChoreToDestinations(
@@ -426,6 +435,7 @@ export async function exportChoreToDestinations(
   destination: ExternalTaskDestination,
 ) {
   const failures: string[] = [];
+  let googleAlreadyAdded = false;
 
   if (destination === "reminders" || destination === "both") {
     try {
@@ -438,7 +448,8 @@ export async function exportChoreToDestinations(
 
   if (destination === "googleCalendar" || destination === "both") {
     try {
-      await openChoreInGoogleCalendar(chore);
+      const result = await addChoreToGoogleCalendar(chore);
+      googleAlreadyAdded = result.alreadyAdded;
     } catch (error) {
       failures.push(normalizeNativeError(error));
     }
@@ -450,4 +461,5 @@ export async function exportChoreToDestinations(
       failures.join("\n"),
     );
   }
+  return { googleAlreadyAdded };
 }

@@ -55,12 +55,14 @@ export function ActionMenuModal({
   const [confirming, setConfirming] = useState<ActionMenuItem | null>(null);
   const [running, setRunning] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
   useEffect(() => {
     if (visible) {
       setConfirming(initialConfirmationAction);
       setRunning(false);
       setActionError(null);
+      setActionSuccess(null);
       progress.setValue(0);
       Animated.spring(progress, {
         toValue: 1,
@@ -92,6 +94,10 @@ export function ActionMenuModal({
     setActionError(null);
     try {
       await action.onPress();
+      if (action.successMessage) {
+        setActionSuccess(action.successMessage);
+        await new Promise((resolve) => setTimeout(resolve, 650));
+      }
       dismiss(true);
     } catch (error) {
       setActionError(
@@ -280,6 +286,14 @@ export function ActionMenuModal({
                   style={[styles.error, { color: colors.destructive }]}
                 >
                   {actionError}
+                </Text>
+              ) : null}
+              {actionSuccess ? (
+                <Text
+                  accessibilityLiveRegion="polite"
+                  style={[styles.error, { color: colors.primary }]}
+                >
+                  {actionSuccess}
                 </Text>
               ) : null}
               <View style={styles.actions}>
