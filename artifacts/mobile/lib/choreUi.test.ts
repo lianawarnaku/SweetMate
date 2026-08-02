@@ -14,6 +14,14 @@ const shopping = readFileSync(resolve(appRoot, "shopping.tsx"), "utf8");
 const context = readFileSync(resolve(process.cwd(), "context/AppContext.tsx"), "utf8");
 
 assert(
+    context.includes("setCurrentUserIdState(session?.user.id ?? CURRENT_USER_ID)") &&
+    !context.includes("setCurrentUserIdState(data.currentUserId)") &&
+    context.includes('membership.status === "active"') &&
+    context.includes("addChores, setChoreCompleted, completeChore"),
+  "authenticated session identity and active membership must authorize chore actions",
+);
+
+assert(
   home.includes('{currentUser?.name ?? "You"}') &&
     !home.includes('{currentUser?.name ?? "You"} 🏠'),
   "My Sweet must render the current user's name without the appended home emoji",

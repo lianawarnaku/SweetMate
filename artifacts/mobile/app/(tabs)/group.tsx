@@ -163,11 +163,13 @@ const HEALTH_MESSAGES: Record<string, { title: string; subtitle: string }> = {
 export default function GroupChoresScreen() {
   const colors = useTheme();
   const insets = useSafeAreaInsets();
-  const { roommates, chores, currentUserId, setChoreCompleted, pickUpChore, sendNudge, removeNudge, nudges, roommateStatuses, setRoommateStatus, choreChart, choreChartStartedAt, pointsEnabled, plantEnabled, roommateActivityEnabled, isHost, deleteChore } =
+  const { roommates, chores, currentUserId, householdId, activeSweet, setChoreCompleted, pickUpChore, sendNudge, removeNudge, nudges, roommateStatuses, setRoommateStatus, choreChart, choreChartStartedAt, pointsEnabled, plantEnabled, roommateActivityEnabled, isHost, deleteChore } =
     useAppContextSelector((context) => ({
       roommates: context.roommates,
       chores: context.chores,
       currentUserId: context.currentUserId,
+      householdId: context.householdId,
+      activeSweet: context.activeSweet,
       setChoreCompleted: context.setChoreCompleted,
       pickUpChore: context.pickUpChore,
       sendNudge: context.sendNudge,
@@ -322,7 +324,10 @@ export default function GroupChoresScreen() {
 
   const permissionsForChore = (chore: Chore) => resolveChorePermissions({
     currentUserId,
-    isActiveMember: roommates.some((member) => member.id === currentUserId),
+    isActiveMember:
+      activeSweet?.sweetId === householdId &&
+      activeSweet.userId === currentUserId &&
+      activeSweet.status === "active",
     isOwner: isHost,
     chore,
   });

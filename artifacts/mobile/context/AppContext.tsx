@@ -800,6 +800,10 @@ export function AppProvider({
     localPreferencesLoaded && (!householdId || householdPreferencesReady);
 
   useEffect(() => {
+    setCurrentUserIdState(session?.user.id ?? CURRENT_USER_ID);
+  }, [session?.user.id]);
+
+  useEffect(() => {
     const refreshDay = () => {
       setActiveCalendarDay(choreLocalDateKey(choreNow()));
       setRecurrenceRefreshTick((current) => current + 1);
@@ -1500,6 +1504,7 @@ export function AppProvider({
         .from("household_members")
         .select("user_id, display_name, color, role")
         .eq("household_id", householdId)
+        .eq("status", "active")
         .order("joined_at", { ascending: true });
       if (error) {
         reportSupabaseError("refresh household members", error, { householdId });
@@ -1863,9 +1868,8 @@ export function AppProvider({
           // collections are never hydrated without an explicit Sweet key.
           if (Array.isArray(data.appAlerts)) setAppAlerts(data.appAlerts);
           if (data.suppressedAlerts) setSuppressedAlerts(data.suppressedAlerts);
-          if (data.currentUserId && typeof data.currentUserId === "string") {
-            setCurrentUserIdState(data.currentUserId);
-          }
+          // Identity is never restored from app storage. The authenticated
+          // Supabase session is the only authority for the current user.
           } catch (error) {
             reportRuntimeError("parse cached household state", error);
           }
@@ -1889,7 +1893,7 @@ export function AppProvider({
         const writes = [
           AsyncStorage.setItem(
             userStateKey(userId),
-            JSON.stringify({ appAlerts, suppressedAlerts, currentUserId }),
+            JSON.stringify({ appAlerts, suppressedAlerts }),
           ),
         ];
         if (householdId) {
@@ -2972,12 +2976,16 @@ export function AppProvider({
 
   const permissionsForChore = useCallback((chore: Chore) =>
     resolveChorePermissions({
-      currentUserId,
-      isActiveMember: roommatesRef.current.some((member) => member.id === currentUserId),
+      currentUserId: session?.user.id ?? "",
+      isActiveMember: memberships.some((membership) =>
+        membership.sweetId === householdId &&
+        membership.userId === session?.user.id &&
+        membership.status === "active"
+      ),
       isOwner: isHost,
       chore,
     }),
-  [currentUserId, isHost]);
+  [householdId, isHost, memberships, session?.user.id]);
 
   const canManageChore = useCallback((chore: Chore) =>
     permissionsForChore(chore).canEdit,
@@ -4212,8 +4220,10 @@ export function AppProvider({
   }, [householdId]);
 
   const setCurrentUser = useCallback((id: string) => {
-    setCurrentUserIdState(id);
-  }, []);
+    // Legacy callers may refresh the signed-in profile, but must never
+    // impersonate another household member inside this authenticated session.
+    if (id === session?.user.id) setCurrentUserIdState(id);
+  }, [session?.user.id]);
 
   const setPendingIouDraft = useCallback((draft: PendingIouDraft | null) => {
     setPendingIouDraftState(draft);
@@ -4511,7 +4521,7 @@ export function AppProvider({
     refreshMembers, refreshHousehold, createHousehold, joinHousehold, switchSweet, leaveSweet,
     deleteHousehold, removeRoommate, deleteOwnAccount, currentUserId,
     setCurrentUser, roommates, chores, expenses, shoppingLists, shoppingItems,
-    visibleBorrowItems, nudges, nudgesReady, addChore, updateChore, addChores, completeChore, pickUpChore, deleteChore,
+    visibleBorrowItems, nudges, nudgesReady, addChore, updateChore, addChores, setChoreCompleted, completeChore, pickUpChore, deleteChore,
     addExpense, updateExpense, settleExpense, deleteExpense, canManageExpense, markPersonPaid,
     addShoppingList, reorderShoppingLists, pinShoppingList, deleteShoppingList,
     addShoppingItem, addSelectedEssentialsToShopping, toggleShoppingItem, deleteShoppingItem,

@@ -367,10 +367,11 @@ export default function MyChoresScreen() {
   const colors = useTheme();
   const insets = useSafeAreaInsets();
   const { scrollBottomPadding } = useFloatingActionMetrics();
-  const { currentUserId, householdId, chores, roommates, expenses, setChoreCompleted, deleteChore, shoppingLists, shoppingItems, toggleShoppingItem, pointsEnabled, isHost } =
+  const { currentUserId, householdId, activeSweet, chores, roommates, expenses, setChoreCompleted, deleteChore, shoppingLists, shoppingItems, toggleShoppingItem, pointsEnabled, isHost } =
     useAppContextSelector((context) => ({
       currentUserId: context.currentUserId,
       householdId: context.householdId,
+      activeSweet: context.activeSweet,
       chores: context.chores,
       roommates: context.roommates,
       expenses: context.expenses,
@@ -698,7 +699,10 @@ export default function MyChoresScreen() {
     : undefined;
   const permissionsForChore = (chore: Chore) => resolveChorePermissions({
     currentUserId,
-    isActiveMember: roommates.some((member) => member.id === currentUserId),
+    isActiveMember:
+      activeSweet?.sweetId === householdId &&
+      activeSweet.userId === currentUserId &&
+      activeSweet.status === "active",
     isOwner: isHost,
     chore,
   });

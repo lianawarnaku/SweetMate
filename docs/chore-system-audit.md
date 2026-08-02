@@ -24,6 +24,13 @@ former members and cross-household users. Every active member can open the one
 shared action menu; its tiles are filtered by the matrix instead of by a
 host-only gate.
 
+The authenticated Supabase session is also the sole current-user authority.
+Legacy cached `currentUserId` values and the asynchronously hydrated roommate
+snapshot must not authorize actions. This matters for regular members because
+their role value does not change during initial membership hydration; the
+context dependency list explicitly includes the canonical completion callback
+so consumers cannot retain its pre-membership closure.
+
 ## 1. Chore-system overview
 
 Status labels in this report:
