@@ -12,6 +12,7 @@ const borrowing = readFileSync(resolve(appRoot, "borrow.tsx"), "utf8");
 const expenses = readFileSync(resolve(appRoot, "expenses.tsx"), "utf8");
 const shopping = readFileSync(resolve(appRoot, "shopping.tsx"), "utf8");
 const context = readFileSync(resolve(process.cwd(), "context/AppContext.tsx"), "utf8");
+const actionMenu = readFileSync(resolve(process.cwd(), "components/ActionMenuModal.tsx"), "utf8");
 const chorePermissionsLib = readFileSync(resolve(process.cwd(), "lib/chorePermissions.ts"), "utf8");
 
 assert(
@@ -20,6 +21,16 @@ assert(
     context.includes("isActiveSweetMember(activeSweet, householdId, session?.user.id)") &&
     context.includes("addChores, setChoreCompleted, completeChore"),
   "authenticated session identity and active membership must authorize chore actions",
+);
+
+assert(
+  actionMenu.includes("runAfterDismiss?: boolean") &&
+    actionMenu.includes("setTimeout(afterDismiss, 0)") &&
+    home.includes("runAfterDismiss: true") &&
+    home.includes("runAfterDismiss: calendarDestination == null") &&
+    group.includes("runAfterDismiss: true") &&
+    group.includes("runAfterDismiss: calendarDestination == null"),
+  "chore actions that present editors, alerts, or pickers must run after the shared menu dismisses",
 );
 
 assert(
@@ -162,8 +173,8 @@ assert(
   "chore completion must use the shared app-styled confirmation shell",
 );
 assert(
-  group.includes("setPendingEditChoreId(actionChore.id)") &&
-    group.includes("onClose={closeChoreActions}") &&
+  group.includes('onClose={() => setActionChoreId(null)}') &&
+    group.includes("setEditingChoreId(actionChore.id)") &&
     group.includes("setShowAddChoreModal(true)"),
   "chore reassignment must wait for the action menu to close before presenting the editor",
 );

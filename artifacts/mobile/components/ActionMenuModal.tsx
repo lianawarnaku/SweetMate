@@ -22,6 +22,8 @@ export type ActionMenuItem = {
   icon: FeatherIcon;
   onPress: () => void | Promise<void>;
   successMessage?: string;
+  /** Close the native modal before presenting another modal, alert, or picker. */
+  runAfterDismiss?: boolean;
   badge?: string;
   accentColor?: string;
   destructive?: boolean;
@@ -74,20 +76,38 @@ export function ActionMenuModal({
     }
   }, [progress, visible]);
 
-  const dismiss = (force = false) => {
+  const dismiss = (force = false, afterDismiss?: () => void) => {
     if (running && !force) return;
     Animated.timing(progress, {
       toValue: 0,
       duration: 150,
       useNativeDriver: true,
     }).start(({ finished }) => {
-      if (finished) onClose();
+      if (finished) {
+        onClose();
+        if (afterDismiss) {
+          // Give React Native one commit to unmount the native Modal before a
+          // destination action presents the next modal/alert.
+          setTimeout(afterDismiss, 0);
+        }
+      }
     });
   };
 
   const runAction = async (action: ActionMenuItem) => {
     if (action.confirmation) {
       setConfirming(action);
+      return;
+    }
+    if (action.runAfterDismiss) {
+      setRunning(true);
+      setActionError(null);
+      dismiss(true, () => {
+        Promise.resolve(action.onPress()).catch(() => {
+          // The menu has already closed, so the destination owns any
+          // action-specific failure presentation.
+        });
+      });
       return;
     }
     setRunning(true);
@@ -111,6 +131,17 @@ export function ActionMenuModal({
 
   const confirmAction = async () => {
     if (!confirming) return;
+    if (confirming.runAfterDismiss) {
+      const confirmedAction = confirming;
+      setRunning(true);
+      setActionError(null);
+      dismiss(true, () => {
+        Promise.resolve(confirmedAction.onPress()).catch(() => {
+          // The destination owns errors after this modal is gone.
+        });
+      });
+      return;
+    }
     setRunning(true);
     setActionError(null);
     try {

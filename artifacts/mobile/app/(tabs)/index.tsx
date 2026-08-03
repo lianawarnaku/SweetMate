@@ -1155,6 +1155,7 @@ export default function MyChoresScreen() {
             label: `Add to ${calendarDestinationLabel}`,
             icon: "calendar" as const,
             successMessage: "Added to Google Calendar",
+            runAfterDismiss: calendarDestination == null,
             onPress: () => {
               return addChoreToCalendar(actionChore.id);
             },
@@ -1163,8 +1164,9 @@ export default function MyChoresScreen() {
             key: "calendar-destination",
             label: "Change calendar destination",
             icon: "settings" as const,
+            runAfterDismiss: true,
             onPress: () => {
-              void chooseCalendarDestination(true);
+              return chooseCalendarDestination(true).then(() => undefined);
             },
           },
           ...(permissionsForChore(actionChore).canEdit ? [
@@ -1172,6 +1174,7 @@ export default function MyChoresScreen() {
             key: "edit",
             label: "Edit or reassign",
             icon: "edit-2" as const,
+            runAfterDismiss: true,
             onPress: () => {
               setEditingChoreId(actionChore.id);
               setShowModal(true);
@@ -1182,6 +1185,7 @@ export default function MyChoresScreen() {
             label: "Delete chore",
             icon: "trash-2" as const,
             destructive: true,
+            runAfterDismiss: Boolean(actionChore.recurring || actionChore.recurrenceSeriesId),
             confirmation: actionChore.recurring || actionChore.recurrenceSeriesId
               ? undefined
               : {

@@ -258,7 +258,6 @@ export default function GroupChoresScreen() {
   // ── Add-chore-to-any-roommate modal state ──
   const [showAddChoreModal, setShowAddChoreModal] = useState(false);
   const [editingChoreId, setEditingChoreId] = useState<string | null>(null);
-  const [pendingEditChoreId, setPendingEditChoreId] = useState<string | null>(null);
   const [actionChoreId, setActionChoreId] = useState<string | null>(null);
   const [completionChoreId, setCompletionChoreId] = useState<string | null>(null);
   const [calendarDestination, setCalendarDestinationState] =
@@ -382,19 +381,6 @@ export default function GroupChoresScreen() {
     setActionChoreId(chore.id);
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
-  const closeChoreActions = () => {
-    const editChore = pendingEditChoreId
-      ? chores.find((chore) => chore.id === pendingEditChoreId)
-      : undefined;
-    setActionChoreId(null);
-    setPendingEditChoreId(null);
-    if (editChore) {
-      setEditingChoreId(editChore.id);
-      setAddChoreTargetId(editChore.assignedTo);
-      setShowAddChoreModal(true);
-    }
-  };
-
   useEffect(() => {
     let active = true;
     getExternalTaskDestination(currentUserId)
@@ -528,6 +514,8 @@ export default function GroupChoresScreen() {
         key: completionChore.completed ? "uncomplete" : "complete",
         label: completionChore.completed ? "Uncomplete" : "Done ✓",
         icon: completionChore.completed ? "rotate-ccw" : "check-circle",
+        runAfterDismiss:
+          !completionChore.completed && completionChore.assignedTo !== currentUserId,
         confirmation: {
           title: completionChore.completed
             ? "Uncomplete chore?"
@@ -1309,7 +1297,7 @@ export default function GroupChoresScreen() {
         visible={!!actionChore}
         title={actionChore?.title ?? "Chore"}
         subtitle="Manage this chore"
-        onClose={closeChoreActions}
+        onClose={() => setActionChoreId(null)}
         actions={actionChore ? [
           ...(permissionsForChore(actionChore).canNudge ? [{
             key: "nudge",
@@ -1319,6 +1307,7 @@ export default function GroupChoresScreen() {
             icon: nudgedChores.has(`${actionChore.assignedTo}-${actionChore.id}`)
               ? "bell-off" as const
               : "bell" as const,
+            runAfterDismiss: true,
             onPress: () =>
               handleNudge(actionChore.assignedTo, actionChore.id, actionChore.title),
           }] : []),
@@ -1327,6 +1316,7 @@ export default function GroupChoresScreen() {
             label: "Add to calendar",
             icon: "calendar" as const,
             successMessage: "Added to Google Calendar",
+            runAfterDismiss: calendarDestination == null,
             onPress: () => {
               return addChoreToCalendar(actionChore.id);
             },
@@ -1336,8 +1326,11 @@ export default function GroupChoresScreen() {
             key: "edit",
             label: "Edit or reassign",
             icon: "edit-2" as const,
+            runAfterDismiss: true,
             onPress: () => {
-              setPendingEditChoreId(actionChore.id);
+              setEditingChoreId(actionChore.id);
+              setAddChoreTargetId(actionChore.assignedTo);
+              setShowAddChoreModal(true);
             },
           },
           ...(permissionsForChore(actionChore).canDelete ? [{
@@ -1345,6 +1338,7 @@ export default function GroupChoresScreen() {
             label: "Delete chore",
             icon: "trash-2" as const,
             destructive: true,
+            runAfterDismiss: Boolean(actionChore.recurring || actionChore.recurrenceSeriesId),
             confirmation: actionChore.recurring || actionChore.recurrenceSeriesId
               ? undefined
               : {
