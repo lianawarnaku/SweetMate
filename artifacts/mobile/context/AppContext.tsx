@@ -477,6 +477,7 @@ interface AppContextType {
   householdName: string | null;
   inviteCode: string | null;
   householdLoading: boolean;
+  householdError: string | null;
   membersLoading: boolean;
   currentMemberRole: "owner" | "member";
   refreshMembers: () => Promise<void>;
@@ -716,6 +717,7 @@ export function AppProvider({
   const [householdName, setHouseholdName] = useState<string | null>(null);
   const [inviteCode, setInviteCode] = useState<string | null>(null);
   const [householdLoading, setHouseholdLoading] = useState(true);
+  const [householdError, setHouseholdError] = useState<string | null>(null);
   const [membershipVersion, setMembershipVersion] = useState(0);
   const [roommates, setRoommates] = useState<Roommate[]>([]);
   const roommatesRef = useRef<Roommate[]>(roommates);
@@ -1249,6 +1251,7 @@ export function AppProvider({
     let active = true;
     const generation = ++membershipLoadGenerationRef.current;
     setHouseholdLoading(true);
+    setHouseholdError(null);
     (async () => {
       const { data: membershipRows, error } = await supabase
         .from("household_members")
@@ -1260,6 +1263,7 @@ export function AppProvider({
       if (error || !membershipRows?.length) {
         if (error) {
           reportSupabaseError("load Sweet memberships", error, { userId });
+          setHouseholdError("We couldn't load your households. Check your connection and try again.");
         }
         setMemberships([]);
         setHouseholdId(null);
@@ -1282,6 +1286,7 @@ export function AppProvider({
       ]);
       if (householdError) {
         reportSupabaseError("load Sweets", householdError, { sweetIds });
+        setHouseholdError("We couldn't load your household details. Please try again.");
         if (active) {
           setMemberships([]);
           setHouseholdId(null);
@@ -1386,6 +1391,7 @@ export function AppProvider({
         }
       }
       setCurrentUserIdState(userId);
+      setHouseholdError(null);
       setMemberships(nextMemberships);
       setCurrentMemberRole(selected?.role ?? "member");
       setHouseholdId(selected?.sweetId ?? null);
@@ -1398,6 +1404,7 @@ export function AppProvider({
     })().catch((error) => {
       reportRuntimeError("load current household", error, { userId });
       if (active) {
+        setHouseholdError("We couldn't load your households. Please try again.");
         setHouseholdId(null);
         setHouseholdName(null);
         setInviteCode(null);
@@ -4432,6 +4439,7 @@ export function AppProvider({
     householdName,
     inviteCode,
     householdLoading,
+    householdError,
     membersLoading,
     currentMemberRole,
     refreshMembers,
@@ -4524,7 +4532,7 @@ export function AppProvider({
     dismissQuickGuide, visibleAppAlerts, markAlertRead, markAllAlertsRead,
     householdComplete, setHouseholdComplete,
     colorScheme, pointsEnabled, plantEnabled, roommateActivityEnabled, leaderboardPeriod, householdId, memberships, activeSweet, householdName,
-    inviteCode, householdLoading, membersLoading, currentMemberRole,
+    inviteCode, householdLoading, householdError, membersLoading, currentMemberRole,
     refreshMembers, refreshHousehold, createHousehold, joinHousehold, switchSweet, leaveSweet,
     deleteHousehold, removeRoommate, deleteOwnAccount, currentUserId,
     setCurrentUser, roommates, chores, expenses, shoppingLists, shoppingItems,

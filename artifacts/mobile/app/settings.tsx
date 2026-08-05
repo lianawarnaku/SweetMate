@@ -4,6 +4,7 @@ import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
 import React, { ReactNode, useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
   Alert,
   Modal,
@@ -901,7 +902,7 @@ export default function SettingsScreen() {
                   <Text
                     style={[styles.switcherTitle, { color: colors.foreground }]}
                   >
-                    Household
+                    Manage Households
                   </Text>
                   <Text
                     style={[
@@ -909,7 +910,7 @@ export default function SettingsScreen() {
                       { color: colors.mutedForeground },
                     ]}
                   >
-                    Choose which household to view
+                    View, switch, create, or join your households
                   </Text>
                 </View>
                 <TouchableOpacity
@@ -923,8 +924,17 @@ export default function SettingsScreen() {
                   <Feather name="x" size={18} color={colors.foreground} />
                 </TouchableOpacity>
               </View>
-              <View style={styles.membershipList}>
-                {memberships.length === 0 ? (
+              <ScrollView
+                style={styles.membershipListViewport}
+                contentContainerStyle={styles.membershipList}
+                showsVerticalScrollIndicator={false}
+              >
+                {householdLoading ? (
+                  <View style={styles.membershipLoading}>
+                    <ActivityIndicator color={colors.primary} />
+                    <Text style={[styles.emptyMembershipText, { color: colors.mutedForeground }]}>Loading your households…</Text>
+                  </View>
+                ) : memberships.length === 0 ? (
                   <Text
                     style={[
                       styles.emptyMembershipText,
@@ -1000,7 +1010,7 @@ export default function SettingsScreen() {
                             color={colors.primary}
                           />
                         )}
-                        <TouchableOpacity
+                        {membership.role !== "owner" ? <TouchableOpacity
                           onPress={(event) => {
                             event.stopPropagation();
                             Alert.alert(
@@ -1034,22 +1044,23 @@ export default function SettingsScreen() {
                             size={17}
                             color={colors.mutedForeground}
                           />
-                        </TouchableOpacity>
+                        </TouchableOpacity> : null}
                       </TouchableOpacity>
                     );
                   })
                 )}
-              </View>
+              </ScrollView>
+              <View style={styles.switcherActionRow}>
               <TouchableOpacity
                 accessibilityRole="button"
-                accessibilityLabel="Create or join a household"
+                accessibilityLabel="Create a household"
                 style={[
                   styles.switcherActionButton,
                   { borderColor: colors.border },
                 ]}
                 onPress={() => {
                   setHouseholdSwitcherOpen(false);
-                  router.push("/sweet-setup" as never);
+                  router.push("/sweet-setup?mode=create&additional=1" as never);
                 }}
               >
                 <Feather name="plus-circle" size={18} color={colors.primary} />
@@ -1059,9 +1070,22 @@ export default function SettingsScreen() {
                     { color: colors.foreground },
                   ]}
                 >
-                  Create or join a household
+                  Create Household
                 </Text>
               </TouchableOpacity>
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel="Join a household"
+                style={[styles.switcherActionButton, { borderColor: colors.border }]}
+                onPress={() => {
+                  setHouseholdSwitcherOpen(false);
+                  router.push("/sweet-setup?mode=join&additional=1" as never);
+                }}
+              >
+                <Feather name="user-plus" size={18} color={colors.primary} />
+                <Text style={[styles.switcherActionText, { color: colors.foreground }]}>Join Household</Text>
+              </TouchableOpacity>
+              </View>
             </View>
           </Modal>
 
@@ -2043,6 +2067,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   membershipList: { gap: 9 },
+  membershipListViewport: { maxHeight: 330 },
+  membershipLoading: { alignItems: "center", paddingVertical: 14 },
   membershipRow: {
     minHeight: 64,
     borderRadius: 16,
@@ -2077,6 +2103,7 @@ const styles = StyleSheet.create({
     gap: 8,
     marginTop: 14,
   },
+  switcherActionRow: { gap: 9 },
   switcherActionText: { fontFamily: "Inter_600SemiBold", fontSize: 14 },
   settingsIntro: {
     marginHorizontal: 20,

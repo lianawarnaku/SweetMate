@@ -42,8 +42,12 @@ const ITEM_SECTIONS = [
 
 export function HouseholdSetupScreen({
   onComplete,
+  initialMode = "create",
+  additionalHousehold = false,
 }: {
   onComplete?: (destination?: "essentials") => void;
+  initialMode?: "create" | "join";
+  additionalHousehold?: boolean;
 } = {}) {
   const colors = useTheme();
   const insets = useSafeAreaInsets();
@@ -59,11 +63,15 @@ export function HouseholdSetupScreen({
   } = useAppContext();
   const { session } = useSupabaseSession();
   const setupDraftKey = session?.user.id
-    ? `sweetmate:household-setup-draft:v2:${session.user.id}`
+    ? additionalHousehold
+      ? `sweetmate:household-setup-draft:additional-v1:${session.user.id}`
+      : `sweetmate:household-setup-draft:v2:${session.user.id}`
     : null;
-  const [mode, setMode] = useState<"create" | "join">("create");
+  const [mode, setMode] = useState<"create" | "join">(initialMode);
   const [step, setStep] = useState(() =>
-    householdSetupStep ? householdSetupStepNumber(householdSetupStep) : 1,
+    !additionalHousehold && householdSetupStep
+      ? householdSetupStepNumber(householdSetupStep)
+      : 1,
   );
   const [householdName, setHouseholdName] = useState("");
   const [displayName, setDisplayName] = useState("");
@@ -191,10 +199,10 @@ export function HouseholdSetupScreen({
   ]);
 
   useEffect(() => {
-    if (!householdSetupStep) return;
+    if (additionalHousehold || !householdSetupStep) return;
     const restoredStep = householdSetupStepNumber(householdSetupStep);
     setStep((current) => (current === restoredStep ? current : restoredStep));
-  }, [householdSetupStep]);
+  }, [additionalHousehold, householdSetupStep]);
 
   const changeMode = (next: "create" | "join") => {
     setMode(next);
@@ -209,7 +217,7 @@ export function HouseholdSetupScreen({
     navigationPendingRef.current = true;
     setStep(householdSetupStepNumber(nextStep));
     try {
-      await setHouseholdSetupStep(nextStep);
+      if (!additionalHousehold) await setHouseholdSetupStep(nextStep);
     } finally {
       navigationPendingRef.current = false;
     }
@@ -224,8 +232,8 @@ export function HouseholdSetupScreen({
       if (loading) return;
       setLoading(true);
       try {
-        await setHouseholdSetupStep("home");
-        if (!householdId) {
+        if (!additionalHousehold) await setHouseholdSetupStep("home");
+        if (!householdId || additionalHousehold) {
           await createHousehold(
             householdName,
             displayName,
@@ -236,7 +244,7 @@ export function HouseholdSetupScreen({
         }
         setStep(2);
       } catch (createError) {
-        await setHouseholdSetupStep(null);
+        if (!additionalHousehold) await setHouseholdSetupStep(null);
         reportRuntimeError("create draft household", createError);
         setError("We couldn't start your household setup.");
       } finally {
@@ -305,7 +313,7 @@ export function HouseholdSetupScreen({
         }),
       ]);
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      await completeHouseholdSetup();
+      if (!additionalHousehold) await completeHouseholdSetup();
       if (setupDraftKey) await AsyncStorage.removeItem(setupDraftKey);
       onComplete?.();
     } catch (e) {
@@ -348,7 +356,7 @@ export function HouseholdSetupScreen({
           {mode === "join" ? "Enter the invite code a roommate shared with you." : step === 1 ? "Set up your private household and invite your roommates." : step === 2 ? "This determines which fixed chore rules and Sweet Essentials suggestions apply." : step === 3 ? "Review a short list suggested for your home, or skip it for later." : step === 4 ? "Select everything your household shares. Your plan updates automatically." : "We created these chores from what is in your Sweet. Remove any you do not want or add your own."}
         </Text>
 
-        {step === 1 && !householdId && (
+        {step === 1 && !householdId && !additionalHousehold && (
           <View style={[styles.segment, { backgroundColor: colors.muted }]}>
             {(["create", "join"] as const).map((item) => (
               <Pressable key={item} onPress={() => changeMode(item)} style={[styles.segmentButton, mode === item && { backgroundColor: colors.card, borderColor: colors.border }]}>
