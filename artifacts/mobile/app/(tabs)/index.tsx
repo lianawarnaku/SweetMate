@@ -3,7 +3,6 @@ import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Alert,
   Animated,
   Dimensions,
   FlatList,
@@ -23,6 +22,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { EmptyState } from "@/components/EmptyState";
 import { ActionMenuModal } from "@/components/ActionMenuModal";
+import { useAppPopup } from "@/components/AppPopupProvider";
 import { FloatingActionButton, useFloatingActionMetrics } from "@/components/FloatingActionButton";
 import { HeaderActions } from "@/components/HeaderActions";
 import { ManualChoreForm } from "@/components/ManualChoreForm";
@@ -366,6 +366,7 @@ function CalendarDayDetails({
 
 export default function MyChoresScreen() {
   const colors = useTheme();
+  const { showPopup } = useAppPopup();
   const insets = useSafeAreaInsets();
   const { scrollBottomPadding } = useFloatingActionMetrics();
   const { currentUserId, householdId, activeSweet, chores, roommates, expenses, setChoreCompleted, deleteChore, shoppingLists, shoppingItems, toggleShoppingItem, pointsEnabled, isHost } =
@@ -523,35 +524,20 @@ export default function MyChoresScreen() {
           });
       };
 
-      if (Platform.OS === "ios") {
-        Alert.alert(
-          "Where should this chore go?",
-          "Google Calendar uses the same all-day calendar entry as before. Apple Reminders creates a true task. Your choice is saved; long-press the icon later to change it.",
-          [
-            {
-              text: "Google Calendar",
-              onPress: () => save("googleCalendar"),
-            },
-            { text: "Reminders", onPress: () => save("reminders") },
-            { text: "Both", onPress: () => save("both") },
-          ],
-          { cancelable: true, onDismiss: () => resolve(null) },
-        );
-        return;
-      }
-
-      Alert.alert(
-        "Use Google Calendar?",
-        "SweetMate can open the same Google Calendar entry as before. Apple Reminders is available only on iPhone. Long-press the icon later to change this preference.",
-        [
-          { text: "Cancel", style: "cancel", onPress: () => resolve(null) },
-          {
-            text: "Google Calendar",
-            onPress: () => save("googleCalendar"),
-          },
+      const ios = Platform.OS === "ios";
+      showPopup({
+        title: "Where should this chore go?",
+        message: ios ? "Choose Google Calendar, Apple Reminders, or both. Your choice is saved." : "SweetMate can open this chore in Google Calendar.",
+        dismissible: false,
+        actions: [
+          { label: "Cancel", onPress: () => resolve(null) },
+          { label: "Google Calendar", primary: true, onPress: () => save("googleCalendar") },
+          ...(ios ? [
+            { label: "Reminders", onPress: () => save("reminders") },
+            { label: "Both", onPress: () => save("both") },
+          ] : []),
         ],
-        { cancelable: true, onDismiss: () => resolve(null) },
-      );
+      });
     });
 
   const calendarDestinationLabel =
@@ -714,30 +700,17 @@ export default function MyChoresScreen() {
           }),
         );
       } else {
-        Alert.alert("Not allowed", "Only the chore creator or Sweet host can delete this chore.");
+        showPopup({ title: "Not allowed", message: "Only the chore creator or Sweet host can delete this chore.", actions: [{ label: "Got it", primary: true }] });
       }
     };
     if (chore.recurrenceSeriesId || chore.recurring) {
-      Alert.alert(
-        "Delete recurring chore?",
-        "Choose how much of this recurring chore to remove. Completed history is preserved unless you delete the entire series.",
-        [
-          { text: "Cancel", style: "cancel" },
-          { text: "This occurrence", onPress: () => remove("occurrence") },
-          { text: "This and future", onPress: () => remove("future") },
-          { text: "Entire series", style: "destructive", onPress: () => remove("series") },
-        ],
-      );
+      showPopup({ title: "Delete recurring chore?", message: "Choose how much to remove. Completed history is preserved unless you delete the entire series.", actions: [
+        { label: "Cancel" }, { label: "This occurrence", onPress: () => remove("occurrence") },
+        { label: "This and future", onPress: () => remove("future") }, { label: "Entire series", destructive: true, onPress: () => remove("series") },
+      ] });
       return;
     }
-    Alert.alert(
-      "Delete chore?",
-      "This will remove the chore for everyone in your Sweet.",
-      [
-        { text: "Cancel", style: "cancel" },
-        { text: "Delete", style: "destructive", onPress: () => remove("occurrence") },
-      ],
-    );
+    showPopup({ title: "Delete chore?", message: "This will remove the chore for everyone in your Sweet.", actions: [{ label: "Cancel" }, { label: "Delete", destructive: true, onPress: () => remove("occurrence") }] });
   };
   const openChoreActions = (chore: Chore) => {
     const allowed = permissionsForChore(chore).canView;

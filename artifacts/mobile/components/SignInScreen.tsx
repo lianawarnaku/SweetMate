@@ -12,7 +12,6 @@ import * as Haptics from "expo-haptics";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Linking,
   Platform,
@@ -36,12 +35,9 @@ type Mode = "signin" | "signup";
 const EMAIL_CONFIRMATION_URL = "https://sweetmate.info/auth/confirm";
 const PRIVACY_POLICY_URL = "https://sweetmate.info/privacy";
 
-function openPrivacyPolicy() {
+function openPrivacyPolicy(onError: () => void) {
   void Linking.openURL(PRIVACY_POLICY_URL).catch(() => {
-    Alert.alert(
-      "Privacy Policy unavailable",
-      "Check your connection and try again, or visit sweetmate.info/privacy in a browser.",
-    );
+    onError();
   });
 }
 
@@ -160,6 +156,7 @@ export function SignInScreen() {
   };
 
   const canSubmit = email.trim().length > 0 && password.length > 0 && !loading;
+  const openPolicy = () => openPrivacyPolicy(() => setError("Privacy Policy unavailable. Check your connection, or visit sweetmate.info/privacy in a browser."));
 
   return (
     <KeyboardAvoidingView
@@ -276,7 +273,7 @@ export function SignInScreen() {
               By creating an account, you acknowledge the{" "}
               <Text
                 accessibilityRole="link"
-                onPress={openPrivacyPolicy}
+                onPress={openPolicy}
                 style={{ color: colors.primary, fontFamily: "Inter_600SemiBold" }}
               >
                 Privacy Policy

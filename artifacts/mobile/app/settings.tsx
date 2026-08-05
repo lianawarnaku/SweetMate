@@ -6,7 +6,6 @@ import React, { ReactNode, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
-  Alert,
   Modal,
   Platform,
   Pressable,
@@ -175,7 +174,7 @@ export default function SettingsScreen() {
     switchSweet,
     leaveSweet,
   } = useAppContext();
-  const { confirm } = useConfirm();
+  const { confirm, info } = useConfirm();
   const me = roommates.find((r) => r.id === currentUserId);
   // Supabase session is guaranteed non-null here — AuthGate would have rendered
   // the sign-in screen instead of Settings otherwise.
@@ -195,16 +194,13 @@ export default function SettingsScreen() {
       const { error } = await supabase.auth.signOut();
       if (error) {
         reportSupabaseError("sign out from settings", error);
-        Alert.alert("Unable to sign out", error.message);
+        info("sign_out_error", "Unable to sign out", "Please check your connection and try again.");
       }
       // AuthGate reacts to onAuthStateChange and swaps back to SignInScreen —
       // this component will unmount, so no need to reset state locally.
     } catch (error) {
       reportRuntimeError("sign out from settings", error);
-      Alert.alert(
-        "Unable to sign out",
-        "Please check your connection and try again.",
-      );
+      info("sign_out_error", "Unable to sign out", "Please check your connection and try again.");
     } finally {
       setSigningOut(false);
     }
@@ -232,32 +228,20 @@ export default function SettingsScreen() {
   };
 
   const confirmRestartChart = () => {
-    Alert.alert(
-      "Restart chore planning?",
-      "This cancels the current pending proposal and lets your household generate a fresh chart.",
-      [
-        { text: "Keep proposal", style: "cancel" },
-        {
-          text: "Restart",
-          style: "destructive",
-          onPress: async () => {
+    confirm("restart_chart", "Restart chore planning?", "This cancels the current pending proposal and lets your household generate a fresh chart.", () => {
+          void (async () => {
             setRestartingChart(true);
             try {
               await restartChartProcess();
               router.push("/planning");
             } catch {
               hapticError();
-              Alert.alert(
-                "Could not restart",
-                "Please check your connection and try again.",
-              );
+              info("restart_chart_error", "Could not restart", "Please check your connection and try again.");
             } finally {
               setRestartingChart(false);
             }
-          },
-        },
-      ],
-    );
+          })();
+        }, { confirmText: "Restart", destructive: true });
   };
 
   const confirmRemoveRoommate = (roommateId: string, roommateName: string) => {
@@ -282,7 +266,7 @@ export default function SettingsScreen() {
               typeof error.message === "string"
                 ? error.message
                 : "The roommate could not be removed.";
-            Alert.alert("Unable to remove roommate", message);
+            info("remove_roommate_error", "Unable to remove roommate", message);
           } finally {
             setRemovingRoommateId(null);
           }
@@ -318,7 +302,7 @@ export default function SettingsScreen() {
             const message = rawMessage.includes("Remove all other roommates")
               ? "As the host, remove every other roommate before deleting your account."
               : rawMessage || "Your account could not be deleted.";
-            Alert.alert("Unable to delete account", message);
+            info("delete_account_error", "Unable to delete account", message);
           } finally {
             setDeletingAccount(false);
           }
@@ -613,10 +597,7 @@ export default function SettingsScreen() {
       router.back();
     } catch (error) {
       reportRuntimeError("save Sweetmate profile", error);
-      Alert.alert(
-        "Unable to save profile",
-        "Please check your connection and try again.",
-      );
+      info("profile_save_error", "Unable to save profile", "Please check your connection and try again.");
     }
   };
 
@@ -1013,27 +994,8 @@ export default function SettingsScreen() {
                         {membership.role !== "owner" ? <TouchableOpacity
                           onPress={(event) => {
                             event.stopPropagation();
-                            Alert.alert(
-                              `Leave ${membership.name}?`,
-                              "You will lose access to this household’s shared data. Your other households are not affected.",
-                              [
-                                { text: "Cancel", style: "cancel" },
-                                {
-                                  text: "Leave",
-                                  style: "destructive",
-                                  onPress: () =>
-                                    void leaveSweet(membership.sweetId).catch(
-                                      (error) =>
-                                        Alert.alert(
-                                          "Unable to leave",
-                                          error instanceof Error
-                                            ? error.message
-                                            : "Please try again.",
-                                        ),
-                                    ),
-                                },
-                              ],
-                            );
+                            confirm("leave_household", `Leave ${membership.name}?`, "You will lose access to this household’s shared data. Your other households are not affected.", () =>
+                              leaveSweet(membership.sweetId), { confirmText: "Leave", destructive: true });
                           }}
                           hitSlop={8}
                           accessibilityRole="button"

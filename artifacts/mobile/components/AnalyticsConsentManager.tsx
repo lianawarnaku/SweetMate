@@ -1,7 +1,6 @@
 import React, { useEffect, useSyncExternalStore } from "react";
 import type { Session } from "@supabase/supabase-js";
 import {
-  Alert,
   Linking,
   Modal,
   StyleSheet,
@@ -12,6 +11,7 @@ import {
 } from "react-native";
 
 import { useTheme } from "@/constants/colors";
+import { useAppPopup } from "@/components/AppPopupProvider";
 import {
   analyticsSnapshot,
   loadAnalyticsPreferences,
@@ -21,12 +21,9 @@ import {
   subscribeAnalytics,
 } from "@/lib/analytics";
 
-function openPrivacyPolicy() {
+function openPrivacyPolicy(onError: () => void) {
   void Linking.openURL("https://sweetmate.info/privacy").catch(() => {
-    Alert.alert(
-      "Privacy Policy unavailable",
-      "Check your connection and try again, or visit sweetmate.info/privacy in a browser.",
-    );
+    onError();
   });
 }
 
@@ -40,6 +37,8 @@ export function useAnalyticsPreferences(userId: string | null) {
 
 export function AnalyticsPreferencesPanel({ userId }: { userId: string }) {
   const colors = useTheme();
+  const { showPopup } = useAppPopup();
+  const openPolicy = () => openPrivacyPolicy(() => showPopup({ title: "Privacy Policy unavailable", message: "Check your connection and try again, or visit sweetmate.info/privacy in a browser.", actions: [{ label: "Got it", primary: true }] }));
   const { preferences } = useAnalyticsPreferences(userId);
   const rows = [
     {
@@ -82,7 +81,7 @@ export function AnalyticsPreferencesPanel({ userId }: { userId: string }) {
       ))}
       <TouchableOpacity
         accessibilityRole="link"
-        onPress={openPrivacyPolicy}
+        onPress={openPolicy}
         style={styles.policyLink}
       >
         <Text style={[styles.policyText, { color: colors.primary }]}>Read the Privacy Policy</Text>
@@ -93,6 +92,8 @@ export function AnalyticsPreferencesPanel({ userId }: { userId: string }) {
 
 export function AnalyticsConsentManager({ session }: { session: Session | null }) {
   const colors = useTheme();
+  const { showPopup } = useAppPopup();
+  const openPolicy = () => openPrivacyPolicy(() => showPopup({ title: "Privacy Policy unavailable", message: "Check your connection and try again, or visit sweetmate.info/privacy in a browser.", actions: [{ label: "Got it", primary: true }] }));
   const userId = session?.user.id ?? null;
   const { loaded, preferences } = useAnalyticsPreferences(userId);
 
@@ -119,7 +120,7 @@ export function AnalyticsConsentManager({ session }: { session: Session | null }
           </Text>
           <TouchableOpacity
             accessibilityRole="link"
-            onPress={openPrivacyPolicy}
+            onPress={openPolicy}
           >
             <Text style={[styles.policyText, { color: colors.primary }]}>Review Privacy Policy</Text>
           </TouchableOpacity>

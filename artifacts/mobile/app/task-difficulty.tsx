@@ -1,7 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React, { useMemo, useState } from "react";
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import {
@@ -13,6 +13,7 @@ import { useTheme } from "@/constants/colors";
 import { useAppContext } from "@/context/AppContext";
 import type { Difficulty } from "@/lib/itemDifficulty";
 import { error as hapticError, success as hapticSuccess } from "@/lib/haptics";
+import { useConfirm } from "@/hooks/useConfirm";
 
 const CATEGORY_LABELS: Record<ItemCategory, string> = {
   kitchen: "Kitchen",
@@ -22,6 +23,7 @@ const CATEGORY_LABELS: Record<ItemCategory, string> = {
 };
 
 export default function TaskDifficultyScreen() {
+  const { confirm, info } = useConfirm();
   const colors = useTheme();
   const insets = useSafeAreaInsets();
   const { itemDifficulties, setItemDifficulty, resetItemDifficulties } = useAppContext();
@@ -51,28 +53,24 @@ export default function TaskDifficultyScreen() {
       await setItemDifficulty(category, item, difficulty);
     } catch {
       hapticError();
-      Alert.alert("Couldn’t save", "The difficulty could not be updated.");
+      info("difficulty_save_error", "Couldn’t save", "The difficulty could not be updated.");
     } finally {
       setSavingKey(null);
     }
   };
 
   const reset = () => {
-    Alert.alert("Reset difficulties?", "Restore every item to its household default?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Reset",
-        onPress: async () => {
+    confirm("reset_difficulties", "Reset difficulties?", "Restore every item to its household default?", () => {
+        void (async () => {
           try {
             await resetItemDifficulties();
             hapticSuccess();
           } catch {
             hapticError();
-            Alert.alert("Couldn’t reset", "Please try again.");
+            info("difficulty_reset_error", "Couldn’t reset", "Please try again.");
           }
-        },
-      },
-    ]);
+        })();
+      }, { confirmText: "Reset", destructive: true });
   };
 
   return (

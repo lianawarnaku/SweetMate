@@ -2,7 +2,6 @@ import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Alert,
   Animated,
   Dimensions,
   KeyboardAvoidingView,
@@ -24,6 +23,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { EmptyState } from "@/components/EmptyState";
 import { ActionMenuModal, type ActionMenuItem } from "@/components/ActionMenuModal";
+import { useAppPopup } from "@/components/AppPopupProvider";
 import { HeaderActions } from "@/components/HeaderActions";
 import { HomePlant } from "@/components/HomePlant";
 import { ManualChoreForm } from "@/components/ManualChoreForm";
@@ -162,6 +162,7 @@ const HEALTH_MESSAGES: Record<string, { title: string; subtitle: string }> = {
 };
 
 export default function GroupChoresScreen() {
+  const { showPopup } = useAppPopup();
   const colors = useTheme();
   const insets = useSafeAreaInsets();
   const { roommates, chores, currentUserId, householdId, activeSweet, setChoreCompleted, pickUpChore, sendNudge, removeNudge, nudges, roommateStatuses, setRoommateStatus, choreChart, choreChartStartedAt, pointsEnabled, plantEnabled, roommateActivityEnabled, isHost, deleteChore } =
@@ -344,30 +345,17 @@ export default function GroupChoresScreen() {
           }),
         );
       } else {
-        Alert.alert("Not allowed", "Only the chore creator or Sweet host can delete this chore.");
+        showPopup({ title: "Not allowed", message: "Only the chore creator or Sweet host can delete this chore.", actions: [{ label: "Got it", primary: true }] });
       }
     };
     if (chore.recurrenceSeriesId || chore.recurring) {
-      Alert.alert(
-        "Delete recurring chore?",
-        "Completed history is preserved unless you delete the entire series.",
-        [
-          { text: "Cancel", style: "cancel" },
-          { text: "This occurrence", onPress: () => remove("occurrence") },
-          { text: "This and future", onPress: () => remove("future") },
-          { text: "Entire series", style: "destructive", onPress: () => remove("series") },
-        ],
-      );
+      showPopup({ title: "Delete recurring chore?", message: "Completed history is preserved unless you delete the entire series.", actions: [
+        { label: "Cancel" }, { label: "This occurrence", onPress: () => remove("occurrence") },
+        { label: "This and future", onPress: () => remove("future") }, { label: "Entire series", destructive: true, onPress: () => remove("series") },
+      ] });
       return;
     }
-    Alert.alert(
-      "Delete chore?",
-      "This will remove the chore for everyone in your Sweet.",
-      [
-        { text: "Cancel", style: "cancel" },
-        { text: "Delete", style: "destructive", onPress: () => remove("occurrence") },
-      ],
-    );
+    showPopup({ title: "Delete chore?", message: "This will remove the chore for everyone in your Sweet.", actions: [{ label: "Cancel" }, { label: "Delete", destructive: true, onPress: () => remove("occurrence") }] });
   };
   const openChoreActions = (chore: Chore) => {
     logChorePermissionCheck("open-menu", {
@@ -406,29 +394,16 @@ export default function GroupChoresScreen() {
           })
           .catch((error) => {
             reportRuntimeError("Save calendar destination preference", error);
-            Alert.alert("Couldn't save your choice", "Please check your connection and try again.");
+            showPopup({ title: "Couldn't save your choice", message: "Please check your connection and try again.", actions: [{ label: "Got it", primary: true }] });
             resolve(null);
           });
       };
-      const options =
-        Platform.OS === "ios"
-          ? [
-              { text: "Google Calendar", onPress: () => save("googleCalendar") },
-              { text: "Reminders", onPress: () => save("reminders") },
-              { text: "Both", onPress: () => save("both") },
-            ]
-          : [
-              { text: "Cancel", style: "cancel" as const, onPress: () => resolve(null) },
-              { text: "Google Calendar", onPress: () => save("googleCalendar") },
-            ];
-      Alert.alert(
-        "Where should this chore go?",
-        Platform.OS === "ios"
-          ? "Choose Google Calendar, Apple Reminders, or both. Your choice is saved."
-          : "SweetMate can open this chore in Google Calendar.",
-        options,
-        { cancelable: true, onDismiss: () => resolve(null) },
-      );
+      const ios = Platform.OS === "ios";
+      showPopup({ title: "Where should this chore go?", message: ios ? "Choose Google Calendar, Apple Reminders, or both. Your choice is saved." : "SweetMate can open this chore in Google Calendar.", dismissible: false, actions: [
+        { label: "Cancel", onPress: () => resolve(null) },
+        { label: "Google Calendar", primary: true, onPress: () => save("googleCalendar") },
+        ...(ios ? [{ label: "Reminders", onPress: () => save("reminders") }, { label: "Both", onPress: () => save("both") }] : []),
+      ] });
     });
 
   const addChoreToCalendar = async (choreId: string) => {
@@ -631,7 +606,7 @@ export default function GroupChoresScreen() {
         })
         .catch(() => {
           hapticError();
-          Alert.alert("Couldn’t remove nudge", "Please check your connection and try again.");
+          info("remove_nudge_error", "Couldn’t remove nudge", "Please check your connection and try again.");
         });
       return;
     }
@@ -648,7 +623,7 @@ export default function GroupChoresScreen() {
           })
           .catch(() => {
             hapticError();
-            Alert.alert("Couldn’t send nudge", "Please check your connection and try again.");
+            info("send_nudge_error", "Couldn’t send nudge", "Please check your connection and try again.");
           });
       },
       { confirmText: "Nudge 👋" }

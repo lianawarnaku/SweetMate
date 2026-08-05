@@ -1,13 +1,14 @@
 import { Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React, { useState } from "react";
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useTheme } from "@/constants/colors";
 import { useAppContext } from "@/context/AppContext";
 import { buildBalancedChart } from "@/lib/choreEngine";
 import { error as hapticError, success as hapticSuccess } from "@/lib/haptics";
+import { useConfirm } from "@/hooks/useConfirm";
 
 function relativeTime(timestamp: string): string {
   const elapsedSeconds = Math.max(0, Math.floor((Date.now() - new Date(timestamp).getTime()) / 1000));
@@ -21,6 +22,7 @@ function relativeTime(timestamp: string): string {
 }
 
 export default function AlertsScreen() {
+  const { info } = useConfirm();
   const colors = useTheme();
   const insets = useSafeAreaInsets();
   const {
@@ -49,7 +51,7 @@ export default function AlertsScreen() {
       hapticSuccess();
     } catch {
       hapticError();
-      Alert.alert("Unable to update chart", "Please try again.");
+      info("chart_update_error", "Unable to update chart", "Please try again.");
     } finally {
       setBusy(false);
     }
