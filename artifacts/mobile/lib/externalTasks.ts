@@ -6,10 +6,7 @@ const REMINDER_LIST_TITLE = "SweetMate";
 const MAPPING_KEY_PREFIX = "@sweetmate/external-task/v1";
 const DESTINATION_KEY_PREFIX = "@sweetmate/external-task-destination/v1";
 
-export type ExternalTaskDestination =
-  | "googleCalendar"
-  | "reminders"
-  | "both";
+export type ExternalTaskDestination = "googleCalendar" | "reminders" | "both";
 
 export type ExternalTaskChore = {
   id: string;
@@ -169,7 +166,9 @@ function looksLikeMissingReminder(error: unknown) {
 }
 
 async function requireReminderPermission() {
-  let response: Awaited<ReturnType<typeof Calendar.getRemindersPermissionsAsync>>;
+  let response: Awaited<
+    ReturnType<typeof Calendar.getRemindersPermissionsAsync>
+  >;
   try {
     response = await Calendar.getRemindersPermissionsAsync();
     if (!response.granted && response.canAskAgain) {
@@ -239,7 +238,10 @@ async function createReminder(
   chore: ExternalTaskChore,
 ) {
   try {
-    return await Calendar.createReminderAsync(calendarId, reminderDetails(chore));
+    return await Calendar.createReminderAsync(
+      calendarId,
+      reminderDetails(chore),
+    );
   } catch (error) {
     throw new ExternalTaskError(
       "NO_WRITABLE_LIST",
@@ -314,11 +316,18 @@ export async function updateMappedReminderIfPresent(
   if (!raw) return false;
   try {
     const mapping = JSON.parse(raw) as StoredExternalTask;
-    if (mapping.provider !== "ios-reminders" || !mapping.externalId) return false;
+    if (mapping.provider !== "ios-reminders" || !mapping.externalId)
+      return false;
     const fingerprint = taskFingerprint(chore);
     if (mapping.fingerprint === fingerprint) return true;
-    await Calendar.updateReminderAsync(mapping.externalId, reminderDetails(chore));
-    await AsyncStorage.setItem(key, JSON.stringify({ ...mapping, fingerprint }));
+    await Calendar.updateReminderAsync(
+      mapping.externalId,
+      reminderDetails(chore),
+    );
+    await AsyncStorage.setItem(
+      key,
+      JSON.stringify({ ...mapping, fingerprint }),
+    );
     return true;
   } catch (error) {
     if (looksLikeMissingReminder(error)) {
@@ -357,7 +366,8 @@ export async function exportChoresToExternalTasks(
   if (!support.supported || Platform.OS !== "ios") {
     throw new ExternalTaskError(
       "UNSUPPORTED",
-      support.unavailableReason ?? "Task export is not supported on this device.",
+      support.unavailableReason ??
+        "Task export is not supported on this device.",
     );
   }
 
@@ -387,43 +397,63 @@ export async function exportChoresToExternalTasks(
 }
 
 function apiBaseUrl() {
-  return process.env.EXPO_PUBLIC_API_URL ??
+  const value =
+    process.env.EXPO_PUBLIC_API_URL ??
     (process.env.EXPO_PUBLIC_DOMAIN
       ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
       : "");
+  return value.replace(/\/$/, "");
 }
 
 export async function addChoreToGoogleCalendar(chore: ExternalTaskChore) {
   if (!/^\d{4}-\d{2}-\d{2}/.test(chore.dueDate)) {
-    throw new ExternalTaskError("EXPORT_FAILED", "This chore has an invalid due date.");
+    throw new ExternalTaskError(
+      "EXPORT_FAILED",
+      "This chore has an invalid due date.",
+    );
   }
   const baseUrl = apiBaseUrl();
   if (!baseUrl) {
-    throw new ExternalTaskError("EXPORT_FAILED", "Google Calendar is unavailable in this build.");
+    throw new ExternalTaskError(
+      "EXPORT_FAILED",
+      "This build has no API server URL. Set EXPO_PUBLIC_API_URL and restart Expo.",
+    );
   }
-  const response = await fetch(`${baseUrl}/api/calendar/add-chore`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      choreId: chore.id,
-      title: chore.title,
-      dueDate: chore.dueDate,
-      category: chore.category,
-      description: chore.description,
-      assignee: chore.assignedToName,
-      household: chore.householdName,
-      points: chore.includePoints ? chore.points : undefined,
-    }),
-  });
-  const result = await response.json().catch(() => null) as
-    | { error?: string; code?: string; alreadyAdded?: boolean }
-    | null;
+  let response: Response;
+  try {
+    response = await fetch(`${baseUrl}/api/calendar/add-chore`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        choreId: chore.id,
+        title: chore.title,
+        dueDate: chore.dueDate,
+        category: chore.category,
+        description: chore.description,
+        assignee: chore.assignedToName,
+        household: chore.householdName,
+        points: chore.includePoints ? chore.points : undefined,
+      }),
+    });
+  } catch (error) {
+    throw new ExternalTaskError(
+      "EXPORT_FAILED",
+      `SweetMate could not reach its calendar server at ${baseUrl}. ${normalizeNativeError(error)}`,
+    );
+  }
+  const result = (await response.json().catch(() => null)) as {
+    error?: string;
+    detail?: string;
+    code?: string;
+    alreadyAdded?: boolean;
+  } | null;
   if (!response.ok) {
+    const message = [result?.error, result?.detail].filter(Boolean).join("\n");
     throw new ExternalTaskError(
       result?.code === "GOOGLE_RECONNECT_REQUIRED"
         ? "RECONNECT_REQUIRED"
         : "EXPORT_FAILED",
-      result?.error ?? "Google Calendar could not create the event. Please try again.",
+      message || `Google Calendar request failed with HTTP ${response.status}.`,
     );
   }
   return { alreadyAdded: result?.alreadyAdded === true };
@@ -456,10 +486,7 @@ export async function exportChoreToDestinations(
   }
 
   if (failures.length > 0) {
-    throw new ExternalTaskError(
-      "EXPORT_FAILED",
-      failures.join("\n"),
-    );
+    throw new ExternalTaskError("EXPORT_FAILED", failures.join("\n"));
   }
   return { googleAlreadyAdded };
 }

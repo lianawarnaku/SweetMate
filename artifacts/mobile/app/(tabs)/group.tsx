@@ -440,6 +440,15 @@ export default function GroupChoresScreen() {
     } catch (error) {
       reportRuntimeError("Add group chore to calendar", error, { choreId });
       hapticError();
+      if (calendarDestination == null) {
+        showPopup({
+          title: "Couldn't add to calendar",
+          message: error instanceof Error
+            ? error.message
+            : "Google Calendar could not create the event. Please try again.",
+          actions: [{ label: "Got it", primary: true }],
+        });
+      }
       throw error;
     } finally {
       calendarExportsInFlight.current.delete(choreId);

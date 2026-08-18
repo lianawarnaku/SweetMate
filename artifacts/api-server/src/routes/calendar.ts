@@ -1,10 +1,13 @@
-// Google Calendar integration via @replit/connectors-sdk
 import { Router } from "express";
-import { ReplitConnectors } from "@replit/connectors-sdk";
 import {
   buildChoreCalendarEvent,
   type ChoreCalendarInput,
 } from "../lib/choreCalendarEvent";
+import {
+  configuredCalendarId,
+  googleCalendarRequest,
+  GoogleCalendarError,
+} from "../lib/googleCalendar";
 
 const router = Router();
 
@@ -29,17 +32,15 @@ router.post("/calendar/add-chore", async (req, res) => {
   }
 
   try {
-    const connectors = new ReplitConnectors();
     const event = buildChoreCalendarEvent(input as ChoreCalendarInput);
-
-    const response = await connectors.proxy(
-      "google-calendar",
-      "/calendar/v3/calendars/primary/events",
+    const calendarId = encodeURIComponent(configuredCalendarId());
+    const response = await googleCalendarRequest(
+      `/calendars/${calendarId}/events`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(event),
-      }
+      },
     );
 
     if (!response.ok) {
@@ -49,19 +50,15 @@ router.post("/calendar/add-chore", async (req, res) => {
         res.json({ success: true, alreadyAdded: true, eventId: event.id });
         return;
       }
-      await response.text(); // drain without logging provider/auth details
-      const reconnect = response.status === 401 || response.status === 403;
-      req.log.warn({ status: response.status }, "Google Calendar request rejected");
-      res.status(reconnect ? 401 : 502).json({
-        code: reconnect ? "GOOGLE_RECONNECT_REQUIRED" : "GOOGLE_CALENDAR_ERROR",
-        error: reconnect
-          ? "Connect Google Calendar again, then retry this chore."
-          : "Google Calendar could not create the event. Please try again.",
-      });
-      return;
+      throw new Error(
+        `Unexpected Google Calendar response: ${response.status}`,
+      );
     }
 
-    const created = await response.json() as { id: string; htmlLink?: string };
+    const created = (await response.json()) as {
+      id: string;
+      htmlLink?: string;
+    };
     res.json({
       success: true,
       alreadyAdded: false,
@@ -76,10 +73,24 @@ router.post("/calendar/add-chore", async (req, res) => {
       });
       return;
     }
-    req.log.error({ errorName: err instanceof Error ? err.name : "unknown" }, "Calendar connector failed");
+    if (err instanceof GoogleCalendarError) {
+      req.log.error(
+        { err, code: err.code, diagnostic: err.diagnostic },
+        "Google Calendar add failed",
+      );
+      res.status(err.httpStatus).json({
+        code: err.code,
+        error: err.userMessage,
+        detail: err.diagnostic,
+      });
+      return;
+    }
+    req.log.error({ err }, "Google Calendar add failed unexpectedly");
     res.status(503).json({
-      code: "CONNECTOR_UNAVAILABLE",
-      error: "Google Calendar is unavailable right now. Please try again.",
+      code: "GOOGLE_CALENDAR_ERROR",
+      error:
+        "Google Calendar failed unexpectedly. Please try again or contact support.",
+      detail: err instanceof Error ? err.message : String(err),
     });
   }
 });
@@ -99,33 +110,25 @@ router.get("/calendar/availability", async (req, res) => {
   end.setDate(start.getDate() + 7);
 
   try {
-    const connectors = new ReplitConnectors();
-    const response = await connectors.proxy(
-      "google-calendar",
-      "/calendar/v3/freeBusy",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          timeMin: start.toISOString(),
-          timeMax: end.toISOString(),
-          items: [{ id: "primary" }],
-        }),
-      }
-    );
-
-    if (!response.ok) {
-      const errBody = await response.text();
-      req.log.error({ status: response.status, body: errBody }, "FreeBusy API error");
-      res.status(502).json({ error: "Google Calendar API error", detail: errBody });
-      return;
-    }
+    const calendarId = configuredCalendarId();
+    const response = await googleCalendarRequest("/freeBusy", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        timeMin: start.toISOString(),
+        timeMax: end.toISOString(),
+        items: [{ id: calendarId }],
+      }),
+    });
 
     const data = (await response.json()) as {
-      calendars: { primary: { busy: Array<{ start: string; end: string }> } };
+      calendars: Record<
+        string,
+        { busy: Array<{ start: string; end: string }> }
+      >;
     };
 
-    const busySlots = data.calendars?.primary?.busy ?? [];
+    const busySlots = data.calendars?.[calendarId]?.busy ?? [];
     const busyDays = new Set<string>();
     for (const slot of busySlots) {
       const slotStart = new Date(slot.start);
@@ -140,8 +143,26 @@ router.get("/calendar/availability", async (req, res) => {
 
     res.json({ busyDays: [...busyDays], connected: true });
   } catch (err) {
-    req.log.error({ err }, "Failed to fetch availability");
-    res.status(500).json({ error: "Failed to fetch availability" });
+    if (err instanceof GoogleCalendarError) {
+      req.log.error(
+        { err, code: err.code, diagnostic: err.diagnostic },
+        "Google Calendar availability failed",
+      );
+      res
+        .status(err.httpStatus)
+        .json({
+          code: err.code,
+          error: err.userMessage,
+          detail: err.diagnostic,
+        });
+      return;
+    }
+    req.log.error({ err }, "Failed to fetch Google Calendar availability");
+    res.status(500).json({
+      code: "GOOGLE_CALENDAR_ERROR",
+      error: "Google Calendar availability failed unexpectedly.",
+      detail: err instanceof Error ? err.message : String(err),
+    });
   }
 });
 

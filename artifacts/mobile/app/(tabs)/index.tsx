@@ -587,6 +587,15 @@ export default function MyChoresScreen() {
       reportRuntimeError(`Add chore to ${calendarDestinationLabel}`, error, {
         choreId,
       });
+      if (calendarDestination == null) {
+        showPopup({
+          title: "Couldn't add to calendar",
+          message: error instanceof Error
+            ? error.message
+            : "Google Calendar could not create the event. Please try again.",
+          actions: [{ label: "Got it", primary: true }],
+        });
+      }
       throw error;
     } finally {
       calendarExportsInFlight.current.delete(choreId);
