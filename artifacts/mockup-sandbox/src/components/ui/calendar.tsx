@@ -129,7 +129,12 @@ function Calendar({
           return (
             <div
               data-slot="calendar"
-              ref={rootRef}
+              ref={(node) => {
+                if (typeof rootRef === "function") rootRef(node)
+                else if (rootRef) {
+                  ;(rootRef as { current: HTMLDivElement | null }).current = node
+                }
+              }}
               className={cn(className)}
               {...props}
             />
