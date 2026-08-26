@@ -2,7 +2,10 @@ import { useEffect, useState } from "react";
 import { AppState } from "react-native";
 
 import type { Chore } from "@/context/AppContext";
-import { completedRetentionBoundary } from "@/lib/choreLifecycle";
+import {
+  completedRetentionBoundary,
+  incompleteArchiveBoundary,
+} from "@/lib/choreLifecycle";
 import { choreNow } from "@/lib/choreClock";
 
 export function useChoreLifecycleNow(chores: Chore[]): Date {
@@ -15,14 +18,19 @@ export function useChoreLifecycleNow(chores: Chore[]): Date {
       current.getMonth(),
       current.getDate() + 1,
     );
-    const nextRetentionBoundary = chores.reduce<number | null>((nearest, chore) => {
-      const boundary = completedRetentionBoundary(chore)?.getTime();
-      if (!boundary || boundary <= current.getTime()) return nearest;
-      return nearest === null || boundary < nearest ? boundary : nearest;
+    const nextLifecycleBoundary = chores.reduce<number | null>((nearest, chore) => {
+      const boundaries = [
+        completedRetentionBoundary(chore)?.getTime(),
+        incompleteArchiveBoundary(chore)?.getTime(),
+      ];
+      return boundaries.reduce<number | null>((candidate, boundary) => {
+        if (!boundary || boundary <= current.getTime()) return candidate;
+        return candidate === null || boundary < candidate ? boundary : candidate;
+      }, nearest);
     }, null);
     const nextRefresh = Math.min(
       nextMidnight.getTime(),
-      nextRetentionBoundary ?? Number.POSITIVE_INFINITY,
+      nextLifecycleBoundary ?? Number.POSITIVE_INFINITY,
     );
     const timer = setTimeout(
       () => setNow(choreNow()),

@@ -1,5 +1,6 @@
 import type { Chore } from "../context/AppContext.tsx";
 import { recurringChoreClaims } from "./recurringChoreClaims.ts";
+import { materializeRecurringOccurrences } from "./choreOccurrences.ts";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
@@ -29,6 +30,38 @@ assert(
   claims[0].scheduled_date === "2026-07-27" &&
     claims[0].occurrence_id === occurrence.id,
   "claim batching must preserve the stable scheduled date and occurrence ID",
+);
+
+const dormantRoot: Chore = {
+  ...occurrence,
+  id: "dormant-series",
+  recurrenceSeriesId: "dormant-series",
+  scheduledDate: "2026-01-01",
+  dueDate: "2026-01-01T12:00:00.000Z",
+  initialDueDate: "2026-01-01T12:00:00.000Z",
+  recurring: "daily",
+  occurrenceIndex: 0,
+};
+const activeDeviceState = materializeRecurringOccurrences(
+  [dormantRoot],
+  new Date(2026, 7, 26, 12),
+  "2026-08-26T12:00:00.000Z",
+);
+const dormantDeviceAfterHydration = materializeRecurringOccurrences(
+  activeDeviceState,
+  new Date(2026, 7, 26, 12),
+  "2026-08-26T12:05:00.000Z",
+);
+assert(
+  dormantDeviceAfterHydration === activeDeviceState,
+  "a dormant device that hydrates the active device's household state must not rematerialize occurrences",
+);
+const activeClaims = recurringChoreClaims(activeDeviceState, "home");
+assert(
+  activeClaims.length === new Set(
+    activeClaims.map((claim) => `${claim.recurrence_series_id}:${claim.scheduled_date}`),
+  ).size,
+  "a dormant catch-up must produce one database claim per series date",
 );
 
 const migration = readFileSync(

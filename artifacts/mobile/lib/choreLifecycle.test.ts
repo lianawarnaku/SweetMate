@@ -3,6 +3,7 @@ import {
   activeChores,
   ARCHIVE_INCOMPLETE_AFTER_DAYS,
   completedRetentionBoundary,
+  incompleteArchiveBoundary,
   isActiveChore,
   isArchivedIncomplete,
   isChoreInCurrentWeek,
@@ -57,6 +58,10 @@ assert(
 );
 const archiveBoundary = new Date(base.dueDate);
 archiveBoundary.setDate(archiveBoundary.getDate() + ARCHIVE_INCOMPLETE_AFTER_DAYS);
+assert(
+  incompleteArchiveBoundary(base)?.getTime() === archiveBoundary.getTime(),
+  "the lifecycle clock must be able to schedule the exact incomplete archive boundary",
+);
 assert(
   isArchivedIncomplete(base, archiveBoundary) && !isActiveChore(base, archiveBoundary),
   "an incomplete chore must archive out of active lists at exactly two weeks overdue",

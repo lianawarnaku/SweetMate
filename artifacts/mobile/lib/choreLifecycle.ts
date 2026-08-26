@@ -19,6 +19,15 @@ export function completedRetentionBoundary(chore: Chore): Date | null {
   return boundary;
 }
 
+export function incompleteArchiveBoundary(chore: Chore): Date | null {
+  if (chore.completed) return null;
+  const due = validDate(chore.dueDate);
+  if (!due) return null;
+  const boundary = new Date(due);
+  boundary.setDate(boundary.getDate() + ARCHIVE_INCOMPLETE_AFTER_DAYS);
+  return boundary;
+}
+
 export function isRecentlyCompleted(chore: Chore, now: Date): boolean {
   if (!chore.completed) return false;
   const boundary = completedRetentionBoundary(chore);
@@ -35,12 +44,8 @@ export function isRecentlyCompleted(chore: Chore, now: Date): boolean {
  * the first time the app materializes its backlog.
  */
 export function isArchivedIncomplete(chore: Chore, now: Date): boolean {
-  if (chore.completed) return false;
-  const due = validDate(chore.dueDate);
-  if (!due) return false;
-  const boundary = new Date(due);
-  boundary.setDate(boundary.getDate() + ARCHIVE_INCOMPLETE_AFTER_DAYS);
-  return now.getTime() >= boundary.getTime();
+  const boundary = incompleteArchiveBoundary(chore);
+  return boundary !== null && now.getTime() >= boundary.getTime();
 }
 
 export function isActiveChore(chore: Chore, now: Date): boolean {

@@ -374,6 +374,16 @@ one `materializationStartsOn` cutoff and creates only occurrences in the rolling
 archive window. This intentionally trades per-date history for never-created,
 already-archived dates in exchange for bounded storage and hydration work.
 
+The lifecycle clock schedules both completion-retention and incomplete-archive
+boundaries, in addition to midnight and app-resume refreshes. A dormant device
+that first hydrates the current household snapshot sees the active device's
+deterministic occurrence IDs and materialization is idempotent; the occurrence
+claim constraint independently rejects duplicate series/date identities. A
+device later writing a genuinely stale offline `household_states` blob can
+still overwrite unrelated state until the normalized chore read/write cutover
+is complete, so the claim table is an identity guard rather than a complete
+concurrency solution.
+
 ## 2026-08-02 non-host chore control re-audit
 
 Follow-up to the August 2, 2026 identity fix (commit `d4ac2a1`). That commit
