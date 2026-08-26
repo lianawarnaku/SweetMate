@@ -50,7 +50,13 @@ const routeGuard = readFileSync(
 );
 
 assert(
-  setupScreen.includes('{ deferOnboarding: true }') &&
+  setupScreen.includes("detectDeviceTimezone") &&
+    setupScreen.includes("TIMEZONE_PRESETS") &&
+    setupScreen.includes("{ deferOnboarding: true, timezone }"),
+  "household creation must capture and pass along a timezone",
+);
+assert(
+  setupScreen.includes('{ deferOnboarding: true, timezone }') &&
     setupScreen.includes('await setHouseholdSetupStep("home")'),
   "required details must establish one draft household before Home type",
 );

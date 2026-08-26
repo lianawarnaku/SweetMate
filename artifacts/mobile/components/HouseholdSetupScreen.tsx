@@ -26,6 +26,25 @@ import {
 } from "@/lib/householdSetup";
 
 const COLORS = ["#7B563B", "#A66A3F", "#C58B57", "#7D8B6A", "#B36A6A", "#8C6D80"];
+// Common household timezones. The picker also always includes whatever the
+// device itself detected, even if it isn't one of these presets, so no
+// household is stuck with an inaccurate default.
+const TIMEZONE_PRESETS: { value: string; label: string }[] = [
+  { value: "America/New_York", label: "Eastern" },
+  { value: "America/Chicago", label: "Central" },
+  { value: "America/Denver", label: "Mountain" },
+  { value: "America/Los_Angeles", label: "Pacific" },
+  { value: "America/Anchorage", label: "Alaska" },
+  { value: "Pacific/Honolulu", label: "Hawaii" },
+  { value: "UTC", label: "UTC" },
+];
+function detectDeviceTimezone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  } catch {
+    return "UTC";
+  }
+}
 const makeInviteCode = () => Crypto.randomUUID().replace(/-/g, "").slice(0, 8).toUpperCase();
 const HOUSING: { key: HousingType; label: string; description: string; icon: keyof typeof Feather.glyphMap }[] = [
   { key: "traditional", label: "Regular dorm", description: "Shared room and communal bathroom", icon: "users" },
@@ -81,6 +100,7 @@ export function HouseholdSetupScreen({
   const [inviteCode, setInviteCode] = useState("");
   const [createInviteCode] = useState(makeInviteCode);
   const [color, setColor] = useState(COLORS[0]);
+  const [timezone, setTimezone] = useState(detectDeviceTimezone);
   const [housingType, setHousingType] = useState<HousingType | null>(null);
   const [bathroomCount, setBathroomCount] = useState(1);
   const [bedroomCount, setBedroomCount] = useState(1);
@@ -137,6 +157,7 @@ export function HouseholdSetupScreen({
           householdName: string;
           displayName: string;
           color: string;
+          timezone: string;
           housingType: HousingType;
           bathroomCount: number;
           bedroomCount: number;
@@ -150,6 +171,7 @@ export function HouseholdSetupScreen({
         if (draft.householdName) setHouseholdName(draft.householdName);
         if (draft.displayName) setDisplayName(draft.displayName);
         if (draft.color) setColor(draft.color);
+        if (draft.timezone) setTimezone(draft.timezone);
         if (draft.housingType) setHousingType(draft.housingType);
         if (draft.bathroomCount) setBathroomCount(draft.bathroomCount);
         if (draft.bedroomCount) setBedroomCount(draft.bedroomCount);
@@ -172,6 +194,7 @@ export function HouseholdSetupScreen({
       householdName,
       displayName,
       color,
+      timezone,
       housingType,
       bathroomCount,
       bedroomCount,
@@ -201,6 +224,7 @@ export function HouseholdSetupScreen({
     recurrenceOverrides,
     removedGeneratedKeys,
     setupDraftKey,
+    timezone,
   ]);
 
   useEffect(() => {
@@ -253,7 +277,7 @@ export function HouseholdSetupScreen({
             displayName,
             color,
             createInviteCode,
-            { deferOnboarding: true },
+            { deferOnboarding: true, timezone },
           );
           if (additionalHousehold) setCreatedAdditionalHouseholdId(createdHouseholdId);
         }
@@ -411,6 +435,28 @@ export function HouseholdSetupScreen({
               <Field label="HOUSEHOLD NAME" icon="home" value={householdName} onChangeText={setHouseholdName} editable={!householdId || (additionalHousehold && !createdAdditionalHouseholdId)} placeholder="e.g. The Maple House" colors={colors} />
               <Text style={[styles.label, { color: colors.mutedForeground }]}>PROFILE COLOR</Text>
               <ColorPicker value={color} onChange={setColor} colors={colors} />
+              <Text style={[styles.label, { color: colors.mutedForeground, marginTop: 14 }]}>HOUSEHOLD TIMEZONE</Text>
+              <Text style={{ color: colors.mutedForeground, fontSize: 13, marginBottom: 8 }}>
+                We detected {timezone}. Everyone in this household will share this timezone for due dates and overdue chores.
+              </Text>
+              <View style={styles.timezoneRow}>
+                {TIMEZONE_PRESETS.map((option) => (
+                  <Pressable
+                    key={option.value}
+                    onPress={() => setTimezone(option.value)}
+                    disabled={!(!householdId || (additionalHousehold && !createdAdditionalHouseholdId))}
+                    style={[
+                      styles.timezoneChip,
+                      { borderColor: colors.border },
+                      timezone === option.value && { backgroundColor: colors.primary + "14", borderColor: colors.primary },
+                    ]}
+                  >
+                    <Text style={[styles.timezoneChipText, { color: timezone === option.value ? colors.primary : colors.mutedForeground }]}>
+                      {option.label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
             </>
           ) : step === 2 ? (
             <View style={styles.optionList}>{HOUSING.map((option) => <SelectionCard key={option.key} title={option.label} subtitle={option.description} icon={option.icon} selected={housingType === option.key} onPress={() => setHousingType(option.key)} colors={colors} />)}</View>
@@ -623,7 +669,10 @@ const styles = StyleSheet.create({
   progressWrap: { marginBottom: 16 }, progressLabels: { flexDirection: "row", justifyContent: "space-between", marginBottom: 8 }, progressText: { fontFamily: "Inter_700Bold", fontSize: 14 }, progressCount: { fontFamily: "Inter_600SemiBold", fontSize: 13 }, progressTrack: { height: 7, borderRadius: 4, overflow: "hidden" }, progressFill: { height: "100%", borderRadius: 4 }, progressDots: { flexDirection: "row", justifyContent: "space-between", marginTop: 6 }, progressDotLabel: { width: "20%", textAlign: "center", fontFamily: "Inter_600SemiBold", fontSize: 10 },
   segment: { borderRadius: 16, padding: 4, flexDirection: "row", marginBottom: 14 }, segmentButton: { flex: 1, height: 48, borderRadius: 13, borderWidth: 1, borderColor: "transparent", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }, segmentText: { fontFamily: "Inter_600SemiBold", fontSize: 15 },
   card: { borderWidth: 1, borderRadius: 22, padding: 18, gap: 16 }, label: { fontFamily: "Inter_700Bold", fontSize: 12, letterSpacing: 1, marginBottom: 7 }, inputWrap: { height: 52, borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, flexDirection: "row", alignItems: "center", gap: 10 }, input: { flex: 1, fontFamily: "Inter_500Medium", fontSize: 16 },
-  swatches: { flexDirection: "row", justifyContent: "space-between" }, swatch: { width: 39, height: 39, borderRadius: 20, alignItems: "center", justifyContent: "center", borderColor: "transparent" }, optionList: { gap: 10 }, selectionCard: { borderWidth: 1.5, borderRadius: 16, padding: 14, flexDirection: "row", alignItems: "center", gap: 12 }, selectionIcon: { width: 42, height: 42, borderRadius: 13, alignItems: "center", justifyContent: "center" }, selectionTitle: { fontFamily: "Inter_700Bold", fontSize: 18 }, selectionSub: { fontFamily: "Inter_400Regular", fontSize: 14, lineHeight: 18, marginTop: 2 },
+  swatches: { flexDirection: "row", justifyContent: "space-between" },
+  timezoneRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  timezoneChip: { paddingHorizontal: 14, height: 38, borderRadius: 12, borderWidth: 1, alignItems: "center", justifyContent: "center" },
+  timezoneChipText: { fontFamily: "Inter_600SemiBold", fontSize: 13 }, swatch: { width: 39, height: 39, borderRadius: 20, alignItems: "center", justifyContent: "center", borderColor: "transparent" }, optionList: { gap: 10 }, selectionCard: { borderWidth: 1.5, borderRadius: 16, padding: 14, flexDirection: "row", alignItems: "center", gap: 12 }, selectionIcon: { width: 42, height: 42, borderRadius: 13, alignItems: "center", justifyContent: "center" }, selectionTitle: { fontFamily: "Inter_700Bold", fontSize: 18 }, selectionSub: { fontFamily: "Inter_400Regular", fontSize: 14, lineHeight: 18, marginTop: 2 },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 9 }, chip: { minHeight: 40, borderWidth: 1, borderRadius: 20, paddingHorizontal: 13, flexDirection: "row", alignItems: "center", gap: 6 }, chipText: { fontFamily: "Inter_600SemiBold", fontSize: 14 }, customRow: { height: 52, borderWidth: 1, borderRadius: 14, paddingLeft: 14, paddingRight: 6, flexDirection: "row", alignItems: "center" }, addButton: { width: 40, height: 40, borderRadius: 11, alignItems: "center", justifyContent: "center" }, customChore: { flexDirection: "row", alignItems: "center", gap: 9, paddingVertical: 5 }, customChoreText: { flex: 1, fontFamily: "Inter_500Medium", fontSize: 15 },
   itemSections: { gap: 14 }, itemSection: { borderBottomWidth: 1, paddingBottom: 14, gap: 12 }, itemSectionHeader: { flexDirection: "row", alignItems: "center", gap: 9 }, itemSectionIcon: { width: 34, height: 34, borderRadius: 10, alignItems: "center", justifyContent: "center" }, itemSectionTitle: { fontFamily: "Inter_700Bold", fontSize: 20 },
   reviewList: { gap: 8 },

@@ -125,6 +125,7 @@ export interface SweetMembership {
   joinedAt: string;
   memberCount?: number;
   inviteCode?: string;
+  timezone?: string;
 }
 
 export interface Chore {
@@ -477,6 +478,7 @@ interface AppContextType {
   memberships: SweetMembership[];
   activeSweetId: string | null;
   activeSweet: SweetMembership | null;
+  householdTimezone: string;
   householdName: string | null;
   inviteCode: string | null;
   householdLoading: boolean;
@@ -485,7 +487,7 @@ interface AppContextType {
   currentMemberRole: "owner" | "member";
   refreshMembers: () => Promise<void>;
   refreshHousehold: () => void;
-  createHousehold: (householdName: string, displayName: string, color: string, inviteCode: string, options?: { deferOnboarding?: boolean }) => Promise<string>;
+  createHousehold: (householdName: string, displayName: string, color: string, inviteCode: string, options?: { deferOnboarding?: boolean; timezone?: string }) => Promise<string>;
   joinHousehold: (inviteCode: string, displayName: string, color: string) => Promise<void>;
   switchSweet: (sweetId: string) => void;
   leaveSweet: (sweetId: string) => Promise<void>;
@@ -1282,7 +1284,7 @@ export function AppProvider({
       const [{ data: households, error: householdError }, { data: memberRows }] = await Promise.all([
         supabase
         .from("households")
-        .select("id, name, invite_code")
+        .select("id, name, invite_code, timezone")
         .in("id", sweetIds),
         supabase
           .from("household_members")
@@ -1321,6 +1323,7 @@ export function AppProvider({
           joinedAt: row.joined_at,
           memberCount: counts.get(row.household_id) ?? 1,
           inviteCode: sweet.invite_code,
+          timezone: sweet.timezone ?? "UTC",
         }];
       });
       const storedActiveSweetId = await AsyncStorage.getItem(activeSweetKey(userId));
@@ -1585,11 +1588,12 @@ export function AppProvider({
     displayName: string,
     color: string,
     code: string,
-    options?: { deferOnboarding?: boolean },
+    options?: { deferOnboarding?: boolean; timezone?: string },
   ) => {
     const { data, error } = await supabase.rpc("create_household", {
       household_name: name.trim(), member_name: displayName.trim(), member_color: color,
       requested_invite_code: code,
+      household_timezone: options?.timezone?.trim() || "UTC",
     });
     if (error) {
       reportSupabaseError("create household", error);
@@ -4518,6 +4522,7 @@ export function AppProvider({
     memberships,
     activeSweetId: householdId,
     activeSweet,
+    householdTimezone: activeSweet?.timezone ?? "UTC",
     householdName,
     inviteCode,
     householdLoading,
