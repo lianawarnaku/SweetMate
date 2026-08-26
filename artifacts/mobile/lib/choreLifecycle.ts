@@ -2,6 +2,7 @@ import type { Chore } from "../context/AppContext";
 import { choreLocalDateKey } from "./choreOccurrences.ts";
 
 export const COMPLETED_CHORE_RETENTION_DAYS = 7;
+export const ARCHIVE_INCOMPLETE_AFTER_DAYS = 14;
 
 function validDate(value: string | undefined): Date | null {
   if (!value) return null;
@@ -25,7 +26,24 @@ export function isRecentlyCompleted(chore: Chore, now: Date): boolean {
   return boundary === null || now.getTime() < boundary.getTime();
 }
 
+/**
+ * A chore that has sat incomplete for two weeks or more stops showing up in
+ * the active lists. It is not deleted and stays fully completable/editable —
+ * this only affects what My Home/Group render by default, keeping a long-
+ * neglected recurring series from surfacing a wall of overdue occurrences
+ * the first time the app materializes its backlog.
+ */
+export function isArchivedIncomplete(chore: Chore, now: Date): boolean {
+  if (chore.completed) return false;
+  const due = validDate(chore.dueDate);
+  if (!due) return false;
+  const boundary = new Date(due);
+  boundary.setDate(boundary.getDate() + ARCHIVE_INCOMPLETE_AFTER_DAYS);
+  return now.getTime() >= boundary.getTime();
+}
+
 export function isActiveChore(chore: Chore, now: Date): boolean {
+  if (isArchivedIncomplete(chore, now)) return false;
   return !chore.completed || isRecentlyCompleted(chore, now);
 }
 
