@@ -45,6 +45,7 @@ import {
 import { choreCompletionTransition } from "@/lib/choreCompletion";
 import { isActiveSweetMember, resolveChorePermissions } from "@/lib/chorePermissions";
 import { logChorePermissionCheck } from "@/lib/choreDiagnostics";
+import { mergeByUpdatedAt } from "@/lib/expenseMerge";
 import { choreNow } from "@/lib/choreClock";
 import { recurringChoreClaims } from "@/lib/recurringChoreClaims";
 import type {
@@ -728,6 +729,8 @@ export function AppProvider({
   const choresRef = useRef<Chore[]>(chores);
   choresRef.current = chores;
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const expensesRef = useRef<Expense[]>(expenses);
+  expensesRef.current = expenses;
   const [shoppingLists, setShoppingLists] = useState<ShoppingList[]>([]);
   const [shoppingItems, setShoppingItems] =
     useState<ShoppingItem[]>([]);
@@ -2204,7 +2207,11 @@ export function AppProvider({
       choresRef.current = mergedChores;
       setChores(mergedChores);
     }
-    if (Array.isArray(next.expenses)) setExpenses(next.expenses);
+    if (Array.isArray(next.expenses)) {
+      const mergedExpenses = mergeByUpdatedAt(expensesRef.current, next.expenses);
+      expensesRef.current = mergedExpenses;
+      setExpenses(mergedExpenses);
+    }
     const remoteMeta = next.shoppingSyncMeta ?? EMPTY_SHOPPING_SYNC_META;
     const localMeta = shoppingSyncMetaRef.current;
     const hasNewerLocalShoppingChange = (
@@ -2303,6 +2310,10 @@ export function AppProvider({
       return;
     }
     let active = true;
+    // The cache read and the network fetch race independently; without this
+    // flag, a slow AsyncStorage read that resolves after the network fetch
+    // would silently overwrite fresh data with a stale local snapshot.
+    let networkLoaded = false;
     const cacheKey = privateBorrowStateKey(userId, householdId);
     const channel = supabase.channel(`private-borrows:${userId}:${householdId}`);
     const normalizeRow = (row: {
@@ -2335,7 +2346,7 @@ export function AppProvider({
 
     void AsyncStorage.getItem(cacheKey)
       .then((raw) => {
-        if (!active || !raw) return;
+        if (!active || !raw || networkLoaded) return;
         const cached = JSON.parse(raw) as BorrowItem[];
         setPrivateBorrowItems(
           cached.filter(
@@ -2356,6 +2367,7 @@ export function AppProvider({
       .eq("household_id", householdId)
       .then(({ data, error }) => {
         if (!active) return;
+        networkLoaded = true;
         if (error) {
           reportSupabaseError("load private borrowing entries", error, { householdId });
           return;

@@ -191,6 +191,17 @@ assert(
   "completion must immediately persist the combined canonical chore and score state",
 );
 assert(
+  context.includes("let networkLoaded = false;") &&
+    context.includes("if (!active || !raw || networkLoaded) return;") &&
+    context.includes("networkLoaded = true;"),
+  "private borrow item cache hydration must not overwrite a fresher network fetch that already resolved",
+);
+assert(
+  context.includes("mergeByUpdatedAt(expensesRef.current, next.expenses)") &&
+    !context.includes("if (Array.isArray(next.expenses)) setExpenses(next.expenses);"),
+  "expense realtime sync must merge by updatedAt instead of blindly replacing the array",
+);
+assert(
   group.includes("key={chore.id}") &&
     group.includes("a.dueDate.localeCompare(b.dueDate) || a.id.localeCompare(b.id)") &&
     group.includes("accessibilityState={{ checked: chore.completed }}") &&
