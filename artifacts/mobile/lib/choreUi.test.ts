@@ -14,6 +14,14 @@ const shopping = readFileSync(resolve(appRoot, "shopping.tsx"), "utf8");
 const context = readFileSync(resolve(process.cwd(), "context/AppContext.tsx"), "utf8");
 const actionMenu = readFileSync(resolve(process.cwd(), "components/ActionMenuModal.tsx"), "utf8");
 const chorePermissionsLib = readFileSync(resolve(process.cwd(), "lib/chorePermissions.ts"), "utf8");
+const planning = readFileSync(resolve(process.cwd(), "app/planning.tsx"), "utf8");
+
+assert(
+  planning.includes("recurring: task.frequency") &&
+    planning.includes("initialIntervalDaysFor(task.frequency)") &&
+    !planning.includes('task.frequency === "daily" || task.frequency === "everyOtherDay" ? "daily"'),
+  "the planner must pass frequency straight through as the chore's recurring value instead of collapsing everyOtherDay into daily and biweekly into weekly",
+);
 
 assert(
     context.includes("setCurrentUserIdState(session?.user.id ?? CURRENT_USER_ID)") &&

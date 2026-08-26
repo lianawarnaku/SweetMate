@@ -50,6 +50,7 @@ import {
 import { reportRuntimeError } from "@/lib/runtimeDiagnostics";
 import { choreLocalDateKey } from "@/lib/choreOccurrences";
 import { activeChores } from "@/lib/choreLifecycle";
+import { CHORE_RECURRENCE_LABELS } from "@/lib/choreSchedule";
 
 function isOverdue(dateStr: string) {
   return new Date(dateStr) < new Date();
@@ -1220,7 +1221,7 @@ export default function GroupChoresScreen() {
                               ]}
                             >
                               {formatDueDate(chore.dueDate)}
-                              {chore.recurring ? ` · ${chore.recurring}` : ""}
+                              {chore.recurring ? ` · ${CHORE_RECURRENCE_LABELS[chore.recurring]}` : ""}
                               {chore.assignmentMode === "round-robin" ? " · Round Robin" : ""}
                             </Text>
                           </View>

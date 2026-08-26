@@ -193,5 +193,27 @@ assert(
     "series",
     "2026-07-30T12:00:00.000Z",
   ).length === 0,
-  "deleting a recurring series must remove every durable occurrence",
+  "deleting a recurring series with no completed history must remove every occurrence",
+);
+
+// Regression: "delete entire series" must keep completed history and only
+// remove what hasn't happened, not erase the whole record of the series.
+const weeklyWithHistory = weeklyCatchUp.map((chore, index) =>
+  index < 2 ? { ...chore, completed: true, completedAt: "2026-07-20T12:00:00.000Z" } : chore
+);
+const seriesDeletedWithHistory = deleteRecurringChore(
+  weeklyWithHistory,
+  weeklyWithHistory[2],
+  "series",
+  "2026-07-30T12:00:00.000Z",
+);
+assert(
+  seriesDeletedWithHistory.length === 2 &&
+    seriesDeletedWithHistory.every((chore) => chore.completed),
+  "deleting a series must preserve completed occurrences and remove only incomplete ones",
+);
+assert(
+  materializeRecurringOccurrences(seriesDeletedWithHistory, new Date(2026, 7, 31))
+    .length === seriesDeletedWithHistory.length,
+  "a deleted series must not regenerate future occurrences on the next materialization pass",
 );

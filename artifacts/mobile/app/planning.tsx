@@ -25,6 +25,7 @@ import type { Difficulty } from "@/lib/itemDifficulty";
 import { generateHouseholdTasks, parseHouseholdAmenities } from "@/lib/taskGenerator";
 import { PreferenceBar } from "@/components/PreferenceBar";
 import { buildBalancedChart } from "@/lib/choreEngine";
+import { initialIntervalDaysFor } from "@/lib/choreSchedule";
 import { reportRuntimeError } from "@/lib/runtimeDiagnostics";
 import {
   ESSENTIAL_CATALOG,
@@ -1179,10 +1180,7 @@ export default function PlanningScreen() {
         const pointByDifficulty = [0, 5, 10, 15, 25, 30] as const;
         const now = Date.now();
         const added = addChores(tasks.map((task) => {
-          const intervalDays =
-            task.frequency === "daily" ? 1 :
-            task.frequency === "everyOtherDay" ? 2 :
-            task.frequency === "weekly" || task.frequency === "biweekly" ? 7 : 30;
+          const intervalDays = initialIntervalDaysFor(task.frequency);
           return {
             title: task.title,
             assignedTo: assigneeByTask.get(task.id) ?? roommates[0].id,
@@ -1193,9 +1191,11 @@ export default function PlanningScreen() {
               task.itemCategory === "bathroom" ? "bathroom" :
               task.itemCategory === "kitchen" ? "kitchen" :
               task.itemCategory === "living" ? "cleaning" : "other",
-            recurring:
-              task.frequency === "daily" || task.frequency === "everyOtherDay" ? "daily" :
-              task.frequency === "monthly" ? "monthly" : "weekly",
+            // task.frequency and Chore's recurring field share the same
+            // daily/everyOtherDay/weekly/biweekly/monthly union — pass it
+            // through directly instead of re-deriving it, which previously
+            // collapsed everyOtherDay into daily and biweekly into weekly.
+            recurring: task.frequency,
             sourceKey: task.id,
           };
         }));

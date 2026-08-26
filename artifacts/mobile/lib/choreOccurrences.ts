@@ -40,9 +40,25 @@ export function deleteRecurringChore(
   const occurrenceIndex = target.occurrenceIndex ?? 0;
   const targetDate = choreScheduledDate(target);
   return chores.flatMap((chore) => {
-    if (chore.id === target.id) return [];
-    if (!seriesId || chore.recurrenceSeriesId !== seriesId) return [chore];
-    if (scope === "series") return [];
+    const isTarget = chore.id === target.id;
+    if (!seriesId || chore.recurrenceSeriesId !== seriesId) {
+      return isTarget ? [] : [chore];
+    }
+    // "Delete entire series" removes the recurrence going forward but must
+    // not erase completed history — only incomplete occurrences (past or
+    // future) are removed. A completed record, including the target itself
+    // if it was already done, is kept, but stamped with the same
+    // recurrenceEndsOn cutoff so the next materialization pass doesn't
+    // silently regenerate occurrences for a series the user just deleted.
+    if (scope === "series") {
+      if (!chore.completed) return [];
+      return [{
+        ...chore,
+        recurrenceEndsOn: targetDate,
+        updatedAt: changedAt,
+      }];
+    }
+    if (isTarget) return [];
     if (scope === "future") {
       if ((chore.occurrenceIndex ?? 0) >= occurrenceIndex) return [];
       return [{

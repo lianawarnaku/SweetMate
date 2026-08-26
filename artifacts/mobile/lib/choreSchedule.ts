@@ -1,5 +1,30 @@
 import type { Chore, ChoreRecurrence } from "../context/AppContext";
 
+export const CHORE_RECURRENCE_LABELS: Record<ChoreRecurrence, string> = {
+  daily: "Daily",
+  everyOtherDay: "Every other day",
+  weekly: "Weekly",
+  biweekly: "Biweekly",
+  monthly: "Monthly",
+};
+
+function stepDaysFor(recurrence: ChoreRecurrence): number {
+  return recurrence === "daily" ? 1
+    : recurrence === "everyOtherDay" ? 2
+    : recurrence === "biweekly" ? 14
+    : 7;
+}
+
+/**
+ * Days until a freshly generated chore's first occurrence is due. Kept as
+ * the single source of truth for this so a generator (e.g. the planner)
+ * cannot independently reinvent the daily/everyOtherDay/weekly/biweekly
+ * mapping and drift from what advanceScheduledDate actually steps by.
+ */
+export function initialIntervalDaysFor(recurrence: ChoreRecurrence): number {
+  return recurrence === "monthly" ? 30 : stepDaysFor(recurrence);
+}
+
 export function advanceChoreDueDate(
   dateValue: string,
   recurrence: ChoreRecurrence,
@@ -17,10 +42,7 @@ export function advanceChoreDueDate(
     ).getDate();
     next.setDate(Math.min(originalDay, finalDay));
   } else {
-    next.setDate(
-      next.getDate() +
-        (recurrence === "daily" ? 1 : recurrence === "biweekly" ? 14 : 7),
-    );
+    next.setDate(next.getDate() + stepDaysFor(recurrence));
   }
   return next.toISOString();
 }
@@ -50,10 +72,7 @@ export function advanceScheduledDate(
       String(targetDay).padStart(2, "0"),
     ].join("-");
   }
-  date.setUTCDate(
-    date.getUTCDate() +
-      (recurrence === "daily" ? 1 : recurrence === "biweekly" ? 14 : 7),
-  );
+  date.setUTCDate(date.getUTCDate() + stepDaysFor(recurrence));
   return [
     date.getUTCFullYear(),
     String(date.getUTCMonth() + 1).padStart(2, "0"),

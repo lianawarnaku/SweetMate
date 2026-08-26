@@ -2,6 +2,8 @@ import type { Chore } from "../context/AppContext";
 import {
   advanceChoreDueDate,
   advanceScheduledDate,
+  CHORE_RECURRENCE_LABELS,
+  initialIntervalDaysFor,
   resolveRoundRobinParticipants,
 } from "./choreSchedule.ts";
 
@@ -36,6 +38,27 @@ assert(
   advanceScheduledDate("2026-07-27", "weekly") === "2026-08-03" &&
     advanceScheduledDate("2026-07-27", "biweekly") === "2026-08-10",
   "weekly and biweekly schedules must preserve their interval across month boundaries",
+);
+assert(
+  advanceScheduledDate("2026-07-27", "everyOtherDay") === "2026-07-29",
+  "everyOtherDay must step by two days, distinct from daily or weekly",
+);
+
+// Regression for the planner's daily/everyOtherDay/weekly/biweekly mismatch:
+// each recurrence must have its own initial due-date offset instead of
+// collapsing everyOtherDay into daily's offset or biweekly into weekly's.
+assert(
+  initialIntervalDaysFor("daily") === 1 &&
+    initialIntervalDaysFor("everyOtherDay") === 2 &&
+    initialIntervalDaysFor("weekly") === 7 &&
+    initialIntervalDaysFor("biweekly") === 14 &&
+    initialIntervalDaysFor("monthly") === 30,
+  "each recurrence must have a distinct, correct initial interval",
+);
+assert(
+  Object.keys(CHORE_RECURRENCE_LABELS).length === 5 &&
+    CHORE_RECURRENCE_LABELS.everyOtherDay === "Every other day",
+  "every recurrence value must have a human-readable display label",
 );
 
 const sunday = new Date(2026, 6, 26, 23, 59).toISOString();

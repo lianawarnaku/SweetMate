@@ -45,6 +45,7 @@ import {
 import { reportRuntimeError } from "@/lib/runtimeDiagnostics";
 import { isActiveSweetMember, resolveChorePermissions } from "@/lib/chorePermissions";
 import { logChorePermissionCheck } from "@/lib/choreDiagnostics";
+import { CHORE_RECURRENCE_LABELS } from "@/lib/choreSchedule";
 import {
   deriveCalendarItems,
   groupCalendarItemsByDate,
@@ -157,7 +158,7 @@ interface ChoreRowProps {
     completed: boolean;
     points: number;
     category: ChoreCategory;
-    recurring?: "daily" | "weekly" | "biweekly" | "monthly";
+    recurring?: "daily" | "everyOtherDay" | "weekly" | "biweekly" | "monthly";
     assignmentMode?: "specific-person" | "round-robin" | "unassigned";
   };
   onSetCompleted: (id: string, completed: boolean) => void;
@@ -258,7 +259,7 @@ function ChoreRow({
         <View style={styles.choreMeta}>
           <Text style={[styles.dueDateText, { color: dueDateColor }]}>
             {formatDueDate(chore.dueDate)}
-            {chore.recurring ? ` · ${chore.recurring}` : ""}
+            {chore.recurring ? ` · ${CHORE_RECURRENCE_LABELS[chore.recurring]}` : ""}
             {chore.assignmentMode === "round-robin" ? " · Round Robin" : ""}
           </Text>
         </View>

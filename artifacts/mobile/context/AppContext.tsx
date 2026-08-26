@@ -100,7 +100,7 @@ export type AssignmentMode =
   | "specific-person"
   | "round-robin"
   | "unassigned";
-export type ChoreRecurrence = "daily" | "weekly" | "biweekly" | "monthly";
+export type ChoreRecurrence = "daily" | "everyOtherDay" | "weekly" | "biweekly" | "monthly";
 export type RecurringChoreDeleteScope = "occurrence" | "future" | "series";
 
 export interface Roommate {
