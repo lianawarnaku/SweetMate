@@ -32,6 +32,7 @@ import { BrandMark } from "./BrandMark";
 import { supabase } from "@/lib/supabase";
 import { reportSupabaseError, reportRuntimeError } from "@/lib/runtimeDiagnostics";
 import { track } from "@/lib/analytics";
+import { authCallbackValue } from "@/lib/oauthCallback";
 
 type Mode = "signin" | "signup";
 type SocialProvider = "google" | "apple";
@@ -39,13 +40,6 @@ const EMAIL_CONFIRMATION_URL = "https://sweetmate.info/auth/confirm";
 const PRIVACY_POLICY_URL = "https://sweetmate.info/privacy";
 
 WebBrowser.maybeCompleteAuthSession();
-
-function authCallbackValue(url: string, key: string): string | null {
-  const parsed = new URL(url);
-  const queryValue = parsed.searchParams.get(key);
-  if (queryValue) return queryValue;
-  return new URLSearchParams(parsed.hash.replace(/^#/, "")).get(key);
-}
 
 function openPrivacyPolicy(onError: () => void) {
   void Linking.openURL(PRIVACY_POLICY_URL).catch(() => {

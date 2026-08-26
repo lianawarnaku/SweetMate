@@ -8,13 +8,17 @@ import {
   googleCalendarRequest,
   GoogleCalendarError,
 } from "../lib/googleCalendar";
+import { userCalendarRequest } from "../lib/googleCalendarUser";
+import { requireUser } from "../middlewares/requireUser";
 
 const router = Router();
 
 // POST /api/calendar/add-chore
 // Body: { title, dueDate, category, points }
-// Creates a Google Calendar event for a chore on its due date
-router.post("/calendar/add-chore", async (req, res) => {
+// Creates an event on the authenticated user's own Google Calendar for a
+// chore on its due date. Requires that user to have connected Google
+// Calendar first (POST /api/calendar/connect).
+router.post("/calendar/add-chore", requireUser, async (req, res) => {
   const input = req.body as Partial<ChoreCalendarInput>;
 
   if (
@@ -33,9 +37,9 @@ router.post("/calendar/add-chore", async (req, res) => {
 
   try {
     const event = buildChoreCalendarEvent(input as ChoreCalendarInput);
-    const calendarId = encodeURIComponent(configuredCalendarId());
-    const response = await googleCalendarRequest(
-      `/calendars/${calendarId}/events`,
+    const response = await userCalendarRequest(
+      req.userId!,
+      `/calendars/primary/events`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },

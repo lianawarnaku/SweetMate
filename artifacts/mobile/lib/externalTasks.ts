@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Calendar from "expo-calendar";
 import { Platform } from "react-native";
+import { supabase } from "./supabase";
 
 const REMINDER_LIST_TITLE = "SweetMate";
 const MAPPING_KEY_PREFIX = "@sweetmate/external-task/v1";
@@ -442,7 +443,7 @@ export async function exportChoresToExternalTasks(
   return result;
 }
 
-function apiBaseUrl() {
+export function apiBaseUrl() {
   const value =
     process.env.EXPO_PUBLIC_API_URL ??
     (process.env.EXPO_PUBLIC_DOMAIN
@@ -465,11 +466,21 @@ export async function addChoreToGoogleCalendar(chore: ExternalTaskChore) {
       "This build has no API server URL. Set EXPO_PUBLIC_API_URL and restart Expo.",
     );
   }
+  const accessToken = (await supabase.auth.getSession()).data.session?.access_token;
+  if (!accessToken) {
+    throw new ExternalTaskError(
+      "EXPORT_FAILED",
+      "Sign in again before adding chores to Google Calendar.",
+    );
+  }
   let response: Response;
   try {
     response = await fetch(`${baseUrl}/api/calendar/add-chore`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
       body: JSON.stringify({
         choreId: chore.id,
         title: chore.title,
