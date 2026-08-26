@@ -10,6 +10,7 @@ import {
   startOfLocalWeek,
 } from "./choreLifecycle.ts";
 import { isChoreActiveOnDay } from "./choreOccurrences.ts";
+import { choreCompletionTransition } from "./choreCompletion.ts";
 
 function assert(condition: boolean, message: string) {
   if (!condition) throw new Error(message);
@@ -67,6 +68,15 @@ assert(
 assert(
   isChoreActiveOnDay(oldIncomplete, boundary),
   "archiving from the active lists must not affect the separate calendar day view",
+);
+const archivedCompletion = choreCompletionTransition(
+  oldIncomplete.completed,
+  true,
+  oldIncomplete.points,
+);
+assert(
+  archivedCompletion.changed && archivedCompletion.pointsDelta === oldIncomplete.points,
+  "completing an archived chore must award its normal points",
 );
 
 const legacyDone = { ...base, id: "legacy", completed: true, completedAt: undefined };

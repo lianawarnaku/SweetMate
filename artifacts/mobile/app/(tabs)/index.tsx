@@ -59,6 +59,7 @@ import {
 } from "@/lib/choreOccurrences";
 import {
   activeChores,
+  isArchivedIncomplete,
   isChoreInCurrentWeek,
   isRecentlyCompleted,
 } from "@/lib/choreLifecycle";
@@ -72,7 +73,7 @@ const CATEGORIES: { key: ChoreCategory; label: string; icon: keyof typeof Feathe
   { key: "other", label: "Other", icon: "package" },
 ];
 
-type Filter = "week" | "today" | "done" | "day";
+type Filter = "week" | "today" | "done" | "archived" | "day";
 type HomeSectionId = "my-chores" | "shopping";
 
 function CollapsibleSectionHeader({
@@ -490,12 +491,16 @@ export default function MyChoresScreen() {
     },
     [chores, currentUserId, householdId],
   );
-  const activePersonalChoreCount = useMemo(
-    () => myChores.reduce((count, chore) => count + (chore.completed ? 0 : 1), 0),
-    [myChores],
-  );
   const activePersonalChores = useMemo(
     () => activeChores(myChores, lifecycleNow),
+    [lifecycleNow, myChores],
+  );
+  const activePersonalChoreCount = useMemo(
+    () => activePersonalChores.reduce((count, chore) => count + (chore.completed ? 0 : 1), 0),
+    [activePersonalChores],
+  );
+  const archivedPersonalChoreCount = useMemo(
+    () => myChores.filter((chore) => isArchivedIncomplete(chore, lifecycleNow)).length,
     [lifecycleNow, myChores],
   );
   const displayedPersonalChoreCount =
@@ -665,8 +670,10 @@ export default function MyChoresScreen() {
   const filtered = useMemo(
     () => {
       const now = lifecycleNow;
-      return activePersonalChores
+      const candidates = filter === "archived" ? myChores : activePersonalChores;
+      return candidates
         .filter((chore) => {
+          if (filter === "archived") return isArchivedIncomplete(chore, now);
           if (filter === "today") return isChoreActiveOnDay(chore, now);
           if (filter === "done") return isRecentlyCompleted(chore, now);
           if (filter === "week") return isChoreInCurrentWeek(chore, now);
@@ -676,7 +683,7 @@ export default function MyChoresScreen() {
         // Completed chores auto-move to the bottom of the visible list.
         .sort((a, b) => (a.completed === b.completed ? 0 : a.completed ? 1 : -1));
     },
-    [activePersonalChores, filter, lifecycleNow, selectedDate],
+    [activePersonalChores, filter, lifecycleNow, myChores, selectedDate],
   );
 
   const completedCount = useMemo(
@@ -998,7 +1005,7 @@ export default function MyChoresScreen() {
             />
 
             {expandedHomeSections["my-chores"] && <View style={styles.filterRow}>
-              {(["today", "done", "week"] as Filter[]).map((f) => (
+              {(["today", "done", "week", "archived"] as Filter[]).map((f) => (
                 <TouchableOpacity
                   key={f}
                   style={[
@@ -1014,12 +1021,14 @@ export default function MyChoresScreen() {
                       ? "Show today's chores"
                       : f === "done"
                         ? "Show chores completed in the last 7 days"
-                        : "Show this week's chores"
+                        : f === "archived"
+                          ? `Show ${archivedPersonalChoreCount} archived chores`
+                          : "Show this week's chores"
                   }
                 >
-                  {f === "week" ? (
+                  {f === "week" || f === "archived" ? (
                     <Feather
-                      name="calendar"
+                      name={f === "archived" ? "archive" : "calendar"}
                       size={13}
                       color={filter === f ? "#fff" : colors.mutedForeground}
                     />
@@ -1032,7 +1041,13 @@ export default function MyChoresScreen() {
                       },
                     ]}
                   >
-                    {f === "today" ? "Today" : f === "done" ? "Done" : "Week"}
+                    {f === "today"
+                      ? "Today"
+                      : f === "done"
+                        ? "Done"
+                        : f === "archived"
+                          ? `Archived ${archivedPersonalChoreCount}`
+                          : "Week"}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -1047,11 +1062,19 @@ export default function MyChoresScreen() {
         ListEmptyComponent={expandedHomeSections["my-chores"] ? (
           <EmptyState
             icon="check-circle"
-            title={filter === "done" ? "No completed chores yet" : "No chores here"}
+            title={
+              filter === "done"
+                ? "No completed chores yet"
+                : filter === "archived"
+                  ? "No archived chores"
+                  : "No chores here"
+            }
             subtitle={
               filter === "done"
                 ? "Complete some chores to see them here"
-                : "Tap + to add your first chore"
+                : filter === "archived"
+                  ? "Older incomplete chores will appear here"
+                  : "Tap + to add your first chore"
             }
           />
         ) : null}

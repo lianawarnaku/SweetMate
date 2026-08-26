@@ -49,7 +49,7 @@ import {
 } from "@/lib/externalTasks";
 import { reportRuntimeError } from "@/lib/runtimeDiagnostics";
 import { choreLocalDateKey } from "@/lib/choreOccurrences";
-import { activeChores } from "@/lib/choreLifecycle";
+import { activeChores, isArchivedIncomplete } from "@/lib/choreLifecycle";
 import { CHORE_RECURRENCE_LABELS } from "@/lib/choreSchedule";
 
 function isOverdue(dateStr: string) {
@@ -196,6 +196,7 @@ export default function GroupChoresScreen() {
   const [viewMode] = useState<"activity" | "calendar">("activity");
   const [monthOffset, setMonthOffset] = useState(0);
   const [roommatesExpanded, setRoommatesExpanded] = useState(true);
+  const [choreView, setChoreView] = useState<"active" | "archived">("active");
   const [visibleChoreLimits, setVisibleChoreLimits] = useState<Record<string, number>>({});
   const previousScrollOffsetRef = useRef(0);
   const taskListTopRef = useRef(0);
@@ -550,6 +551,12 @@ export default function GroupChoresScreen() {
     () => activeChores(chores, lifecycleNow),
     [chores, lifecycleNow],
   );
+  const archivedHouseholdChores = useMemo(
+    () => chores.filter((chore) => isArchivedIncomplete(chore, lifecycleNow)),
+    [chores, lifecycleNow],
+  );
+  const displayedHouseholdChores =
+    choreView === "archived" ? archivedHouseholdChores : activeHouseholdChores;
   const totalChores = activeHouseholdChores.length;
   const completedChores = useMemo(
     () => activeHouseholdChores.filter((chore) => chore.completed).length,
@@ -582,13 +589,13 @@ export default function GroupChoresScreen() {
   const msg = HEALTH_MESSAGES[stage];
 
   const roommatesWithChores = useMemo(() => {
-    const choresByRoommate = new Map<string, typeof activeHouseholdChores>();
-    activeHouseholdChores.forEach((chore) => {
+    const choresByRoommate = new Map<string, typeof displayedHouseholdChores>();
+    displayedHouseholdChores.forEach((chore) => {
       const current = choresByRoommate.get(chore.assignedTo);
       if (current) current.push(chore);
       else choresByRoommate.set(chore.assignedTo, [chore]);
     });
-    return roommates.map((roommate) => ({
+    const sections = roommates.map((roommate) => ({
       roommate,
       // Keep occurrence identity and position stable when completion changes;
       // the selected row can then visibly transition to its completed style.
@@ -596,7 +603,10 @@ export default function GroupChoresScreen() {
         a.dueDate.localeCompare(b.dueDate) || a.id.localeCompare(b.id),
       ),
     }));
-  }, [activeHouseholdChores, roommates]);
+    return choreView === "archived"
+      ? sections.filter((section) => section.chores.length > 0)
+      : sections;
+  }, [choreView, displayedHouseholdChores, roommates]);
 
   const handleNudge = (
     roommateId: string,
@@ -987,6 +997,45 @@ export default function GroupChoresScreen() {
           </View>}
         </View> : null}
 
+        <View style={styles.choreFilterRow}>
+          {(["active", "archived"] as const).map((option) => (
+            <TouchableOpacity
+              key={option}
+              accessibilityLabel={
+                option === "active"
+                  ? "Show active group chores"
+                  : `Show ${archivedHouseholdChores.length} archived group chores`
+              }
+              onPress={() => setChoreView(option)}
+              style={[
+                styles.choreFilterButton,
+                {
+                  backgroundColor:
+                    choreView === option ? colors.primary : colors.secondary,
+                },
+              ]}
+            >
+              {option === "archived" ? (
+                <Feather
+                  name="archive"
+                  size={13}
+                  color={choreView === option ? "#fff" : colors.mutedForeground}
+                />
+              ) : null}
+              <Text
+                style={[
+                  styles.choreFilterText,
+                  { color: choreView === option ? "#fff" : colors.mutedForeground },
+                ]}
+              >
+                {option === "active"
+                  ? "Active"
+                  : `Archived ${archivedHouseholdChores.length}`}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
         {/* ── Roommate chore sections ───────────────────── */}
         <View
           style={styles.listPad}
@@ -1001,9 +1050,13 @@ export default function GroupChoresScreen() {
         >
           {roommatesWithChores.length === 0 ? (
             <EmptyState
-              icon="users"
-              title="No roommates yet"
-              subtitle="Add roommates to see group chores"
+              icon={choreView === "archived" ? "archive" : "users"}
+              title={choreView === "archived" ? "No archived chores" : "No roommates yet"}
+              subtitle={
+                choreView === "archived"
+                  ? "Older incomplete household chores will appear here"
+                  : "Add roommates to see group chores"
+              }
             />
           ) : (
             roommatesWithChores.map(({ roommate, chores: rc }) => {
@@ -1461,6 +1514,21 @@ const styles = StyleSheet.create({
 
   // Roommate list
   listPad: { paddingHorizontal: 16, gap: 12 },
+  choreFilterRow: {
+    flexDirection: "row",
+    paddingHorizontal: 16,
+    gap: 8,
+    marginBottom: 12,
+  },
+  choreFilterButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    borderRadius: 20,
+  },
+  choreFilterText: { fontFamily: "Inter_600SemiBold", fontSize: 13 },
   section: {
     borderRadius: 22,
     borderWidth: 1,
