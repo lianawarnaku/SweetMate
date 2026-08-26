@@ -8,6 +8,8 @@ import {
   isChoreCarryoverOnDay,
   MAX_RECURRING_OCCURRENCES_PER_PASS,
   materializeRecurringOccurrences,
+  recurringOccurrenceId,
+  recurringMaterializationFloor,
 } from "./choreOccurrences.ts";
 
 function assert(condition: boolean, message: string) {
@@ -152,16 +154,47 @@ const longCatchUpFirstPass = materializeRecurringOccurrences(
   new Date(2027, 7, 31),
 );
 assert(
-  longCatchUpFirstPass.length === MAX_RECURRING_OCCURRENCES_PER_PASS + 1,
-  "one catch-up pass must be bounded without dropping the existing anchor",
+  longCatchUpFirstPass.length === 16,
+  "a long-dormant daily series must preserve its anchor and create only the rolling 14-day window",
+);
+assert(
+  longCatchUpFirstPass[0].materializationStartsOn === "2027-08-17" &&
+    recurringMaterializationFloor(new Date(2027, 7, 31)) === "2027-08-17",
+  "fast-forwarding must persist one deterministic series cutoff",
+);
+assert(
+  !longCatchUpFirstPass.some((chore) => choreScheduledDate(chore) === "2027-03-03"),
+  "never-materialized dates older than the archive window must not be manufactured",
 );
 const longCatchUpSecondPass = materializeRecurringOccurrences(
   longCatchUpFirstPass,
   new Date(2027, 7, 31),
 );
 assert(
-  longCatchUpSecondPass.length > longCatchUpFirstPass.length,
-  "a later lifecycle pass must resume a bounded catch-up",
+  longCatchUpSecondPass === longCatchUpFirstPass,
+  "a later lifecycle pass must not resume intentionally skipped history",
+);
+
+const preservedOldCompletion: Chore = {
+  ...recurring,
+  id: recurringOccurrenceId("home-a", "daily-root", "2027-03-03"),
+  scheduledDate: "2027-03-03",
+  dueDate: new Date(2027, 2, 3, 23, 59).toISOString(),
+  occurrenceIndex: 219,
+  completed: true,
+  completedAt: "2027-03-03T23:59:00.000Z",
+};
+const catchUpWithHistory = materializeRecurringOccurrences(
+  [recurring, preservedOldCompletion],
+  new Date(2027, 7, 31),
+);
+assert(
+  catchUpWithHistory.some((chore) => chore.id === preservedOldCompletion.id && chore.completed),
+  "fast-forwarding must preserve old history that already exists",
+);
+assert(
+  catchUpWithHistory.length < MAX_RECURRING_OCCURRENCES_PER_PASS,
+  "fast-forwarding must remain below the former per-pass backlog cap",
 );
 
 const deletedOccurrence = deleteRecurringChore(

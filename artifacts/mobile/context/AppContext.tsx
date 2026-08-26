@@ -148,6 +148,8 @@ export interface Chore {
   initialScheduledDate?: string;
   monthlyAnchorDay?: number;
   excludedOccurrenceDates?: string[];
+  /** Earliest date for which an unmaterialized recurrence may still be generated. */
+  materializationStartsOn?: string;
   recurrenceEndsOn?: string;
   completed: boolean;
   completedAt?: string;

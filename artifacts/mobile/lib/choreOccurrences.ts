@@ -1,5 +1,6 @@
 import type { Chore } from "../context/AppContext";
 import type { RecurringChoreDeleteScope } from "../context/AppContext";
+import { ARCHIVE_INCOMPLETE_AFTER_DAYS } from "./choreArchivePolicy.ts";
 import { advanceScheduledDate } from "./choreSchedule.ts";
 
 export const MAX_RECURRING_OCCURRENCES_PER_PASS = 366;
@@ -20,6 +21,12 @@ export function choreLocalDateKey(value: string | Date): string {
 
 export function choreScheduledDate(chore: Chore): string {
   return chore.scheduledDate ?? choreLocalDateKey(chore.dueDate);
+}
+
+export function recurringMaterializationFloor(throughDay: Date): string {
+  const floor = new Date(throughDay);
+  floor.setDate(floor.getDate() - ARCHIVE_INCOMPLETE_AFTER_DAYS);
+  return choreLocalDateKey(floor);
 }
 
 export function recurringOccurrenceId(
@@ -125,6 +132,7 @@ export function materializeRecurringOccurrences(
 ): Chore[] {
   const throughKey = choreLocalDateKey(throughDay);
   if (!throughKey) return chores;
+  const archiveFloor = recurringMaterializationFloor(throughDay);
   const seriesIds = seriesIdsFor(chores);
   let changed = false;
   const normalized = chores.map((chore) => {
@@ -183,6 +191,9 @@ export function materializeRecurringOccurrences(
     groups.set(groupKey, [...(groups.get(groupKey) ?? []), chore]);
   });
   const additions: Chore[] = [];
+  const deduplicatedIndexById = new Map(
+    deduplicated.map((chore, index) => [chore.id, index]),
+  );
   groups.forEach((series) => {
     const ordered = [...series].sort(
       (left, right) => choreScheduledDate(left).localeCompare(choreScheduledDate(right)),
@@ -204,9 +215,54 @@ export function materializeRecurringOccurrences(
       .flatMap((chore) => chore.recurrenceEndsOn ? [chore.recurrenceEndsOn] : [])
       .sort()
       .at(0);
+    const storedMaterializationFloor = ordered
+      .flatMap((chore) => chore.materializationStartsOn ? [chore.materializationStartsOn] : [])
+      .sort()
+      .at(-1);
+    const effectiveMaterializationFloor =
+      storedMaterializationFloor && storedMaterializationFloor > archiveFloor
+        ? storedMaterializationFloor
+        : archiveFloor;
     let occurrenceIndex = 0;
     let prior = anchor;
     let additionsForSeries = 0;
+    let skippedUnmaterializedHistory = false;
+    for (
+      let guard = 0;
+      scheduledDate &&
+      scheduledDate < effectiveMaterializationFloor &&
+      guard < MAX_RECURRENCE_STEPS_PER_PASS;
+      guard += 1
+    ) {
+      const existing = existingByDate.get(scheduledDate);
+      if (existing) prior = existing;
+      else if (
+        !excludedDates.has(scheduledDate) &&
+        (!storedMaterializationFloor || scheduledDate >= storedMaterializationFloor)
+      ) skippedUnmaterializedHistory = true;
+      scheduledDate = advanceScheduledDate(
+        scheduledDate,
+        anchor.recurring!,
+        anchorDay,
+      );
+      occurrenceIndex += 1;
+    }
+    if (skippedUnmaterializedHistory) {
+      series.forEach((chore) => {
+        const index = deduplicatedIndexById.get(chore.id);
+        if (index === undefined) return;
+        deduplicated[index] = {
+          ...deduplicated[index],
+          materializationStartsOn: effectiveMaterializationFloor,
+          updatedAt: createdAt,
+        };
+      });
+      prior = {
+        ...prior,
+        materializationStartsOn: effectiveMaterializationFloor,
+      };
+      changed = true;
+    }
     for (let guard = 0; guard < MAX_RECURRENCE_STEPS_PER_PASS; guard += 1) {
       if (
         !scheduledDate ||

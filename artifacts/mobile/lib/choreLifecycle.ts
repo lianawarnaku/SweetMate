@@ -1,8 +1,9 @@
 import type { Chore } from "../context/AppContext";
+import { ARCHIVE_INCOMPLETE_AFTER_DAYS } from "./choreArchivePolicy.ts";
 import { choreLocalDateKey } from "./choreOccurrences.ts";
 
 export const COMPLETED_CHORE_RETENTION_DAYS = 7;
-export const ARCHIVE_INCOMPLETE_AFTER_DAYS = 14;
+export { ARCHIVE_INCOMPLETE_AFTER_DAYS } from "./choreArchivePolicy.ts";
 
 function validDate(value: string | undefined): Date | null {
   if (!value) return null;

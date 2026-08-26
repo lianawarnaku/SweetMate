@@ -26,6 +26,7 @@ export type ChoreRow = {
   initial_scheduled_date: string | null;
   monthly_anchor_day: number | null;
   excluded_occurrence_dates: string[];
+  materialization_starts_on: string | null;
   recurrence_ends_on: string | null;
   completed: boolean;
   completed_at: string | null;
@@ -65,6 +66,7 @@ export function choreToRow(chore: Chore): ChoreRow | null {
     initial_scheduled_date: chore.initialScheduledDate ?? null,
     monthly_anchor_day: chore.monthlyAnchorDay ?? null,
     excluded_occurrence_dates: chore.excludedOccurrenceDates ?? [],
+    materialization_starts_on: chore.materializationStartsOn ?? null,
     recurrence_ends_on: chore.recurrenceEndsOn ?? null,
     completed: chore.completed,
     completed_at: chore.completedAt ?? null,
@@ -108,6 +110,7 @@ export function rowToChore(row: ChoreRow): Chore {
     excludedOccurrenceDates: row.excluded_occurrence_dates.length
       ? row.excluded_occurrence_dates
       : undefined,
+    materializationStartsOn: row.materialization_starts_on ?? undefined,
     recurrenceEndsOn: row.recurrence_ends_on ?? undefined,
     completed: row.completed,
     completedAt: row.completed_at ?? undefined,

@@ -24,6 +24,7 @@ const chore: Chore = {
   initialScheduledDate: "2026-08-03",
   monthlyAnchorDay: 3,
   excludedOccurrenceDates: ["2026-08-05"],
+  materializationStartsOn: "2026-08-01",
   recurrenceEndsOn: "2026-12-31",
   completed: false,
   completedAt: undefined,

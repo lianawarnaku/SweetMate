@@ -364,6 +364,16 @@ override.
 9. Centralize date labels and week-start rules.
 10. Add a React Native component harness and local Supabase CI before changing recurrence behavior.
 
+## 2026-08-26 dormant recurrence fast-forward decision
+
+The account owner approved omitting individual occurrences that were never
+materialized and are already older than the 14-day incomplete-chore archive
+window. Existing records are never removed, so completed history and any old
+incomplete occurrence already stored remain available. A dormant series stores
+one `materializationStartsOn` cutoff and creates only occurrences in the rolling
+archive window. This intentionally trades per-date history for never-created,
+already-archived dates in exchange for bounded storage and hydration work.
+
 ## 2026-08-02 non-host chore control re-audit
 
 Follow-up to the August 2, 2026 identity fix (commit `d4ac2a1`). That commit
