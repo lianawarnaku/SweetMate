@@ -42,10 +42,12 @@ const ITEM_SECTIONS = [
 
 export function HouseholdSetupScreen({
   onComplete,
+  onCancel,
   initialMode = "create",
   additionalHousehold = false,
 }: {
   onComplete?: (destination?: "essentials") => void;
+  onCancel?: () => void;
   initialMode?: "create" | "join";
   additionalHousehold?: boolean;
 } = {}) {
@@ -60,6 +62,7 @@ export function HouseholdSetupScreen({
     householdSetupStep,
     setHouseholdSetupStep,
     completeHouseholdSetup,
+    switchSweet,
   } = useAppContext();
   const { session } = useSupabaseSession();
   const setupDraftKey = session?.user.id
@@ -101,6 +104,8 @@ export function HouseholdSetupScreen({
   const hydratedDraftRef = useRef(false);
   const [draftHydrated, setDraftHydrated] = useState(false);
   const navigationPendingRef = useRef(false);
+  const originalHouseholdIdRef = useRef(additionalHousehold ? householdId : null);
+  const [createdAdditionalHouseholdId, setCreatedAdditionalHouseholdId] = useState<string | null>(null);
 
   const generatedPlan = useMemo(
     () =>
@@ -223,6 +228,15 @@ export function HouseholdSetupScreen({
     }
   };
 
+  const cancelAdditionalSetup = () => {
+    if (loading || navigationPendingRef.current) return;
+    const originalHouseholdId = originalHouseholdIdRef.current;
+    if (originalHouseholdId && householdId !== originalHouseholdId) {
+      switchSweet(originalHouseholdId);
+    }
+    onCancel?.();
+  };
+
   const next = async () => {
     setError(null);
     if (step === 1 && !displayName.trim()) return setError("Enter the name your roommates will see.");
@@ -233,14 +247,15 @@ export function HouseholdSetupScreen({
       setLoading(true);
       try {
         if (!additionalHousehold) await setHouseholdSetupStep("home");
-        if (!householdId || additionalHousehold) {
-          await createHousehold(
+        if (!householdId || (additionalHousehold && !createdAdditionalHouseholdId)) {
+          const createdHouseholdId = await createHousehold(
             householdName,
             displayName,
             color,
             createInviteCode,
             { deferOnboarding: true },
           );
+          if (additionalHousehold) setCreatedAdditionalHouseholdId(createdHouseholdId);
         }
         setStep(2);
       } catch (createError) {
@@ -346,6 +361,21 @@ export function HouseholdSetupScreen({
   return (
     <KeyboardAvoidingView style={[styles.root, { backgroundColor: colors.background }]} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <ScrollView contentContainerStyle={[styles.scroll, { paddingTop: insets.top + 18, paddingBottom: insets.bottom + 28 }]} keyboardShouldPersistTaps="handled">
+        {additionalHousehold ? (
+          <View style={styles.setupTopRow}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Cancel household setup"
+              disabled={loading}
+              hitSlop={10}
+              onPress={cancelAdditionalSetup}
+              style={[styles.cancelSetupButton, { backgroundColor: colors.muted, opacity: loading ? 0.6 : 1 }]}
+            >
+              <Feather name="x" size={20} color={colors.foreground} />
+            </Pressable>
+            <Text style={[styles.cancelSetupText, { color: colors.mutedForeground }]}>Cancel setup</Text>
+          </View>
+        ) : null}
         {mode === "create" && <Progress step={step} colors={colors} />}
         <View style={styles.brand}><BrandMark size={58} color={colors.primary} /></View>
         <Text style={[styles.eyebrow, { color: colors.primary }]}>{mode === "create" ? `CREATE YOUR SWEET · STEP ${step} OF 5` : "JOIN YOUR SWEET"}</Text>
@@ -377,8 +407,8 @@ export function HouseholdSetupScreen({
             </>
           ) : step === 1 ? (
             <>
-              <Field label="YOUR DISPLAY NAME" icon="user" value={displayName} onChangeText={setDisplayName} editable={!householdId} placeholder="e.g. Liana" colors={colors} />
-              <Field label="HOUSEHOLD NAME" icon="home" value={householdName} onChangeText={setHouseholdName} editable={!householdId} placeholder="e.g. The Maple House" colors={colors} />
+              <Field label="YOUR DISPLAY NAME" icon="user" value={displayName} onChangeText={setDisplayName} editable={!householdId || (additionalHousehold && !createdAdditionalHouseholdId)} placeholder="e.g. Liana" colors={colors} />
+              <Field label="HOUSEHOLD NAME" icon="home" value={householdName} onChangeText={setHouseholdName} editable={!householdId || (additionalHousehold && !createdAdditionalHouseholdId)} placeholder="e.g. The Maple House" colors={colors} />
               <Text style={[styles.label, { color: colors.mutedForeground }]}>PROFILE COLOR</Text>
               <ColorPicker value={color} onChange={setColor} colors={colors} />
             </>
@@ -587,6 +617,9 @@ function Chip({ label, selected, onPress, colors }: any) { return <Pressable onP
 
 const styles = StyleSheet.create({
   root: { flex: 1 }, scroll: { paddingHorizontal: 22 }, brand: { alignItems: "center", marginBottom: 12 }, eyebrow: { fontFamily: "Inter_700Bold", fontSize: 12, letterSpacing: 1.5, textAlign: "center" }, title: { fontFamily: "Inter_700Bold", fontSize: 32, lineHeight: 36, textAlign: "center", marginTop: 5 }, subtitle: { fontFamily: "Inter_400Regular", fontSize: 16, lineHeight: 21, textAlign: "center", marginTop: 8, marginBottom: 20 },
+  setupTopRow: { minHeight: 44, flexDirection: "row", alignItems: "center", gap: 9, marginBottom: 8 },
+  cancelSetupButton: { width: 40, height: 40, borderRadius: 13, alignItems: "center", justifyContent: "center" },
+  cancelSetupText: { fontFamily: "Inter_600SemiBold", fontSize: 14 },
   progressWrap: { marginBottom: 16 }, progressLabels: { flexDirection: "row", justifyContent: "space-between", marginBottom: 8 }, progressText: { fontFamily: "Inter_700Bold", fontSize: 14 }, progressCount: { fontFamily: "Inter_600SemiBold", fontSize: 13 }, progressTrack: { height: 7, borderRadius: 4, overflow: "hidden" }, progressFill: { height: "100%", borderRadius: 4 }, progressDots: { flexDirection: "row", justifyContent: "space-between", marginTop: 6 }, progressDotLabel: { width: "20%", textAlign: "center", fontFamily: "Inter_600SemiBold", fontSize: 10 },
   segment: { borderRadius: 16, padding: 4, flexDirection: "row", marginBottom: 14 }, segmentButton: { flex: 1, height: 48, borderRadius: 13, borderWidth: 1, borderColor: "transparent", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }, segmentText: { fontFamily: "Inter_600SemiBold", fontSize: 15 },
   card: { borderWidth: 1, borderRadius: 22, padding: 18, gap: 16 }, label: { fontFamily: "Inter_700Bold", fontSize: 12, letterSpacing: 1, marginBottom: 7 }, inputWrap: { height: 52, borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, flexDirection: "row", alignItems: "center", gap: 10 }, input: { flex: 1, fontFamily: "Inter_500Medium", fontSize: 16 },

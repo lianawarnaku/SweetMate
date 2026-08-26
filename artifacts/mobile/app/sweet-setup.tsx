@@ -9,6 +9,7 @@ export default function SweetSetupRoute() {
     <HouseholdSetupScreen
       additionalHousehold={additionalHousehold}
       initialMode={initialMode}
+      onCancel={() => router.replace("/settings" as never)}
       onComplete={(destination) => {
         if (destination === "essentials") {
           router.replace("/planning?type=home-checklist" as never);
