@@ -3947,8 +3947,7 @@ export function AppProvider({
   ) => {
     const userId = session?.user.id;
     if (!userId || !householdId) return false;
-    const isActiveMember = roommates.some((member) => member.id === userId);
-    if (!isActiveMember) return false;
+    if (!isActiveSweetMember(activeSweet, householdId, userId)) return false;
     setEssentialsAssignees((current) =>
       setSelfAssignment(current, sectionKey, itemId, userId, assigned),
     );
@@ -3982,7 +3981,7 @@ export function AppProvider({
       return false;
     }
     return true;
-  }, [householdId, roommates, session?.user.id]);
+  }, [activeSweet, householdId, session?.user.id]);
 
   const setEssentialOwned = useCallback((sectionKey: string, itemId: string, owned: boolean) => {
     setEssentialOwnedState((current) => ({

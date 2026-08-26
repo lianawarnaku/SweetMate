@@ -51,6 +51,11 @@ assert(
 );
 
 assert(
+  context.includes("if (!isActiveSweetMember(activeSweet, householdId, userId)) return false;") &&
+    !context.includes("const isActiveMember = roommates.some((member) => member.id === userId);"),
+  "essential self-assignment must resolve active membership through the shared isActiveSweetMember helper, not its own inline roommates scan",
+);
+assert(
   chorePermissionsLib.includes("export function isActiveSweetMember") &&
     home.includes("isActiveSweetMember(activeSweet, householdId, currentUserId)") &&
     group.includes("isActiveSweetMember(activeSweet, householdId, currentUserId)") &&
