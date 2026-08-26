@@ -3029,7 +3029,17 @@ export function AppProvider({
       updatedAt: new Date().toISOString(),
     };
     if (updates.dueDate && updates.dueDate !== current.dueDate) {
+      const previousScheduledDate = choreScheduledDate(current);
       candidate.scheduledDate = choreLocalDateKey(updates.dueDate);
+      // Moving a recurring occurrence to a different calendar date orphans
+      // it from the series' regular walk: the next materialization pass
+      // would otherwise see the original slot as still empty and generate
+      // a phantom duplicate there. Excluding the vacated date prevents that.
+      if (candidate.recurring && candidate.scheduledDate !== previousScheduledDate) {
+        candidate.excludedOccurrenceDates = [
+          ...new Set([...(candidate.excludedOccurrenceDates ?? []), previousScheduledDate]),
+        ];
+      }
     }
     const activeMemberIds = new Set(roommates.map((roommate) => roommate.id));
     if (

@@ -217,3 +217,33 @@ assert(
     .length === seriesDeletedWithHistory.length,
   "a deleted series must not regenerate future occurrences on the next materialization pass",
 );
+
+// Regression: editing a recurring occurrence's due date to a different
+// calendar date used to leave its original slot looking "empty" to the
+// materializer, which would regenerate a phantom duplicate there on the
+// next pass. Moving the occurrence and excluding its vacated date (what
+// AppContext.updateChore now does) must prevent that duplicate.
+const editedOccurrence = weeklyCatchUp[1];
+const vacatedDate = choreScheduledDate(editedOccurrence);
+const movedDate = "2026-07-23";
+const editedSeries = weeklyCatchUp.map((chore) =>
+  chore.id === editedOccurrence.id
+    ? {
+        ...chore,
+        dueDate: new Date(2026, 6, 23, 23, 59).toISOString(),
+        scheduledDate: movedDate,
+        excludedOccurrenceDates: [
+          ...new Set([...(chore.excludedOccurrenceDates ?? []), vacatedDate]),
+        ],
+        updatedAt: "2026-07-30T12:00:00.000Z",
+      }
+    : chore
+);
+const afterEditRematerialize = materializeRecurringOccurrences(
+  editedSeries,
+  new Date(2026, 6, 27),
+);
+assert(
+  afterEditRematerialize.length === editedSeries.length,
+  "moving a recurring occurrence's date must not spawn a phantom duplicate at the vacated slot",
+);
