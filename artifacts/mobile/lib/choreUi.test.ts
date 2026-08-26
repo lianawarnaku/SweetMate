@@ -15,6 +15,13 @@ const context = readFileSync(resolve(process.cwd(), "context/AppContext.tsx"), "
 const actionMenu = readFileSync(resolve(process.cwd(), "components/ActionMenuModal.tsx"), "utf8");
 const chorePermissionsLib = readFileSync(resolve(process.cwd(), "lib/chorePermissions.ts"), "utf8");
 const planning = readFileSync(resolve(process.cwd(), "app/planning.tsx"), "utf8");
+
+assert(
+  context.includes('.from("chores")') &&
+    context.includes('.upsert(rows, { onConflict: "id" })') &&
+    context.includes("choreToRow(chore)"),
+  "chores must be shadow-written to the normalized chores table alongside the household_states blob",
+);
 const externalTasks = readFileSync(resolve(process.cwd(), "lib/externalTasks.ts"), "utf8");
 
 assert(

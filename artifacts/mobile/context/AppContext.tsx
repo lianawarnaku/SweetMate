@@ -46,6 +46,7 @@ import { choreCompletionTransition } from "@/lib/choreCompletion";
 import { isActiveSweetMember, resolveChorePermissions } from "@/lib/chorePermissions";
 import { logChorePermissionCheck } from "@/lib/choreDiagnostics";
 import { mergeByUpdatedAt } from "@/lib/expenseMerge";
+import { choreToRow, type ChoreRow } from "@/lib/choreRow";
 import { carryMappedReminderToNextOccurrence } from "@/lib/externalTasks";
 import { choreNow } from "@/lib/choreClock";
 import { recurringChoreClaims } from "@/lib/recurringChoreClaims";
@@ -2710,6 +2711,36 @@ export function AppProvider({
       interaction?.cancel();
     };
   }, [cloudReady, householdId, loaded, session?.user.id, sharedState]);
+
+  // Phase 1 of moving chores off the household_states JSON blob (see
+  // docs/chore-system-audit.md): shadow-write every local chore into the
+  // normalized `chores` table alongside the existing blob write above. The
+  // app still reads chores from the blob — this only populates the new
+  // table so its schema and data can be verified before any read path
+  // switches over. Deletions are not yet mirrored here; a chore removed
+  // locally leaves its shadow row behind until the later cutover pass.
+  useEffect(() => {
+    const userId = session?.user.id;
+    if (!loaded || !cloudReady || !userId || !householdId) return;
+    const rows = chores
+      .map((chore) => choreToRow(chore))
+      .filter((row): row is ChoreRow => row !== null);
+    if (!rows.length) return;
+    const timer = setTimeout(() => {
+      void supabase
+        .from("chores")
+        .upsert(rows, { onConflict: "id" })
+        .then(({ error }) => {
+          if (error) {
+            reportSupabaseError("shadow-write chores table", error, {
+              householdId,
+              count: rows.length,
+            });
+          }
+        });
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [chores, cloudReady, householdId, loaded, session?.user.id]);
 
   // Nudges live in their own table so acknowledgement is per row and updates
   // immediately on every signed-in device. Never select sent_by: received
