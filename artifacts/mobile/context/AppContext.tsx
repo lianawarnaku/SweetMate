@@ -46,6 +46,7 @@ import { choreCompletionTransition } from "@/lib/choreCompletion";
 import { isActiveSweetMember, resolveChorePermissions } from "@/lib/chorePermissions";
 import { logChorePermissionCheck } from "@/lib/choreDiagnostics";
 import { mergeByUpdatedAt } from "@/lib/expenseMerge";
+import { carryMappedReminderToNextOccurrence } from "@/lib/externalTasks";
 import { choreNow } from "@/lib/choreClock";
 import { recurringChoreClaims } from "@/lib/recurringChoreClaims";
 import type {
@@ -3265,7 +3266,27 @@ export function AppProvider({
               }
             : candidate,
         );
-        if (!existingNextOccurrence) nextChores.push(nextOccurrence);
+        if (!existingNextOccurrence) {
+          nextChores.push(nextOccurrence);
+          const userScope = session?.user.id;
+          if (userScope) {
+            void carryMappedReminderToNextOccurrence(userScope, id, {
+              id: nextOccurrence.id,
+              title: nextOccurrence.title,
+              dueDate: nextOccurrence.dueDate,
+              category: nextOccurrence.category,
+              recurrence: nextOccurrence.recurring,
+              assignedToName: roommatesRef.current.find(
+                (roommate) => roommate.id === nextOccurrence.assignedTo,
+              )?.name,
+            }).catch((error) =>
+              reportRuntimeError("carry reminder to next occurrence", error, {
+                choreId: id,
+                nextChoreId: nextOccurrence.id,
+              }),
+            );
+          }
+        }
       }
     } else {
       nextChores = choresRef.current.map((candidate) =>

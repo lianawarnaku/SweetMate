@@ -358,6 +358,52 @@ export async function removeMappedReminderIfPresent(
   return true;
 }
 
+/**
+ * When a recurring chore's occurrence completes, AppContext generates a
+ * brand-new occurrence record with its own id — but the completed
+ * occurrence's iOS Reminder mapping was never carried forward, so the
+ * reminder just sat there unchanged and the new occurrence never got one
+ * unless the user manually re-exported it every single time. This updates
+ * the existing reminder in place to the next occurrence's details and
+ * re-keys its stored mapping to the new occurrence id.
+ */
+export async function carryMappedReminderToNextOccurrence(
+  userScope: string,
+  previousChoreId: string,
+  nextChore: ExternalTaskChore,
+): Promise<boolean> {
+  if (Platform.OS !== "ios") return false;
+  const previousKey = mappingKey(userScope, previousChoreId);
+  const raw = await AsyncStorage.getItem(previousKey);
+  if (!raw) return false;
+  try {
+    const mapping = JSON.parse(raw) as StoredExternalTask;
+    if (mapping.provider !== "ios-reminders" || !mapping.externalId) {
+      await AsyncStorage.removeItem(previousKey);
+      return false;
+    }
+    await Calendar.updateReminderAsync(
+      mapping.externalId,
+      reminderDetails(nextChore),
+    );
+    const nextKey = mappingKey(userScope, nextChore.id);
+    await AsyncStorage.multiSet([
+      [nextKey, JSON.stringify({
+        ...mapping,
+        fingerprint: taskFingerprint(nextChore),
+      })],
+    ]);
+    await AsyncStorage.removeItem(previousKey);
+    return true;
+  } catch (error) {
+    if (looksLikeMissingReminder(error)) {
+      await AsyncStorage.removeItem(previousKey);
+      return false;
+    }
+    throw error;
+  }
+}
+
 export async function exportChoresToExternalTasks(
   userScope: string,
   chores: ExternalTaskChore[],

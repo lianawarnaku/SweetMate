@@ -15,6 +15,15 @@ const context = readFileSync(resolve(process.cwd(), "context/AppContext.tsx"), "
 const actionMenu = readFileSync(resolve(process.cwd(), "components/ActionMenuModal.tsx"), "utf8");
 const chorePermissionsLib = readFileSync(resolve(process.cwd(), "lib/chorePermissions.ts"), "utf8");
 const planning = readFileSync(resolve(process.cwd(), "app/planning.tsx"), "utf8");
+const externalTasks = readFileSync(resolve(process.cwd(), "lib/externalTasks.ts"), "utf8");
+
+assert(
+  externalTasks.includes("export async function carryMappedReminderToNextOccurrence") &&
+    externalTasks.includes("await AsyncStorage.removeItem(previousKey);") &&
+    context.includes("carryMappedReminderToNextOccurrence(userScope, id, {") &&
+    context.includes("if (!existingNextOccurrence) {"),
+  "completing a recurring occurrence must carry its mapped reminder forward to the newly generated occurrence instead of leaving it orphaned",
+);
 
 assert(
   planning.includes("recurring: task.frequency") &&
