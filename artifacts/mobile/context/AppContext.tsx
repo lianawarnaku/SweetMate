@@ -510,6 +510,7 @@ interface AppContextType {
   updateExpense: (id: string, updates: Partial<Omit<Expense, "id">>) => boolean;
   settleExpense: (id: string) => boolean;
   deleteExpense: (id: string) => boolean;
+  canEditExpense: (expense: Expense) => boolean;
   canManageExpense: (expense: Expense) => boolean;
   markPersonPaid: (expenseId: string, personId: string) => void;
   addShoppingList: (name: string, plannedDate?: string) => string;
@@ -3393,10 +3394,18 @@ export function AppProvider({
     [currentUserId, isHost],
   );
 
+  const canEditExpense = useCallback(
+    (expense: Expense) =>
+      expense.creatorId
+        ? expense.creatorId === currentUserId
+        : expense.paidBy === currentUserId,
+    [currentUserId],
+  );
+
   const updateExpense = useCallback(
     (id: string, updates: Partial<Omit<Expense, "id">>) => {
       const current = expenses.find((expense) => expense.id === id);
-      if (!current || !canManageExpense(current)) return false;
+      if (!current || !canEditExpense(current)) return false;
       const candidate = { ...current, ...updates };
       const activeMemberIds = new Set(roommates.map((roommate) => roommate.id));
       if (
@@ -3419,7 +3428,7 @@ export function AppProvider({
       ));
       return true;
     },
-    [canManageExpense, currentUserId, expenses, householdId, roommates],
+    [canEditExpense, currentUserId, expenses, householdId, roommates],
   );
 
   const settleExpense = useCallback((id: string) => {
@@ -4472,6 +4481,7 @@ export function AppProvider({
     updateExpense,
     settleExpense,
     deleteExpense,
+    canEditExpense,
     canManageExpense,
     markPersonPaid,
     addShoppingList,
@@ -4537,7 +4547,7 @@ export function AppProvider({
     deleteHousehold, removeRoommate, deleteOwnAccount, currentUserId,
     setCurrentUser, roommates, chores, expenses, shoppingLists, shoppingItems,
     visibleBorrowItems, nudges, nudgesReady, addChore, updateChore, addChores, setChoreCompleted, completeChore, pickUpChore, deleteChore,
-    addExpense, updateExpense, settleExpense, deleteExpense, canManageExpense, markPersonPaid,
+    addExpense, updateExpense, settleExpense, deleteExpense, canEditExpense, canManageExpense, markPersonPaid,
     addShoppingList, reorderShoppingLists, pinShoppingList, deleteShoppingList,
     addShoppingItem, addSelectedEssentialsToShopping, toggleShoppingItem, deleteShoppingItem,
     reorderShoppingItems, assignShoppingList, assignShoppingItem,

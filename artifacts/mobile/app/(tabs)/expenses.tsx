@@ -125,6 +125,7 @@ export default function ExpensesScreen() {
     pendingIouDraft,
     setPendingIouDraft,
     linkShoppingItemsToExpense,
+    canEditExpense,
     canManageExpense,
   } = useAppContextSelector((context) => ({
     roommates: context.roommates,
@@ -139,6 +140,7 @@ export default function ExpensesScreen() {
     pendingIouDraft: context.pendingIouDraft,
     setPendingIouDraft: context.setPendingIouDraft,
     linkShoppingItemsToExpense: context.linkShoppingItemsToExpense,
+    canEditExpense: context.canEditExpense,
     canManageExpense: context.canManageExpense,
   }));
 
@@ -471,6 +473,9 @@ export default function ExpensesScreen() {
   });
 
   const openEditModal = (item: (typeof expenses)[number]) => {
+    if (!canEditExpense(item)) {
+      throw new Error("Only the IOU creator can edit the expense");
+    }
     setEditingExpenseId(item.id);
     setExpTitle(item.title);
     setExpCategory(item.category);
@@ -549,6 +554,7 @@ export default function ExpensesScreen() {
                 : undefined,
           }
         : undefined,
+      date: validExpenseDate,
     };
     try {
       if (editingExpenseId) {
@@ -702,7 +708,7 @@ export default function ExpensesScreen() {
                   activeOpacity={0.8}
                   delayLongPress={450}
                   onLongPress={
-                    canManageExpense(item) && !item.settled
+                    !item.settled
                       ? () => {
                           longPressedExpenseRef.current = item.id;
                           setActionExpenseId(item.id);
@@ -718,8 +724,8 @@ export default function ExpensesScreen() {
                     setDetailExpenseId(item.id);
                   }}
                   accessibilityHint={
-                    canManageExpense(item) && !item.settled
-                      ? "Tap for details. Press and hold to edit or delete."
+                    !item.settled
+                      ? "Tap for details. Press and hold for expense actions."
                       : "Tap for details."
                   }
                   style={[
@@ -935,15 +941,16 @@ export default function ExpensesScreen() {
             subtitle="Expense actions"
             onClose={() => setActionExpenseId(null)}
             actions={
-              actionExpense && canManageExpense(actionExpense)
+              actionExpense
                 ? [
                     {
                       key: "edit",
                       label: "Edit expense",
                       icon: "edit-2",
                       onPress: () => openEditModal(actionExpense),
+                      runAfterDismiss: canEditExpense(actionExpense),
                     },
-                    {
+                    ...(canManageExpense(actionExpense) ? [{
                       key: "delete",
                       label: "Delete expense",
                       icon: "trash-2",
@@ -954,7 +961,7 @@ export default function ExpensesScreen() {
                         confirmLabel: "Delete expense",
                       },
                       onPress: () => void deleteExpense(actionExpense.id),
-                    },
+                    } as const] : []),
                   ]
                 : []
             }
@@ -1136,34 +1143,40 @@ export default function ExpensesScreen() {
                     </View>
                   )}
 
-                  {/* Payer actions */}
-                  {iAmPayer && (
+                  {/* Creator/manager actions */}
+                  {(canEditExpense(detailExp) || canManageExpense(detailExp)) && (
                     <View style={styles.detailPayerActions}>
-                      <TouchableOpacity
-                        style={[styles.detailActionBtn, { backgroundColor: colors.primary + "14", borderColor: colors.primary + "30" }]}
-                        onPress={() => { setDetailExpenseId(null); openEditModal(detailExp); }}
-                      >
-                        <Feather name="edit-2" size={14} color={colors.primary} />
-                        <Text style={[styles.detailActionBtnText, { color: colors.primary }]}>Edit</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[styles.detailActionBtn, { backgroundColor: colors.success + "14", borderColor: colors.success + "30" }]}
-                        onPress={() => confirm("settle_expense", "Settle Up", "Mark this entire IOU as settled?", () => {
-                          settleExpense(detailExp.id);
-                          setDetailExpenseId(null);
-                          hapticSuccess();
-                        }, { confirmText: "Settle" })}
-                      >
-                        <Feather name="check-circle" size={14} color={colors.success} />
-                        <Text style={[styles.detailActionBtnText, { color: colors.success }]}>Settle all</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[styles.detailActionBtn, { backgroundColor: colors.destructive + "10", borderColor: colors.destructive + "20" }]}
-                        onPress={() => confirm("delete_expense", "Delete IOU", "Remove this expense?", () => { deleteExpense(detailExp.id); setDetailExpenseId(null); }, { confirmText: "Delete", destructive: true })}
-                      >
-                        <Feather name="trash-2" size={14} color={colors.destructive} />
-                        <Text style={[styles.detailActionBtnText, { color: colors.destructive }]}>Delete</Text>
-                      </TouchableOpacity>
+                      {canEditExpense(detailExp) ? (
+                        <TouchableOpacity
+                          style={[styles.detailActionBtn, { backgroundColor: colors.primary + "14", borderColor: colors.primary + "30" }]}
+                          onPress={() => { setDetailExpenseId(null); setTimeout(() => openEditModal(detailExp), 0); }}
+                        >
+                          <Feather name="edit-2" size={14} color={colors.primary} />
+                          <Text style={[styles.detailActionBtnText, { color: colors.primary }]}>Edit</Text>
+                        </TouchableOpacity>
+                      ) : null}
+                      {canManageExpense(detailExp) ? (
+                        <>
+                          <TouchableOpacity
+                            style={[styles.detailActionBtn, { backgroundColor: colors.success + "14", borderColor: colors.success + "30" }]}
+                            onPress={() => confirm("settle_expense", "Settle Up", "Mark this entire IOU as settled?", () => {
+                              settleExpense(detailExp.id);
+                              setDetailExpenseId(null);
+                              hapticSuccess();
+                            }, { confirmText: "Settle" })}
+                          >
+                            <Feather name="check-circle" size={14} color={colors.success} />
+                            <Text style={[styles.detailActionBtnText, { color: colors.success }]}>Settle all</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={[styles.detailActionBtn, { backgroundColor: colors.destructive + "10", borderColor: colors.destructive + "20" }]}
+                            onPress={() => confirm("delete_expense", "Delete IOU", "Remove this expense?", () => { deleteExpense(detailExp.id); setDetailExpenseId(null); }, { confirmText: "Delete", destructive: true })}
+                          >
+                            <Feather name="trash-2" size={14} color={colors.destructive} />
+                            <Text style={[styles.detailActionBtnText, { color: colors.destructive }]}>Delete</Text>
+                          </TouchableOpacity>
+                        </>
+                      ) : null}
                     </View>
                   )}
 
