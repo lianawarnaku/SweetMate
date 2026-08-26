@@ -7,8 +7,10 @@
 // The confirmation fallback remains only for legacy accounts created before
 // auto-confirm was enabled.
 
-import { Feather } from "@expo/vector-icons";
+import { Feather, FontAwesome } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import * as ExpoLinking from "expo-linking";
+import * as WebBrowser from "expo-web-browser";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
@@ -32,8 +34,18 @@ import { reportSupabaseError, reportRuntimeError } from "@/lib/runtimeDiagnostic
 import { track } from "@/lib/analytics";
 
 type Mode = "signin" | "signup";
+type SocialProvider = "google" | "apple";
 const EMAIL_CONFIRMATION_URL = "https://sweetmate.info/auth/confirm";
 const PRIVACY_POLICY_URL = "https://sweetmate.info/privacy";
+
+WebBrowser.maybeCompleteAuthSession();
+
+function authCallbackValue(url: string, key: string): string | null {
+  const parsed = new URL(url);
+  const queryValue = parsed.searchParams.get(key);
+  if (queryValue) return queryValue;
+  return new URLSearchParams(parsed.hash.replace(/^#/, "")).get(key);
+}
 
 function openPrivacyPolicy(onError: () => void) {
   void Linking.openURL(PRIVACY_POLICY_URL).catch(() => {
@@ -52,6 +64,7 @@ export function SignInScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [socialLoading, setSocialLoading] = useState<SocialProvider | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [confirmationEmail, setConfirmationEmail] = useState<string | null>(null);
@@ -155,7 +168,59 @@ export function SignInScreen() {
     }
   };
 
-  const canSubmit = email.trim().length > 0 && password.length > 0 && !loading;
+  const signInWithSocialProvider = async (provider: SocialProvider) => {
+    if (loading || socialLoading) return;
+    setSocialLoading(provider);
+    setError(null);
+    setInfo(null);
+
+    try {
+      // Expo Go receives its development URL here, while standalone builds use
+      // the configured sweetmate:// scheme.
+      const redirectTo = ExpoLinking.createURL("auth/callback");
+      const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: { redirectTo, skipBrowserRedirect: true },
+      });
+      if (oauthError) throw oauthError;
+      if (!data.url) throw new Error(`Could not start ${provider} sign in.`);
+
+      const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+      if (result.type !== "success") return;
+
+      const oauthMessage = authCallbackValue(result.url, "error_description")
+        ?? authCallbackValue(result.url, "error");
+      if (oauthMessage) throw new Error(oauthMessage);
+
+      const code = authCallbackValue(result.url, "code");
+      if (code) {
+        const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+        if (exchangeError) throw exchangeError;
+      } else {
+        const accessToken = authCallbackValue(result.url, "access_token");
+        const refreshToken = authCallbackValue(result.url, "refresh_token");
+        if (!accessToken || !refreshToken) {
+          throw new Error(`${provider === "google" ? "Google" : "Apple"} did not return a login session.`);
+        }
+        const { error: sessionError } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        });
+        if (sessionError) throw sessionError;
+      }
+
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (e) {
+      reportRuntimeError(`${provider} sign in`, e);
+      setError(e instanceof Error ? e.message : `Could not sign in with ${provider}.`);
+      hapticError();
+    } finally {
+      setSocialLoading(null);
+    }
+  };
+
+  const busy = loading || socialLoading !== null;
+  const canSubmit = email.trim().length > 0 && password.length > 0 && !busy;
   const openPolicy = () => openPrivacyPolicy(() => setError("Privacy Policy unavailable. Check your connection, or visit sweetmate.info/privacy in a browser."));
 
   return (
@@ -200,7 +265,7 @@ export function SignInScreen() {
             autoCorrect={false}
             keyboardType="email-address"
             textContentType="emailAddress"
-            editable={!loading}
+            editable={!busy}
           />
 
           <Text style={[styles.label, { color: colors.mutedForeground, marginTop: 14 }]}>
@@ -223,7 +288,7 @@ export function SignInScreen() {
             autoCapitalize="none"
             autoCorrect={false}
             textContentType={mode === "signup" ? "newPassword" : "password"}
-            editable={!loading}
+            editable={!busy}
           />
 
           {error ? (
@@ -235,7 +300,7 @@ export function SignInScreen() {
           {confirmationEmail ? (
             <TouchableOpacity
               onPress={resendConfirmation}
-              disabled={loading}
+              disabled={busy}
               style={styles.resendButton}
               activeOpacity={0.7}
             >
@@ -268,6 +333,47 @@ export function SignInScreen() {
               </Text>
             )}
           </TouchableOpacity>
+          <View style={styles.dividerRow}>
+            <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+            <Text style={[styles.dividerText, { color: colors.mutedForeground }]}>OR CONTINUE WITH</Text>
+            <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+          </View>
+
+          <TouchableOpacity
+            style={[styles.socialButton, { backgroundColor: colors.card, borderColor: colors.border }]}
+            onPress={() => void signInWithSocialProvider("google")}
+            disabled={busy}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Continue with Google"
+          >
+            {socialLoading === "google" ? (
+              <ActivityIndicator color={colors.foreground} />
+            ) : (
+              <>
+                <FontAwesome name="google" size={18} color="#4285F4" />
+                <Text style={[styles.socialButtonText, { color: colors.foreground }]}>Continue with Google</Text>
+              </>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.socialButton, styles.appleButton]}
+            onPress={() => void signInWithSocialProvider("apple")}
+            disabled={busy}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Continue with Apple"
+          >
+            {socialLoading === "apple" ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <>
+                <FontAwesome name="apple" size={21} color="#fff" />
+                <Text style={[styles.socialButtonText, { color: "#fff" }]}>Continue with Apple</Text>
+              </>
+            )}
+          </TouchableOpacity>
           {mode === "signup" ? (
             <Text style={[styles.privacyCopy, { color: colors.mutedForeground }]}>
               By creating an account, you acknowledge the{" "}
@@ -284,6 +390,7 @@ export function SignInScreen() {
 
           <TouchableOpacity
             style={styles.switchRow}
+            disabled={busy}
             onPress={() => {
               setMode(mode === "signin" ? "signup" : "signin");
               setError(null);
@@ -377,6 +484,33 @@ const styles = StyleSheet.create({
   submitText: {
     color: "#fff",
     fontFamily: "Inter_700Bold",
+    fontSize: 15,
+  },
+  dividerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginVertical: 20,
+  },
+  dividerLine: { flex: 1, height: StyleSheet.hairlineWidth },
+  dividerText: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 10,
+    letterSpacing: 0.6,
+  },
+  socialButton: {
+    minHeight: 50,
+    borderRadius: 12,
+    borderWidth: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    marginBottom: 10,
+  },
+  appleButton: { backgroundColor: "#000", borderColor: "#000" },
+  socialButtonText: {
+    fontFamily: "Inter_600SemiBold",
     fontSize: 15,
   },
   switchRow: {
