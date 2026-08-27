@@ -48,6 +48,14 @@ import { logChorePermissionCheck } from "@/lib/choreDiagnostics";
 import { mergeByUpdatedAt } from "@/lib/expenseMerge";
 import { expenseToRow, rowToExpense, type ExpenseRow } from "@/lib/expenseRow";
 import { applyNormalizedEvent, planNormalizedSync, type NormalizedRow } from "@/lib/normalizedCollection";
+import {
+  rowToShoppingItem,
+  rowToShoppingList,
+  shoppingItemToRow,
+  shoppingListToRow,
+  type ShoppingItemRow,
+  type ShoppingListRow,
+} from "@/lib/shoppingRow";
 import { rowToChore, type ChoreRow } from "@/lib/choreRow";
 import { applyChoreRowEvent, planChoreSync } from "@/lib/choreSync";
 import { carryMappedReminderToNextOccurrence } from "@/lib/externalTasks";
@@ -228,6 +236,7 @@ export interface ShoppingList {
   sourceType?: "sweet_essentials";
   sourceCategoryId?: string;
   sourceCategoryName?: string;
+  updatedAt?: string;
   // NOTE: no `order` field — the array position in `shoppingLists` IS the
   // display order. Mutators below preserve the invariant "pinned lists first,
   // then unpinned lists" so consumers can render `shoppingLists` directly.
@@ -253,6 +262,7 @@ export interface ShoppingItem {
   sourceEssentialItemId?: string;
   sourceType?: "sweet_essentials";
   sourceCategoryId?: string;
+  updatedAt?: string;
 }
 
 interface ShoppingSyncMeta {
@@ -737,7 +747,7 @@ function useNormalizedCollection<
   entities: T[];
   entitiesRef: React.MutableRefObject<T[]>;
   setEntities: React.Dispatch<React.SetStateAction<T[]>>;
-  toRow: (entity: T, householdId: string) => R;
+  toRow: (entity: T, householdId: string, index?: number) => R;
   fromRow: (row: R) => T;
 }) {
   const [ready, setReady] = useState(false);
@@ -759,14 +769,17 @@ function useNormalizedCollection<
         reportSupabaseError(`load normalized ${table}`, error, { householdId });
         return;
       }
-      const rows = (data ?? []) as R[];
+      const rows = ((data ?? []) as R[]).sort((left, right) =>
+        ((left as R & { sort_order?: number }).sort_order ?? 0) -
+        ((right as R & { sort_order?: number }).sort_order ?? 0),
+      );
       if (rows.length) {
         const normalized = rows.map(fromRow);
         persistedRef.current = new Map(rows.map((row) => [row.id, row]));
         entitiesRef.current = normalized;
         setEntities(normalized);
       } else {
-        const bootstrap = entitiesRef.current.map((entity) => toRow(entity, householdId));
+        const bootstrap = entitiesRef.current.map((entity, index) => toRow(entity, householdId, index));
         if (bootstrap.length) {
           const { error: bootstrapError } = await supabase.from(table).upsert(bootstrap, { onConflict: "id" });
           if (!active) return;
@@ -815,7 +828,9 @@ function useNormalizedCollection<
   useEffect(() => {
     if (!ready || !householdId || !userId) return;
     queueRef.current = queueRef.current.then(async () => {
-      const plan = planNormalizedSync(entities, persistedRef.current, (entity) => toRow(entity, householdId));
+      const plan = planNormalizedSync(entities, persistedRef.current, (entity) =>
+        toRow(entity, householdId, entities.indexOf(entity)),
+      );
       if (plan.upserts.length) {
         const { error } = await supabase.from(table).upsert(plan.upserts, { onConflict: "id" });
         if (error) {
@@ -938,6 +953,28 @@ export function AppProvider({
     setEntities: setExpenses,
     toRow: expenseToRow,
     fromRow: rowToExpense,
+  });
+  const shoppingListsTableReadyRef = useNormalizedCollection<ShoppingList, ShoppingListRow>({
+    table: "shopping_lists",
+    householdId,
+    userId: session?.user.id,
+    cloudReady,
+    entities: shoppingLists,
+    entitiesRef: shoppingListsRef,
+    setEntities: setShoppingLists,
+    toRow: shoppingListToRow,
+    fromRow: rowToShoppingList,
+  });
+  const shoppingItemsTableReadyRef = useNormalizedCollection<ShoppingItem, ShoppingItemRow>({
+    table: "shopping_items",
+    householdId,
+    userId: session?.user.id,
+    cloudReady: cloudReady && shoppingListsTableReadyRef.current,
+    entities: shoppingItems,
+    entitiesRef: shoppingItemsRef,
+    setEntities: setShoppingItems,
+    toRow: shoppingItemToRow,
+    fromRow: rowToShoppingItem,
   });
   const membershipLoadGenerationRef = useRef(0);
   const sweetDataCacheRef = useRef<Record<string, SharedHouseholdState>>({});
@@ -2399,7 +2436,7 @@ export function AppProvider({
       });
       return merged;
     };
-    if (Array.isArray(next.shoppingLists)) {
+    if (!shoppingListsTableReadyRef.current && Array.isArray(next.shoppingLists)) {
       setShoppingLists((local) => mergeVersionedShopping(
         local,
         next.shoppingLists!,
@@ -2409,7 +2446,7 @@ export function AppProvider({
         remoteMeta.deletedLists,
       ));
     }
-    if (Array.isArray(next.shoppingItems)) {
+    if (!shoppingItemsTableReadyRef.current && Array.isArray(next.shoppingItems)) {
       setShoppingItems((local) => mergeVersionedShopping(
         local,
         next.shoppingItems!,
