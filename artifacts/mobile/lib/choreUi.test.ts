@@ -18,9 +18,12 @@ const planning = readFileSync(resolve(process.cwd(), "app/planning.tsx"), "utf8"
 
 assert(
   context.includes('.from("chores")') &&
-    context.includes('.upsert(rows, { onConflict: "id" })') &&
-    context.includes("choreToRow(chore)"),
-  "chores must be shadow-written to the normalized chores table alongside the household_states blob",
+    context.includes('.upsert(plan.upserts, { onConflict: "id" })') &&
+    context.includes('.delete()') &&
+    context.includes('table: "chores"') &&
+    context.includes("applyChoreRowEvent") &&
+    context.includes("state: latestSharedStateRef.current"),
+  "chores must use normalized row writes, deletion mirroring, and Realtime while retaining the rollback blob",
 );
 const externalTasks = readFileSync(resolve(process.cwd(), "lib/externalTasks.ts"), "utf8");
 

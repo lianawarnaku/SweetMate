@@ -46,7 +46,8 @@ import { choreCompletionTransition } from "@/lib/choreCompletion";
 import { isActiveSweetMember, resolveChorePermissions } from "@/lib/chorePermissions";
 import { logChorePermissionCheck } from "@/lib/choreDiagnostics";
 import { mergeByUpdatedAt } from "@/lib/expenseMerge";
-import { choreToRow, type ChoreRow } from "@/lib/choreRow";
+import { rowToChore, type ChoreRow } from "@/lib/choreRow";
+import { applyChoreRowEvent, planChoreSync } from "@/lib/choreSync";
 import { carryMappedReminderToNextOccurrence } from "@/lib/externalTasks";
 import { choreNow } from "@/lib/choreClock";
 import { recurringChoreClaims } from "@/lib/recurringChoreClaims";
@@ -797,6 +798,8 @@ export function AppProvider({
   const [householdComplete, setHouseholdCompleteState] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [cloudReady, setCloudReady] = useState(false);
+  const [choresTableReady, setChoresTableReady] = useState(false);
+  const choresTableReadyRef = useRef(false);
   const [activeCalendarDay, setActiveCalendarDay] = useState(() =>
     choreLocalDateKey(choreNow()),
   );
@@ -2155,6 +2158,7 @@ export function AppProvider({
   const latestSharedStateRef = useRef(sharedState);
   latestSharedStateRef.current = sharedState;
   const chorePersistenceQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const persistedChoreRowsRef = useRef<Map<string, ChoreRow>>(new Map());
 
   useEffect(() => {
     if (!householdId || !cloudReady) return;
@@ -2166,7 +2170,11 @@ export function AppProvider({
     // this device. Shared tab collections all come from the cloud snapshot.
     // Snapshot roommates carry scores/avatars only. They can update active
     // members but can never add or remove membership identities.
-    const remoteChores = Array.isArray(next.chores) ? next.chores : null;
+    // The blob stays writable as a rollback copy, but normalized rows become
+    // authoritative after their initial hydration.
+    const remoteChores = !choresTableReadyRef.current && Array.isArray(next.chores)
+      ? next.chores
+      : null;
     const remoteChoresById = new Map(
       (remoteChores ?? []).map((chore) => [chore.id, chore]),
     );
@@ -2718,35 +2726,131 @@ export function AppProvider({
     };
   }, [cloudReady, householdId, loaded, session?.user.id, sharedState]);
 
-  // Phase 1 of moving chores off the household_states JSON blob (see
-  // docs/chore-system-audit.md): shadow-write every local chore into the
-  // normalized `chores` table alongside the existing blob write above. The
-  // app still reads chores from the blob — this only populates the new
-  // table so its schema and data can be verified before any read path
-  // switches over. Deletions are not yet mirrored here; a chore removed
-  // locally leaves its shadow row behind until the later cutover pass.
+  // Hydrate chores from normalized rows and subscribe to row-level changes.
+  // An empty table is bootstrapped once from the rollback blob, allowing the
+  // migration to be exercised immediately without a multi-day shadow window.
   useEffect(() => {
     const userId = session?.user.id;
+    choresTableReadyRef.current = false;
+    setChoresTableReady(false);
+    persistedChoreRowsRef.current = new Map();
     if (!loaded || !cloudReady || !userId || !householdId) return;
-    const rows = chores
-      .map((chore) => choreToRow(chore))
-      .filter((row): row is ChoreRow => row !== null);
-    if (!rows.length) return;
-    const timer = setTimeout(() => {
-      void supabase
+    let active = true;
+    const channel = supabase.channel(`chores:${householdId}`);
+
+    const connect = async () => {
+      const { data, error } = await supabase
         .from("chores")
-        .upsert(rows, { onConflict: "id" })
-        .then(({ error }) => {
-          if (error) {
-            reportSupabaseError("shadow-write chores table", error, {
+        .select("*")
+        .eq("household_id", householdId)
+        .order("created_at", { ascending: true });
+      if (!active) return;
+      if (error) {
+        reportSupabaseError("load normalized chores", error, { householdId });
+        return;
+      }
+      const rows = (data ?? []) as ChoreRow[];
+      if (rows.length) {
+        const normalized = rows.map(rowToChore);
+        persistedChoreRowsRef.current = new Map(rows.map((row) => [row.id, row]));
+        choresRef.current = normalized;
+        setChores(normalized);
+      } else {
+        const bootstrap = planChoreSync(choresRef.current, new Set()).upserts;
+        if (bootstrap.length) {
+          const { error: bootstrapError } = await supabase
+            .from("chores")
+            .upsert(bootstrap, { onConflict: "id" });
+          if (!active) return;
+          if (bootstrapError) {
+            reportSupabaseError("bootstrap normalized chores", bootstrapError, {
               householdId,
-              count: rows.length,
+              count: bootstrap.length,
+            });
+            return;
+          }
+          persistedChoreRowsRef.current = new Map(bootstrap.map((row) => [row.id, row]));
+        }
+      }
+      choresTableReadyRef.current = true;
+      setChoresTableReady(true);
+
+      channel
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "chores", filter: `household_id=eq.${householdId}` },
+          (payload) => {
+            if (!active) return;
+            const row = (payload.eventType === "DELETE" ? payload.old : payload.new) as ChoreRow;
+            if (!row?.id) return;
+            if (payload.eventType === "DELETE") persistedChoreRowsRef.current.delete(row.id);
+            else persistedChoreRowsRef.current.set(row.id, row);
+            const next = applyChoreRowEvent(
+              choresRef.current,
+              payload.eventType as "INSERT" | "UPDATE" | "DELETE",
+              row,
+            );
+            choresRef.current = next;
+            setChores(next);
+          },
+        )
+        .subscribe((status, subscriptionError) => {
+          if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+            reportSupabaseError("subscribe to normalized chores", subscriptionError ?? new Error(status), {
+              householdId,
+              status,
             });
           }
         });
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [chores, cloudReady, householdId, loaded, session?.user.id]);
+    };
+    void connect().catch((error) =>
+      reportRuntimeError("connect normalized chores", error, { householdId }),
+    );
+    return () => {
+      active = false;
+      choresTableReadyRef.current = false;
+      setChoresTableReady(false);
+      void supabase.removeChannel(channel);
+    };
+  }, [cloudReady, householdId, loaded, session?.user.id]);
+
+  // Every local mutation is persisted as row upserts plus explicit deletes.
+  // This covers generated recurrence rows and occurrence/future/series scopes
+  // without relying on a later one-time orphan cleanup.
+  useEffect(() => {
+    if (!choresTableReady || !householdId || !session?.user.id) return;
+    chorePersistenceQueueRef.current = chorePersistenceQueueRef.current.then(async () => {
+      // Calculate after earlier queued mutations finish so a rapid create then
+      // delete still observes (and removes) the row created by the first job.
+      const plan = planChoreSync(chores, persistedChoreRowsRef.current);
+      if (plan.upserts.length) {
+        const { error } = await supabase.from("chores").upsert(plan.upserts, { onConflict: "id" });
+        if (error) {
+          reportSupabaseError("persist normalized chores", error, {
+            householdId,
+            count: plan.upserts.length,
+          });
+          return;
+        }
+        plan.upserts.forEach((row) => persistedChoreRowsRef.current.set(row.id, row));
+      }
+      if (plan.deleteIds.length) {
+        const { error } = await supabase
+          .from("chores")
+          .delete()
+          .eq("household_id", householdId)
+          .in("id", plan.deleteIds);
+        if (error) {
+          reportSupabaseError("delete normalized chores", error, {
+            householdId,
+            count: plan.deleteIds.length,
+          });
+          return;
+        }
+        plan.deleteIds.forEach((id) => persistedChoreRowsRef.current.delete(id));
+      }
+    });
+  }, [chores, choresTableReady, householdId, session?.user.id]);
 
   // Nudges live in their own table so acknowledgement is per row and updates
   // immediately on every signed-in device. Never select sent_by: received
