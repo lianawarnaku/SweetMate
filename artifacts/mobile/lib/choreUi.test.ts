@@ -22,8 +22,8 @@ assert(
     context.includes('.delete()') &&
     context.includes('table: "chores"') &&
     context.includes("applyChoreRowEvent") &&
-    context.includes("state: latestSharedStateRef.current"),
-  "chores must use normalized row writes, deletion mirroring, and Realtime while retaining the rollback blob",
+    context.includes("withoutNormalizedCollections(latestSharedStateRef.current)"),
+  "chores must use normalized row writes, deletion mirroring, Realtime, and gated blob cleanup",
 );
 const externalTasks = readFileSync(resolve(process.cwd(), "lib/externalTasks.ts"), "utf8");
 

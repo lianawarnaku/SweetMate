@@ -57,6 +57,7 @@ import {
   type ShoppingListRow,
 } from "@/lib/shoppingRow";
 import { rowToSharedBorrow, sharedBorrowToRow, type SharedBorrowRow } from "@/lib/sharedBorrowRow";
+import { withoutNormalizedCollections } from "@/lib/householdStatePayload";
 import { rowToChore, type ChoreRow } from "@/lib/choreRow";
 import { applyChoreRowEvent, planChoreSync } from "@/lib/choreSync";
 import { carryMappedReminderToNextOccurrence } from "@/lib/externalTasks";
@@ -990,6 +991,12 @@ export function AppProvider({
     toRow: sharedBorrowToRow,
     fromRow: rowToSharedBorrow,
   });
+  const normalizedCollectionsReady =
+    choresTableReady &&
+    expensesTableReadyRef.current &&
+    shoppingListsTableReadyRef.current &&
+    shoppingItemsTableReadyRef.current &&
+    sharedBorrowTableReadyRef.current;
   const membershipLoadGenerationRef = useRef(0);
   const sweetDataCacheRef = useRef<Record<string, SharedHouseholdState>>({});
   const applyingRemoteRef = useRef(false);
@@ -2831,7 +2838,9 @@ export function AppProvider({
         const { error: createError } = await supabase.from("household_states").upsert({
           household_key: householdId,
           household_id: householdId,
-          state: latestSharedStateRef.current,
+          state: normalizedCollectionsReady
+            ? withoutNormalizedCollections(latestSharedStateRef.current)
+            : latestSharedStateRef.current,
           updated_by: userId,
           updated_at: new Date().toISOString(),
         });
@@ -2896,7 +2905,9 @@ export function AppProvider({
         const { error } = await supabase.from("household_states").upsert({
           household_key: householdId,
           household_id: householdId,
-          state: latestSharedStateRef.current,
+          state: normalizedCollectionsReady
+            ? withoutNormalizedCollections(latestSharedStateRef.current)
+            : latestSharedStateRef.current,
           updated_by: userId,
           updated_at: new Date().toISOString(),
         });
@@ -2910,7 +2921,7 @@ export function AppProvider({
       clearTimeout(timer);
       interaction?.cancel();
     };
-  }, [cloudReady, householdId, loaded, session?.user.id, sharedState]);
+  }, [cloudReady, householdId, loaded, normalizedCollectionsReady, session?.user.id, sharedState]);
 
   // Hydrate chores from normalized rows and subscribe to row-level changes.
   // An empty table is bootstrapped once from the rollback blob, allowing the
@@ -3657,7 +3668,9 @@ export function AppProvider({
           const { error } = await supabase.from("household_states").upsert({
             household_key: householdId,
             household_id: householdId,
-            state: latestSharedStateRef.current,
+            state: normalizedCollectionsReady
+              ? withoutNormalizedCollections(latestSharedStateRef.current)
+              : latestSharedStateRef.current,
             updated_by: session.user.id,
             updated_at: new Date().toISOString(),
           });
@@ -3670,7 +3683,7 @@ export function AppProvider({
         },
       );
     }
-  }, [activeSweet, cloudReady, currentUserId, householdId, isHost, permissionsForChore, roommates, session?.user.id]);
+  }, [activeSweet, cloudReady, currentUserId, householdId, isHost, normalizedCollectionsReady, permissionsForChore, roommates, session?.user.id]);
 
   const completeChore = useCallback((id: string) => {
     const chore = choresRef.current.find((candidate) => candidate.id === id);
