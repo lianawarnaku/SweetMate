@@ -1,3 +1,28 @@
+-- phase4-migration.sql may have installed incompatible UUID-based tables.
+-- Production was audited at zero rows in both. Keep the guard so another
+-- environment with real legacy data stops instead of losing it.
+do $$
+declare list_rows bigint;
+declare item_rows bigint;
+begin
+  if to_regclass('public.shopping_lists') is not null and not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'shopping_lists' and column_name = 'entry'
+  ) then
+    execute 'select count(*) from public.shopping_lists' into list_rows;
+    if to_regclass('public.shopping_items') is not null then
+      execute 'select count(*) from public.shopping_items' into item_rows;
+    else
+      item_rows := 0;
+    end if;
+    if list_rows > 0 or item_rows > 0 then
+      raise exception 'refusing to replace legacy shopping tables: % lists, % items exist', list_rows, item_rows;
+    end if;
+    drop table if exists public.shopping_items;
+    drop table public.shopping_lists;
+  end if;
+end $$;
+
 create table public.shopping_lists (
   id text primary key,
   household_id uuid not null references public.households(id) on delete cascade,

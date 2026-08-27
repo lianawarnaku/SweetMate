@@ -1,3 +1,21 @@
+-- An abandoned UUID-based expenses table may exist from phase4-migration.sql.
+-- It was verified empty in production before this migration was repaired.
+-- Refuse to replace it if any environment contains data.
+do $$
+declare legacy_rows bigint;
+begin
+  if to_regclass('public.expenses') is not null and not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'expenses' and column_name = 'entry'
+  ) then
+    execute 'select count(*) from public.expenses' into legacy_rows;
+    if legacy_rows > 0 then
+      raise exception 'refusing to replace legacy public.expenses: % rows exist', legacy_rows;
+    end if;
+    drop table public.expenses;
+  end if;
+end $$;
+
 create table if not exists public.expenses (
   id text primary key,
   household_id uuid not null references public.households(id) on delete cascade,
