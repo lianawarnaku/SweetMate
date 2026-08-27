@@ -28,6 +28,7 @@ const SCREEN_HEIGHT = Dimensions.get("window").height;
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { EmptyState } from "@/components/EmptyState";
+import { Surface } from "@/components/Surface";
 import { ActionMenuModal } from "@/components/ActionMenuModal";
 import { HistoryDisclosure } from "@/components/HistoryDisclosure";
 import { FloatingActionButton, useFloatingActionMetrics } from "@/components/FloatingActionButton";
@@ -728,14 +729,15 @@ export default function ExpensesScreen() {
                       ? "Tap for details. Press and hold for expense actions."
                       : "Tap for details."
                   }
-                  style={[
-                    styles.expenseCard,
-                    {
-                      backgroundColor: colors.card,
-                      borderColor: colors.border,
-                    },
-                  ]}
                 >
+                  <Surface
+                    style={[
+                      styles.expenseCard,
+                      {
+                        borderColor: colors.border,
+                      },
+                    ]}
+                  >
                   {/* Top row */}
                   <View style={styles.expenseCardTop}>
                     <View style={styles.expCatIcon}>
@@ -876,6 +878,7 @@ export default function ExpensesScreen() {
                       );
                     })}
                   </View>
+                  </Surface>
                 </TouchableOpacity>
               );
             }}
@@ -900,24 +903,27 @@ export default function ExpensesScreen() {
                       <TouchableOpacity
                         key={expense.id}
                         onPress={() => setDetailExpenseId(expense.id)}
-                        style={[
-                          styles.expenseCard,
-                          { backgroundColor: colors.card, borderColor: colors.border },
-                        ]}
                       >
-                        <View style={styles.expenseCardTop}>
-                          <View style={{ flex: 1 }}>
-                            <Text style={[styles.expTitle, { color: colors.foreground }]}>
-                              {expense.title}
-                            </Text>
-                            <Text style={[styles.expMeta, { color: colors.mutedForeground }]}>
-                              Resolved {formatDate(expense.resolvedAt ?? expense.date)}
+                        <Surface
+                          style={[
+                            styles.expenseCard,
+                            { borderColor: colors.border },
+                          ]}
+                        >
+                          <View style={styles.expenseCardTop}>
+                            <View style={{ flex: 1 }}>
+                              <Text style={[styles.expTitle, { color: colors.foreground }]}>
+                                {expense.title}
+                              </Text>
+                              <Text style={[styles.expMeta, { color: colors.mutedForeground }]}>
+                                Resolved {formatDate(expense.resolvedAt ?? expense.date)}
+                              </Text>
+                            </View>
+                            <Text style={[styles.expAmount, { color: colors.foreground }]}>
+                              ${expense.amount.toFixed(2)}
                             </Text>
                           </View>
-                          <Text style={[styles.expAmount, { color: colors.foreground }]}>
-                            ${expense.amount.toFixed(2)}
-                          </Text>
-                        </View>
+                        </Surface>
                       </TouchableOpacity>
                     ))
                   )}
@@ -1011,7 +1017,7 @@ export default function ExpensesScreen() {
                   <View style={[styles.detailDivider, { backgroundColor: colors.border }]} />
 
                   {detailExp.shoppingSource ? (
-                    <View style={[styles.detailPersonRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                    <Surface style={[styles.detailPersonRow, { borderColor: colors.border }]}>
                       <Feather name="shopping-cart" size={16} color={colors.primary} />
                       <View style={{ flex: 1 }}>
                         <Text style={[styles.detailPersonName, { color: colors.foreground }]}>
@@ -1028,7 +1034,7 @@ export default function ExpensesScreen() {
                           </Text>
                         )}
                       </View>
-                    </View>
+                    </Surface>
                   ) : null}
                   {detailExp.notes ? (
                     <Text style={[styles.detailMeta, { color: colors.mutedForeground }]}>

@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { RoommateAvatar } from "@/components/RoommateAvatar";
 import { EmptyState } from "@/components/EmptyState";
 import { HeaderActions } from "@/components/HeaderActions";
+import { Surface } from "@/components/Surface";
 import { useAppContextSelector } from "@/context/AppContext";
 import { useTheme } from "@/constants/colors";
 
@@ -147,10 +148,10 @@ export default function LeaderboardScreen() {
         </View>
       </View>
 
-      <View
+      <Surface
         style={[
           styles.statRow,
-          { backgroundColor: colors.card, borderColor: colors.border },
+          { borderColor: colors.border },
         ]}
       >
         <View style={styles.statItem}>
@@ -188,7 +189,7 @@ export default function LeaderboardScreen() {
             Roommates
           </Text>
         </View>
-      </View>
+      </Surface>
 
       {top3.length > 0 ? (
         <View style={styles.podiumSection}>

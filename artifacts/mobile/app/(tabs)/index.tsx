@@ -21,6 +21,7 @@ const SCREEN_WIDTH = Dimensions.get("window").width;
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { EmptyState } from "@/components/EmptyState";
+import { Surface } from "@/components/Surface";
 import { ActionMenuModal } from "@/components/ActionMenuModal";
 import { useAppPopup } from "@/components/AppPopupProvider";
 import { FloatingActionButton, useFloatingActionMetrics } from "@/components/FloatingActionButton";
@@ -193,11 +194,10 @@ function ChoreRow({
 
   return (
     <View style={{ borderRadius: 12, overflow: "hidden", position: "relative" }}>
-      <View
+      <Surface
         style={[
           styles.choreRow,
           {
-            backgroundColor: colors.card,
             borderColor: overdue ? colors.warning + "44" : colors.border,
             overflow: "hidden",
           },
@@ -278,7 +278,7 @@ function ChoreRow({
           <Feather name="more-vertical" size={19} color={colors.mutedForeground} />
         </TouchableOpacity>
       </View>
-      </View>
+      </Surface>
     </View>
   );
 }
@@ -310,7 +310,7 @@ function CalendarDayDetails({
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <TouchableOpacity style={styles.dayModalBackdrop} activeOpacity={1} onPress={onClose} accessibilityLabel="Close scheduled items" />
-      <View style={[styles.dayModalSheet, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      <Surface style={[styles.dayModalSheet, { borderColor: colors.border }]}>
         <View style={styles.dayModalHandle} />
         <View style={styles.dayModalHeader}>
           <View style={{ flex: 1 }}>
@@ -361,7 +361,7 @@ function CalendarDayDetails({
             </View>
           ))}
         </ScrollView>
-      </View>
+      </Surface>
     </Modal>
   );
 }
@@ -785,7 +785,7 @@ export default function MyChoresScreen() {
             </View>
 
 
-            <View style={[styles.calendarCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Surface style={[styles.calendarCard, { borderColor: colors.border }]}>
               <View style={styles.calendarTopRow}>
                 <TouchableOpacity
                   style={[styles.calendarNavButton, { backgroundColor: colors.muted }]}
@@ -954,7 +954,7 @@ export default function MyChoresScreen() {
               <Text style={[styles.selectedDateLabel, { color: colors.foreground }]}>
                 {selectedDate.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}
               </Text>
-            </View>
+            </Surface>
 
             <CalendarDayDetails
               visible={dayDetailsOpen}
@@ -1098,10 +1098,10 @@ export default function MyChoresScreen() {
                 {expandedHomeSections.shopping && (myShoppingItems.length === 0 ? (
                   <Text style={[styles.sectionEmpty, { color: colors.mutedForeground }]}>No active shopping items</Text>
                 ) : (
-                <View
+                <Surface
                   style={[
                     styles.toBuyCard,
-                    { backgroundColor: colors.card, borderColor: colors.border, marginBottom: 12 },
+                    { borderColor: colors.border, marginBottom: 12 },
                   ]}
                 >
                   {myShoppingItems.map((item, idx) => (
@@ -1129,7 +1129,7 @@ export default function MyChoresScreen() {
                       </Text>
                     </TouchableOpacity>
                   ))}
-                </View>
+                </Surface>
                 ))}
               </>
           </>

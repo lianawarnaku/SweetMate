@@ -18,6 +18,7 @@ import type { RenderItemParams } from "react-native-draggable-flatlist";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { EmptyState } from "@/components/EmptyState";
+import { Surface } from "@/components/Surface";
 import { ActionMenuModal } from "@/components/ActionMenuModal";
 import { FloatingActionButton, useFloatingActionMetrics } from "@/components/FloatingActionButton";
 import {
@@ -386,11 +387,10 @@ export default function ShoppingScreen() {
               : null;
             return (
               <ScaleDecoratorCompat>
-                <View
+                <Surface
                   style={[
                     styles.listSection,
                     {
-                      backgroundColor: colors.card,
                       borderColor: list.pinned ? colors.warning + "55" : colors.border,
                       opacity: isActive ? 0.9 : 1,
                     },
@@ -585,7 +585,7 @@ export default function ShoppingScreen() {
                     )}
                   </View>
                 )}
-                </View>
+                </Surface>
               </ScaleDecoratorCompat>
             );
           }}
@@ -667,7 +667,7 @@ export default function ShoppingScreen() {
         onRequestClose={() => setAssignPickerListId(null)}
       >
         <Pressable style={styles.overlay} onPress={() => setAssignPickerListId(null)} />
-        <View style={[styles.sheet, { backgroundColor: colors.card, paddingBottom: insets.bottom + 24 }]}>
+        <Surface style={[styles.sheet, { paddingBottom: insets.bottom + 24 }]}>
           <View style={[styles.handle, { backgroundColor: colors.border }]} />
           <Text style={[styles.sheetTitle, { color: colors.foreground }]}>Assign list to</Text>
           {pickerList && (
@@ -730,7 +730,7 @@ export default function ShoppingScreen() {
               <Text style={[styles.clearAssignText, { color: colors.mutedForeground }]}>Clear assignment</Text>
             </TouchableOpacity>
           )}
-        </View>
+        </Surface>
       </Modal>
 
       {/* ── Add Item Modal ── */}
@@ -740,10 +740,10 @@ export default function ShoppingScreen() {
           onPress={() => { setShowShoppingModal(false); setTargetListId(null); }}
         />
         <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} pointerEvents="box-none">
-          <View
+          <Surface
             style={[
               styles.sheet,
-              { backgroundColor: colors.card, paddingBottom: insets.bottom + 24 },
+              { paddingBottom: insets.bottom + 24 },
             ]}
           >
             <View style={[styles.handle, { backgroundColor: colors.border }]} />
@@ -791,7 +791,7 @@ export default function ShoppingScreen() {
                 Add to List
               </Text>
             </TouchableOpacity>
-          </View>
+          </Surface>
         </KeyboardAvoidingView>
       </Modal>
 
@@ -799,10 +799,10 @@ export default function ShoppingScreen() {
       <Modal visible={showNewListModal} transparent animationType="slide">
         <Pressable style={styles.overlay} onPress={() => setShowNewListModal(false)} />
         <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} pointerEvents="box-none">
-          <View
+          <Surface
             style={[
               styles.sheet,
-              { backgroundColor: colors.card, paddingBottom: insets.bottom + 24 },
+              { paddingBottom: insets.bottom + 24 },
             ]}
           >
             <View style={[styles.handle, { backgroundColor: colors.border }]} />
@@ -835,7 +835,7 @@ export default function ShoppingScreen() {
                 Create List
               </Text>
             </TouchableOpacity>
-          </View>
+          </Surface>
         </KeyboardAvoidingView>
       </Modal>
 

@@ -24,6 +24,7 @@ import { ActionMenuModal } from "@/components/ActionMenuModal";
 import { FloatingActionButton, useFloatingActionMetrics } from "@/components/FloatingActionButton";
 import { HeaderActions } from "@/components/HeaderActions";
 import { RoommateAvatar } from "@/components/RoommateAvatar";
+import { Surface } from "@/components/Surface";
 import { useAppContextSelector, type BorrowItem } from "@/context/AppContext";
 import { useTheme } from "@/constants/colors";
 import { historyPage, isHistoricalResolution } from "@/lib/resolutionHistory";
@@ -500,11 +501,10 @@ export default function BorrowScreen() {
                   History ({returnedBorrows.length})
                 </Text>
               ) : null}
-              <View
+              <Surface
                 style={[
                   styles.borrowCard,
                   {
-                    backgroundColor: colors.card,
                     borderColor: isOverdueItem
                       ? colors.warning + "55"
                       : borrow.returned
@@ -657,7 +657,7 @@ export default function BorrowScreen() {
                   </TouchableOpacity>
                 </View>
                 ) : null}
-              </View>
+              </Surface>
             </>
           );
         }}
@@ -704,11 +704,10 @@ export default function BorrowScreen() {
       <Modal visible={showModal} transparent animationType="slide">
         <Pressable style={styles.overlay} onPress={() => setShowModal(false)} />
         <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} pointerEvents="box-none">
-        <View
+        <Surface
           style={[
             styles.sheet,
             {
-              backgroundColor: colors.card,
               paddingBottom: insets.bottom + 24,
             },
           ]}
@@ -922,7 +921,7 @@ export default function BorrowScreen() {
             )}
           </TouchableOpacity>
           </ScrollView>
-        </View>
+        </Surface>
         </KeyboardAvoidingView>
       </Modal>
     </View>

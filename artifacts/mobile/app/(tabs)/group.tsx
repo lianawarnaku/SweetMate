@@ -28,6 +28,7 @@ import { HeaderActions } from "@/components/HeaderActions";
 import { HomePlant } from "@/components/HomePlant";
 import { ManualChoreForm } from "@/components/ManualChoreForm";
 import { RoommateAvatar } from "@/components/RoommateAvatar";
+import { Surface } from "@/components/Surface";
 import {
   useAppContextSelector,
   type ChoreAssignment,
@@ -692,7 +693,7 @@ export default function GroupChoresScreen() {
               contentContainerStyle={{ paddingBottom: 90 + botPad, paddingHorizontal: 16 }}
             >
               {/* Month header */}
-              <View style={[styles.monthHeader, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <Surface style={[styles.monthHeader, { borderColor: colors.border }]}>
                 <TouchableOpacity
                   onPress={() => setMonthOffset(monthOffset - 1)}
                   style={[styles.monthNavBtn, { backgroundColor: colors.muted }]}
@@ -708,7 +709,7 @@ export default function GroupChoresScreen() {
                 >
                   <Feather name="chevron-right" size={18} color={colors.foreground} />
                 </TouchableOpacity>
-              </View>
+              </Surface>
 
               {/* DOW row */}
               <View style={styles.dowRow}>
@@ -720,7 +721,7 @@ export default function GroupChoresScreen() {
               </View>
 
               {/* Day grid */}
-              <View style={[styles.daysGrid, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <Surface style={[styles.daysGrid, { borderColor: colors.border }]}>
                 {grid.map((row, ri) => (
                   <View key={ri} style={styles.weekRow}>
                     {row.map(({ date, inMonth }, ci) => {
@@ -762,17 +763,17 @@ export default function GroupChoresScreen() {
                     })}
                   </View>
                 ))}
-              </View>
+              </Surface>
 
               {/* Per-week breakdown */}
               {!choreChart || !choreChartStartedAt ? (
-                <View style={[styles.calEmptyCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <Surface style={[styles.calEmptyCard, { borderColor: colors.border }]}>
                   <Feather name="calendar" size={22} color={colors.mutedForeground} />
                   <Text style={[styles.calEmptyTitle, { color: colors.foreground }]}>No chart yet</Text>
                   <Text style={[styles.calEmptySub, { color: colors.mutedForeground }]}>
                     Generate a chore chart in Settings → Planning to see week-by-week assignments here.
                   </Text>
-                </View>
+                </Surface>
               ) : (
                 monthWeeks.map((mon) => {
                   const cw = chartWeekFor(mon, choreChartStartedAt);
@@ -799,9 +800,9 @@ export default function GroupChoresScreen() {
                       ? choreChart.slots
                       : Object.keys(week.assignments).map((k) => ({ key: k, label: humanizeSlotKey(k) }));
                   return (
-                    <View
+                    <Surface
                       key={mon.toISOString()}
-                      style={[styles.weekCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+                      style={[styles.weekCard, { borderColor: colors.border }]}
                     >
                       <View style={styles.weekCardHeader}>
                         <View style={[styles.weekChip, { backgroundColor: colors.primary + "18" }]}>
@@ -834,7 +835,7 @@ export default function GroupChoresScreen() {
                           </View>
                         );
                       })}
-                    </View>
+                    </Surface>
                   );
                 })
               )}
@@ -939,7 +940,7 @@ export default function GroupChoresScreen() {
             Tap a roommate's emoji to cycle through their vibe:
               😊 (chill / around)  →  😴 (sleeping)  →  🤫 (do not disturb)  →  😊
             Sleeping still auto-reverts after 9 hours via AppContext. */}
-        {roommateActivityEnabled ? <View style={[styles.activityCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        {roommateActivityEnabled ? <Surface style={[styles.activityCard, { borderColor: colors.border }]}>
           <TouchableOpacity
             style={styles.activityHeader}
             onPress={toggleRoommates}
@@ -995,7 +996,7 @@ export default function GroupChoresScreen() {
               );
             })}
           </View>}
-        </View> : null}
+        </Surface> : null}
 
         <View style={styles.choreFilterRow}>
           {(["active", "archived"] as const).map((option) => (
@@ -1066,12 +1067,11 @@ export default function GroupChoresScreen() {
               const visibleLimit = visibleChoreLimits[roommate.id] ?? 50;
               const visibleChores = rc.slice(0, visibleLimit);
               return (
-                <View
+                <Surface
                   key={roommate.id}
                   style={[
                     styles.section,
                     {
-                      backgroundColor: colors.card,
                       borderColor: colors.border,
                     },
                   ]}
@@ -1314,7 +1314,7 @@ export default function GroupChoresScreen() {
                       ) : null}
                     </>
                   ))}
-                </View>
+                </Surface>
               );
             })
           )}
