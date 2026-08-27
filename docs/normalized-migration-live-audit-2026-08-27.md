@@ -29,3 +29,26 @@ select jsonb_build_object(
 ```
 
 No orphan cleanup was executed because the preview returned zero chore orphans.
+
+## Deployment and browser verification
+
+- Applied migrations `202608260005` and `202608270001` through `202608270004`
+  to the linked production project.
+- The one-time all-household backfill produced 61 chores, 4 expenses, 5
+  shopping lists, and 12 shopping items. Every remaining blob entity ID was
+  present in its normalized table; the missing counts were all zero.
+- The remaining-blob chore orphan preview returned zero, so no cleanup DELETE
+  was run.
+- Opened the web client at `localhost:8081` with its existing authenticated
+  session. Normalized hydration populated the active household without a
+  Supabase runtime error.
+- Created `[migration test] one-off`, completed it, uncompleted it, and queried
+  its normalized row after each high-value transition.
+- The first deletion attempt exposed a duplicate-confirmation UI defect. Commit
+  `e86c1a3` consolidated confirmation handling. Repeating the browser flow then
+  removed the record from both the UI and `public.chores` (`count(*) = 0`).
+
+Browser console output contained React Native Web deprecation/nesting warnings,
+but no normalized-table or Supabase synchronization error. A second household
+account was not available in the browser session, so host/non-host pickup,
+reassignment, and cross-account Realtime remain unverified manually.
