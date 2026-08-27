@@ -56,6 +56,7 @@ import {
   type ShoppingItemRow,
   type ShoppingListRow,
 } from "@/lib/shoppingRow";
+import { rowToSharedBorrow, sharedBorrowToRow, type SharedBorrowRow } from "@/lib/sharedBorrowRow";
 import { rowToChore, type ChoreRow } from "@/lib/choreRow";
 import { applyChoreRowEvent, planChoreSync } from "@/lib/choreSync";
 import { carryMappedReminderToNextOccurrence } from "@/lib/externalTasks";
@@ -890,6 +891,8 @@ export function AppProvider({
   shoppingItemsRef.current = shoppingItems;
   shoppingSyncMetaRef.current = shoppingSyncMeta;
   const [borrowItems, setBorrowItems] = useState<BorrowItem[]>([]);
+  const borrowItemsRef = useRef<BorrowItem[]>(borrowItems);
+  borrowItemsRef.current = borrowItems;
   const [privateBorrowItems, setPrivateBorrowItems] = useState<BorrowItem[]>([]);
   const visibleBorrowItems = useMemo(
     () => [...borrowItems, ...privateBorrowItems],
@@ -975,6 +978,17 @@ export function AppProvider({
     setEntities: setShoppingItems,
     toRow: shoppingItemToRow,
     fromRow: rowToShoppingItem,
+  });
+  const sharedBorrowTableReadyRef = useNormalizedCollection<BorrowItem, SharedBorrowRow>({
+    table: "shared_borrow_items",
+    householdId,
+    userId: session?.user.id,
+    cloudReady,
+    entities: borrowItems,
+    entitiesRef: borrowItemsRef,
+    setEntities: setBorrowItems,
+    toRow: sharedBorrowToRow,
+    fromRow: rowToSharedBorrow,
   });
   const membershipLoadGenerationRef = useRef(0);
   const sweetDataCacheRef = useRef<Record<string, SharedHouseholdState>>({});
@@ -2464,7 +2478,7 @@ export function AppProvider({
     };
     shoppingSyncMetaRef.current = mergedMeta;
     setShoppingSyncMeta(mergedMeta);
-    if (Array.isArray(next.borrowItems)) {
+    if (!sharedBorrowTableReadyRef.current && Array.isArray(next.borrowItems)) {
       setBorrowItems(normalizeSharedBorrowItems(next.borrowItems));
     }
     // Essential assignments use atomic rows in
