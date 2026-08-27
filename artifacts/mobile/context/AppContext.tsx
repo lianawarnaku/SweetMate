@@ -46,6 +46,8 @@ import { choreCompletionTransition } from "@/lib/choreCompletion";
 import { isActiveSweetMember, resolveChorePermissions } from "@/lib/chorePermissions";
 import { logChorePermissionCheck } from "@/lib/choreDiagnostics";
 import { mergeByUpdatedAt } from "@/lib/expenseMerge";
+import { expenseToRow, rowToExpense, type ExpenseRow } from "@/lib/expenseRow";
+import { applyNormalizedEvent, planNormalizedSync, type NormalizedRow } from "@/lib/normalizedCollection";
 import { rowToChore, type ChoreRow } from "@/lib/choreRow";
 import { applyChoreRowEvent, planChoreSync } from "@/lib/choreSync";
 import { carryMappedReminderToNextOccurrence } from "@/lib/externalTasks";
@@ -714,6 +716,128 @@ interface SharedHouseholdState {
   customTasks: CustomTask[];
 }
 
+function useNormalizedCollection<
+  T extends { id: string; updatedAt?: string },
+  R extends NormalizedRow,
+>({
+  table,
+  householdId,
+  userId,
+  cloudReady,
+  entities,
+  entitiesRef,
+  setEntities,
+  toRow,
+  fromRow,
+}: {
+  table: string;
+  householdId: string | null;
+  userId?: string;
+  cloudReady: boolean;
+  entities: T[];
+  entitiesRef: React.MutableRefObject<T[]>;
+  setEntities: React.Dispatch<React.SetStateAction<T[]>>;
+  toRow: (entity: T, householdId: string) => R;
+  fromRow: (row: R) => T;
+}) {
+  const [ready, setReady] = useState(false);
+  const readyRef = useRef(false);
+  const persistedRef = useRef<Map<string, R>>(new Map());
+  const queueRef = useRef<Promise<void>>(Promise.resolve());
+
+  useEffect(() => {
+    readyRef.current = false;
+    setReady(false);
+    persistedRef.current = new Map();
+    if (!cloudReady || !householdId || !userId) return;
+    let active = true;
+    const channel = supabase.channel(`${table}:${householdId}`);
+    const connect = async () => {
+      const { data, error } = await supabase.from(table).select("*").eq("household_id", householdId);
+      if (!active) return;
+      if (error) {
+        reportSupabaseError(`load normalized ${table}`, error, { householdId });
+        return;
+      }
+      const rows = (data ?? []) as R[];
+      if (rows.length) {
+        const normalized = rows.map(fromRow);
+        persistedRef.current = new Map(rows.map((row) => [row.id, row]));
+        entitiesRef.current = normalized;
+        setEntities(normalized);
+      } else {
+        const bootstrap = entitiesRef.current.map((entity) => toRow(entity, householdId));
+        if (bootstrap.length) {
+          const { error: bootstrapError } = await supabase.from(table).upsert(bootstrap, { onConflict: "id" });
+          if (!active) return;
+          if (bootstrapError) {
+            reportSupabaseError(`bootstrap normalized ${table}`, bootstrapError, { householdId, count: bootstrap.length });
+            return;
+          }
+          persistedRef.current = new Map(bootstrap.map((row) => [row.id, row]));
+        }
+      }
+      readyRef.current = true;
+      setReady(true);
+      channel.on(
+        "postgres_changes",
+        { event: "*", schema: "public", table, filter: `household_id=eq.${householdId}` },
+        (payload) => {
+          if (!active) return;
+          const row = (payload.eventType === "DELETE" ? payload.old : payload.new) as R;
+          if (!row?.id) return;
+          if (payload.eventType === "DELETE") persistedRef.current.delete(row.id);
+          else persistedRef.current.set(row.id, row);
+          const next = applyNormalizedEvent(
+            entitiesRef.current,
+            payload.eventType as "INSERT" | "UPDATE" | "DELETE",
+            row,
+            fromRow,
+          );
+          entitiesRef.current = next;
+          setEntities(next);
+        },
+      ).subscribe((status, subscriptionError) => {
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          reportSupabaseError(`subscribe to normalized ${table}`, subscriptionError ?? new Error(status), { householdId, status });
+        }
+      });
+    };
+    void connect().catch((error) => reportRuntimeError(`connect normalized ${table}`, error, { householdId }));
+    return () => {
+      active = false;
+      readyRef.current = false;
+      setReady(false);
+      void supabase.removeChannel(channel);
+    };
+  }, [cloudReady, fromRow, householdId, setEntities, table, toRow, userId]);
+
+  useEffect(() => {
+    if (!ready || !householdId || !userId) return;
+    queueRef.current = queueRef.current.then(async () => {
+      const plan = planNormalizedSync(entities, persistedRef.current, (entity) => toRow(entity, householdId));
+      if (plan.upserts.length) {
+        const { error } = await supabase.from(table).upsert(plan.upserts, { onConflict: "id" });
+        if (error) {
+          reportSupabaseError(`persist normalized ${table}`, error, { householdId, count: plan.upserts.length });
+          return;
+        }
+        plan.upserts.forEach((row) => persistedRef.current.set(row.id, row));
+      }
+      if (plan.deleteIds.length) {
+        const { error } = await supabase.from(table).delete().eq("household_id", householdId).in("id", plan.deleteIds);
+        if (error) {
+          reportSupabaseError(`delete normalized ${table}`, error, { householdId, count: plan.deleteIds.length });
+          return;
+        }
+        plan.deleteIds.forEach((id) => persistedRef.current.delete(id));
+      }
+    });
+  }, [entities, householdId, ready, table, toRow, userId]);
+
+  return readyRef;
+}
+
 export function AppProvider({
   children,
   session,
@@ -804,6 +928,17 @@ export function AppProvider({
     choreLocalDateKey(choreNow()),
   );
   const [recurrenceRefreshTick, setRecurrenceRefreshTick] = useState(0);
+  const expensesTableReadyRef = useNormalizedCollection<Expense, ExpenseRow>({
+    table: "expenses",
+    householdId,
+    userId: session?.user.id,
+    cloudReady,
+    entities: expenses,
+    entitiesRef: expensesRef,
+    setEntities: setExpenses,
+    toRow: expenseToRow,
+    fromRow: rowToExpense,
+  });
   const membershipLoadGenerationRef = useRef(0);
   const sweetDataCacheRef = useRef<Record<string, SharedHouseholdState>>({});
   const applyingRemoteRef = useRef(false);
@@ -2223,7 +2358,7 @@ export function AppProvider({
       choresRef.current = mergedChores;
       setChores(mergedChores);
     }
-    if (Array.isArray(next.expenses)) {
+    if (!expensesTableReadyRef.current && Array.isArray(next.expenses)) {
       const mergedExpenses = mergeByUpdatedAt(expensesRef.current, next.expenses);
       expensesRef.current = mergedExpenses;
       setExpenses(mergedExpenses);
