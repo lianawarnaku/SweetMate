@@ -44,6 +44,6 @@ assert(
   "Settings and onboarding must display the actual Roommate Activity default",
 );
 assert(
-  groupScreen.includes("roommateActivityEnabled ? <View"),
+  /roommateActivityEnabled\s*\?\s*<(?:View|Surface)\b/.test(groupScreen),
   "disabled Roommate Activity must hide the roommate status card",
 );
