@@ -1191,14 +1191,11 @@ export default function MyChoresScreen() {
             label: "Delete chore",
             icon: "trash-2" as const,
             destructive: true,
-            runAfterDismiss: Boolean(actionChore.recurring || actionChore.recurrenceSeriesId),
-            confirmation: actionChore.recurring || actionChore.recurrenceSeriesId
-              ? undefined
-              : {
-                  title: `Delete “${actionChore.title}”?`,
-                  message: "This removes the chore for everyone in your Sweet.",
-                  confirmLabel: "Delete chore",
-                },
+            // confirmDeleteChore owns the only confirmation flow. Layering an
+            // ActionMenu confirmation here caused its follow-up popup to be
+            // lost while the action sheet was dismissing on web.
+            runAfterDismiss: true,
+            confirmation: undefined,
             onPress: () => confirmDeleteChore(actionChore),
           }] : []),
           ] : []),

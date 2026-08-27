@@ -1376,14 +1376,8 @@ export default function GroupChoresScreen() {
             label: "Delete chore",
             icon: "trash-2" as const,
             destructive: true,
-            runAfterDismiss: Boolean(actionChore.recurring || actionChore.recurrenceSeriesId),
-            confirmation: actionChore.recurring || actionChore.recurrenceSeriesId
-              ? undefined
-              : {
-                  title: `Delete “${actionChore.title}”?`,
-                  message: "This removes the chore for everyone in your Sweet.",
-                  confirmLabel: "Delete chore",
-                },
+            runAfterDismiss: true,
+            confirmation: undefined,
             onPress: () => confirmDeleteChore(actionChore),
           }] : []),
           ] : []),
