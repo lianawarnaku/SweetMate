@@ -134,6 +134,13 @@ assert(
   "My Chores must keep category icons unboxed and render points in their compact badge",
 );
 assert(
+  home.includes("styles.sectionDividerLine") &&
+    home.includes("styles.sectionDividerLabel") &&
+    home.includes("height: StyleSheet.hairlineWidth") &&
+    !home.includes("borderBottomWidth: 2"),
+  "My Sweet section headings must use centered labels between balanced hairline dividers",
+);
+assert(
   !group.includes("styles.activityHeaderIcon, { backgroundColor:"),
   "Room Health and Roommates heading icons must render without tiles",
 );

@@ -93,20 +93,23 @@ function CollapsibleSectionHeader({
   const colors = useTheme();
   return (
     <TouchableOpacity
-      style={[styles.sectionTitleRow, { borderBottomColor: colors.primary }]}
+      style={styles.sectionTitleRow}
       onPress={onToggle}
       activeOpacity={0.7}
       accessibilityRole="button"
       accessibilityState={{ expanded }}
       accessibilityLabel={`${expanded ? "Collapse" : "Expand"} ${title}, ${count} ${count === 1 ? "item" : "items"}`}
     >
-      <Feather name={icon} size={15} color={colors.primary} />
-      <Text style={[styles.sectionTitleText, { color: colors.foreground }]}>{title}</Text>
-      <Text style={[styles.sectionTitleCount, { color: colors.mutedForeground }]}>
-        · {count} item{count !== 1 ? "s" : ""}
-      </Text>
-      <View style={styles.sectionTitleSpacer} />
-      <Feather name={expanded ? "chevron-down" : "chevron-right"} size={18} color={colors.mutedForeground} />
+      <View style={[styles.sectionDividerLine, { backgroundColor: colors.border }]} />
+      <View style={styles.sectionDividerLabel}>
+        <Feather name={icon} size={14} color={colors.mutedForeground} />
+        <Text style={[styles.sectionTitleText, { color: colors.foreground }]}>{title}</Text>
+        <Text style={[styles.sectionTitleCount, { color: colors.mutedForeground }]}>
+          {count}
+        </Text>
+        <Feather name={expanded ? "chevron-down" : "chevron-right"} size={16} color={colors.mutedForeground} />
+      </View>
+      <View style={[styles.sectionDividerLine, { backgroundColor: colors.border }]} />
     </TouchableOpacity>
   );
 }
@@ -1382,25 +1385,29 @@ const styles = StyleSheet.create({
   sectionTitleRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    borderBottomWidth: 2,
-    paddingHorizontal: 2,
-    paddingBottom: 9,
-    marginTop: 16,
-    marginBottom: 12,
+    gap: 12,
+    minHeight: 36,
+    marginTop: 18,
+    marginBottom: 10,
+  },
+  sectionDividerLine: { flex: 1, height: StyleSheet.hairlineWidth },
+  sectionDividerLabel: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    flexShrink: 0,
   },
   sectionTitleText: {
     fontFamily: "Inter_700Bold",
     fontSize: 15,
     flexShrink: 1,
-    paddingRight: 4,
   },
   sectionTitleCount: {
     fontFamily: "Inter_500Medium",
     fontSize: 12,
     flexShrink: 1,
   },
-  sectionTitleSpacer: { flex: 1, minWidth: 8 },
   sectionEmpty: {
     fontFamily: "Inter_400Regular",
     fontSize: 12,
