@@ -28,5 +28,23 @@ const violations = sourceRoots.flatMap(filesIn).flatMap((file) => {
     .map(([label]) => `${relative(root, file)}: ${label}`);
 });
 
+const glassPopupComponents = [
+  "AppPopupProvider.tsx",
+  "ActionMenuModal.tsx",
+  "QuickGuideModal.tsx",
+  "AnalyticsConsentManager.tsx",
+];
+for (const name of glassPopupComponents) {
+  const source = readFileSync(join(root, "components", name), "utf8");
+  if (!source.includes("GlassModalSurface")) {
+    violations.push(`components/${name}: custom popup must use the shared glass surface`);
+  }
+}
+
+const glassSurface = readFileSync(join(root, "components", "GlassModalSurface.tsx"), "utf8");
+if (!glassSurface.includes("<BlurView")) {
+  violations.push("components/GlassModalSurface.tsx: shared popup surface must retain native blur");
+}
+
 if (violations.length) throw new Error(`Prohibited app-controlled native popups:\n${violations.join("\n")}`);
 console.log("native popup audit passed");

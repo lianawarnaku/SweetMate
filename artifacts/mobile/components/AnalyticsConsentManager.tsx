@@ -12,6 +12,7 @@ import {
 
 import { useTheme } from "@/constants/colors";
 import { useAppPopup } from "@/components/AppPopupProvider";
+import { GlassModalBackdrop, GlassModalSurface } from "@/components/GlassModalSurface";
 import {
   analyticsSnapshot,
   loadAnalyticsPreferences,
@@ -109,7 +110,8 @@ export function AnalyticsConsentManager({ session }: { session: Session | null }
   return (
     <Modal visible={visible} transparent animationType="fade">
       <View style={styles.overlay}>
-        <View style={[styles.notice, { backgroundColor: colors.card }]}>
+        <GlassModalBackdrop />
+        <GlassModalSurface style={styles.notice}>
           <Text style={[styles.noticeTitle, { color: colors.foreground }]}>
             Your privacy choices
           </Text>
@@ -164,7 +166,7 @@ export function AnalyticsConsentManager({ session }: { session: Session | null }
               </Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </GlassModalSurface>
       </View>
     </Modal>
   );
@@ -180,12 +182,11 @@ const styles = StyleSheet.create({
   policyText: { fontFamily: "Inter_600SemiBold", fontSize: 13 },
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.45)",
     alignItems: "center",
     justifyContent: "center",
     padding: 24,
   },
-  notice: { width: "100%", maxWidth: 440, borderRadius: 20, padding: 22 },
+  notice: { width: "100%", maxWidth: 440, borderRadius: 30, padding: 22 },
   noticeTitle: { fontFamily: "Inter_700Bold", fontSize: 22 },
   noticeBody: { fontFamily: "Inter_400Regular", fontSize: 14, lineHeight: 20, marginVertical: 12 },
   consentActions: { flexDirection: "row", gap: 10, marginTop: 18 },

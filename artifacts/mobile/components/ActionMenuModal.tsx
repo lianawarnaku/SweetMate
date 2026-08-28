@@ -13,6 +13,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useTheme } from "@/constants/colors";
+import { GlassModalBackdrop, GlassModalSurface } from "@/components/GlassModalSurface";
 
 type FeatherIcon = keyof typeof Feather.glyphMap;
 
@@ -170,6 +171,7 @@ export function ActionMenuModal({
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={styles.fill}
       >
+        <GlassModalBackdrop />
         <Animated.View
           pointerEvents="none"
           style={[
@@ -190,11 +192,8 @@ export function ActionMenuModal({
         />
         <Animated.View
           style={[
-            styles.sheet,
+            styles.sheetMotion,
             {
-              backgroundColor: colors.card,
-              borderColor: colors.border,
-              paddingBottom: Math.max(insets.bottom, 14) + 10,
               opacity: progress,
               transform: [
                 {
@@ -207,6 +206,12 @@ export function ActionMenuModal({
             },
           ]}
         >
+          <GlassModalSurface
+            style={[
+              styles.sheet,
+              { paddingBottom: Math.max(insets.bottom, 14) + 10 },
+            ]}
+          >
           <View style={[styles.handle, { backgroundColor: colors.border }]} />
           {confirming?.confirmation ? (
             <>
@@ -420,6 +425,7 @@ export function ActionMenuModal({
               </Pressable>
             </>
           )}
+          </GlassModalSurface>
         </Animated.View>
       </KeyboardAvoidingView>
     </Modal>
@@ -432,11 +438,12 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "#080B12",
   },
-  sheet: {
+  sheetMotion: {
     marginHorizontal: 12,
     marginBottom: 10,
+  },
+  sheet: {
     borderRadius: 26,
-    borderWidth: 1,
     paddingHorizontal: 18,
     paddingTop: 10,
     shadowColor: "#000000",

@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "@/constants/colors";
 import { useAppContextSelector } from "@/context/AppContext";
 import { tapLight } from "@/lib/haptics";
+import { GlassModalBackdrop, GlassModalSurface } from "@/components/GlassModalSurface";
 
 const GUIDE_ITEMS = [
   {
@@ -86,12 +87,8 @@ export function QuickGuideModal() {
           },
         ]}
       >
-        <View
-          style={[
-            styles.card,
-            { backgroundColor: colors.card, borderColor: colors.border },
-          ]}
-        >
+        <GlassModalBackdrop onPress={close} accessibilityLabel="Close Quick guide" />
+        <GlassModalSurface style={styles.card}>
           <ScrollView
             style={styles.scroll}
             contentContainerStyle={styles.content}
@@ -164,7 +161,7 @@ export function QuickGuideModal() {
               </Text>
             </Pressable>
           </View>
-        </View>
+        </GlassModalSurface>
       </View>
     </Modal>
   );
@@ -175,15 +172,13 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     paddingHorizontal: 20,
-    backgroundColor: "rgba(0,0,0,0.46)",
   },
   card: {
     alignSelf: "center",
     width: "100%",
     maxWidth: 430,
     maxHeight: "88%",
-    borderWidth: 1,
-    borderRadius: 24,
+    borderRadius: 30,
     overflow: "hidden",
   },
   scroll: { flexGrow: 0 },

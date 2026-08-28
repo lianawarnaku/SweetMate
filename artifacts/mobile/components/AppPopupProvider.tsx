@@ -4,6 +4,7 @@ import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from "rea
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useTheme } from "@/constants/colors";
+import { GlassModalBackdrop, GlassModalSurface } from "@/components/GlassModalSurface";
 
 export type AppPopupAction = {
   label: string;
@@ -72,13 +73,10 @@ export function AppPopupProvider({ children }: { children: ReactNode }) {
         accessibilityViewIsModal
       >
         <View style={styles.root}>
-          <Pressable
-            style={StyleSheet.absoluteFill}
-            accessibilityRole="button"
-            accessibilityLabel="Close popup"
+          <GlassModalBackdrop
             onPress={popup?.dismissible === false ? undefined : dismissPopup}
           />
-          <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border, marginBottom: Math.max(insets.bottom, 16) }]}>
+          <GlassModalSurface style={[styles.card, { marginBottom: Math.max(insets.bottom, 16) }]}>
             <View style={[styles.icon, { backgroundColor: colors.primary + "14" }]}>
               <Feather name={popup?.icon ?? "info"} size={22} color={colors.primary} />
             </View>
@@ -100,7 +98,7 @@ export function AppPopupProvider({ children }: { children: ReactNode }) {
                 </Pressable>
               ))}
             </View>
-          </View>
+          </GlassModalSurface>
         </View>
       </Modal>
     </PopupContext.Provider>
@@ -114,8 +112,8 @@ export function useAppPopup() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "rgba(0,0,0,0.46)", justifyContent: "flex-end", paddingHorizontal: 14 },
-  card: { borderWidth: 1, borderRadius: 24, padding: 20, gap: 10 },
+  root: { flex: 1, justifyContent: "flex-end", paddingHorizontal: 14 },
+  card: { borderRadius: 30, padding: 20, gap: 10 },
   icon: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", alignSelf: "center" },
   title: { fontFamily: "Inter_700Bold", fontSize: 21, textAlign: "center" },
   message: { fontFamily: "Inter_400Regular", fontSize: 16, lineHeight: 22, textAlign: "center" },
