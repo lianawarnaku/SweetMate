@@ -27,6 +27,7 @@ import { useAppPopup } from "@/components/AppPopupProvider";
 import { FloatingActionButton, useFloatingActionMetrics } from "@/components/FloatingActionButton";
 import { HeaderActions } from "@/components/HeaderActions";
 import { ManualChoreForm } from "@/components/ManualChoreForm";
+import { GlassCheckCircle } from "@/components/GlassCheckCircle";
 import {
   type ChoreCategory,
   type Chore,
@@ -207,22 +208,14 @@ function ChoreRow({
         ]}
       >
       <TouchableOpacity
-        style={[
-          styles.checkBox,
-          {
-            borderColor: chore.completed ? colors.success : overdue ? colors.warning : colors.border,
-            backgroundColor: chore.completed ? colors.success + "22" : "transparent",
-          },
-        ]}
+        style={styles.checkBox}
         onPress={handleCheckPress}
         accessibilityRole="checkbox"
         accessibilityState={{ checked: chore.completed }}
         accessibilityLabel={`${chore.completed ? "Mark incomplete" : "Mark complete"}: ${chore.title}`}
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       >
-        {chore.completed ? (
-          <Feather name="check" size={14} color={colors.success} />
-        ) : null}
+        <GlassCheckCircle state={chore.completed ? "checked" : overdue ? "warning" : "idle"} />
       </TouchableOpacity>
 
       {pointsEnabled ? (
@@ -1120,7 +1113,7 @@ export default function MyChoresScreen() {
                       }}
                       activeOpacity={0.7}
                     >
-                      <View style={[styles.toBuyCheck, { borderColor: colors.border }]} />
+                      <GlassCheckCircle size={20} />
                       <Text style={[styles.toBuyItem, { color: colors.foreground }]} numberOfLines={1}>
                         {item.name}
                         {item.quantity ? (
@@ -1447,10 +1440,6 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   checkBox: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 2,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1612,12 +1601,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 11,
     gap: 10,
-  },
-  toBuyCheck: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    borderWidth: 1.5,
   },
   toBuyItem: { fontFamily: "Inter_500Medium", fontSize: 14, flex: 1 },
   toBuySection: { fontFamily: "Inter_400Regular", fontSize: 11 },

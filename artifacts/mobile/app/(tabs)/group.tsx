@@ -29,6 +29,7 @@ import { HomePlant } from "@/components/HomePlant";
 import { ManualChoreForm } from "@/components/ManualChoreForm";
 import { RoommateAvatar } from "@/components/RoommateAvatar";
 import { Surface } from "@/components/Surface";
+import { GlassCheckCircle } from "@/components/GlassCheckCircle";
 import {
   useAppContextSelector,
   type ChoreAssignment,
@@ -1215,36 +1216,9 @@ export default function GroupChoresScreen() {
                           ]}
                         >
                           {/* Status icon */}
-                          <View
-                            style={[
-                              styles.statusDot,
-                              {
-                                backgroundColor: chore.completed
-                                  ? colors.success + "22"
-                                  : overdue
-                                  ? colors.warning + "22"
-                                  : colors.muted,
-                              },
-                            ]}
-                          >
-                            <Feather
-                              name={
-                                chore.completed
-                                  ? "check"
-                                  : overdue
-                                  ? "alert-circle"
-                                  : "clock"
-                              }
-                              size={11}
-                              color={
-                                chore.completed
-                                  ? colors.success
-                                  : overdue
-                                  ? colors.warning
-                                  : colors.mutedForeground
-                              }
-                            />
-                          </View>
+                          <GlassCheckCircle
+                            state={chore.completed ? "checked" : overdue ? "warning" : "idle"}
+                          />
 
                           <View style={{ flex: 1 }}>
                             <Text
@@ -1571,13 +1545,6 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderTopWidth: StyleSheet.hairlineWidth,
     gap: 10,
-  },
-  statusDot: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    alignItems: "center",
-    justifyContent: "center",
   },
   choreTitle: { fontFamily: "Inter_500Medium", fontSize: 14 },
   choreDate: { fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 1 },

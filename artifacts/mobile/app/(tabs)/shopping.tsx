@@ -19,6 +19,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { EmptyState } from "@/components/EmptyState";
 import { Surface } from "@/components/Surface";
+import { GlassCheckCircle } from "@/components/GlassCheckCircle";
 import { ActionMenuModal } from "@/components/ActionMenuModal";
 import { FloatingActionButton, useFloatingActionMetrics } from "@/components/FloatingActionButton";
 import {
@@ -532,23 +533,16 @@ export default function ShoppingScreen() {
                                   <Feather name="menu" size={15} color={colors.mutedForeground} />
                                 </TouchableOpacity>
                                 <TouchableOpacity
-                                  style={[
-                                    styles.shopCheck,
-                                    {
-                                      borderColor: item.completed ? colors.success : colors.border,
-                                      backgroundColor: item.completed
-                                        ? colors.success + "22"
-                                        : "transparent",
-                                    },
-                                  ]}
+                                  style={styles.shopCheck}
                                   onPress={() => {
                                     toggleShoppingItem(item.id);
                                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                                   }}
+                                  accessibilityRole="checkbox"
+                                  accessibilityState={{ checked: item.completed }}
+                                  accessibilityLabel={`${item.completed ? "Mark needed" : "Mark purchased"}: ${item.name}`}
                                 >
-                                  {item.completed ? (
-                                    <Feather name="check" size={12} color={colors.success} />
-                                  ) : null}
+                                  <GlassCheckCircle state={item.completed ? "checked" : "idle"} />
                                 </TouchableOpacity>
 
                                 <View style={{ flex: 1 }}>
@@ -960,10 +954,6 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   shopCheck: {
-    width: 20,
-    height: 20,
-    borderRadius: 8,
-    borderWidth: 1.5,
     alignItems: "center",
     justifyContent: "center",
   },
