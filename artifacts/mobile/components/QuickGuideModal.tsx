@@ -14,6 +14,7 @@ import { useTheme } from "@/constants/colors";
 import { useAppContextSelector } from "@/context/AppContext";
 import { tapLight } from "@/lib/haptics";
 import { GlassModalBackdrop, GlassModalSurface } from "@/components/GlassModalSurface";
+import { GlassButton } from "@/components/GlassButton";
 
 const GUIDE_ITEMS = [
   {
@@ -143,23 +144,16 @@ export function QuickGuideModal() {
           </ScrollView>
 
           <View style={[styles.footer, { borderTopColor: colors.border }]}>
-            <Pressable
+            <GlassButton
               accessibilityRole="button"
               accessibilityLabel="Got it, close Quick guide"
               onPress={close}
-              style={({ pressed }) => [
-                styles.button,
-                {
-                  backgroundColor: colors.primary,
-                  opacity: pressed ? 0.82 : 1,
-                  transform: [{ scale: pressed ? 0.98 : 1 }],
-                },
-              ]}
+              style={styles.button}
             >
-              <Text style={[styles.buttonText, { color: colors.primaryForeground }]}>
+              <Text style={[styles.buttonText, { color: "#fff" }]}>
                 GOT IT
               </Text>
-            </Pressable>
+            </GlassButton>
           </View>
         </GlassModalSurface>
       </View>

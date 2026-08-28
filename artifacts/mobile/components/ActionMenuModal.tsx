@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useTheme } from "@/constants/colors";
 import { GlassModalBackdrop, GlassModalSurface } from "@/components/GlassModalSurface";
+import { GlassButton } from "@/components/GlassButton";
 
 type FeatherIcon = keyof typeof Feather.glyphMap;
 
@@ -246,12 +247,10 @@ export function ActionMenuModal({
                 </Text>
               ) : null}
               <View style={styles.confirmButtons}>
-                <Pressable
+                <GlassButton
                   accessibilityRole="button"
-                  style={[
-                    styles.confirmButton,
-                    { backgroundColor: colors.secondary },
-                  ]}
+                  tone="neutral"
+                  style={styles.confirmButton}
                   onPress={() => setConfirming(null)}
                   disabled={running}
                 >
@@ -263,18 +262,12 @@ export function ActionMenuModal({
                   >
                     Cancel
                   </Text>
-                </Pressable>
-                <Pressable
+                </GlassButton>
+                <GlassButton
                   accessibilityRole="button"
                   accessibilityLabel={confirming.confirmation.confirmLabel}
-                  style={[
-                    styles.confirmButton,
-                    {
-                      backgroundColor: confirming.destructive
-                        ? colors.destructive
-                        : colors.primary,
-                    },
-                  ]}
+                  tone={confirming.destructive ? "destructive" : "primary"}
+                  style={styles.confirmButton}
                   onPress={() => {
                     void confirmAction();
                   }}
@@ -297,7 +290,7 @@ export function ActionMenuModal({
                   >
                     {confirming.confirmation.confirmLabel}
                   </Text>
-                </Pressable>
+                </GlassButton>
               </View>
             </>
           ) : (
@@ -334,28 +327,13 @@ export function ActionMenuModal({
               ) : null}
               <View style={styles.actions}>
                 {actions.map((action) => (
-                  <Pressable
+                  <GlassButton
                     key={action.key}
                     disabled={running}
                     accessibilityRole="button"
                     accessibilityLabel={action.label}
-                    style={({ pressed }) => [
-                      styles.action,
-                      {
-                        backgroundColor: action.destructive
-                          ? colors.destructive + (pressed ? "20" : "10")
-                          : action.accentColor
-                            ? action.accentColor + (pressed ? "20" : "10")
-                          : pressed
-                            ? colors.muted
-                            : "transparent",
-                        borderColor: action.destructive
-                          ? colors.destructive + "35"
-                          : action.accentColor
-                            ? action.accentColor + "45"
-                          : colors.border,
-                      },
-                    ]}
+                    tone={action.destructive ? "destructive" : "neutral"}
+                    style={styles.action}
                     onPress={() => {
                       void runAction(action);
                     }}
@@ -410,19 +388,20 @@ export function ActionMenuModal({
                     ) : (
                       <Feather name="chevron-right" size={17} color={colors.mutedForeground} />
                     )}
-                  </Pressable>
+                  </GlassButton>
                 ))}
               </View>
-              <Pressable
+              <GlassButton
                 accessibilityRole="button"
-                style={[styles.cancelButton, { borderColor: colors.border }]}
+                tone="neutral"
+                style={styles.cancelButton}
                 onPress={() => dismiss()}
                 disabled={running}
               >
                 <Text style={[styles.cancelText, { color: colors.foreground }]}>
                   Cancel
                 </Text>
-              </Pressable>
+              </GlassButton>
             </>
           )}
           </GlassModalSurface>

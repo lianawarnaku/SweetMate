@@ -13,6 +13,7 @@ import {
 import { useTheme } from "@/constants/colors";
 import { useAppPopup } from "@/components/AppPopupProvider";
 import { GlassModalBackdrop, GlassModalSurface } from "@/components/GlassModalSurface";
+import { GlassButton } from "@/components/GlassButton";
 import {
   analyticsSnapshot,
   loadAnalyticsPreferences,
@@ -127,13 +128,11 @@ export function AnalyticsConsentManager({ session }: { session: Session | null }
             <Text style={[styles.policyText, { color: colors.primary }]}>Review Privacy Policy</Text>
           </TouchableOpacity>
           <View style={styles.consentActions}>
-            <TouchableOpacity
+            <GlassButton
               accessibilityRole="button"
               accessibilityLabel="Don't share optional analytics"
-              style={[
-                styles.consentButton,
-                { backgroundColor: colors.secondary, borderColor: colors.border },
-              ]}
+              tone="neutral"
+              style={styles.consentButton}
               onPress={() =>
                 void saveAnalyticsPreferences(userId, {
                   productAnalyticsEnabled: false,
@@ -142,17 +141,14 @@ export function AnalyticsConsentManager({ session }: { session: Session | null }
                 })
               }
             >
-              <Text style={[styles.consentText, { color: colors.foreground }]}>
+              <Text style={[styles.consentText, { color: "#fff" }]}>
                 {"Don't share"}
               </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
+            </GlassButton>
+            <GlassButton
               accessibilityRole="button"
               accessibilityLabel="Share optional product analytics"
-              style={[
-                styles.consentButton,
-                { backgroundColor: colors.secondary, borderColor: colors.border },
-              ]}
+              style={styles.consentButton}
               onPress={() =>
                 void saveAnalyticsPreferences(userId, {
                   productAnalyticsEnabled: true,
@@ -161,10 +157,10 @@ export function AnalyticsConsentManager({ session }: { session: Session | null }
                 })
               }
             >
-              <Text style={[styles.consentText, { color: colors.primary }]}>
+              <Text style={[styles.consentText, { color: "#fff" }]}>
                 Share analytics
               </Text>
-            </TouchableOpacity>
+            </GlassButton>
           </View>
         </GlassModalSurface>
       </View>
@@ -193,11 +189,7 @@ const styles = StyleSheet.create({
   consentButton: {
     flex: 1,
     minHeight: 50,
-    borderRadius: 12,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 10,
+    borderRadius: 25,
   },
   consentText: {
     fontFamily: "Inter_700Bold",

@@ -39,6 +39,9 @@ for (const name of glassPopupComponents) {
   if (!source.includes("GlassModalSurface")) {
     violations.push(`components/${name}: custom popup must use the shared glass surface`);
   }
+  if (!source.includes("GlassButton")) {
+    violations.push(`components/${name}: popup actions must use the shared glass button`);
+  }
 }
 
 const glassSurface = readFileSync(join(root, "components", "GlassModalSurface.tsx"), "utf8");

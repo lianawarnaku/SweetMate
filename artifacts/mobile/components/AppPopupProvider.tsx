@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useTheme } from "@/constants/colors";
 import { GlassModalBackdrop, GlassModalSurface } from "@/components/GlassModalSurface";
+import { GlassButton } from "@/components/GlassButton";
 
 export type AppPopupAction = {
   label: string;
@@ -85,17 +86,18 @@ export function AppPopupProvider({ children }: { children: ReactNode }) {
             {error ? <Text accessibilityLiveRegion="assertive" style={[styles.error, { color: colors.destructive }]}>{error}</Text> : null}
             <View style={styles.actions}>
               {popup?.actions.map((action) => (
-                <Pressable
+                <GlassButton
                   key={action.label}
                   accessibilityRole="button"
                   accessibilityLabel={action.destructive ? `${action.label}, destructive action` : action.label}
                   disabled={running}
                   onPress={() => void run(action)}
-                  style={[styles.action, { borderColor: colors.border, backgroundColor: action.destructive ? colors.destructive : action.primary ? colors.primary : colors.secondary }]}
+                  tone={action.destructive ? "destructive" : action.primary ? "primary" : "neutral"}
+                  style={styles.action}
                 >
-                  {running && action.primary ? <ActivityIndicator size="small" color={colors.primaryForeground} /> : null}
-                  <Text style={[styles.actionText, { color: action.destructive ? "#fff" : action.primary ? colors.primaryForeground : colors.secondaryForeground }]}>{action.label}</Text>
-                </Pressable>
+                  {running && action.primary ? <ActivityIndicator size="small" color="#fff" /> : null}
+                  <Text style={[styles.actionText, { color: action.primary || action.destructive ? "#fff" : colors.foreground }]}>{action.label}</Text>
+                </GlassButton>
               ))}
             </View>
           </GlassModalSurface>
@@ -119,6 +121,6 @@ const styles = StyleSheet.create({
   message: { fontFamily: "Inter_400Regular", fontSize: 16, lineHeight: 22, textAlign: "center" },
   error: { fontFamily: "Inter_600SemiBold", fontSize: 14, textAlign: "center" },
   actions: { gap: 9, marginTop: 6 },
-  action: { minHeight: 48, borderWidth: 1, borderRadius: 15, flexDirection: "row", gap: 8, alignItems: "center", justifyContent: "center", paddingHorizontal: 16 },
+  action: { minHeight: 50 },
   actionText: { fontFamily: "Inter_700Bold", fontSize: 16 },
 });
