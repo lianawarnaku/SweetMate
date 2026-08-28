@@ -2,9 +2,11 @@ import { Feather } from "@expo/vector-icons";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { BlurView } from "expo-blur";
 import { Tabs } from "expo-router";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  Animated,
   InteractionManager,
+  PanResponder,
   Platform,
   StyleSheet,
   Text,
@@ -15,12 +17,17 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "@/constants/colors";
 import { useAppContextSelector } from "@/context/AppContext";
 import { SmoothPressable } from "@/components/SmoothPressable";
+import { clampTabIndicatorX, resolveDraggedTabIndex } from "@/lib/tabBarGesture";
+import { tapLight } from "@/lib/haptics";
+
+const TAB_GESTURE_HOLD_MS = 260;
 
 function ScrollableTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const colors = useTheme();
   const pointsEnabled = useAppContextSelector(
     (context) => context.pointsEnabled,
   );
+  const colorScheme = useAppContextSelector((context) => context.colorScheme);
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
   // Expo Router auto-registers every route file, even when its Tabs.Screen
@@ -35,6 +42,124 @@ function ScrollableTabBar({ state, descriptors, navigation }: BottomTabBarProps)
   );
   const focusedRouteKey = state.routes[state.index]?.key;
   const preloadedRouteKeys = useRef(new Set<string>());
+  const [contentWidth, setContentWidth] = useState(0);
+  const indicatorX = useRef(new Animated.Value(0)).current;
+  const indicatorXValue = useRef(0);
+  const dragStartX = useRef(0);
+  const dragActive = useRef(false);
+  const draggedIndex = useRef(-1);
+  const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const focusedVisibleIndex = Math.max(
+    0,
+    visibleRoutes.findIndex((route) => route.key === focusedRouteKey),
+  );
+  const tabWidth = contentWidth > 0 ? contentWidth / visibleRoutes.length : 0;
+
+  useEffect(() => {
+    const listener = indicatorX.addListener(({ value }) => {
+      indicatorXValue.current = value;
+    });
+    return () => indicatorX.removeListener(listener);
+  }, [indicatorX]);
+
+  useEffect(() => {
+    if (!tabWidth || dragActive.current) return;
+    Animated.spring(indicatorX, {
+      toValue: focusedVisibleIndex * tabWidth,
+      damping: 22,
+      stiffness: 240,
+      mass: 0.72,
+      useNativeDriver: true,
+    }).start();
+  }, [focusedVisibleIndex, indicatorX, tabWidth]);
+
+  useEffect(
+    () => () => {
+      if (holdTimer.current) clearTimeout(holdTimer.current);
+    },
+    [],
+  );
+
+  const navigateToVisibleIndex = (index: number) => {
+    const route = visibleRoutes[index];
+    if (!route) return;
+    const event = navigation.emit({
+      type: "tabPress",
+      target: route.key,
+      canPreventDefault: true,
+    });
+    if (route.key !== focusedRouteKey && !event.defaultPrevented) {
+      navigation.navigate(route.name, route.params);
+    }
+  };
+
+  const indicatorPanResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: () => true,
+        onPanResponderGrant: () => {
+          dragStartX.current = indicatorXValue.current;
+          dragActive.current = false;
+          draggedIndex.current = focusedVisibleIndex;
+          holdTimer.current = setTimeout(() => {
+            dragActive.current = true;
+            tapLight();
+          }, TAB_GESTURE_HOLD_MS);
+        },
+        onPanResponderMove: (_event, gesture) => {
+          if (!dragActive.current || !tabWidth) return;
+          const nextX = clampTabIndicatorX(
+            dragStartX.current + gesture.dx,
+            tabWidth,
+            visibleRoutes.length,
+          );
+          indicatorX.setValue(nextX);
+          const nextIndex = resolveDraggedTabIndex(
+            nextX,
+            tabWidth,
+            visibleRoutes.length,
+          );
+          if (nextIndex !== draggedIndex.current) {
+            draggedIndex.current = nextIndex;
+            tapLight();
+          }
+        },
+        onPanResponderRelease: () => {
+          if (holdTimer.current) clearTimeout(holdTimer.current);
+          holdTimer.current = null;
+          const wasDragging = dragActive.current;
+          dragActive.current = false;
+          if (wasDragging) {
+            navigateToVisibleIndex(draggedIndex.current);
+          } else {
+            navigateToVisibleIndex(focusedVisibleIndex);
+            Animated.spring(indicatorX, {
+              toValue: focusedVisibleIndex * tabWidth,
+              damping: 22,
+              stiffness: 240,
+              mass: 0.72,
+              useNativeDriver: true,
+            }).start();
+          }
+        },
+        onPanResponderTerminate: () => {
+          if (holdTimer.current) clearTimeout(holdTimer.current);
+          holdTimer.current = null;
+          dragActive.current = false;
+          Animated.spring(indicatorX, {
+            toValue: focusedVisibleIndex * tabWidth,
+            damping: 22,
+            stiffness: 240,
+            mass: 0.72,
+            useNativeDriver: true,
+          }).start();
+        },
+      }),
+    // Recreate the responder when route geometry changes so its closures match.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [focusedRouteKey, focusedVisibleIndex, indicatorX, navigation, tabWidth, visibleRoutes],
+  );
 
   useEffect(() => {
     const timers: ReturnType<typeof setTimeout>[] = [];
@@ -70,9 +195,51 @@ function ScrollableTabBar({ state, descriptors, navigation }: BottomTabBarProps)
         },
       ]}
     >
-      <BlurView intensity={52} tint="light" style={StyleSheet.absoluteFill} />
-      <View style={[StyleSheet.absoluteFill, styles.translucentTint]} />
-      <View style={styles.tabBarContent}>
+      <BlurView
+        intensity={68}
+        tint={colorScheme === "mono" ? "dark" : "light"}
+        style={StyleSheet.absoluteFill}
+      />
+      <View
+        style={[
+          StyleSheet.absoluteFill,
+          colorScheme === "mono" ? styles.darkGlassTint : styles.lightGlassTint,
+        ]}
+      />
+      <View
+        style={styles.tabBarContent}
+        onLayout={(event) => setContentWidth(event.nativeEvent.layout.width)}
+      >
+        {tabWidth > 0 && (
+          <>
+            <Animated.View
+              pointerEvents="none"
+              style={[
+                styles.selectionBubble,
+                {
+                  width: tabWidth,
+                  backgroundColor:
+                    colorScheme === "mono"
+                      ? "rgba(255,255,255,0.14)"
+                      : "rgba(29,25,27,0.11)",
+                  transform: [{ translateX: indicatorX }],
+                },
+              ]}
+            />
+            <Animated.View
+              accessibilityLabel="Drag to switch tabs"
+              accessibilityHint="Press and hold, then slide left or right"
+              style={[
+                styles.selectionGestureTarget,
+                {
+                  width: tabWidth,
+                  transform: [{ translateX: indicatorX }],
+                },
+              ]}
+              {...indicatorPanResponder.panHandlers}
+            />
+          </>
+        )}
         {visibleRoutes.map((route) => {
           const { options } = descriptors[route.key];
           const focused = focusedRouteKey === route.key;
@@ -104,7 +271,7 @@ function ScrollableTabBar({ state, descriptors, navigation }: BottomTabBarProps)
               onPress={onPress}
               onLongPress={() => navigation.emit({ type: "tabLongPress", target: route.key })}
               containerStyle={styles.tabItemSlot}
-              style={[styles.tabItem, focused && { backgroundColor: colors.secondary }]}
+              style={styles.tabItem}
             >
               <View style={styles.iconSlot}>
                 {options.tabBarIcon?.({ focused, color, size: 21 })}
@@ -217,17 +384,33 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.14,
     shadowRadius: 20,
   },
-  translucentTint: { backgroundColor: "rgba(255, 252, 247, 0.68)" },
+  lightGlassTint: { backgroundColor: "rgba(255, 252, 247, 0.64)" },
+  darkGlassTint: { backgroundColor: "rgba(8, 8, 10, 0.62)" },
   tabBarContent: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-evenly",
-    paddingHorizontal: 6,
     paddingVertical: 6,
   },
-  tabItemSlot: { flex: 1, height: 54, maxWidth: 76 },
+  selectionBubble: {
+    position: "absolute",
+    left: 0,
+    top: 6,
+    height: 54,
+    borderRadius: 21,
+  },
+  selectionGestureTarget: {
+    position: "absolute",
+    zIndex: 3,
+    left: 0,
+    top: 6,
+    height: 54,
+    borderRadius: 21,
+  },
+  tabItemSlot: { flex: 1, height: 54 },
   tabItem: {
+    zIndex: 2,
     flex: 1,
     width: "100%",
     height: 54,
