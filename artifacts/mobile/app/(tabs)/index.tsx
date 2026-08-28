@@ -19,6 +19,7 @@ import {
 const SCREEN_HEIGHT = Dimensions.get("window").height;
 const SCREEN_WIDTH = Dimensions.get("window").width;
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { GestureDetector } from "react-native-gesture-handler";
 
 import { EmptyState } from "@/components/EmptyState";
 import { Surface } from "@/components/Surface";
@@ -28,6 +29,7 @@ import { FloatingActionButton, useFloatingActionMetrics } from "@/components/Flo
 import { HeaderActions } from "@/components/HeaderActions";
 import { ManualChoreForm } from "@/components/ManualChoreForm";
 import { GlassCheckCircle } from "@/components/GlassCheckCircle";
+import { PinchListViewCoach, usePinchListView } from "@/components/PinchListView";
 import {
   type ChoreCategory,
   type Chore,
@@ -385,6 +387,8 @@ export default function MyChoresScreen() {
     }));
 
   const currentUser = roommates.find((r) => r.id === currentUserId);
+  const { listView, pinchGesture, showCoach, dismissCoach } =
+    usePinchListView(currentUserId, "home");
   const lifecycleNow = useChoreLifecycleNow(chores);
   const [filter, setFilter] = useState<Filter>("today");
   const [selectedDate, setSelectedDate] = useState(() => new Date());
@@ -741,7 +745,8 @@ export default function MyChoresScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <GestureDetector gesture={pinchGesture}>
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
       <FlatList
         data={expandedHomeSections["my-chores"] ? filtered : []}
         keyExtractor={(item) => item.id}
@@ -781,7 +786,7 @@ export default function MyChoresScreen() {
             </View>
 
 
-            <Surface style={[styles.calendarCard, { borderColor: colors.border }]}>
+            {!listView && <Surface style={[styles.calendarCard, { borderColor: colors.border }]}>
               <View style={styles.calendarTopRow}>
                 <TouchableOpacity
                   style={[styles.calendarNavButton, { backgroundColor: colors.muted }]}
@@ -950,7 +955,7 @@ export default function MyChoresScreen() {
               <Text style={[styles.selectedDateLabel, { color: colors.foreground }]}>
                 {selectedDate.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}
               </Text>
-            </Surface>
+            </Surface>}
 
             <CalendarDayDetails
               visible={dayDetailsOpen}
@@ -970,7 +975,7 @@ export default function MyChoresScreen() {
               }}
             />
 
-            <View style={styles.progressSection}>
+            {!listView && <View style={styles.progressSection}>
               <View style={styles.progressHeader}>
                 <Text style={[styles.progressLabel, { color: colors.foreground }]}>
                   My Progress
@@ -990,7 +995,7 @@ export default function MyChoresScreen() {
                   ]}
                 />
               </View>
-            </View>
+            </View>}
 
             <CollapsibleSectionHeader
               title="My Chores"
@@ -1140,6 +1145,12 @@ export default function MyChoresScreen() {
         }}
       />
 
+      <PinchListViewCoach
+        visible={showCoach}
+        onDismiss={dismissCoach}
+        top={topPad + 92}
+      />
+
       <ActionMenuModal
         visible={!!actionChore}
         title={actionChore?.title ?? "Chore"}
@@ -1244,7 +1255,8 @@ export default function MyChoresScreen() {
           </KeyboardAvoidingView>
         </Animated.View>
       </Modal>
-    </View>
+      </View>
+    </GestureDetector>
   );
 }
 

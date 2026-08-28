@@ -20,6 +20,7 @@ const SCREEN_HEIGHT = Dimensions.get("window").height;
 const SCREEN_WIDTH = Dimensions.get("window").width;
 
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { GestureDetector } from "react-native-gesture-handler";
 
 import { EmptyState } from "@/components/EmptyState";
 import { ActionMenuModal, type ActionMenuItem } from "@/components/ActionMenuModal";
@@ -30,6 +31,7 @@ import { ManualChoreForm } from "@/components/ManualChoreForm";
 import { RoommateAvatar } from "@/components/RoommateAvatar";
 import { Surface } from "@/components/Surface";
 import { GlassCheckCircle } from "@/components/GlassCheckCircle";
+import { PinchListViewCoach, usePinchListView } from "@/components/PinchListView";
 import {
   useAppContextSelector,
   type ChoreAssignment,
@@ -191,6 +193,8 @@ export default function GroupChoresScreen() {
       deleteChore: context.deleteChore,
     }));
   const lifecycleNow = useChoreLifecycleNow(chores);
+  const { listView, pinchGesture, showCoach, dismissCoach } =
+    usePinchListView(currentUserId, "group");
 
   const { confirm, info } = useConfirm();
   const [nudgedChores, setNudgedChores] = useState<Set<string>>(new Set());
@@ -653,7 +657,8 @@ export default function GroupChoresScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <GestureDetector gesture={pinchGesture}>
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
       <View
         style={[
@@ -851,7 +856,7 @@ export default function GroupChoresScreen() {
         scrollEventThrottle={32}
       >
         {/* The enabled plant is intentionally open and integrated into the page. */}
-        {plantEnabled && <View
+        {!listView && plantEnabled && <View
           style={styles.plantSection}
           accessibilityRole="summary"
           accessibilityLabel={`Room health ${Math.round(healthPct * 100)} percent. ${msg.title}. ${msg.subtitle}`}
@@ -941,7 +946,7 @@ export default function GroupChoresScreen() {
             Tap a roommate's emoji to cycle through their vibe:
               😊 (chill / around)  →  😴 (sleeping)  →  🤫 (do not disturb)  →  😊
             Sleeping still auto-reverts after 9 hours via AppContext. */}
-        {roommateActivityEnabled ? <Surface style={[styles.activityCard, { borderColor: colors.border }]}>
+        {!listView && roommateActivityEnabled ? <Surface style={[styles.activityCard, { borderColor: colors.border }]}>
           <TouchableOpacity
             style={styles.activityHeader}
             onPress={toggleRoommates}
@@ -1296,6 +1301,12 @@ export default function GroupChoresScreen() {
       </ScrollView>
       )}
 
+      <PinchListViewCoach
+        visible={showCoach}
+        onDismiss={dismissCoach}
+        top={topPad + 92}
+      />
+
       {/* ── Add Chore Modal (full-screen, matches New IOU) ── */}
       <ActionMenuModal
         visible={!!completionAction}
@@ -1404,7 +1415,8 @@ export default function GroupChoresScreen() {
           </KeyboardAvoidingView>
         </Animated.View>
       </Modal>
-    </View>
+      </View>
+    </GestureDetector>
   );
 }
 
