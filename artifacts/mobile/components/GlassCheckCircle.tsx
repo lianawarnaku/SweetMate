@@ -30,12 +30,20 @@ export function GlassCheckCircle({
         },
       ]}
     >
-      <BlurView intensity={42} tint="dark" style={StyleSheet.absoluteFill} />
+      <BlurView
+        intensity={42}
+        tint="dark"
+        style={[
+          StyleSheet.absoluteFill,
+          { borderRadius: size / 2, overflow: "hidden" },
+        ]}
+      />
       <View
         style={[
           StyleSheet.absoluteFill,
           {
             borderRadius: size / 2,
+            overflow: "hidden",
             backgroundColor: active
               ? activeColor + "26"
               : "rgba(255,255,255,0.035)",

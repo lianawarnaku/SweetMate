@@ -17,7 +17,7 @@ const mono = {
   destructive: "#FF453A",
   destructiveForeground: "#FFFFFF",
   success: "#32D74B",
-  warning: "#FFD60A",
+  warning: "#C7C7CC",
   border: "rgba(255,255,255,0.14)",
   input: "rgba(255,255,255,0.14)",
   radius: 22,

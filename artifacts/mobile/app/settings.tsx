@@ -2066,6 +2066,7 @@ const styles = StyleSheet.create({
   },
   card: {
     marginHorizontal: 16,
+    marginBottom: 16,
     borderRadius: 22,
     borderWidth: 1,
     padding: 18,

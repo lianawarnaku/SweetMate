@@ -8,6 +8,7 @@ import {
   FlatList,
   KeyboardAvoidingView,
   Modal,
+  PanResponder,
   Platform,
   ScrollView,
   StyleSheet,
@@ -36,7 +37,8 @@ import {
   useAppContextSelector,
 } from "@/context/AppContext";
 import { useTheme } from "@/constants/colors";
-import { success as hapticSuccess } from "@/lib/haptics";
+import { success as hapticSuccess, tapLight } from "@/lib/haptics";
+import { clampTabIndicatorX, resolveDraggedTabIndex } from "@/lib/tabBarGesture";
 import { useDraggableSheet } from "@/hooks/useDraggableSheet";
 import { useChoreLifecycleNow } from "@/hooks/useChoreLifecycleNow";
 import {
@@ -67,6 +69,9 @@ import {
   isChoreInCurrentWeek,
   isRecentlyCompleted,
 } from "@/lib/choreLifecycle";
+
+const CALENDAR_GESTURE_HOLD_MS = 260;
+const CALENDAR_DAY_GAP = 4;
 
 const CATEGORIES: { key: ChoreCategory; label: string; icon: keyof typeof Feather.glyphMap }[] = [
   { key: "cleaning", label: "Cleaning", icon: "wind" },
@@ -369,7 +374,7 @@ export default function MyChoresScreen() {
   const { showPopup } = useAppPopup();
   const insets = useSafeAreaInsets();
   const { scrollBottomPadding } = useFloatingActionMetrics();
-  const { currentUserId, householdId, activeSweet, chores, roommates, expenses, setChoreCompleted, deleteChore, shoppingLists, shoppingItems, toggleShoppingItem, pointsEnabled, isHost } =
+  const { currentUserId, householdId, activeSweet, chores, roommates, expenses, setChoreCompleted, deleteChore, shoppingLists, shoppingItems, toggleShoppingItem, pointsEnabled, isHost, colorScheme } =
     useAppContextSelector((context) => ({
       currentUserId: context.currentUserId,
       householdId: context.householdId,
@@ -377,6 +382,7 @@ export default function MyChoresScreen() {
       chores: context.chores,
       roommates: context.roommates,
       expenses: context.expenses,
+      colorScheme: context.colorScheme,
       setChoreCompleted: context.setChoreCompleted,
       deleteChore: context.deleteChore,
       shoppingLists: context.shoppingLists,
@@ -654,6 +660,113 @@ export default function MyChoresScreen() {
     setDayDetailsOpen(true);
     Haptics.selectionAsync();
   };
+  const selectedTint =
+    colorScheme === "mono" ? "rgba(255,255,255,0.14)" : "rgba(29,25,27,0.11)";
+
+  // Drag-to-select for the week strip, mirroring the bottom tab bar's
+  // hold-and-slide gesture (see app/(tabs)/_layout.tsx ScrollableTabBar).
+  const [calendarRowWidth, setCalendarRowWidth] = useState(0);
+  const calendarIndicatorX = useRef(new Animated.Value(0)).current;
+  const calendarIndicatorXValue = useRef(0);
+  const calendarDragStartX = useRef(0);
+  const calendarDragActive = useRef(false);
+  const calendarDraggedIndex = useRef(-1);
+  const calendarHoldTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const selectedWeekIndex = Math.max(
+    0,
+    weekDays.findIndex((date) => isSameDay(date, selectedDate)),
+  );
+  const dayStride =
+    calendarRowWidth > 0 ? (calendarRowWidth + CALENDAR_DAY_GAP) / 7 : 0;
+
+  useEffect(() => {
+    const listener = calendarIndicatorX.addListener(({ value }) => {
+      calendarIndicatorXValue.current = value;
+    });
+    return () => calendarIndicatorX.removeListener(listener);
+  }, [calendarIndicatorX]);
+
+  useEffect(() => {
+    if (!dayStride || calendarDragActive.current) return;
+    Animated.spring(calendarIndicatorX, {
+      toValue: selectedWeekIndex * dayStride,
+      damping: 22,
+      stiffness: 240,
+      mass: 0.72,
+      useNativeDriver: true,
+    }).start();
+  }, [calendarIndicatorX, dayStride, selectedWeekIndex]);
+
+  useEffect(
+    () => () => {
+      if (calendarHoldTimer.current) clearTimeout(calendarHoldTimer.current);
+    },
+    [],
+  );
+
+  const calendarPanResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: () => true,
+        onPanResponderGrant: () => {
+          calendarDragStartX.current = calendarIndicatorXValue.current;
+          calendarDragActive.current = false;
+          calendarDraggedIndex.current = selectedWeekIndex;
+          calendarHoldTimer.current = setTimeout(() => {
+            calendarDragActive.current = true;
+            tapLight();
+          }, CALENDAR_GESTURE_HOLD_MS);
+        },
+        onPanResponderMove: (_event, gesture) => {
+          if (!calendarDragActive.current || !dayStride) return;
+          const nextX = clampTabIndicatorX(
+            calendarDragStartX.current + gesture.dx,
+            dayStride,
+            7,
+          );
+          calendarIndicatorX.setValue(nextX);
+          const nextIndex = resolveDraggedTabIndex(nextX, dayStride, 7);
+          if (nextIndex !== calendarDraggedIndex.current) {
+            calendarDraggedIndex.current = nextIndex;
+            tapLight();
+          }
+        },
+        onPanResponderRelease: () => {
+          if (calendarHoldTimer.current) clearTimeout(calendarHoldTimer.current);
+          calendarHoldTimer.current = null;
+          const wasDragging = calendarDragActive.current;
+          calendarDragActive.current = false;
+          if (wasDragging) {
+            const target = weekDays[calendarDraggedIndex.current];
+            if (target) selectCalendarDate(target);
+          } else {
+            Animated.spring(calendarIndicatorX, {
+              toValue: selectedWeekIndex * dayStride,
+              damping: 22,
+              stiffness: 240,
+              mass: 0.72,
+              useNativeDriver: true,
+            }).start();
+          }
+        },
+        onPanResponderTerminate: () => {
+          if (calendarHoldTimer.current) clearTimeout(calendarHoldTimer.current);
+          calendarHoldTimer.current = null;
+          calendarDragActive.current = false;
+          Animated.spring(calendarIndicatorX, {
+            toValue: selectedWeekIndex * dayStride,
+            damping: 22,
+            stiffness: 240,
+            mass: 0.72,
+            useNativeDriver: true,
+          }).start();
+        },
+      }),
+    // Recreate the responder when geometry changes so its closures match.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [calendarIndicatorX, dayStride, selectedWeekIndex, weekDays],
+  );
   const markerColor = (type: CalendarItemType, selected: boolean) => {
     if (selected) return colors.primaryForeground;
     if (type === "chore") return colors.warning;
@@ -785,6 +898,7 @@ export default function MyChoresScreen() {
               </Text>
             </View>
 
+            <PinchListViewCoach visible={showCoach} onDismiss={dismissCoach} />
 
             {!listView && <Surface style={[styles.calendarCard, { borderColor: colors.border }]}>
               <View style={styles.calendarTopRow}>
@@ -844,7 +958,38 @@ export default function MyChoresScreen() {
               </View>
 
               {!calendarExpanded ? (
-                <View style={styles.calendarDays}>
+                <View
+                  style={styles.calendarDaysWrap}
+                  onLayout={(event) => setCalendarRowWidth(event.nativeEvent.layout.width)}
+                >
+                  {dayStride > 0 && (
+                    <>
+                      <Animated.View
+                        pointerEvents="none"
+                        style={[
+                          styles.calendarSelectionBubble,
+                          {
+                            width: dayStride - CALENDAR_DAY_GAP,
+                            backgroundColor: selectedTint,
+                            transform: [{ translateX: calendarIndicatorX }],
+                          },
+                        ]}
+                      />
+                      <Animated.View
+                        accessibilityLabel="Drag to switch day"
+                        accessibilityHint="Press and hold, then slide left or right"
+                        style={[
+                          styles.calendarGestureTarget,
+                          {
+                            width: dayStride - CALENDAR_DAY_GAP,
+                            transform: [{ translateX: calendarIndicatorX }],
+                          },
+                        ]}
+                        {...calendarPanResponder.panHandlers}
+                      />
+                    </>
+                  )}
+                  <View style={styles.calendarDays}>
                   {weekDays.map((date) => {
                   const selected = isSameDay(date, selectedDate);
                   const today = isSameDay(date, new Date());
@@ -854,16 +999,15 @@ export default function MyChoresScreen() {
                       key={date.toISOString()}
                       style={[
                         styles.calendarDay,
-                        selected && { backgroundColor: colors.primary },
                         !selected && today && { backgroundColor: colors.secondary },
                       ]}
                       onPress={() => selectCalendarDate(date)}
                       accessibilityLabel={`${date.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}, ${dayItems.length} scheduled ${dayItems.length === 1 ? "item" : "items"}`}
                     >
-                      <Text style={[styles.calendarWeekday, { color: selected ? "#fff" : colors.mutedForeground }]}>
+                      <Text style={[styles.calendarWeekday, { color: selected ? colors.foreground : colors.mutedForeground }]}>
                         {date.toLocaleDateString("en-US", { weekday: "short" }).slice(0, 2)}
                       </Text>
-                      <Text style={[styles.calendarDate, { color: selected ? "#fff" : colors.foreground }]}>{date.getDate()}</Text>
+                      <Text style={[styles.calendarDate, { color: colors.foreground }]}>{date.getDate()}</Text>
                       <View style={styles.calendarMarkers}>
                         {dayItems.slice(0, 3).map((item) => (
                           <View
@@ -875,13 +1019,13 @@ export default function MyChoresScreen() {
                                 backgroundColor: markerColor(item.type, selected),
                                 opacity: item.completed ? 0.42 : 1,
                                 borderWidth: item.completed ? 1 : 0,
-                                borderColor: selected ? colors.primary : colors.mutedForeground,
+                                borderColor: selected ? colors.foreground : colors.mutedForeground,
                               },
                             ]}
                           />
                         ))}
                         {dayItems.length > 3 && (
-                          <Text style={[styles.markerMore, { color: selected ? colors.primaryForeground : colors.mutedForeground }]}>
+                          <Text style={[styles.markerMore, { color: selected ? colors.foreground : colors.mutedForeground }]}>
                             +{dayItems.length - 3}
                           </Text>
                         )}
@@ -889,6 +1033,7 @@ export default function MyChoresScreen() {
                     </TouchableOpacity>
                   );
                   })}
+                  </View>
                 </View>
               ) : (
                 <View style={styles.monthView}>
@@ -905,12 +1050,12 @@ export default function MyChoresScreen() {
                       return (
                         <TouchableOpacity
                           key={date.toISOString()}
-                          style={[styles.monthDay, selected && { backgroundColor: colors.primary }]}
+                          style={[styles.monthDay, selected && { backgroundColor: selectedTint }]}
                           onPress={() => selectCalendarDate(date)}
                           accessibilityLabel={`${date.toLocaleDateString("en-US", { month: "long", day: "numeric" })}, ${dayItems.length} scheduled items`}
                         >
                           <Text style={{
-                            color: selected ? "#fff" : inMonth ? colors.foreground : colors.mutedForeground,
+                            color: selected ? colors.foreground : inMonth ? colors.foreground : colors.mutedForeground,
                             opacity: inMonth || selected ? 1 : 0.45,
                             fontFamily: selected ? "Inter_700Bold" : "Inter_500Medium",
                             fontSize: 13,
@@ -1013,7 +1158,7 @@ export default function MyChoresScreen() {
                     styles.filterBtn,
                     {
                       backgroundColor:
-                        filter === f ? colors.primary : colors.secondary,
+                        filter === f ? selectedTint : colors.secondary,
                     },
                   ]}
                   onPress={() => setFilter(f)}
@@ -1031,14 +1176,14 @@ export default function MyChoresScreen() {
                     <Feather
                       name={f === "archived" ? "archive" : "calendar"}
                       size={13}
-                      color={filter === f ? "#fff" : colors.mutedForeground}
+                      color={filter === f ? colors.foreground : colors.mutedForeground}
                     />
                   ) : null}
                   <Text
                     style={[
                       styles.filterText,
                       {
-                        color: filter === f ? "#fff" : colors.mutedForeground,
+                        color: filter === f ? colors.foreground : colors.mutedForeground,
                       },
                     ]}
                   >
@@ -1143,12 +1288,6 @@ export default function MyChoresScreen() {
           setEditingChoreId(null);
           setShowModal(true);
         }}
-      />
-
-      <PinchListViewCoach
-        visible={showCoach}
-        onDismiss={dismissCoach}
-        top={topPad + 92}
       />
 
       <ActionMenuModal
@@ -1325,7 +1464,23 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   todoBadgeText: { fontFamily: "Inter_600SemiBold", fontSize: 12 },
-  calendarDays: { flexDirection: "row", gap: 4, marginTop: 12 },
+  calendarDaysWrap: { marginTop: 12 },
+  calendarDays: { flexDirection: "row", gap: CALENDAR_DAY_GAP },
+  calendarSelectionBubble: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    height: 62,
+    borderRadius: 15,
+  },
+  calendarGestureTarget: {
+    position: "absolute",
+    zIndex: 3,
+    left: 0,
+    top: 0,
+    height: 62,
+    borderRadius: 15,
+  },
   calendarDay: {
     flex: 1,
     minHeight: 62,

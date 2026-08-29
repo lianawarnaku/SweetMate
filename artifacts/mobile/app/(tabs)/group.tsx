@@ -680,6 +680,7 @@ export default function GroupChoresScreen() {
         <HeaderActions />
       </View>
 
+      <PinchListViewCoach visible={showCoach} onDismiss={dismissCoach} />
 
       {viewMode === "calendar" ? (
         (() => {
@@ -1300,12 +1301,6 @@ export default function GroupChoresScreen() {
         </View>
       </ScrollView>
       )}
-
-      <PinchListViewCoach
-        visible={showCoach}
-        onDismiss={dismissCoach}
-        top={topPad + 92}
-      />
 
       {/* ── Add Chore Modal (full-screen, matches New IOU) ── */}
       <ActionMenuModal

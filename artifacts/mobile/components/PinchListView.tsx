@@ -2,8 +2,23 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import React, { useEffect, useMemo, useState } from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import {
+  LayoutAnimation,
+  Platform,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  UIManager,
+  View,
+} from "react-native";
 import { Gesture } from "react-native-gesture-handler";
+
+if (
+  Platform.OS === "android" &&
+  UIManager.setLayoutAnimationEnabledExperimental
+) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 import { useTheme } from "@/constants/colors";
 import { Surface } from "@/components/Surface";
@@ -61,6 +76,7 @@ export function usePinchListView(userId: string, screen: "home" | "group") {
   );
 
   const dismissCoach = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setShowCoach(false);
     void AsyncStorage.setItem(coachKey(userId, screen), "seen");
   };
@@ -71,22 +87,15 @@ export function usePinchListView(userId: string, screen: "home" | "group") {
 export function PinchListViewCoach({
   visible,
   onDismiss,
-  top,
 }: {
   visible: boolean;
   onDismiss: () => void;
-  top: number;
 }) {
   const colors = useTheme();
   if (!visible) return null;
 
   return (
-    <Surface
-      style={[
-        styles.coach,
-        { top, borderColor: colors.border },
-      ]}
-    >
+    <Surface style={[styles.coach, { borderColor: colors.border }]}>
       <View style={[styles.gestureIcon, { borderColor: colors.border }]}>
         <Feather name="minimize-2" size={24} color={colors.foreground} />
       </View>
@@ -111,10 +120,8 @@ export function PinchListViewCoach({
 
 const styles = StyleSheet.create({
   coach: {
-    position: "absolute",
-    left: 18,
-    right: 18,
-    zIndex: 30,
+    marginHorizontal: 18,
+    marginBottom: 14,
     minHeight: 112,
     borderRadius: 24,
     borderWidth: 1,
