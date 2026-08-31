@@ -12,6 +12,12 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { reportSupabaseError } from "@/lib/runtimeDiagnostics";
 
+// Preview-only auto sign-in: when these are set (e.g. for a demo tunnel
+// link), a fresh device with no session signs into the shared demo account
+// instead of showing SignInScreen. Never set these for a real deployment.
+const DEMO_EMAIL = process.env.EXPO_PUBLIC_DEMO_EMAIL;
+const DEMO_PASSWORD = process.env.EXPO_PUBLIC_DEMO_PASSWORD;
+
 export function useSupabaseSession(): { session: Session | null; loading: boolean } {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
@@ -21,9 +27,20 @@ export function useSupabaseSession(): { session: Session | null; loading: boolea
     // async, so we hold `loading` true until it resolves.
     let active = true;
     supabase.auth.getSession()
-      .then(({ data, error }) => {
+      .then(async ({ data, error }) => {
         if (error) reportSupabaseError("restore auth session", error);
         if (!active) return;
+        if (!data.session && DEMO_EMAIL && DEMO_PASSWORD) {
+          const { data: signInData, error: signInError } =
+            await supabase.auth.signInWithPassword({
+              email: DEMO_EMAIL,
+              password: DEMO_PASSWORD,
+            });
+          if (signInError) reportSupabaseError("demo auto sign-in", signInError);
+          if (!active) return;
+          setSession(signInData?.session ?? null);
+          return;
+        }
         setSession(data.session);
       })
       .catch((error) => reportSupabaseError("restore auth session", error))

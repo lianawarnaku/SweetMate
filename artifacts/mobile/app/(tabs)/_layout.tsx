@@ -301,6 +301,9 @@ export default function TabLayout() {
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.mutedForeground,
         headerShown: false,
+        // Without this the scene wrapper defaults to a white background,
+        // which flashes through during the fade transition between tabs.
+        sceneStyle: { backgroundColor: colors.background },
         // Keep the first frame light, then ScrollableTabBar preloads the other
         // routes after interactions. Once mounted, tabs stay live so an edit
         // is not paid as a queued rerender on the next focus.
