@@ -48,12 +48,29 @@ const routeGuard = readFileSync(
   resolve(process.cwd(), "components/HouseholdSetupRouteGuard.tsx"),
   "utf8",
 );
+const createHouseholdOverloadRepair = readFileSync(
+  resolve(
+    process.cwd(),
+    "../../supabase/migrations/202608310001_remove_ambiguous_create_household_overload.sql",
+  ),
+  "utf8",
+);
 
 assert(
   setupScreen.includes("detectDeviceTimezone") &&
     setupScreen.includes("TIMEZONE_PRESETS") &&
     setupScreen.includes("{ deferOnboarding: true, timezone }"),
   "household creation must capture and pass along a timezone",
+);
+assert(
+  createHouseholdOverloadRepair.includes(
+    "drop function if exists public.create_household(text, text, text, text)",
+  ) && createHouseholdOverloadRepair.includes("notify pgrst, 'reload schema'"),
+  "the legacy create_household overload must be removed and PostgREST's schema cache refreshed",
+);
+assert(
+  (setupScreen.match(/Keyboard\.dismiss\(\);/g)?.length ?? 0) >= 3,
+  "household setup actions must dismiss the keyboard before navigation or submission",
 );
 assert(
   setupScreen.includes('{ deferOnboarding: true, timezone }') &&

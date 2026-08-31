@@ -4,7 +4,7 @@ import * as Crypto from "expo-crypto";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { BrandMark } from "@/components/BrandMark";
@@ -262,6 +262,7 @@ export function HouseholdSetupScreen({
   };
 
   const next = async () => {
+    Keyboard.dismiss();
     setError(null);
     if (step === 1 && !displayName.trim()) return setError("Enter the name your roommates will see.");
     if (step === 1 && !householdName.trim()) return setError("Give your household a name.");
@@ -296,6 +297,7 @@ export function HouseholdSetupScreen({
   };
 
   const submitJoin = async () => {
+    Keyboard.dismiss();
     setError(null);
     if (!displayName.trim()) return setError("Enter the name your roommates will see.");
     if (inviteCode.trim().length < 6) return setError("Enter the invite code from your roommate.");
@@ -314,6 +316,7 @@ export function HouseholdSetupScreen({
   const submitCreate = async () => {
     if (loading) return;
     if (!housingType || !householdId) return;
+    Keyboard.dismiss();
     setLoading(true);
     setError(null);
     try {
