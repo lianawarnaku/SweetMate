@@ -37,6 +37,7 @@ import {
   useAppContextSelector,
 } from "@/context/AppContext";
 import { useTheme } from "@/constants/colors";
+import { radii, spacing, typography } from "@/constants/designTokens";
 import { success as hapticSuccess, tapLight } from "@/lib/haptics";
 import { clampTabIndicatorX, resolveDraggedTabIndex } from "@/lib/tabBarGesture";
 import { useDraggableSheet } from "@/hooks/useDraggableSheet";
@@ -206,6 +207,7 @@ function ChoreRow({
   return (
     <View style={{ borderRadius: 12, overflow: "hidden", position: "relative" }}>
       <Surface
+        level="subtle"
         style={[
           styles.choreRow,
           {
@@ -313,7 +315,7 @@ function CalendarDayDetails({
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <TouchableOpacity style={styles.dayModalBackdrop} activeOpacity={1} onPress={onClose} accessibilityLabel="Close scheduled items" />
-      <Surface style={[styles.dayModalSheet, { borderColor: colors.border }]}>
+      <Surface level="modal" style={[styles.dayModalSheet, { borderColor: colors.border }]}>
         <View style={styles.dayModalHandle} />
         <View style={styles.dayModalHeader}>
           <View style={{ flex: 1 }}>
@@ -900,7 +902,7 @@ export default function MyChoresScreen() {
 
             <PinchListViewCoach visible={showCoach} onDismiss={dismissCoach} />
 
-            {!listView && <Surface style={[styles.calendarCard, { borderColor: colors.border }]}>
+            {!listView && <Surface level="elevated" style={[styles.calendarCard, { borderColor: colors.border }]}>
               <View style={styles.calendarTopRow}>
                 <TouchableOpacity
                   style={[styles.calendarNavButton, { backgroundColor: colors.muted }]}
@@ -1435,10 +1437,10 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   calendarCard: {
-    borderRadius: 22,
+    borderRadius: radii.card,
     borderWidth: 1,
-    padding: 12,
-    marginBottom: 14,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
   },
   calendarTopRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   calendarNavButton: {
@@ -1511,7 +1513,7 @@ const styles = StyleSheet.create({
   previewOwner: { maxWidth: 72, fontFamily: "Inter_400Regular", fontSize: 11 },
   previewMore: { fontFamily: "Inter_600SemiBold", fontSize: 11, marginLeft: 16 },
   dayModalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.35)" },
-  dayModalSheet: { position: "absolute", left: 0, right: 0, bottom: 0, borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 1, paddingBottom: Platform.OS === "ios" ? 28 : 16 },
+  dayModalSheet: { position: "absolute", left: 0, right: 0, bottom: 0, borderTopLeftRadius: radii.floating, borderTopRightRadius: radii.floating, borderWidth: 1, paddingBottom: Platform.OS === "ios" ? 28 : spacing.lg },
   dayModalHandle: { width: 38, height: 4, borderRadius: 2, backgroundColor: "#9CA3AF", opacity: 0.55, alignSelf: "center", marginTop: 9 },
   dayModalHeader: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 18, paddingTop: 14, paddingBottom: 10 },
   dayModalTitle: { fontFamily: "Inter_700Bold", fontSize: 18 },
@@ -1601,10 +1603,10 @@ const styles = StyleSheet.create({
   choreRow: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 14,
-    borderRadius: 18,
+    padding: spacing.lg,
+    borderRadius: radii.card,
     borderWidth: 1,
-    gap: 10,
+    gap: spacing.sm,
   },
   checkBox: {
     alignItems: "center",
@@ -1625,9 +1627,9 @@ const styles = StyleSheet.create({
   },
   leftPointsText: { fontFamily: "Inter_700Bold", fontSize: 10 },
   choreInfo: { flex: 1, minWidth: 0 },
-  choreTitle: { fontFamily: "Inter_500Medium", fontSize: 15 },
+  choreTitle: { ...typography.label },
   choreMeta: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 },
-  dueDateText: { fontFamily: "Inter_400Regular", fontSize: 12 },
+  dueDateText: { ...typography.caption, fontFamily: "Inter_400Regular" },
   pointsBadge: {
     paddingHorizontal: 8,
     paddingVertical: 3,
