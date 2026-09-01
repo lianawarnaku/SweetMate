@@ -85,7 +85,7 @@ const CATEGORIES: { key: ChoreCategory; label: string; icon: keyof typeof Feathe
 ];
 
 type Filter = "week" | "today" | "done" | "archived" | "day";
-type HomeSectionId = "my-chores" | "shopping";
+type HomeSectionId = "my-chores" | "schedule" | "shopping";
 
 function TodayFocusCard({
   chore,
@@ -129,16 +129,24 @@ function TodayFocusCard({
         </Text>
       </View>
 
-      <View style={[styles.todayProgressTrack, { backgroundColor: colors.muted }]}>
-        <View
-          style={[
-            styles.todayProgressFill,
-            {
-              backgroundColor: colors.success,
-              width: `${progress * 100}%` as `${number}%`,
-            },
-          ]}
-        />
+      <View style={styles.progressSection}>
+        <View style={styles.todayProgressLabelRow}>
+          <Text style={[styles.todayProgressLabel, { color: colors.mutedForeground }]}>My Progress</Text>
+          <Text style={[styles.todayProgressValue, { color: colors.mutedForeground }]}>
+            {completedCount}/{totalCount} done
+          </Text>
+        </View>
+        <View style={[styles.todayProgressTrack, { backgroundColor: colors.muted }]}>
+          <View
+            style={[
+              styles.todayProgressFill,
+              {
+                backgroundColor: colors.success,
+                width: `${progress * 100}%` as `${number}%`,
+              },
+            ]}
+          />
+        </View>
       </View>
 
       {chore ? (
@@ -495,7 +503,7 @@ export default function MyChoresScreen() {
   const [dayDetailsOpen, setDayDetailsOpen] = useState(false);
   const [expandedHomeSections, setExpandedHomeSections] = useState<
     Record<HomeSectionId, boolean>
-  >({ "my-chores": true, shopping: true });
+  >({ "my-chores": true, schedule: false, shopping: true });
   const [showModal, setShowModal] = useState(false);
   const [editingChoreId, setEditingChoreId] = useState<string | null>(null);
   const [actionChoreId, setActionChoreId] = useState<string | null>(null);
@@ -900,13 +908,6 @@ export default function MyChoresScreen() {
     [activePersonalChores, filter, lifecycleNow, myChores, selectedDate],
   );
 
-  const completedCount = useMemo(
-    () => activePersonalChores.filter((chore) => chore.completed).length,
-    [activePersonalChores],
-  );
-  const totalCount = activePersonalChores.length;
-  const healthPct = totalCount > 0 ? completedCount / totalCount : 0;
-
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const botPad = Platform.OS === "web" ? 34 : 0;
   const editingChore = editingChoreId
@@ -1012,7 +1013,17 @@ export default function MyChoresScreen() {
               />
             )}
 
-            {!listView && <Surface style={[styles.calendarCard, { borderColor: colors.border }]}>
+            {!listView && (
+              <CollapsibleSectionHeader
+                title="Schedule"
+                count={selectedCalendarItems.length}
+                icon="calendar"
+                expanded={expandedHomeSections.schedule}
+                onToggle={() => toggleHomeSection("schedule")}
+              />
+            )}
+
+            {!listView && expandedHomeSections.schedule && <Surface style={[styles.calendarCard, { borderColor: colors.border }]}>
               <View style={styles.calendarTopRow}>
                 <TouchableOpacity
                   style={[styles.calendarNavButton, { backgroundColor: colors.muted }]}
@@ -1231,28 +1242,6 @@ export default function MyChoresScreen() {
                 }
               }}
             />
-
-            {!listView && <View style={styles.progressSection}>
-              <View style={styles.progressHeader}>
-                <Text style={[styles.progressLabel, { color: colors.foreground }]}>
-                  My Progress
-                </Text>
-                <Text style={[styles.progressCount, { color: colors.mutedForeground }]}>
-                  {completedCount}/{totalCount} done
-                </Text>
-              </View>
-              <View style={[styles.progressTrack, { backgroundColor: colors.muted }]}>
-                <View
-                  style={[
-                    styles.progressFill,
-                    {
-                      backgroundColor: colors.success,
-                      width: `${healthPct * 100}%` as `${number}%`,
-                    },
-                  ]}
-                />
-              </View>
-            </View>}
 
             <CollapsibleSectionHeader
               title="My Chores"
@@ -1541,6 +1530,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   totalPointsText: { fontFamily: "Inter_700Bold", fontSize: 14 },
+  progressSection: { marginTop: spacing.lg },
   todayFocusCard: {
     borderRadius: radii.floating,
     borderWidth: 1,
@@ -1563,11 +1553,18 @@ const styles = StyleSheet.create({
   todayEyebrow: { ...typography.caption, fontSize: 11, letterSpacing: 1.2 },
   todayTitle: { ...typography.heading, marginTop: spacing.hairline },
   todayProgressCount: { ...typography.caption, fontVariant: ["tabular-nums"] },
+  todayProgressLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: spacing.sm,
+  },
+  todayProgressLabel: { ...typography.caption },
+  todayProgressValue: { ...typography.caption, fontVariant: ["tabular-nums"] },
   todayProgressTrack: {
     height: 5,
     borderRadius: radii.pill,
     overflow: "hidden",
-    marginTop: spacing.lg,
   },
   todayProgressFill: { height: "100%", borderRadius: radii.pill },
   upNextRow: {
@@ -1594,11 +1591,6 @@ const styles = StyleSheet.create({
   },
   todayQuietState: { paddingTop: spacing.lg },
   todayQuietCopy: { ...typography.caption, textAlign: "center" },
-  progressSection: {
-    paddingHorizontal: 2,
-    paddingVertical: 4,
-    marginBottom: 10,
-  },
   calendarCard: {
     borderRadius: radii.card,
     borderWidth: 1,
@@ -1691,22 +1683,6 @@ const styles = StyleSheet.create({
   dayItemTitle: { fontFamily: "Inter_600SemiBold", fontSize: 13 },
   dayItemDescription: { fontFamily: "Inter_400Regular", fontSize: 11, lineHeight: 15, marginTop: 2 },
   dayItemAmount: { fontFamily: "Inter_700Bold", fontSize: 12 },
-  progressHeader: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: 8,
-    marginBottom: 8,
-  },
-  progressLabel: { fontFamily: "Inter_600SemiBold", fontSize: 14, flexShrink: 1, paddingRight: 4 },
-  progressCount: { fontFamily: "Inter_400Regular", fontSize: 13, flexShrink: 0 },
-  progressTrack: {
-    height: 6,
-    borderRadius: 3,
-    overflow: "hidden",
-  },
-  progressFill: { height: 6, borderRadius: 3 },
   sectionTitleRow: {
     flexDirection: "row",
     alignItems: "center",
