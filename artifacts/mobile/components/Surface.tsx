@@ -3,6 +3,7 @@ import { BlurView } from "expo-blur";
 import { useAppContextSelector } from "@/context/AppContext";
 import { useTheme } from "@/constants/colors";
 import { glass, type GlassLevel } from "@/constants/designTokens";
+import { useAccessibilityPreferences } from "@/hooks/useAccessibilityPreferences";
 
 type SurfaceProps = ViewProps & {
   /** Visual elevation in the glass hierarchy. Defaults to the existing card treatment. */
@@ -14,6 +15,7 @@ type SurfaceProps = ViewProps & {
 export function Surface({ style, children, level = "card", ...rest }: SurfaceProps) {
   const colorScheme = useAppContextSelector((context) => context.colorScheme);
   const colors = useTheme();
+  const { reduceTransparency } = useAccessibilityPreferences();
   const isGlass = colorScheme === "mono";
   const treatment = glass[level];
 
@@ -44,6 +46,7 @@ export function Surface({ style, children, level = "card", ...rest }: SurfacePro
         styles.base,
         {
           borderColor: treatment.borderColor,
+          backgroundColor: reduceTransparency ? "#1C1C1E" : "transparent",
           shadowOpacity: treatment.shadowOpacity,
           shadowRadius: treatment.shadowRadius,
           elevation: treatment.elevation,
@@ -52,11 +55,13 @@ export function Surface({ style, children, level = "card", ...rest }: SurfacePro
       ]}
       {...rest}
     >
-      <BlurView
-        intensity={treatment.blurIntensity}
-        tint="dark"
-        style={StyleSheet.absoluteFillObject}
-      />
+      {!reduceTransparency ? (
+        <BlurView
+          intensity={treatment.blurIntensity}
+          tint="dark"
+          style={StyleSheet.absoluteFillObject}
+        />
+      ) : null}
       <View
         pointerEvents="none"
         style={[

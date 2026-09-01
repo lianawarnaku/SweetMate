@@ -7,6 +7,7 @@ import {
   Dimensions,
   FlatList,
   KeyboardAvoidingView,
+  LayoutAnimation,
   Modal,
   PanResponder,
   Platform,
@@ -37,11 +38,12 @@ import {
   useAppContextSelector,
 } from "@/context/AppContext";
 import { useTheme } from "@/constants/colors";
-import { radii, spacing, typography } from "@/constants/designTokens";
+import { motion, radii, spacing, typography } from "@/constants/designTokens";
 import { success as hapticSuccess, tapLight } from "@/lib/haptics";
 import { clampTabIndicatorX, resolveDraggedTabIndex } from "@/lib/tabBarGesture";
 import { useDraggableSheet } from "@/hooks/useDraggableSheet";
 import { useChoreLifecycleNow } from "@/hooks/useChoreLifecycleNow";
+import { useAccessibilityPreferences } from "@/hooks/useAccessibilityPreferences";
 import {
   exportChoreToDestinations,
   getExternalTaskDestination,
@@ -93,6 +95,7 @@ function TodayFocusCard({
   completedCount,
   totalCount,
   shoppingCount,
+  reduceMotion,
   onOpenChore,
 }: {
   chore?: Chore;
@@ -100,11 +103,25 @@ function TodayFocusCard({
   completedCount: number;
   totalCount: number;
   shoppingCount: number;
+  reduceMotion: boolean;
   onOpenChore: (chore: Chore) => void;
 }) {
   const colors = useTheme();
   const progress = totalCount > 0 ? completedCount / totalCount : 1;
+  const progressAnimation = useRef(new Animated.Value(progress)).current;
   const allDone = remainingCount === 0;
+
+  useEffect(() => {
+    if (reduceMotion) {
+      progressAnimation.setValue(progress);
+      return;
+    }
+    Animated.timing(progressAnimation, {
+      toValue: progress,
+      duration: motion.standard,
+      useNativeDriver: false,
+    }).start();
+  }, [progress, progressAnimation, reduceMotion]);
 
   return (
     <Surface level="elevated" style={[styles.todayFocusCard, { borderColor: colors.border }]}>
@@ -137,12 +154,15 @@ function TodayFocusCard({
           </Text>
         </View>
         <View style={[styles.todayProgressTrack, { backgroundColor: colors.muted }]}>
-          <View
+          <Animated.View
             style={[
               styles.todayProgressFill,
               {
                 backgroundColor: colors.success,
-                width: `${progress * 100}%` as `${number}%`,
+                width: progressAnimation.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: ["0%", "100%"],
+                }),
               },
             ]}
           />
@@ -288,12 +308,14 @@ function ChoreRow({
   onManage,
 }: ChoreRowProps) {
   const colors = useTheme();
+  const { reduceMotion } = useAccessibilityPreferences();
   const pointsEnabled = useAppContextSelector(
     (context) => context.pointsEnabled,
   );
   const cat = CATEGORIES.find((c) => c.key === chore.category) ?? CATEGORIES[5];
   const overdue = isOverdue(chore.dueDate, chore.completed);
   const handleCheckPress = () => {
+    if (!reduceMotion) LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     onSetCompleted(chore.id, !chore.completed);
     if (!chore.completed) hapticSuccess();
@@ -521,6 +543,7 @@ export default function MyChoresScreen() {
     }));
 
   const currentUser = roommates.find((r) => r.id === currentUserId);
+  const { reduceMotion } = useAccessibilityPreferences();
   const { listView, pinchGesture, showCoach, dismissCoach } =
     usePinchListView(currentUserId, "home");
   const lifecycleNow = useChoreLifecycleNow(chores);
@@ -911,10 +934,17 @@ export default function MyChoresScreen() {
     return colors.success;
   };
   const toggleHomeSection = (sectionId: HomeSectionId) => {
+    if (!reduceMotion) LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setExpandedHomeSections((current) => ({
       ...current,
       [sectionId]: !current[sectionId],
     }));
+    Haptics.selectionAsync();
+  };
+  const selectFilter = (nextFilter: Filter) => {
+    if (nextFilter === filter) return;
+    if (!reduceMotion) LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setFilter(nextFilter);
     Haptics.selectionAsync();
   };
   const filtered = useMemo(
@@ -1037,6 +1067,7 @@ export default function MyChoresScreen() {
                 completedCount={todayChores.length - todayIncompleteChores.length}
                 totalCount={todayChores.length}
                 shoppingCount={myShoppingItems.length}
+                reduceMotion={reduceMotion}
                 onOpenChore={openChoreActions}
               />
             )}
@@ -1297,7 +1328,7 @@ export default function MyChoresScreen() {
                       borderColor: filter === f ? colors.foreground + "35" : colors.border,
                     },
                   ]}
-                  onPress={() => setFilter(f)}
+                  onPress={() => selectFilter(f)}
                   accessibilityRole="tab"
                   accessibilityState={{ selected: filter === f }}
                   accessibilityLabel={
