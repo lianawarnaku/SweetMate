@@ -200,23 +200,28 @@ function CollapsibleSectionHeader({
   const colors = useTheme();
   return (
     <TouchableOpacity
-      style={styles.sectionTitleRow}
+      style={[
+        styles.sectionTitleRow,
+        { backgroundColor: colors.muted, borderColor: colors.border },
+      ]}
       onPress={onToggle}
       activeOpacity={0.7}
       accessibilityRole="button"
       accessibilityState={{ expanded }}
       accessibilityLabel={`${expanded ? "Collapse" : "Expand"} ${title}, ${count} ${count === 1 ? "item" : "items"}`}
     >
-      <View style={[styles.sectionDividerLine, { backgroundColor: colors.border }]} />
-      <View style={styles.sectionDividerLabel}>
-        <Feather name={icon} size={14} color={colors.mutedForeground} />
+      <View style={[styles.sectionIcon, { backgroundColor: colors.secondary }]}>
+        <Feather name={icon} size={16} color={colors.foreground} />
+      </View>
+      <View style={styles.sectionTitleCopy}>
         <Text style={[styles.sectionTitleText, { color: colors.foreground }]}>{title}</Text>
+      </View>
+      <View style={[styles.sectionCountBadge, { backgroundColor: colors.secondary }]}>
         <Text style={[styles.sectionTitleCount, { color: colors.mutedForeground }]}>
           {count}
         </Text>
-        <Feather name={expanded ? "chevron-down" : "chevron-right"} size={16} color={colors.mutedForeground} />
       </View>
-      <View style={[styles.sectionDividerLine, { backgroundColor: colors.border }]} />
+      <Feather name={expanded ? "chevron-up" : "chevron-down"} size={18} color={colors.mutedForeground} />
     </TouchableOpacity>
   );
 }
@@ -1346,20 +1351,25 @@ export default function MyChoresScreen() {
         }
         ListEmptyComponent={expandedHomeSections["my-chores"] ? (
           <EmptyState
-            icon="check-circle"
+            compact
+            icon={filter === "archived" ? "archive" : filter === "week" ? "calendar" : "check-circle"}
             title={
               filter === "done"
                 ? "No completed chores yet"
                 : filter === "archived"
                   ? "No archived chores"
-                  : "No chores here"
+                  : filter === "week"
+                    ? "Your week is clear"
+                    : "Nothing left for today"
             }
             subtitle={
               filter === "done"
-                ? "Complete some chores to see them here"
+                ? "Completed chores from the last seven days will appear here."
                 : filter === "archived"
-                  ? "Older incomplete chores will appear here"
-                  : "Tap + to add your first chore"
+                  ? "Older incomplete chores will appear here when they need review."
+                  : filter === "week"
+                    ? "You have no remaining chores scheduled this week."
+                    : "Enjoy the breathing room, or tap + to add something new."
             }
           />
         ) : null}
@@ -1381,7 +1391,12 @@ export default function MyChoresScreen() {
                   onToggle={() => toggleHomeSection("shopping")}
                 />
                 {expandedHomeSections.shopping && (myShoppingItems.length === 0 ? (
-                  <Text style={[styles.sectionEmpty, { color: colors.mutedForeground }]}>No active shopping items</Text>
+                  <EmptyState
+                    compact
+                    icon="shopping-bag"
+                    title="Your shopping list is clear"
+                    subtitle="Items assigned to you will appear here."
+                  />
                 ) : (
                 <Surface
                   style={[
@@ -1724,34 +1739,37 @@ const styles = StyleSheet.create({
   sectionTitleRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-    minHeight: 36,
-    marginTop: 18,
-    marginBottom: 10,
+    gap: spacing.md,
+    minHeight: 52,
+    marginTop: spacing.lg,
+    marginBottom: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: radii.control,
+    borderWidth: 1,
   },
-  sectionDividerLine: { flex: 1, height: StyleSheet.hairlineWidth },
-  sectionDividerLabel: {
-    flexDirection: "row",
+  sectionIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: radii.small,
     alignItems: "center",
     justifyContent: "center",
-    gap: 6,
-    flexShrink: 0,
   },
+  sectionTitleCopy: { flex: 1, minWidth: 0 },
   sectionTitleText: {
     fontFamily: "Inter_700Bold",
     fontSize: 15,
-    flexShrink: 1,
+  },
+  sectionCountBadge: {
+    minWidth: 28,
+    height: 24,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radii.pill,
+    alignItems: "center",
+    justifyContent: "center",
   },
   sectionTitleCount: {
     fontFamily: "Inter_500Medium",
     fontSize: 12,
-    flexShrink: 1,
-  },
-  sectionEmpty: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 4,
   },
   filterRow: {
     paddingHorizontal: 16,

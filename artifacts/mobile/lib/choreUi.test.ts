@@ -134,11 +134,11 @@ assert(
   "My Chores must keep category icons unboxed and render points in their compact badge",
 );
 assert(
-  home.includes("styles.sectionDividerLine") &&
-    home.includes("styles.sectionDividerLabel") &&
-    home.includes("height: StyleSheet.hairlineWidth") &&
-    !home.includes("borderBottomWidth: 2"),
-  "My Sweet section headings must use centered labels between balanced hairline dividers",
+  home.includes("styles.sectionCountBadge") &&
+    home.includes("accessibilityState={{ expanded }}") &&
+    home.includes("minHeight: 52") &&
+    !home.includes("styles.sectionDividerLine"),
+  "My Sweet section headings must use full-width accessible controls with count badges",
 );
 assert(
   !group.includes("styles.activityHeaderIcon, { backgroundColor:"),
