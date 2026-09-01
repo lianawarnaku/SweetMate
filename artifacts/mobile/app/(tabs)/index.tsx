@@ -301,6 +301,13 @@ function ChoreRow({
     : isToday(chore.dueDate)
     ? colors.primary
     : colors.mutedForeground;
+  const dueIcon = chore.completed
+    ? "check-circle"
+    : overdue
+      ? "alert-circle"
+      : isToday(chore.dueDate)
+        ? "clock"
+        : "calendar";
 
   return (
     <View style={{ borderRadius: 12, overflow: "hidden", position: "relative" }}>
@@ -361,11 +368,27 @@ function ChoreRow({
           {chore.title}
         </Text>
         <View style={styles.choreMeta}>
-          <Text style={[styles.dueDateText, { color: dueDateColor }]}>
+          <View
+            style={[
+              styles.dueStatus,
+              { backgroundColor: overdue ? colors.warning + "16" : colors.muted },
+            ]}
+          >
+            <Feather name={dueIcon} size={11} color={dueDateColor} />
+            <Text style={[styles.dueDateText, { color: dueDateColor }]} numberOfLines={1}>
             {formatDueDate(chore.dueDate)}
-            {chore.recurring ? ` · ${CHORE_RECURRENCE_LABELS[chore.recurring]}` : ""}
-            {chore.assignmentMode === "round-robin" ? " · Round Robin" : ""}
-          </Text>
+            </Text>
+          </View>
+          {chore.recurring ? (
+            <Text style={[styles.choreDetailText, { color: colors.mutedForeground }]} numberOfLines={1}>
+              {CHORE_RECURRENCE_LABELS[chore.recurring]}
+            </Text>
+          ) : null}
+          {chore.assignmentMode === "round-robin" ? (
+            <Text style={[styles.choreDetailText, { color: colors.mutedForeground }]} numberOfLines={1}>
+              Round Robin
+            </Text>
+          ) : null}
         </View>
       </TouchableOpacity>
 
@@ -1251,7 +1274,13 @@ export default function MyChoresScreen() {
               onToggle={() => toggleHomeSection("my-chores")}
             />
 
-            {expandedHomeSections["my-chores"] && <View style={styles.filterRow}>
+            {expandedHomeSections["my-chores"] && <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.filterRow}
+              style={styles.filterScroller}
+              accessibilityRole="tablist"
+            >
               {(["today", "done", "week", "archived"] as Filter[]).map((f) => (
                 <TouchableOpacity
                   key={f}
@@ -1260,9 +1289,12 @@ export default function MyChoresScreen() {
                     {
                       backgroundColor:
                         filter === f ? selectedTint : colors.secondary,
+                      borderColor: filter === f ? colors.foreground + "35" : colors.border,
                     },
                   ]}
                   onPress={() => setFilter(f)}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: filter === f }}
                   accessibilityLabel={
                     f === "today"
                       ? "Show today's chores"
@@ -1273,13 +1305,19 @@ export default function MyChoresScreen() {
                           : "Show this week's chores"
                   }
                 >
-                  {f === "week" || f === "archived" ? (
-                    <Feather
-                      name={f === "archived" ? "archive" : "calendar"}
-                      size={13}
-                      color={filter === f ? colors.foreground : colors.mutedForeground}
-                    />
-                  ) : null}
+                  <Feather
+                    name={
+                      f === "archived"
+                        ? "archive"
+                        : f === "week"
+                          ? "calendar"
+                          : f === "done"
+                            ? "check-circle"
+                            : "sun"
+                    }
+                    size={13}
+                    color={filter === f ? colors.foreground : colors.mutedForeground}
+                  />
                   <Text
                     style={[
                       styles.filterText,
@@ -1291,14 +1329,14 @@ export default function MyChoresScreen() {
                     {f === "today"
                       ? "Today"
                       : f === "done"
-                        ? "Done"
+                        ? "Completed"
                         : f === "archived"
                           ? `Archived ${archivedPersonalChoreCount}`
-                          : "Week"}
+                          : "This Week"}
                   </Text>
                 </TouchableOpacity>
               ))}
-            </View>}
+            </ScrollView>}
             {expandedHomeSections["my-chores"] && filter === "done" ? (
               <Text style={[styles.doneRetentionHint, { color: colors.mutedForeground }]}>
                 Completed chores stay here for 7 days. Older activity is available in Calendar.
@@ -1716,18 +1754,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   filterRow: {
-    flexDirection: "row",
     paddingHorizontal: 16,
     gap: 8,
-    marginBottom: 12,
+    paddingBottom: 12,
   },
+  filterScroller: { marginHorizontal: -16 },
   filterBtn: {
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
-    paddingHorizontal: 16,
-    paddingVertical: 7,
-    borderRadius: 20,
+    minHeight: 40,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: radii.pill,
+    borderWidth: 1,
   },
   filterText: { fontFamily: "Inter_600SemiBold", fontSize: 13 },
   doneRetentionHint: {
@@ -1742,17 +1782,23 @@ const styles = StyleSheet.create({
   choreRow: {
     flexDirection: "row",
     alignItems: "center",
-    padding: spacing.lg,
+    paddingVertical: spacing.md,
+    paddingLeft: spacing.sm,
+    paddingRight: spacing.md,
     borderRadius: radii.card,
     borderWidth: 1,
     gap: spacing.sm,
   },
   checkBox: {
+    width: 44,
+    height: 44,
     alignItems: "center",
     justifyContent: "center",
   },
   categoryVisual: {
-    width: 18,
+    width: 28,
+    height: 28,
+    borderRadius: radii.small,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1767,8 +1813,18 @@ const styles = StyleSheet.create({
   leftPointsText: { fontFamily: "Inter_700Bold", fontSize: 10 },
   choreInfo: { flex: 1, minWidth: 0 },
   choreTitle: { ...typography.label },
-  choreMeta: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 },
-  dueDateText: { ...typography.caption, fontFamily: "Inter_400Regular" },
+  choreMeta: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginTop: spacing.xs, overflow: "hidden" },
+  dueStatus: {
+    minHeight: 24,
+    maxWidth: "68%",
+    borderRadius: radii.pill,
+    paddingHorizontal: spacing.sm,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+  },
+  dueDateText: { ...typography.caption, fontFamily: "Inter_500Medium", flexShrink: 1 },
+  choreDetailText: { ...typography.caption, fontSize: 11, flexShrink: 1 },
   pointsBadge: {
     paddingHorizontal: 8,
     paddingVertical: 3,
@@ -1782,8 +1838,8 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   taskActionsButton: {
-    width: 32,
-    height: 32,
+    width: 40,
+    height: 40,
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
