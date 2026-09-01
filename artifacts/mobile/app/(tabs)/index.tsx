@@ -52,6 +52,7 @@ import {
 import { reportRuntimeError } from "@/lib/runtimeDiagnostics";
 import { isActiveSweetMember, resolveChorePermissions } from "@/lib/chorePermissions";
 import { logChorePermissionCheck } from "@/lib/choreDiagnostics";
+import { selectUpNextChore } from "@/lib/homeFocus";
 import { CHORE_RECURRENCE_LABELS } from "@/lib/choreSchedule";
 import {
   deriveCalendarItems,
@@ -85,6 +86,95 @@ const CATEGORIES: { key: ChoreCategory; label: string; icon: keyof typeof Feathe
 
 type Filter = "week" | "today" | "done" | "archived" | "day";
 type HomeSectionId = "my-chores" | "shopping";
+
+function TodayFocusCard({
+  chore,
+  remainingCount,
+  completedCount,
+  totalCount,
+  shoppingCount,
+  onOpenChore,
+}: {
+  chore?: Chore;
+  remainingCount: number;
+  completedCount: number;
+  totalCount: number;
+  shoppingCount: number;
+  onOpenChore: (chore: Chore) => void;
+}) {
+  const colors = useTheme();
+  const progress = totalCount > 0 ? completedCount / totalCount : 1;
+  const allDone = remainingCount === 0;
+
+  return (
+    <Surface level="elevated" style={[styles.todayFocusCard, { borderColor: colors.border }]}>
+      <View style={styles.todayFocusHeader}>
+        <View style={[styles.todayIcon, { backgroundColor: colors.secondary }]}>
+          <Feather
+            name={allDone ? "check" : "sun"}
+            size={18}
+            color={allDone ? colors.success : colors.foreground}
+          />
+        </View>
+        <View style={styles.todayHeadingGroup}>
+          <Text style={[styles.todayEyebrow, { color: colors.mutedForeground }]}>TODAY</Text>
+          <Text style={[styles.todayTitle, { color: colors.foreground }]}>
+            {allDone
+              ? "You're all caught up"
+              : `${remainingCount} ${remainingCount === 1 ? "chore" : "chores"} need attention`}
+          </Text>
+        </View>
+        <Text style={[styles.todayProgressCount, { color: colors.mutedForeground }]}>
+          {completedCount}/{totalCount}
+        </Text>
+      </View>
+
+      <View style={[styles.todayProgressTrack, { backgroundColor: colors.muted }]}>
+        <View
+          style={[
+            styles.todayProgressFill,
+            {
+              backgroundColor: colors.success,
+              width: `${progress * 100}%` as `${number}%`,
+            },
+          ]}
+        />
+      </View>
+
+      {chore ? (
+        <TouchableOpacity
+          style={[styles.upNextRow, { backgroundColor: colors.muted }]}
+          onPress={() => onOpenChore(chore)}
+          activeOpacity={0.72}
+          accessibilityRole="button"
+          accessibilityLabel={`Up next: ${chore.title}`}
+          accessibilityHint="Opens chore actions"
+        >
+          <View style={styles.upNextCopy}>
+            <Text style={[styles.upNextLabel, { color: colors.mutedForeground }]}>UP NEXT</Text>
+            <Text style={[styles.upNextTitle, { color: colors.foreground }]} numberOfLines={1}>
+              {chore.title}
+            </Text>
+            <Text style={[styles.upNextMeta, { color: colors.mutedForeground }]}>
+              {formatDueDate(chore.dueDate)}
+            </Text>
+          </View>
+          <View style={[styles.upNextAction, { borderColor: colors.border }]}>
+            <Feather name="arrow-up-right" size={17} color={colors.foreground} />
+          </View>
+        </TouchableOpacity>
+      ) : (
+        <View style={styles.todayQuietState}>
+          <Text style={[styles.todayQuietCopy, { color: colors.mutedForeground }]}>
+            {shoppingCount > 0
+              ? `${shoppingCount} shopping ${shoppingCount === 1 ? "item is" : "items are"} still waiting`
+              : "Nothing else needs your attention right now"}
+          </Text>
+        </View>
+      )}
+    </Surface>
+  );
+}
 
 function CollapsibleSectionHeader({
   title,
@@ -507,6 +597,15 @@ export default function MyChoresScreen() {
     () => activePersonalChores.reduce((count, chore) => count + (chore.completed ? 0 : 1), 0),
     [activePersonalChores],
   );
+  const todayChores = useMemo(
+    () =>
+      activePersonalChores.filter(
+        (chore) => isChoreActiveOnDay(chore, lifecycleNow),
+      ),
+    [activePersonalChores, lifecycleNow],
+  );
+  const todayIncompleteChores = todayChores.filter((chore) => !chore.completed);
+  const upNextChore = selectUpNextChore(todayIncompleteChores);
   const archivedPersonalChoreCount = useMemo(
     () => myChores.filter((chore) => isArchivedIncomplete(chore, lifecycleNow)).length,
     [lifecycleNow, myChores],
@@ -902,7 +1001,18 @@ export default function MyChoresScreen() {
 
             <PinchListViewCoach visible={showCoach} onDismiss={dismissCoach} />
 
-            {!listView && <Surface level="elevated" style={[styles.calendarCard, { borderColor: colors.border }]}>
+            {!listView && (
+              <TodayFocusCard
+                chore={upNextChore}
+                remainingCount={todayIncompleteChores.length}
+                completedCount={todayChores.length - todayIncompleteChores.length}
+                totalCount={todayChores.length}
+                shoppingCount={myShoppingItems.length}
+                onOpenChore={openChoreActions}
+              />
+            )}
+
+            {!listView && <Surface style={[styles.calendarCard, { borderColor: colors.border }]}>
               <View style={styles.calendarTopRow}>
                 <TouchableOpacity
                   style={[styles.calendarNavButton, { backgroundColor: colors.muted }]}
@@ -1431,6 +1541,59 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   totalPointsText: { fontFamily: "Inter_700Bold", fontSize: 14 },
+  todayFocusCard: {
+    borderRadius: radii.floating,
+    borderWidth: 1,
+    padding: spacing.lg,
+    marginBottom: spacing.md,
+  },
+  todayFocusHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+  },
+  todayIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: radii.control,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  todayHeadingGroup: { flex: 1, minWidth: 0 },
+  todayEyebrow: { ...typography.caption, fontSize: 11, letterSpacing: 1.2 },
+  todayTitle: { ...typography.heading, marginTop: spacing.hairline },
+  todayProgressCount: { ...typography.caption, fontVariant: ["tabular-nums"] },
+  todayProgressTrack: {
+    height: 5,
+    borderRadius: radii.pill,
+    overflow: "hidden",
+    marginTop: spacing.lg,
+  },
+  todayProgressFill: { height: "100%", borderRadius: radii.pill },
+  upNextRow: {
+    minHeight: 72,
+    borderRadius: radii.control,
+    marginTop: spacing.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+  },
+  upNextCopy: { flex: 1, minWidth: 0 },
+  upNextLabel: { ...typography.caption, fontSize: 10, letterSpacing: 1 },
+  upNextTitle: { ...typography.label, marginTop: spacing.hairline },
+  upNextMeta: { ...typography.caption, marginTop: spacing.hairline },
+  upNextAction: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  todayQuietState: { paddingTop: spacing.lg },
+  todayQuietCopy: { ...typography.caption, textAlign: "center" },
   progressSection: {
     paddingHorizontal: 2,
     paddingVertical: 4,
