@@ -1825,11 +1825,11 @@ export default function PlanningScreen() {
                 key={value}
                 onPress={() => setCustomTaskDifficulty(value)}
                 style={[styles.customTaskChip, {
-                  backgroundColor: value === customTaskDifficulty ? colors.primary : colors.muted,
+                  backgroundColor: value === customTaskDifficulty ? colors.action : colors.muted,
                   borderColor: value === customTaskDifficulty ? colors.primary : colors.border,
                 }]}
               >
-                <Text style={{ color: value === customTaskDifficulty ? colors.primaryForeground : colors.mutedForeground, fontFamily: "Inter_700Bold" }}>{value}</Text>
+                <Text style={{ color: value === customTaskDifficulty ? colors.actionForeground : colors.mutedForeground, fontFamily: "Inter_700Bold" }}>{value}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -1837,10 +1837,10 @@ export default function PlanningScreen() {
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.customTaskOptions}>
             {(["daily", "everyOtherDay", "weekly", "biweekly", "monthly"] as ChoreFrequency[]).map((value) => (
               <TouchableOpacity key={value} onPress={() => setCustomTaskFrequency(value)} style={[styles.customTextChip, {
-                backgroundColor: value === customTaskFrequency ? colors.primary : colors.muted,
+                backgroundColor: value === customTaskFrequency ? colors.action : colors.muted,
                 borderColor: value === customTaskFrequency ? colors.primary : colors.border,
               }]}>
-                <Text style={{ color: value === customTaskFrequency ? colors.primaryForeground : colors.mutedForeground, fontFamily: "Inter_600SemiBold", fontSize: 12 }}>{value}</Text>
+                <Text style={{ color: value === customTaskFrequency ? colors.actionForeground : colors.mutedForeground, fontFamily: "Inter_600SemiBold", fontSize: 12 }}>{value}</Text>
               </TouchableOpacity>
             ))}
           </ScrollView>
@@ -1848,10 +1848,10 @@ export default function PlanningScreen() {
           <View style={styles.customTaskOptions}>
             {(["morning", "night", "any"] as ChoreTimeOfDay[]).map((value) => (
               <TouchableOpacity key={value} onPress={() => setCustomTaskTime(value)} style={[styles.customTextChip, {
-                backgroundColor: value === customTaskTime ? colors.primary : colors.muted,
+                backgroundColor: value === customTaskTime ? colors.action : colors.muted,
                 borderColor: value === customTaskTime ? colors.primary : colors.border,
               }]}>
-                <Text style={{ color: value === customTaskTime ? colors.primaryForeground : colors.mutedForeground, fontFamily: "Inter_600SemiBold", fontSize: 12 }}>{value}</Text>
+                <Text style={{ color: value === customTaskTime ? colors.actionForeground : colors.mutedForeground, fontFamily: "Inter_600SemiBold", fontSize: 12 }}>{value}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -1869,10 +1869,10 @@ export default function PlanningScreen() {
               setCustomTaskTitle("");
               setCustomTaskDifficulty(3);
             }}
-            style={[styles.saveCustomTask, { backgroundColor: colors.primary, opacity: customTaskTitle.trim() ? 1 : 0.5 }]}
+            style={[styles.saveCustomTask, { backgroundColor: colors.action, opacity: customTaskTitle.trim() ? 1 : 0.5 }]}
           >
-            <Feather name="plus" size={16} color={colors.primaryForeground} />
-            <Text style={[styles.saveCustomTaskText, { color: colors.primaryForeground }]}>Add custom task</Text>
+            <Feather name="plus" size={16} color={colors.actionForeground} />
+            <Text style={[styles.saveCustomTaskText, { color: colors.actionForeground }]}>Add custom task</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -2193,7 +2193,7 @@ export default function PlanningScreen() {
           <TouchableOpacity
             disabled={shortlistSaving || shortlistTransferLoading}
             onPress={() => void continueHouseholdSetup()}
-            style={[styles.shortlistSave, { backgroundColor: colors.primary, opacity: shortlistSaving || shortlistTransferLoading ? 0.6 : 1 }]}
+            style={[styles.shortlistSave, { backgroundColor: colors.action, opacity: shortlistSaving || shortlistTransferLoading ? 0.6 : 1 }]}
             accessibilityRole="button"
             accessibilityLabel="Save selected essentials and continue household setup"
           >
@@ -2203,7 +2203,7 @@ export default function PlanningScreen() {
           <TouchableOpacity
             disabled={shortlistSaving || shortlistTransferLoading}
             onPress={() => void saveShortlist()}
-            style={[styles.shortlistSave, { backgroundColor: colors.primary, opacity: shortlistSaving || shortlistTransferLoading ? 0.6 : 1 }]}
+            style={[styles.shortlistSave, { backgroundColor: colors.action, opacity: shortlistSaving || shortlistTransferLoading ? 0.6 : 1 }]}
             accessibilityRole="button"
             accessibilityLabel="Save shortlist"
           >
@@ -2231,7 +2231,7 @@ export default function PlanningScreen() {
       {/* Build / Generate button */}
       {!choreChartData && (
         <Pressable
-          style={[styles.generateBtn, { backgroundColor: canGenerate && !loading ? colors.primary : colors.muted }]}
+          style={[styles.generateBtn, { backgroundColor: canGenerate && !loading ? colors.action : colors.muted }]}
           disabled={!canGenerate || loading}
           onPress={generate}
           accessibilityRole="button"

@@ -44,7 +44,7 @@ export function FloatingActionButton({
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       containerStyle={[styles.container, { bottom }]}
-      style={[styles.button, { backgroundColor: colors.primary }]}
+      style={[styles.button, { backgroundColor: colors.action, borderColor: colors.primary }]}
       onPress={() => {
         if (pressLocked.current) return;
         pressLocked.current = true;
@@ -54,7 +54,7 @@ export function FloatingActionButton({
         }, 450);
       }}
     >
-      <Feather name={icon} size={25} color={colors.primaryForeground} />
+      <Feather name={icon} size={25} color={colors.actionForeground} />
     </SmoothPressable>
   );
 }
@@ -69,6 +69,7 @@ const styles = StyleSheet.create({
     elevation: 12,
   },
   button: {
+    borderWidth: 1,
     width: FAB_SIZE,
     height: FAB_SIZE,
     borderRadius: FAB_SIZE / 2,

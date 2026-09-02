@@ -161,8 +161,8 @@ export default function AlertsScreen() {
                     );
                   })}
                 </View>
-                <TouchableOpacity disabled={busy || myApproval?.approved} onPress={() => act(approveProposedChart)} style={[styles.primary, { backgroundColor: colors.primary, opacity: busy || myApproval?.approved ? 0.55 : 1 }]}>
-                  <Text style={[styles.primaryText, { color: colors.primaryForeground }]}>{myApproval?.approved ? "Approved" : "Approve chart"}</Text>
+                <TouchableOpacity disabled={busy || myApproval?.approved} onPress={() => act(approveProposedChart)} style={[styles.primary, { backgroundColor: colors.action, opacity: busy || myApproval?.approved ? 0.55 : 1 }]}>
+                  <Text style={[styles.primaryText, { color: colors.actionForeground }]}>{myApproval?.approved ? "Approved" : "Approve chart"}</Text>
                 </TouchableOpacity>
                 {isHost && (
                   <TouchableOpacity disabled={busy} onPress={() => act(forceApproveProposedChart)} style={[styles.override, { borderColor: colors.primary }]}>

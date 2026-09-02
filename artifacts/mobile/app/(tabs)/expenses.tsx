@@ -1103,7 +1103,7 @@ export default function ExpensesScreen() {
                               </View>
                             ) : isMe ? (
                               <TouchableOpacity
-                                style={[styles.detailMarkPaidBtn, { backgroundColor: colors.primary }]}
+                                style={[styles.detailMarkPaidBtn, { backgroundColor: colors.action }]}
                                 onPress={() => {
                                   confirm(
                                     "mark_paid",
@@ -1566,7 +1566,7 @@ export default function ExpensesScreen() {
                     style={[
                       styles.recurringCheckbox,
                       {
-                        backgroundColor: expRecurring ? colors.primary : "transparent",
+                        backgroundColor: expRecurring ? colors.action : "transparent",
                         borderColor: expRecurring ? colors.primary : colors.mutedForeground,
                       },
                     ]}
@@ -1830,7 +1830,7 @@ export default function ExpensesScreen() {
               <TouchableOpacity
                 style={[
                   styles.iouSendBtn,
-                  { backgroundColor: canSubmit ? colors.primary : colors.muted },
+                  { backgroundColor: canSubmit ? colors.action : colors.muted },
                 ]}
                 disabled={!canSubmit || submittingIou}
                 onPress={handleSendIOU}

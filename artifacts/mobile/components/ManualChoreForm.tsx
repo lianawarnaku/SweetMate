@@ -402,7 +402,7 @@ export function ManualChoreForm({
       {error && <Text style={[styles.error, { color: colors.destructive }]}>{error}</Text>}
       <TouchableOpacity
         onPress={submit}
-        style={[styles.submit, { backgroundColor: title.trim() ? colors.primary : colors.muted }]}
+        style={[styles.submit, { backgroundColor: title.trim() ? colors.action : colors.muted }]}
       >
         <Text style={styles.submitText}>
           {initialChore ? "Save Changes" : "Add Chore"}

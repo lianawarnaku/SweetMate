@@ -83,9 +83,9 @@ export function InviteCodeCard({
           <Feather name="user-plus" size={19} color={colors.primary} />
         </View>
         <View style={styles.headingCopy}>
-          <Text style={[styles.title, { color: colors.foreground }]}>Invite your Sweetmates</Text>
+          <Text style={[styles.title, { color: colors.foreground }]}>Invite Sweetmates</Text>
           <Text style={[styles.description, { color: colors.mutedForeground }]}>
-            Share this code so your Sweetmates can join your Sweet.
+            Send this private code to someone you want to join your Sweet.
           </Text>
         </View>
       </View>
@@ -108,6 +108,7 @@ export function InviteCodeCard({
             <SmoothPressable
               accessibilityRole="button"
               accessibilityLabel="Copy invite code"
+              accessibilityHint="Copies the household invite code to your clipboard"
               onPress={copyCode}
               containerStyle={styles.actionSlot}
               style={[styles.secondaryButton, { borderColor: colors.border }]}
@@ -118,12 +119,13 @@ export function InviteCodeCard({
             <SmoothPressable
               accessibilityRole="button"
               accessibilityLabel="Share invite with Sweetmates"
+              accessibilityHint="Opens your device sharing options with an invitation message"
               onPress={shareInvite}
               containerStyle={styles.actionSlot}
-              style={[styles.primaryButton, { backgroundColor: colors.primary }]}
+              style={[styles.primaryButton, { backgroundColor: colors.action, borderColor: colors.primary }]}
             >
-              <Feather name="send" size={17} color="#fff" />
-              <Text style={styles.primaryText}>Text invite</Text>
+              <Feather name="send" size={17} color={colors.actionForeground} />
+              <Text style={[styles.primaryText, { color: colors.actionForeground }]}>Share invite</Text>
             </SmoothPressable>
           </View>
         </>
@@ -167,9 +169,9 @@ const styles = StyleSheet.create({
   },
   actions: { flexDirection: "row", gap: 10 },
   actionSlot: { flex: 1 },
-  primaryButton: { minHeight: 48, borderRadius: 14, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
+  primaryButton: { minHeight: 48, borderRadius: 14, borderWidth: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
   secondaryButton: { minHeight: 48, borderRadius: 14, borderWidth: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
-  primaryText: { color: "#fff", fontFamily: "Inter_700Bold", fontSize: 14 },
+  primaryText: { fontFamily: "Inter_700Bold", fontSize: 14 },
   secondaryText: { fontFamily: "Inter_700Bold", fontSize: 14 },
   stateRow: { minHeight: 70, alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 10 },
   stateText: { fontFamily: "Inter_400Regular", fontSize: 14 },

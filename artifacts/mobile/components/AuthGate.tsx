@@ -64,8 +64,8 @@ function HouseholdLoadError({ message, onRetry }: { message: string; onRetry: ()
     <View style={[styles.errorScreen, { backgroundColor: colors.background }]}>
       <Text style={[styles.errorTitle, { color: colors.foreground }]}>Households unavailable</Text>
       <Text style={[styles.errorMessage, { color: colors.mutedForeground }]}>{message}</Text>
-      <Pressable accessibilityRole="button" onPress={onRetry} style={[styles.retryButton, { backgroundColor: colors.primary }]}>
-        <Text style={[styles.retryText, { color: colors.primaryForeground }]}>Try again</Text>
+      <Pressable accessibilityRole="button" onPress={onRetry} style={[styles.retryButton, { backgroundColor: colors.action }]}>
+        <Text style={[styles.retryText, { color: colors.actionForeground }]}>Try again</Text>
       </Pressable>
     </View>
   );

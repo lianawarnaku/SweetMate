@@ -108,7 +108,7 @@ export function ErrorFallback({
           style={({ pressed }) => [
             styles.button,
             {
-              backgroundColor: colors.primary,
+              backgroundColor: colors.action,
               opacity: pressed ? 0.9 : 1,
               transform: [{ scale: pressed ? 0.98 : 1 }],
             },
@@ -117,7 +117,7 @@ export function ErrorFallback({
           <Text
             style={[
               styles.buttonText,
-              { color: colors.primaryForeground },
+              { color: colors.actionForeground },
             ]}
           >
             Try Again

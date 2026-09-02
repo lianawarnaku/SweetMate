@@ -120,12 +120,12 @@ export default function TaskDifficultyScreen() {
                           style={[
                             styles.segment,
                             {
-                              backgroundColor: level === difficulty ? colors.primary : colors.muted,
+                              backgroundColor: level === difficulty ? colors.action : colors.muted,
                               borderColor: level === difficulty ? colors.primary : colors.border,
                             },
                           ]}
                         >
-                          <Text style={[styles.segmentText, { color: level === difficulty ? colors.primaryForeground : colors.mutedForeground }]}>
+                          <Text style={[styles.segmentText, { color: level === difficulty ? colors.actionForeground : colors.mutedForeground }]}>
                             {level}
                           </Text>
                         </TouchableOpacity>

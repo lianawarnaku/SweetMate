@@ -35,13 +35,15 @@ export function HouseholdCompletionControl() {
       {!householdComplete && (
         <SmoothPressable
           accessibilityRole="button"
+          accessibilityHint="Unlocks household chore-chart planning"
           disabled={!canComplete}
           onPress={() => setHouseholdComplete(true)}
           containerStyle={styles.actionSlot}
           style={[
             styles.action,
             {
-              backgroundColor: canComplete ? colors.primary : colors.muted,
+              backgroundColor: canComplete ? colors.action : colors.muted,
+              borderColor: canComplete ? colors.primary : colors.border,
               opacity: canComplete ? 1 : 0.65,
             },
           ]}
@@ -49,7 +51,9 @@ export function HouseholdCompletionControl() {
           <Text
             style={[
               styles.actionText,
-              { color: canComplete ? colors.primaryForeground : colors.mutedForeground },
+              {
+                color: canComplete ? colors.actionForeground : colors.mutedForeground,
+              },
             ]}
           >
             Mark household complete
@@ -75,6 +79,7 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 13,
+    borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
   },

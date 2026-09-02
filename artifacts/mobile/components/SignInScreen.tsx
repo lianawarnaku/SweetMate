@@ -313,7 +313,7 @@ export function SignInScreen() {
           <TouchableOpacity
             style={[
               styles.submit,
-              { backgroundColor: canSubmit ? colors.primary : colors.muted },
+              { backgroundColor: canSubmit ? colors.action : colors.muted },
             ]}
             onPress={submit}
             disabled={!canSubmit}

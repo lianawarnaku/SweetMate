@@ -111,9 +111,6 @@ export default function ShoppingScreen() {
   const [focusedInput, setFocusedInput] = useState<string | null>(null);
   const completedLongPressRef = useRef<string | null>(null);
 
-  const monoGlassActions = colors.primary.toUpperCase() === "#FFFFFF";
-  const enabledActionBackground = monoGlassActions ? colors.secondary : colors.primary;
-  const enabledActionForeground = monoGlassActions ? colors.foreground : colors.primaryForeground;
   const inputStyle = (field: string) => [
     styles.input,
     {
@@ -840,7 +837,7 @@ export default function ShoppingScreen() {
               style={[
                 styles.addBtn,
                 {
-                  backgroundColor: shopName.trim() ? enabledActionBackground : colors.muted,
+                  backgroundColor: shopName.trim() ? colors.action : colors.muted,
                   borderColor: shopName.trim() ? colors.primary : colors.border,
                   marginTop: 8,
                 },
@@ -848,7 +845,7 @@ export default function ShoppingScreen() {
               disabled={!shopName.trim()}
               onPress={handleAddShopItem}
             >
-              <Text style={[styles.addBtnText, { color: shopName.trim() ? enabledActionForeground : colors.mutedForeground }]}>
+              <Text style={[styles.addBtnText, { color: shopName.trim() ? colors.actionForeground : colors.mutedForeground }]}>
                 Add to list
               </Text>
             </TouchableOpacity>
@@ -895,7 +892,7 @@ export default function ShoppingScreen() {
               style={[
                 styles.addBtn,
                 {
-                  backgroundColor: newListName.trim() ? enabledActionBackground : colors.muted,
+                  backgroundColor: newListName.trim() ? colors.action : colors.muted,
                   borderColor: newListName.trim() ? colors.primary : colors.border,
                   marginTop: 8,
                 },
@@ -903,7 +900,7 @@ export default function ShoppingScreen() {
               disabled={!newListName.trim()}
               onPress={handleAddList}
             >
-              <Text style={[styles.addBtnText, { color: newListName.trim() ? enabledActionForeground : colors.mutedForeground }]}>
+              <Text style={[styles.addBtnText, { color: newListName.trim() ? colors.actionForeground : colors.mutedForeground }]}>
                 Create list
               </Text>
             </TouchableOpacity>
