@@ -2,7 +2,7 @@ import { Feather } from "@expo/vector-icons";
 import React from "react";
 import { StyleSheet, Switch, Text, View } from "react-native";
 
-import { colorSchemes, type ColorScheme, useTheme } from "@/constants/colors";
+import { colorSchemes, resolveThemeTokens, type AppearanceMode, type ColorScheme, useTheme } from "@/constants/colors";
 import { useAppContext } from "@/context/AppContext";
 import { SmoothPressable } from "@/components/SmoothPressable";
 
@@ -18,6 +18,8 @@ export function UserPreferencesPanel() {
   const {
     colorScheme,
     setColorScheme,
+    appearanceMode,
+    setAppearanceMode,
     pointsEnabled,
     setPointsEnabled,
     plantEnabled,
@@ -28,10 +30,34 @@ export function UserPreferencesPanel() {
 
   return (
     <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-      <Text style={[styles.title, { color: colors.foreground }]}>Color scheme</Text>
+      <Text style={[styles.title, { color: colors.foreground }]}>App Appearance</Text>
+      <View style={[styles.modeControl, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+        {(["light", "dark"] as AppearanceMode[]).map((mode) => {
+          const active = appearanceMode === mode;
+          return (
+            <SmoothPressable
+              key={mode}
+              accessibilityRole="radio"
+              accessibilityState={{ checked: active }}
+              onPress={() => setAppearanceMode(mode)}
+              containerStyle={styles.modeOptionSlot}
+              style={[
+                styles.modeOption,
+                active && { backgroundColor: colors.surfaceElevated, borderColor: colors.glassRim },
+              ]}
+            >
+              <Feather name={mode === "light" ? "sun" : "moon"} size={15} color={active ? colors.accent : colors.mutedForeground} />
+              <Text style={[styles.modeLabel, { color: active ? colors.foreground : colors.mutedForeground }]}>
+                {mode === "light" ? "Light" : "Dark"}
+              </Text>
+            </SmoothPressable>
+          );
+        })}
+      </View>
+      <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>Accent</Text>
       <View style={styles.schemeGrid}>
         {(Object.keys(colorSchemes) as ColorScheme[]).map((scheme) => {
-          const palette = colorSchemes[scheme];
+          const palette = resolveThemeTokens(appearanceMode, scheme);
           const active = colorScheme === scheme;
           return (
             <SmoothPressable
@@ -107,6 +133,11 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   title: { fontFamily: "Inter_700Bold", fontSize: 18 },
+  sectionLabel: { fontFamily: "Inter_700Bold", fontSize: 12, letterSpacing: 1, textTransform: "uppercase" },
+  modeControl: { flexDirection: "row", padding: 4, borderWidth: 1, borderRadius: 18, gap: 4 },
+  modeOptionSlot: { flex: 1 },
+  modeOption: { minHeight: 42, borderRadius: 14, borderWidth: 1, borderColor: "transparent", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7 },
+  modeLabel: { fontFamily: "Inter_700Bold", fontSize: 14, textTransform: "capitalize" },
   schemeGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   schemeOptionSlot: { width: "48%" },
   schemeOption: {
