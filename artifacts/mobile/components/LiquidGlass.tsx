@@ -11,6 +11,10 @@ type GlassVariant = "regular" | "elevated" | "destructive";
 function useReduceTransparency() {
   const [reduced, setReduced] = useState(false);
   useEffect(() => {
+    if (Platform.OS === "web" || typeof AccessibilityInfo.isReduceTransparencyEnabled !== "function") {
+      setReduced(false);
+      return;
+    }
     let active = true;
     void AccessibilityInfo.isReduceTransparencyEnabled().then((value) => {
       if (active) setReduced(value);
