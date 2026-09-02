@@ -20,6 +20,7 @@ import { NudgeToast } from "@/components/NudgeToast";
 import { AnalyticsConsentManager } from "@/components/AnalyticsConsentManager";
 import { HouseholdSetupRouteGuard } from "@/components/HouseholdSetupRouteGuard";
 import { AppPopupProvider } from "@/components/AppPopupProvider";
+import { WebThemeFocusStyles } from "@/components/WebThemeFocusStyles";
 import { AppProvider } from "@/context/AppContext";
 import { useSupabaseSession } from "@/hooks/useSupabaseSession";
 import { setBaseUrl } from "@workspace/api-client-react";
@@ -75,6 +76,7 @@ export default function RootLayout() {
         <QueryClientProvider client={queryClient}>
           <GestureHandlerRootView style={{ flex: 1 }}>
             <AppProvider session={session}>
+              <WebThemeFocusStyles />
               <AppPopupProvider>
                 <AnalyticsConsentManager session={session} />
                 {!launchAnimationComplete ? (

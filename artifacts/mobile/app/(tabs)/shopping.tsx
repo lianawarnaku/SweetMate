@@ -108,7 +108,21 @@ export default function ShoppingScreen() {
   const [assignPickerListId, setAssignPickerListId] = useState<string | null>(null);
   const [actionListId, setActionListId] = useState<string | null>(null);
   const [actionItemId, setActionItemId] = useState<string | null>(null);
+  const [focusedInput, setFocusedInput] = useState<string | null>(null);
   const completedLongPressRef = useRef<string | null>(null);
+
+  const monoGlassActions = colors.primary.toUpperCase() === "#FFFFFF";
+  const enabledActionBackground = monoGlassActions ? colors.secondary : colors.primary;
+  const enabledActionForeground = monoGlassActions ? colors.foreground : colors.primaryForeground;
+  const inputStyle = (field: string) => [
+    styles.input,
+    {
+      backgroundColor: colors.muted,
+      color: colors.foreground,
+      borderColor: focusedInput === field ? colors.primary : colors.border,
+      borderWidth: focusedInput === field ? 2 : 1,
+    },
+  ];
 
   const toggleListCollapse = (id: string) => {
     setCollapsedLists((prev) => {
@@ -213,6 +227,17 @@ export default function ShoppingScreen() {
     () => roommates.map((roommate) => roommate.id),
     [roommates],
   );
+
+  const shoppingProgress = useMemo(() => {
+    const completed = shoppingItems.filter((item) => item.completed).length;
+    const total = shoppingItems.length;
+    return {
+      completed,
+      remaining: total - completed,
+      total,
+      percent: total > 0 ? completed / total : 0,
+    };
+  }, [shoppingItems]);
 
   const openExpenseDraft = (draft: Parameters<typeof setPendingIouDraft>[0]) => {
     if (!draft) return;
@@ -338,22 +363,42 @@ export default function ShoppingScreen() {
       >
         <View>
           <Text style={[styles.title, { color: colors.foreground }]}>Shopping</Text>
-          <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>Shared lists for the household</Text>
+          <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>See what your household still needs</Text>
         </View>
         <View style={styles.headerButtons}>
           <HeaderActions />
         </View>
       </View>
 
-      {/* Summary chip */}
+      {/* At-a-glance progress */}
       {shoppingLists.length > 0 && (
-        <View style={[styles.summaryRow, { paddingHorizontal: 16, marginBottom: 8 }]}>
-          <View style={[styles.summaryChip, { backgroundColor: colors.primary + "12", borderColor: colors.primary + "30" }]}>
-            <Feather name="shopping-cart" size={12} color={colors.primary} />
-            <Text style={[styles.summaryText, { color: colors.primary }]}>
-              {shoppingItems.filter((i) => !i.completed).length} items left across {shoppingLists.length} {shoppingLists.length === 1 ? "list" : "lists"}
-            </Text>
-          </View>
+        <View style={styles.summaryRow}>
+          <Surface style={[styles.summaryCard, { borderColor: colors.border }]}>
+            <View style={styles.summaryTopRow}>
+              <View style={[styles.summaryIcon, { backgroundColor: colors.primary + "18" }]}>
+                <Feather name="shopping-cart" size={15} color={colors.primary} />
+              </View>
+              <View style={styles.summaryCopy}>
+                <Text style={[styles.summaryTitle, { color: colors.foreground }]}>
+                  {shoppingProgress.remaining === 0 ? "You’re all caught up" : `${shoppingProgress.remaining} still needed`}
+                </Text>
+                <Text style={[styles.summaryText, { color: colors.mutedForeground }]}>
+                  {shoppingProgress.completed} of {shoppingProgress.total} items picked up · {shoppingLists.length} {shoppingLists.length === 1 ? "list" : "lists"}
+                </Text>
+              </View>
+            </View>
+            <View style={[styles.progressTrack, { backgroundColor: colors.border + "70" }]}>
+              <View
+                style={[
+                  styles.progressFill,
+                  {
+                    backgroundColor: colors.primary,
+                    width: `${Math.round(shoppingProgress.percent * 100)}%`,
+                  },
+                ]}
+              />
+            </View>
+          </Surface>
         </View>
       )}
 
@@ -407,6 +452,7 @@ export default function ShoppingScreen() {
                     disabled={isActive}
                     accessibilityRole="button"
                     accessibilityLabel={`${list.name}, ${items.length - doneCount} items remaining`}
+                    accessibilityState={{ expanded: !collapsed }}
                     accessibilityHint="Tap to expand or collapse. Press and hold for pin and delete actions."
                   >
                     <TouchableOpacity
@@ -436,6 +482,9 @@ export default function ShoppingScreen() {
                     onPress={() => setAssignPickerListId(list.id)}
                     hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                     style={styles.assignBtn}
+                    accessibilityRole="button"
+                    accessibilityLabel={listAssignee ? `Assigned to ${listAssignee.id === currentUserId ? "you" : listAssignee.name}` : `Assign ${list.name}`}
+                    accessibilityHint="Choose who is responsible for this list"
                   >
                     {listAssignee ? (
                       listAssignee.id === currentUserId ? (
@@ -461,6 +510,8 @@ export default function ShoppingScreen() {
                       setShowShoppingModal(true);
                     }}
                     hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Add item to ${list.name}`}
                   >
                     <Feather name="plus" size={15} color={colors.primary} />
                   </TouchableOpacity>
@@ -562,12 +613,15 @@ export default function ShoppingScreen() {
                                     {item.quantity}
                                     {assigneeLabel ? ` · ${assigneeLabel}` : ""}
                                     {item.price != null ? ` · $${item.price.toFixed(2)}` : ""}
+                                    {item.neededByDate ? ` · Needed ${item.neededByDate}` : ""}
                                   </Text>
                                 </View>
 
                                 <TouchableOpacity
                                   onPress={() => deleteShoppingItem(item.id)}
                                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                  accessibilityRole="button"
+                                  accessibilityLabel={`Delete ${item.name}`}
                                 >
                                   <Feather name="x" size={15} color={colors.mutedForeground} />
                                 </TouchableOpacity>
@@ -742,7 +796,7 @@ export default function ShoppingScreen() {
           >
             <View style={[styles.handle, { backgroundColor: colors.border }]} />
             <Text style={[styles.sheetTitle, { color: colors.foreground }]}>
-              Add Item
+              Add item
               {targetListId ? (
                 <Text style={[styles.sheetSubtitle, { color: colors.mutedForeground }]}>
                   {" "}· {shoppingLists.find((l) => l.id === targetListId)?.name}
@@ -751,38 +805,51 @@ export default function ShoppingScreen() {
             </Text>
             <Text style={[styles.label, { color: colors.mutedForeground }]}>Item name</Text>
             <TextInput
-              style={[styles.input, { backgroundColor: colors.muted, color: colors.foreground, borderColor: colors.border }]}
+              style={inputStyle("item-name")}
               placeholder="e.g. Dish soap"
               placeholderTextColor={colors.mutedForeground}
               value={shopName}
               onChangeText={setShopName}
+              onFocus={() => setFocusedInput("item-name")}
+              onBlur={() => setFocusedInput(null)}
               autoFocus
             />
             <Text style={[styles.label, { color: colors.mutedForeground }]}>Quantity</Text>
             <TextInput
-              style={[styles.input, { backgroundColor: colors.muted, color: colors.foreground, borderColor: colors.border }]}
+              style={inputStyle("item-quantity")}
               placeholder="e.g. 2 or 1 bag"
               placeholderTextColor={colors.mutedForeground}
               value={shopQty}
               onChangeText={setShopQty}
+              onFocus={() => setFocusedInput("item-quantity")}
+              onBlur={() => setFocusedInput(null)}
             />
             <Text style={[styles.label, { color: colors.mutedForeground }]}>Needed by (optional)</Text>
             <TextInput
-              style={[styles.input, { backgroundColor: colors.muted, color: colors.foreground, borderColor: colors.border }]}
+              style={inputStyle("item-date")}
               placeholder="YYYY-MM-DD"
               placeholderTextColor={colors.mutedForeground}
               value={shopNeededBy}
               onChangeText={setShopNeededBy}
+              onFocus={() => setFocusedInput("item-date")}
+              onBlur={() => setFocusedInput(null)}
               keyboardType="numbers-and-punctuation"
               accessibilityHint="Dated items appear on the in-app calendar"
             />
             <TouchableOpacity
-              style={[styles.addBtn, { backgroundColor: shopName.trim() ? colors.primary : colors.border, marginTop: 8 }]}
+              style={[
+                styles.addBtn,
+                {
+                  backgroundColor: shopName.trim() ? enabledActionBackground : colors.muted,
+                  borderColor: shopName.trim() ? colors.primary : colors.border,
+                  marginTop: 8,
+                },
+              ]}
               disabled={!shopName.trim()}
               onPress={handleAddShopItem}
             >
-              <Text style={[styles.addBtnText, { color: shopName.trim() ? "#fff" : colors.mutedForeground }]}>
-                Add to List
+              <Text style={[styles.addBtnText, { color: shopName.trim() ? enabledActionForeground : colors.mutedForeground }]}>
+                Add to list
               </Text>
             </TouchableOpacity>
           </Surface>
@@ -800,33 +867,44 @@ export default function ShoppingScreen() {
             ]}
           >
             <View style={[styles.handle, { backgroundColor: colors.border }]} />
-            <Text style={[styles.sheetTitle, { color: colors.foreground }]}>New List</Text>
+            <Text style={[styles.sheetTitle, { color: colors.foreground }]}>New list</Text>
             <Text style={[styles.label, { color: colors.mutedForeground }]}>List name</Text>
             <TextInput
-              style={[styles.input, { backgroundColor: colors.muted, color: colors.foreground, borderColor: colors.border }]}
+              style={inputStyle("list-name")}
               placeholder="e.g. Farmers Market"
               placeholderTextColor={colors.mutedForeground}
               value={newListName}
               onChangeText={setNewListName}
+              onFocus={() => setFocusedInput("list-name")}
+              onBlur={() => setFocusedInput(null)}
               autoFocus
             />
             <Text style={[styles.label, { color: colors.mutedForeground }]}>Planned date (optional)</Text>
             <TextInput
-              style={[styles.input, { backgroundColor: colors.muted, color: colors.foreground, borderColor: colors.border }]}
+              style={inputStyle("list-date")}
               placeholder="YYYY-MM-DD"
               placeholderTextColor={colors.mutedForeground}
               value={newListDate}
               onChangeText={setNewListDate}
+              onFocus={() => setFocusedInput("list-date")}
+              onBlur={() => setFocusedInput(null)}
               keyboardType="numbers-and-punctuation"
               accessibilityHint="Dated lists appear on the in-app calendar"
             />
             <TouchableOpacity
-              style={[styles.addBtn, { backgroundColor: newListName.trim() ? colors.primary : colors.border, marginTop: 8 }]}
+              style={[
+                styles.addBtn,
+                {
+                  backgroundColor: newListName.trim() ? enabledActionBackground : colors.muted,
+                  borderColor: newListName.trim() ? colors.primary : colors.border,
+                  marginTop: 8,
+                },
+              ]}
               disabled={!newListName.trim()}
               onPress={handleAddList}
             >
-              <Text style={[styles.addBtnText, { color: newListName.trim() ? "#fff" : colors.mutedForeground }]}>
-                Create List
+              <Text style={[styles.addBtnText, { color: newListName.trim() ? enabledActionForeground : colors.mutedForeground }]}>
+                Create list
               </Text>
             </TouchableOpacity>
           </Surface>
@@ -856,17 +934,15 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   headerButtons: { flexDirection: "row", alignItems: "center", gap: 8 },
-  summaryRow: { flexDirection: "row" },
-  summaryChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    borderWidth: 1,
-  },
-  summaryText: { fontFamily: "Inter_500Medium", fontSize: 12 },
+  summaryRow: { paddingHorizontal: 16, marginBottom: 12 },
+  summaryCard: { borderRadius: 18, borderWidth: 1, padding: 14, gap: 12 },
+  summaryTopRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  summaryIcon: { width: 34, height: 34, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  summaryCopy: { flex: 1 },
+  summaryTitle: { fontFamily: "Inter_600SemiBold", fontSize: 14 },
+  summaryText: { fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 2 },
+  progressTrack: { height: 5, borderRadius: 3, overflow: "hidden" },
+  progressFill: { height: "100%", borderRadius: 3 },
   listContent: { paddingHorizontal: 16, paddingTop: 4 },
   listSection: {
     borderRadius: 22,
@@ -1011,6 +1087,7 @@ const styles = StyleSheet.create({
   },
   addBtn: {
     borderRadius: 14,
+    borderWidth: 1,
     padding: 15,
     alignItems: "center",
     justifyContent: "center",

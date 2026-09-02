@@ -1,4 +1,4 @@
-import { View, StyleSheet, type ViewProps } from "react-native";
+import { Platform, View, StyleSheet, type ViewProps } from "react-native";
 import { BlurView } from "expo-blur";
 import { useAppContextSelector } from "@/context/AppContext";
 import { useTheme } from "@/constants/colors";
@@ -18,6 +18,10 @@ export function Surface({ style, children, level = "card", ...rest }: SurfacePro
   const { reduceTransparency } = useAccessibilityPreferences();
   const isGlass = colorScheme === "mono";
   const treatment = glass[level];
+  // expo-blur can rasterize a Surface together with its children on web,
+  // which makes text and icons look soft in browser-based previews. Keep the
+  // native blur on iOS/Android and use a crisp translucent fallback on web.
+  const useNativeBlur = Platform.OS !== "web" && !reduceTransparency;
 
   if (!isGlass) {
     return (
@@ -46,7 +50,10 @@ export function Surface({ style, children, level = "card", ...rest }: SurfacePro
         styles.base,
         {
           borderColor: treatment.borderColor,
-          backgroundColor: reduceTransparency ? "#1C1C1E" : "transparent",
+          backgroundColor:
+            reduceTransparency || Platform.OS === "web"
+              ? "rgba(28, 28, 30, 0.94)"
+              : "transparent",
           shadowOpacity: treatment.shadowOpacity,
           shadowRadius: treatment.shadowRadius,
           elevation: treatment.elevation,
@@ -55,7 +62,7 @@ export function Surface({ style, children, level = "card", ...rest }: SurfacePro
       ]}
       {...rest}
     >
-      {!reduceTransparency ? (
+      {useNativeBlur ? (
         <BlurView
           intensity={treatment.blurIntensity}
           tint="dark"
