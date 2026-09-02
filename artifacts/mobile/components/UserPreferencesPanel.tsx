@@ -86,7 +86,7 @@ export function UserPreferencesPanel() {
       </View>
       <View style={[styles.preferenceRow, { borderTopColor: colors.border }]}>
         <Text style={[styles.preferenceLabel, { color: colors.foreground }]}>
-          Show house health plant
+          Show House Monitor
         </Text>
         <Switch
           value={plantEnabled}

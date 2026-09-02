@@ -515,6 +515,10 @@ interface AppContextType {
   setCurrentUser: (id: string) => void;
   roommates: Roommate[];
   chores: Chore[];
+  householdChoreSummary: {
+    totalChores: number;
+    completedChores: number;
+  };
   expenses: Expense[];
   shoppingLists: ShoppingList[];
   shoppingItems: ShoppingItem[];
@@ -4779,6 +4783,13 @@ export function AppProvider({
       : [],
     [appAlerts, householdId],
   );
+  const householdChoreSummary = useMemo(() => ({
+    totalChores: chores.length,
+    completedChores: chores.reduce(
+      (total, chore) => total + (chore.completed ? 1 : 0),
+      0,
+    ),
+  }), [chores]);
 
   const contextValue = useMemo<AppContextType>(() => ({
     itemDifficulties,
@@ -4847,6 +4858,7 @@ export function AppProvider({
     setCurrentUser,
     roommates,
     chores,
+    householdChoreSummary,
     expenses,
     shoppingLists,
     shoppingItems,
@@ -4928,7 +4940,7 @@ export function AppProvider({
     inviteCode, householdLoading, householdError, membersLoading, currentMemberRole,
     refreshMembers, refreshHousehold, createHousehold, joinHousehold, switchSweet, leaveSweet,
     deleteHousehold, removeRoommate, deleteOwnAccount, currentUserId,
-    setCurrentUser, roommates, chores, expenses, shoppingLists, shoppingItems,
+    setCurrentUser, roommates, chores, householdChoreSummary, expenses, shoppingLists, shoppingItems,
     visibleBorrowItems, nudges, nudgesReady, addChore, updateChore, addChores, setChoreCompleted, completeChore, pickUpChore, deleteChore,
     addExpense, updateExpense, settleExpense, deleteExpense, canEditExpense, canManageExpense, markPersonPaid,
     addShoppingList, reorderShoppingLists, pinShoppingList, deleteShoppingList,
