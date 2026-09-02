@@ -1259,7 +1259,7 @@ export default function PlanningScreen() {
               {setupMode ? "Sweet Essentials" : "Planning Helper"}
             </Text>
             <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-              {setupMode ? "Choose what your new Sweet needs" : "Formulaic plans for your Sweet"}
+              {setupMode ? "Choose what your new Sweet needs" : "Choose a tool, customize it, then review"}
             </Text>
           </View>
         </View>
@@ -1267,11 +1267,15 @@ export default function PlanningScreen() {
 
       {/* ── Plan type selector ── */}
       {!setupMode ? <><Text style={[styles.sectionLabel, { color: colors.foreground }]}>
-        What do you need?
+        Choose a planning tool
       </Text>
 
-      <View style={styles.typeRow}>
+      <View accessibilityRole="radiogroup" style={styles.typeRow}>
         <TouchableOpacity
+          accessibilityRole="radio"
+          accessibilityState={{ checked: isChoreChart, disabled: !householdComplete }}
+          accessibilityLabel="Chore Chart"
+          accessibilityHint={householdComplete ? "Build a weekly chore rotation" : "Finish household setup to unlock"}
           disabled={!householdComplete}
           style={[
             styles.typeCard,
@@ -1309,8 +1313,8 @@ export default function PlanningScreen() {
           </Text>
           <Text style={[styles.typeDesc, { color: colors.mutedForeground }]}>
             {householdComplete
-              ? "Fair weekly schedule for all roommates"
-              : "Locked until household setup is complete"}
+              ? "Weekly chore rotation"
+              : "Finish setup to unlock"}
           </Text>
           {!householdComplete && (
             <Feather name="lock" size={16} color={colors.mutedForeground} />
@@ -1318,6 +1322,10 @@ export default function PlanningScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
+          accessibilityRole="radio"
+          accessibilityState={{ checked: selectedType === "home-checklist" }}
+          accessibilityLabel="Sweet Essentials"
+          accessibilityHint="Track what your shared home still needs"
           style={[
             styles.typeCard,
             {
@@ -1368,7 +1376,7 @@ export default function PlanningScreen() {
             Sweet Essentials
           </Text>
           <Text style={[styles.typeDesc, { color: colors.mutedForeground }]}>
-            What to buy for a new Sweet
+            Shared home checklist
           </Text>
         </TouchableOpacity>
       </View>
@@ -1660,7 +1668,10 @@ export default function PlanningScreen() {
                 style={[styles.sectionCard, { backgroundColor: colors.card, borderColor: colors.border }]}
               >
                 <TouchableOpacity
-                  style={styles.sectionCardHeader}
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded: isExpanded }}
+                  accessibilityLabel={`${section.title}, ${ownedCoreCount} of ${coreItems.length} core items owned`}
+                  style={[styles.sectionCardHeader, isExpanded && styles.sectionCardHeaderExpanded]}
                   onPress={() => toggleExpandSection(section.id)}
                   activeOpacity={0.7}
                 >
@@ -2296,8 +2307,9 @@ const styles = StyleSheet.create({
   typeCard: {
     flex: 1,
     borderRadius: 16,
-    borderWidth: 2,
-    padding: 16,
+    borderWidth: 1,
+    minHeight: 142,
+    padding: 14,
     alignItems: "center",
     gap: 8,
   },
@@ -2361,14 +2373,16 @@ const styles = StyleSheet.create({
   sectionCard: {
     borderRadius: 16,
     borderWidth: 1,
-    padding: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
   },
   sectionCardHeader: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    marginBottom: 12,
+    minHeight: 44,
   },
+  sectionCardHeaderExpanded: { marginBottom: 8 },
   sectionCardIcon: {
     width: 32,
     height: 32,
