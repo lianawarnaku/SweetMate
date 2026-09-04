@@ -55,6 +55,7 @@ import { reportRuntimeError } from "@/lib/runtimeDiagnostics";
 import { choreLocalDateKey } from "@/lib/choreOccurrences";
 import { activeChores, isArchivedIncomplete } from "@/lib/choreLifecycle";
 import { CHORE_RECURRENCE_LABELS } from "@/lib/choreSchedule";
+import { compactOverdueItems } from "@/lib/overdueDisplay";
 
 function isOverdue(dateStr: string) {
   return new Date(dateStr) < new Date();
@@ -204,6 +205,7 @@ export default function GroupChoresScreen() {
   const [roommatesExpanded, setRoommatesExpanded] = useState(true);
   const [choreView, setChoreView] = useState<"active" | "archived">("active");
   const [visibleChoreLimits, setVisibleChoreLimits] = useState<Record<string, number>>({});
+  const [expandedOverdueSections, setExpandedOverdueSections] = useState<Set<string>>(new Set());
   const previousScrollOffsetRef = useRef(0);
   const taskListTopRef = useRef(0);
   const autoCollapseTriggeredRef = useRef(false);
@@ -1004,7 +1006,10 @@ export default function GroupChoresScreen() {
                   ? "Show active group chores"
                   : `Show ${archivedHouseholdChores.length} archived group chores`
               }
-              onPress={() => setChoreView(option)}
+              onPress={() => {
+                setChoreView(option);
+                setExpandedOverdueSections(new Set());
+              }}
               style={[
                 styles.choreFilterButton,
                 {
@@ -1061,8 +1066,15 @@ export default function GroupChoresScreen() {
               const pending = rc.filter((c) => !c.completed);
               const done = rc.filter((c) => c.completed);
               const isExpanded = expandedChoreSections.has(roommate.id);
-              const visibleLimit = visibleChoreLimits[roommate.id] ?? 50;
-              const visibleChores = rc.slice(0, visibleLimit);
+              const visibleLimit = visibleChoreLimits[roommate.id] ?? 8;
+              const overdueDisplay = compactOverdueItems(rc, {
+                expanded: choreView === "archived" || expandedOverdueSections.has(roommate.id),
+                isOverdue: (chore) => !chore.completed && isOverdue(chore.dueDate),
+                keyForRepeatedItem: (chore) => chore.recurring
+                  ? chore.title.trim().toLocaleLowerCase()
+                  : chore.id,
+              });
+              const visibleChores = overdueDisplay.visibleItems.slice(0, visibleLimit);
               return (
                 <Surface
                   key={roommate.id}
@@ -1173,6 +1185,26 @@ export default function GroupChoresScreen() {
                     </Text>
                   ) : (
                     <>
+                      {overdueDisplay.hiddenCount > 0 ? (
+                        <TouchableOpacity
+                          accessibilityRole="button"
+                          accessibilityLabel={`${overdueDisplay.hiddenCount} earlier chores hidden for ${roommate.name}`}
+                          accessibilityHint="Shows every overdue chore in this group section"
+                          onPress={() => setExpandedOverdueSections((current) => new Set([...current, roommate.id]))}
+                          style={[styles.overdueRecovery, { backgroundColor: colors.muted, borderTopColor: colors.border }]}
+                        >
+                          <View style={styles.overdueRecoveryCopy}>
+                            <Feather name="archive" size={15} color={colors.primary} />
+                            <View style={{ flex: 1 }}>
+                              <Text style={[styles.overdueRecoveryTitle, { color: colors.foreground }]}>
+                                {overdueDisplay.hiddenCount} earlier {overdueDisplay.hiddenCount === 1 ? "chore" : "chores"} tucked away
+                              </Text>
+                              <Text style={[styles.overdueRecoverySubtitle, { color: colors.mutedForeground }]}>Nothing was removed.</Text>
+                            </View>
+                          </View>
+                          <Text style={[styles.overdueRecoveryAction, { color: colors.primary }]}>Show all</Text>
+                        </TouchableOpacity>
+                      ) : null}
                       {visibleChores.map((chore) => {
                         const overdue =
                           !chore.completed && isOverdue(chore.dueDate);
@@ -1265,20 +1297,20 @@ export default function GroupChoresScreen() {
                           </View>
                         );
                       })}
-                      {visibleChores.length < rc.length ? (
+                      {visibleChores.length < overdueDisplay.visibleItems.length ? (
                         <TouchableOpacity
                           style={styles.loadMoreChores}
                           onPress={() =>
                             setVisibleChoreLimits((current) => ({
                               ...current,
-                              [roommate.id]: visibleLimit + 50,
+                              [roommate.id]: visibleLimit + 20,
                             }))
                           }
                           accessibilityRole="button"
-                          accessibilityLabel={`Show 50 more chores for ${roommate.name}`}
+                          accessibilityLabel={`Show more chores for ${roommate.name}`}
                         >
                           <Text style={[styles.loadMoreChoresText, { color: colors.primary }]}>
-                            Show more ({rc.length - visibleChores.length} remaining)
+                            Show more ({overdueDisplay.visibleItems.length - visibleChores.length} remaining)
                           </Text>
                         </TouchableOpacity>
                       ) : null}
@@ -1535,6 +1567,19 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
   },
   loadMoreChoresText: { fontFamily: "Inter_600SemiBold", fontSize: 13 },
+  overdueRecovery: {
+    minHeight: 58,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  overdueRecoveryCopy: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: 9 },
+  overdueRecoveryTitle: { fontFamily: "Inter_600SemiBold", fontSize: 13 },
+  overdueRecoverySubtitle: { fontFamily: "Inter_400Regular", fontSize: 11, marginTop: 1 },
+  overdueRecoveryAction: { fontFamily: "Inter_700Bold", fontSize: 12 },
   choreRow: {
     flexDirection: "row",
     alignItems: "center",

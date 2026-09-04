@@ -55,6 +55,7 @@ import { reportRuntimeError } from "@/lib/runtimeDiagnostics";
 import { isActiveSweetMember, resolveChorePermissions } from "@/lib/chorePermissions";
 import { logChorePermissionCheck } from "@/lib/choreDiagnostics";
 import { selectUpNextChore } from "@/lib/homeFocus";
+import { compactOverdueItems } from "@/lib/overdueDisplay";
 import { CHORE_RECURRENCE_LABELS } from "@/lib/choreSchedule";
 import {
   deriveCalendarItems,
@@ -374,13 +375,8 @@ function ChoreRow({
         </View>
       )}
 
-      <TouchableOpacity
+      <View
         style={styles.choreInfo}
-        activeOpacity={0.65}
-        delayLongPress={450}
-        onLongPress={onManage}
-        accessibilityRole="button"
-        accessibilityLabel={`Manage ${chore.title}`}
       >
         <Text
           style={[
@@ -417,7 +413,7 @@ function ChoreRow({
             </Text>
           ) : null}
         </View>
-      </TouchableOpacity>
+      </View>
 
       <View style={styles.trailingActions}>
         <TouchableOpacity
@@ -548,6 +544,7 @@ export default function MyChoresScreen() {
     usePinchListView(currentUserId, "home");
   const lifecycleNow = useChoreLifecycleNow(chores);
   const [filter, setFilter] = useState<Filter>("today");
+  const [showEarlierChores, setShowEarlierChores] = useState(false);
   const [selectedDate, setSelectedDate] = useState(() => new Date());
   const [weekOffset, setWeekOffset] = useState(0);
   const [calendarExpanded, setCalendarExpanded] = useState(false);
@@ -945,6 +942,7 @@ export default function MyChoresScreen() {
     if (nextFilter === filter) return;
     if (!reduceMotion) LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setFilter(nextFilter);
+    setShowEarlierChores(false);
     Haptics.selectionAsync();
   };
   const filtered = useMemo(
@@ -965,6 +963,17 @@ export default function MyChoresScreen() {
     },
     [activePersonalChores, filter, lifecycleNow, myChores, selectedDate],
   );
+  const displayedChores = useMemo(() => {
+    if (filter !== "today") return filtered;
+    return compactOverdueItems(filtered, {
+      expanded: showEarlierChores,
+      isOverdue: (chore) => isOverdue(chore.dueDate, chore.completed),
+      keyForRepeatedItem: (chore) => chore.recurring
+        ? chore.title.trim().toLocaleLowerCase()
+        : chore.id,
+    }).visibleItems;
+  }, [filter, filtered, showEarlierChores]);
+  const hiddenEarlierChoreCount = filter === "today" ? filtered.length - displayedChores.length : 0;
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const botPad = Platform.OS === "web" ? 34 : 0;
@@ -1021,7 +1030,7 @@ export default function MyChoresScreen() {
     <GestureDetector gesture={pinchGesture}>
       <View style={[styles.container, { backgroundColor: colors.background }]}>
       <FlatList
-        data={expandedHomeSections["my-chores"] ? filtered : []}
+        data={expandedHomeSections["my-chores"] ? displayedChores : []}
         keyExtractor={(item) => item.id}
         contentContainerStyle={[
           styles.listContent,
@@ -1377,6 +1386,26 @@ export default function MyChoresScreen() {
               <Text style={[styles.doneRetentionHint, { color: colors.mutedForeground }]}>
                 Completed chores stay here for 7 days. Older activity is available in Calendar.
               </Text>
+            ) : null}
+            {expandedHomeSections["my-chores"] && hiddenEarlierChoreCount > 0 ? (
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel={`${hiddenEarlierChoreCount} earlier chores hidden`}
+                accessibilityHint="Shows every overdue chore in today's list"
+                onPress={() => setShowEarlierChores(true)}
+                style={[styles.earlierChoresBanner, { backgroundColor: colors.muted, borderColor: colors.border }]}
+              >
+                <View style={styles.earlierChoresCopy}>
+                  <Feather name="archive" size={16} color={colors.primary} />
+                  <View style={styles.earlierChoresTextWrap}>
+                    <Text style={[styles.earlierChoresTitle, { color: colors.foreground }]}>
+                      {hiddenEarlierChoreCount} earlier {hiddenEarlierChoreCount === 1 ? "chore" : "chores"} tucked away
+                    </Text>
+                    <Text style={[styles.earlierChoresSubtitle, { color: colors.mutedForeground }]}>Focus on what matters now. Nothing was removed.</Text>
+                  </View>
+                </View>
+                <Text style={[styles.earlierChoresAction, { color: colors.primary }]}>Show all</Text>
+              </TouchableOpacity>
             ) : null}
           </>
         }
@@ -1827,6 +1856,22 @@ const styles = StyleSheet.create({
     marginTop: -4,
     marginBottom: 12,
   },
+  earlierChoresBanner: {
+    minHeight: 58,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderRadius: radii.card,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  earlierChoresCopy: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: 10 },
+  earlierChoresTextWrap: { flex: 1, minWidth: 0 },
+  earlierChoresTitle: { fontFamily: "Inter_600SemiBold", fontSize: 13 },
+  earlierChoresSubtitle: { fontFamily: "Inter_400Regular", fontSize: 11, lineHeight: 15, marginTop: 1 },
+  earlierChoresAction: { fontFamily: "Inter_700Bold", fontSize: 12 },
   listContent: { paddingHorizontal: 16, gap: 12 },
   choreRow: {
     flexDirection: "row",

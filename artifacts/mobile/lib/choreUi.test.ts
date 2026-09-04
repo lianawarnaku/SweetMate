@@ -145,9 +145,11 @@ assert(
   "Room Health and Roommates heading icons must render without tiles",
 );
 assert(
-  group.includes("const visibleChores = rc.slice(0, visibleLimit)") &&
-    group.includes("visibleLimit + 50"),
-  "Group Chores must render large sections in bounded batches",
+  group.includes("compactOverdueItems(rc") &&
+    group.includes("overdueDisplay.visibleItems.slice(0, visibleLimit)") &&
+    group.includes("visibleLimit + 20") &&
+    home.includes("compactOverdueItems(filtered"),
+  "My Sweet and Group Chores must share overdue recovery while Group keeps bounded rendering batches",
 );
 assert(
   !expenses.includes("styles.expCatIcon, { backgroundColor:"),

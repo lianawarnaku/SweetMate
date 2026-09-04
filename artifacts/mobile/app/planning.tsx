@@ -1386,6 +1386,16 @@ export default function PlanningScreen() {
           <Text style={[styles.lockText, { color: colors.mutedForeground }]}>
             Add all roommates and mark household setup complete before building a chore chart.
           </Text>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel="Finish household setup"
+            accessibilityHint="Opens household settings"
+            onPress={() => router.push("/settings")}
+            style={[styles.finishSetupButton, { backgroundColor: colors.action }]}
+          >
+            <Text style={[styles.finishSetupText, { color: colors.actionForeground }]}>Finish setup</Text>
+            <Feather name="arrow-right" size={15} color={colors.actionForeground} />
+          </TouchableOpacity>
         </View>
       )}</> : null}
 
@@ -2513,6 +2523,7 @@ const styles = StyleSheet.create({
   generateText: { color: "#fff", fontFamily: "Inter_700Bold", fontSize: 15 },
   lockBanner: {
     flexDirection: "row",
+    flexWrap: "wrap",
     alignItems: "center",
     gap: 8,
     marginHorizontal: 16,
@@ -2522,6 +2533,17 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   lockText: { flex: 1, fontFamily: "Inter_500Medium", fontSize: 13, lineHeight: 17 },
+  finishSetupButton: {
+    minHeight: 38,
+    marginLeft: 24,
+    paddingHorizontal: 13,
+    borderRadius: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+  },
+  finishSetupText: { fontFamily: "Inter_700Bold", fontSize: 12 },
 
   // ── Banners ──
   successBanner: {
