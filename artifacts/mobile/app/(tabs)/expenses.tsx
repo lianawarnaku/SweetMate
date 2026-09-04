@@ -33,6 +33,7 @@ import { ActionMenuModal } from "@/components/ActionMenuModal";
 import { HistoryDisclosure } from "@/components/HistoryDisclosure";
 import { FloatingActionButton, useFloatingActionMetrics } from "@/components/FloatingActionButton";
 import { ScreenHeader } from "@/components/ScreenHeader";
+import { InlineFeedback } from "@/components/InlineFeedback";
 import { RoommateAvatar } from "@/components/RoommateAvatar";
 import { useTheme } from "@/constants/colors";
 import { useConfirm } from "@/hooks/useConfirm";
@@ -1788,20 +1789,10 @@ export default function ExpensesScreen() {
               )}
 
               {!allocationValidation.valid ? (
-                <Text
-                  accessibilityLiveRegion="polite"
-                  style={{ color: colors.destructive, fontFamily: "Inter_500Medium", fontSize: 13 }}
-                >
-                  {allocationValidation.reason}
-                </Text>
+                <InlineFeedback message={allocationValidation.reason ?? "Check the split amounts."} tone="warning" />
               ) : null}
               {iouSubmitError ? (
-                <Text
-                  accessibilityLiveRegion="polite"
-                  style={{ color: colors.destructive, fontFamily: "Inter_500Medium", fontSize: 13 }}
-                >
-                  {iouSubmitError}
-                </Text>
+                <InlineFeedback message={iouSubmitError} tone="error" />
               ) : null}
 
             </ScrollView>

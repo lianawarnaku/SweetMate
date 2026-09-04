@@ -1,7 +1,7 @@
 import { Feather, Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   KeyboardAvoidingView,
   Modal,
@@ -28,6 +28,7 @@ import {
   ScaleDecoratorCompat,
 } from "@/components/DraggableListCompat";
 import { ScreenHeader } from "@/components/ScreenHeader";
+import { InlineFeedback } from "@/components/InlineFeedback";
 import { RoommateAvatar } from "@/components/RoommateAvatar";
 import {
   useAppContextSelector,
@@ -109,7 +110,19 @@ export default function ShoppingScreen() {
   const [actionListId, setActionListId] = useState<string | null>(null);
   const [actionItemId, setActionItemId] = useState<string | null>(null);
   const [focusedInput, setFocusedInput] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<string | null>(null);
   const completedLongPressRef = useRef<string | null>(null);
+  const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
+  }, []);
+
+  const showFeedback = (message: string) => {
+    setFeedback(message);
+    if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
+    feedbackTimerRef.current = setTimeout(() => setFeedback(null), 3500);
+  };
 
   const inputStyle = (field: string) => [
     styles.input,
@@ -132,8 +145,10 @@ export default function ShoppingScreen() {
 
   const handleAddShopItem = () => {
     if (!shopName.trim() || !targetListId) return;
+    const itemName = shopName.trim();
+    const listName = shoppingLists.find((list) => list.id === targetListId)?.name;
     addShoppingItem({
-      name: shopName.trim(),
+      name: itemName,
       quantity: shopQty.trim() || "1",
       addedBy: currentUserId,
       completed: false,
@@ -145,18 +160,21 @@ export default function ShoppingScreen() {
     setShopNeededBy("");
     setShowShoppingModal(false);
     setTargetListId(null);
+    showFeedback(`${itemName} added${listName ? ` to ${listName}` : ""}.`);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
   const handleAddList = () => {
     if (!newListName.trim()) return;
+    const listName = newListName.trim();
     addShoppingList(
-      newListName.trim(),
+      listName,
       /^\d{4}-\d{2}-\d{2}$/.test(newListDate.trim()) ? newListDate.trim() : undefined,
     );
     setNewListName("");
     setNewListDate("");
     setShowNewListModal(false);
+    showFeedback(`${listName} created. Add your first item when you’re ready.`);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
@@ -356,6 +374,10 @@ export default function ShoppingScreen() {
         subtitle="See what your household still needs"
         topPadding={topPad + 16}
       />
+
+      {feedback ? (
+        <InlineFeedback message={feedback} tone="success" style={styles.screenFeedback} />
+      ) : null}
 
       {/* At-a-glance progress */}
       {shoppingLists.length > 0 && (
@@ -904,6 +926,7 @@ export default function ShoppingScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  screenFeedback: { marginHorizontal: 16, marginBottom: 10 },
   header: {
     flexDirection: "row",
     alignItems: "flex-start",
