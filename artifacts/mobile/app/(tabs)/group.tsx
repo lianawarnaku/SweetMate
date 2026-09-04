@@ -26,7 +26,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { ActionMenuModal, type ActionMenuItem } from "@/components/ActionMenuModal";
 import { useAppPopup } from "@/components/AppPopupProvider";
 import { HeaderActions } from "@/components/HeaderActions";
-import { HomePlant } from "@/components/HomePlant";
+import { RoomHealthMonitor } from "@/components/RoomHealthMonitor";
 import { ManualChoreForm } from "@/components/ManualChoreForm";
 import { RoommateAvatar } from "@/components/RoommateAvatar";
 import { Surface } from "@/components/Surface";
@@ -872,7 +872,12 @@ export default function GroupChoresScreen() {
           <View style={styles.plantCardInner}>
             {/* Left: Animated plant */}
             <View style={styles.plantContainer}>
-              <HomePlant health={healthPct} size={130} />
+              <RoomHealthMonitor
+                health={healthPct}
+                size={130}
+                activeColor={healthColor}
+                inactiveColor={colors.muted}
+              />
             </View>
 
             {/* Right: Health info */}
