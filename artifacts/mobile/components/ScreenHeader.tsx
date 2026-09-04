@@ -21,7 +21,7 @@ export function ScreenHeader({ title, subtitle, topPadding }: ScreenHeaderProps)
       ]}
     >
       <View style={styles.copy}>
-        <Text style={[styles.title, { color: colors.foreground }]}>{title}</Text>
+        <Text accessibilityRole="header" style={[styles.title, { color: colors.foreground }]}>{title}</Text>
         <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>{subtitle}</Text>
       </View>
       <HeaderActions />

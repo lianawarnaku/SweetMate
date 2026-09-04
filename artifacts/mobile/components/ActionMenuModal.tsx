@@ -15,6 +15,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "@/constants/colors";
 import { GlassModalBackdrop, GlassModalSurface } from "@/components/GlassModalSurface";
 import { GlassButton } from "@/components/GlassButton";
+import { InlineFeedback } from "@/components/InlineFeedback";
+import { useAccessibilityPreferences } from "@/hooks/useAccessibilityPreferences";
 
 type FeatherIcon = keyof typeof Feather.glyphMap;
 
@@ -54,6 +56,7 @@ export function ActionMenuModal({
   initialConfirmationAction = null,
 }: Props) {
   const colors = useTheme();
+  const { reduceMotion } = useAccessibilityPreferences();
   const insets = useSafeAreaInsets();
   const progress = useRef(new Animated.Value(0)).current;
   const [confirming, setConfirming] = useState<ActionMenuItem | null>(null);
@@ -68,18 +71,27 @@ export function ActionMenuModal({
       setActionError(null);
       setActionSuccess(null);
       progress.setValue(0);
-      Animated.spring(progress, {
-        toValue: 1,
-        damping: 22,
-        stiffness: 240,
-        mass: 0.8,
-        useNativeDriver: true,
-      }).start();
+      if (reduceMotion) {
+        progress.setValue(1);
+      } else {
+        Animated.spring(progress, {
+          toValue: 1,
+          damping: 22,
+          stiffness: 240,
+          mass: 0.8,
+          useNativeDriver: true,
+        }).start();
+      }
     }
-  }, [progress, visible]);
+  }, [initialConfirmationAction, progress, reduceMotion, visible]);
 
   const dismiss = (force = false, afterDismiss?: () => void) => {
     if (running && !force) return;
+    if (reduceMotion) {
+      onClose();
+      if (afterDismiss) setTimeout(afterDismiss, 0);
+      return;
+    }
     Animated.timing(progress, {
       toValue: 0,
       duration: 150,
@@ -238,14 +250,7 @@ export function ActionMenuModal({
               <Text style={[styles.message, { color: colors.mutedForeground }]}>
                 {confirming.confirmation.message}
               </Text>
-              {actionError ? (
-                <Text
-                  accessibilityLiveRegion="assertive"
-                  style={[styles.error, { color: colors.destructive }]}
-                >
-                  {actionError}
-                </Text>
-              ) : null}
+              {actionError ? <InlineFeedback message={actionError} tone="error" /> : null}
               <View style={styles.confirmButtons}>
                 <GlassButton
                   accessibilityRole="button"
@@ -309,22 +314,8 @@ export function ActionMenuModal({
                   {subtitle}
                 </Text>
               ) : null}
-              {actionError ? (
-                <Text
-                  accessibilityLiveRegion="assertive"
-                  style={[styles.error, { color: colors.destructive }]}
-                >
-                  {actionError}
-                </Text>
-              ) : null}
-              {actionSuccess ? (
-                <Text
-                  accessibilityLiveRegion="polite"
-                  style={[styles.error, { color: colors.primary }]}
-                >
-                  {actionSuccess}
-                </Text>
-              ) : null}
+              {actionError ? <InlineFeedback message={actionError} tone="error" /> : null}
+              {actionSuccess ? <InlineFeedback message={actionSuccess} tone="success" /> : null}
               <View style={styles.actions}>
                 {actions.map((action) => (
                   <GlassButton

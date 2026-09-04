@@ -11,6 +11,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 
+import { useAccessibilityPreferences } from "@/hooks/useAccessibilityPreferences";
 import { tapLight } from "@/lib/haptics";
 
 type SmoothPressableProps = Omit<PressableProps, "style"> & {
@@ -24,11 +25,15 @@ export function SmoothPressable({
   containerStyle,
   haptic = true,
   disabled,
+  accessibilityRole = "button",
+  accessibilityState,
+  hitSlop = 4,
   onPress,
   onPressIn,
   onPressOut,
   ...props
 }: SmoothPressableProps) {
+  const { reduceMotion } = useAccessibilityPreferences();
   const pressed = useSharedValue(0);
   const animatedStyle = useAnimatedStyle(() => ({
     opacity: 1 - pressed.value * 0.08,
@@ -40,17 +45,20 @@ export function SmoothPressable({
       <Pressable
         {...props}
         disabled={disabled}
+        accessibilityRole={accessibilityRole}
+        accessibilityState={{ ...accessibilityState, disabled: Boolean(disabled) }}
+        hitSlop={hitSlop}
         style={style}
         onPress={(event) => {
           if (haptic) tapLight();
           onPress?.(event);
         }}
         onPressIn={(event) => {
-          pressed.value = withTiming(1, { duration: 90 });
+          pressed.value = reduceMotion ? 0 : withTiming(1, { duration: 90 });
           onPressIn?.(event);
         }}
         onPressOut={(event) => {
-          pressed.value = withTiming(0, { duration: 140 });
+          pressed.value = reduceMotion ? 0 : withTiming(0, { duration: 140 });
           onPressOut?.(event);
         }}
       />

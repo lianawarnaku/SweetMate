@@ -29,12 +29,18 @@ export function GlassButton({
   style,
   tone = "primary",
   disabled,
+  accessibilityRole = "button",
+  accessibilityState,
+  hitSlop = 4,
   ...props
 }: GlassButtonProps) {
   return (
     <Pressable
       {...props}
       disabled={disabled}
+      accessibilityRole={accessibilityRole}
+      accessibilityState={{ ...accessibilityState, disabled: Boolean(disabled) }}
+      hitSlop={hitSlop}
       style={({ pressed }) => [
         styles.button,
         style,
