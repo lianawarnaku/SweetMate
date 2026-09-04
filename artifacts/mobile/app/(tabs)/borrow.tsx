@@ -22,7 +22,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { EmptyState } from "@/components/EmptyState";
 import { ActionMenuModal } from "@/components/ActionMenuModal";
 import { FloatingActionButton, useFloatingActionMetrics } from "@/components/FloatingActionButton";
-import { HeaderActions } from "@/components/HeaderActions";
+import { ScreenHeader } from "@/components/ScreenHeader";
 import { RoommateAvatar } from "@/components/RoommateAvatar";
 import { Surface } from "@/components/Surface";
 import { useAppContextSelector, type BorrowItem } from "@/context/AppContext";
@@ -277,27 +277,11 @@ export default function BorrowScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View
-        style={[
-          styles.header,
-          {
-            paddingTop: topPad + 16,
-            backgroundColor: colors.background,
-          },
-        ]}
-      >
-        <View>
-          <Text style={[styles.title, { color: colors.foreground }]}>
-            Borrowing
-          </Text>
-          <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-            Track shared items between Sweetmates
-          </Text>
-        </View>
-        <View style={styles.headerButtons}>
-          <HeaderActions />
-        </View>
-      </View>
+      <ScreenHeader
+        title="Borrowing"
+        subtitle="Track shared items between Sweetmates"
+        topPadding={topPad + 16}
+      />
 
       {overdue.length > 0 ? (
         <View

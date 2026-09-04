@@ -265,9 +265,10 @@ function ScrollableTabBar({ state, descriptors, navigation }: BottomTabBarProps)
           return (
             <SmoothPressable
               key={route.key}
-              accessibilityRole="button"
+              accessibilityRole="tab"
               accessibilityState={focused ? { selected: true } : {}}
-              accessibilityLabel={options.tabBarAccessibilityLabel}
+              accessibilityLabel={options.tabBarAccessibilityLabel ?? label}
+              accessibilityHint={focused ? `${label} tab, currently selected` : `Switch to the ${label} tab`}
               onPress={onPress}
               onLongPress={() => navigation.emit({ type: "tabLongPress", target: route.key })}
               containerStyle={styles.tabItemSlot}

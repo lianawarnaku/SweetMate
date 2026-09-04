@@ -32,7 +32,7 @@ import { Surface } from "@/components/Surface";
 import { ActionMenuModal } from "@/components/ActionMenuModal";
 import { HistoryDisclosure } from "@/components/HistoryDisclosure";
 import { FloatingActionButton, useFloatingActionMetrics } from "@/components/FloatingActionButton";
-import { HeaderActions } from "@/components/HeaderActions";
+import { ScreenHeader } from "@/components/ScreenHeader";
 import { RoommateAvatar } from "@/components/RoommateAvatar";
 import { useTheme } from "@/constants/colors";
 import { useConfirm } from "@/hooks/useConfirm";
@@ -584,21 +584,11 @@ export default function ExpensesScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Header */}
-      <View
-        style={[
-          styles.header,
-          { paddingTop: topPad + 16, backgroundColor: colors.background },
-        ]}
-      >
-        <View>
-          <Text style={[styles.title, { color: colors.foreground }]}>Expenses</Text>
-          <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>Shared costs and repayments</Text>
-        </View>
-        <View style={styles.headerButtons}>
-          <HeaderActions />
-        </View>
-      </View>
+      <ScreenHeader
+        title="Expenses"
+        subtitle="Shared costs and repayments"
+        topPadding={topPad + 16}
+      />
 
       <>
           {/* Balance cards — You owe on top, Owed to you below */}

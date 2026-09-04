@@ -27,7 +27,7 @@ import {
   DraggableScrollContainerCompat,
   ScaleDecoratorCompat,
 } from "@/components/DraggableListCompat";
-import { HeaderActions } from "@/components/HeaderActions";
+import { ScreenHeader } from "@/components/ScreenHeader";
 import { RoommateAvatar } from "@/components/RoommateAvatar";
 import {
   useAppContextSelector,
@@ -351,21 +351,11 @@ export default function ShoppingScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Header */}
-      <View
-        style={[
-          styles.header,
-          { paddingTop: topPad + 16, backgroundColor: colors.background },
-        ]}
-      >
-        <View>
-          <Text style={[styles.title, { color: colors.foreground }]}>Shopping</Text>
-          <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>See what your household still needs</Text>
-        </View>
-        <View style={styles.headerButtons}>
-          <HeaderActions />
-        </View>
-      </View>
+      <ScreenHeader
+        title="Shopping"
+        subtitle="See what your household still needs"
+        topPadding={topPad + 16}
+      />
 
       {/* At-a-glance progress */}
       {shoppingLists.length > 0 && (

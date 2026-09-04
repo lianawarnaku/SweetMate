@@ -25,7 +25,7 @@ import { GestureDetector } from "react-native-gesture-handler";
 import { EmptyState } from "@/components/EmptyState";
 import { ActionMenuModal, type ActionMenuItem } from "@/components/ActionMenuModal";
 import { useAppPopup } from "@/components/AppPopupProvider";
-import { HeaderActions } from "@/components/HeaderActions";
+import { ScreenHeader } from "@/components/ScreenHeader";
 import { RoomHealthMonitor } from "@/components/RoomHealthMonitor";
 import { ManualChoreForm } from "@/components/ManualChoreForm";
 import { RoommateAvatar } from "@/components/RoommateAvatar";
@@ -659,26 +659,11 @@ export default function GroupChoresScreen() {
   return (
     <GestureDetector gesture={pinchGesture}>
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Header */}
-      <View
-        style={[
-          styles.header,
-          {
-            paddingTop: topPad + 16,
-            backgroundColor: colors.background,
-          },
-        ]}
-      >
-        <View>
-          <Text style={[styles.headerSub, { color: colors.mutedForeground }]}>
-            Your household
-          </Text>
-          <Text style={[styles.headerTitle, { color: colors.foreground }]}>
-            Group Chores
-          </Text>
-        </View>
-        <HeaderActions />
-      </View>
+      <ScreenHeader
+        title="Group Chores"
+        subtitle="Your household’s shared responsibilities"
+        topPadding={topPad + 16}
+      />
 
       <PinchListViewCoach visible={showCoach} onDismiss={dismissCoach} />
 
