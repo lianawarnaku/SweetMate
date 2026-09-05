@@ -451,7 +451,7 @@ export default function ShoppingScreen() {
                     },
                   ]}
                 >
-                  {/* Tap to collapse; hold to reveal list actions. */}
+                  {/* Tap to collapse; long press remains a shortcut to list actions. */}
                   <TouchableOpacity
                     style={styles.listHeader}
                     onPress={() => handleListHeaderPress(list.id)}
@@ -462,7 +462,7 @@ export default function ShoppingScreen() {
                     accessibilityRole="button"
                     accessibilityLabel={`${list.name}, ${items.length - doneCount} items remaining`}
                     accessibilityState={{ expanded: !collapsed }}
-                    accessibilityHint="Tap to expand or collapse. Press and hold for pin and delete actions."
+                    accessibilityHint="Tap to expand or collapse. Use the more actions button for list options."
                   >
                     <TouchableOpacity
                       onLongPress={drag}
@@ -523,6 +523,19 @@ export default function ShoppingScreen() {
                     accessibilityLabel={`Add item to ${list.name}`}
                   >
                     <Feather name="plus" size={15} color={colors.primary} />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={(event) => {
+                      event.stopPropagation();
+                      openListActions(list.id);
+                    }}
+                    hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                    accessibilityRole="button"
+                    accessibilityLabel={`More actions for ${list.name}`}
+                    accessibilityHint="Opens pin, expense, and delete options"
+                    style={styles.listActionsBtn}
+                  >
+                    <Feather name="more-horizontal" size={18} color={colors.mutedForeground} />
                   </TouchableOpacity>
                   {list.pinned ? (
                     <Ionicons
@@ -692,6 +705,7 @@ export default function ShoppingScreen() {
                   label: "Delete list",
                   icon: "trash-2",
                   destructive: true,
+                  runAfterDismiss: true,
                   confirmation: {
                     title: `Delete “${actionList.name}”?`,
                     message: "This permanently removes the list and every item in it.",
@@ -985,6 +999,13 @@ const styles = StyleSheet.create({
   listAddBtn: {
     width: 28,
     height: 28,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  listActionsBtn: {
+    width: 32,
+    height: 32,
     borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",

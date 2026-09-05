@@ -63,11 +63,13 @@ export function ActionMenuModal({
   const [running, setRunning] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+  const runningRef = useRef(false);
 
   useEffect(() => {
     if (visible) {
       setConfirming(initialConfirmationAction);
       setRunning(false);
+      runningRef.current = false;
       setActionError(null);
       setActionSuccess(null);
       progress.setValue(0);
@@ -109,10 +111,12 @@ export function ActionMenuModal({
   };
 
   const runAction = async (action: ActionMenuItem) => {
+    if (runningRef.current) return;
     if (action.confirmation) {
       setConfirming(action);
       return;
     }
+    runningRef.current = true;
     if (action.runAfterDismiss) {
       setRunning(true);
       setActionError(null);
@@ -140,11 +144,13 @@ export function ActionMenuModal({
           : "That action could not be completed. Please try again.",
       );
       setRunning(false);
+      runningRef.current = false;
     }
   };
 
   const confirmAction = async () => {
-    if (!confirming) return;
+    if (!confirming || runningRef.current) return;
+    runningRef.current = true;
     if (confirming.runAfterDismiss) {
       const confirmedAction = confirming;
       setRunning(true);
@@ -168,6 +174,7 @@ export function ActionMenuModal({
           : "That action could not be completed. Please try again.",
       );
       setRunning(false);
+      runningRef.current = false;
     }
   };
 
