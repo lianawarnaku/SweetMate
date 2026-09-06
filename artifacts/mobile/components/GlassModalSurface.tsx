@@ -9,6 +9,7 @@ import {
 
 import { useTheme } from "@/constants/colors";
 import { GlassSheet } from "@/components/LiquidGlass";
+import { elevation } from "@/constants/designTokens";
 
 export function GlassModalBackdrop({
   onPress,
@@ -44,7 +45,7 @@ export function GlassModalSurface({
   const colors = useTheme();
 
   return (
-    <GlassSheet variant={destructive ? "destructive" : "elevated"} style={[styles.surface, { borderColor: destructive ? colors.destructive : colors.glassRim }, style]}>
+    <GlassSheet variant={destructive ? "destructive" : "modal"} style={[styles.surface, { borderColor: destructive ? colors.destructive : colors.glassRim }, style]}>
       {children}
     </GlassSheet>
   );
@@ -55,8 +56,8 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     borderWidth: 1,
     shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.3,
-    shadowRadius: 30,
-    elevation: 18,
+    shadowOpacity: elevation.modal.shadowOpacity,
+    shadowRadius: elevation.modal.shadowRadius,
+    elevation: elevation.modal.elevation,
   },
 });

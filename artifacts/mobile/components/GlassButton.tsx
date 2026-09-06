@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Pressable, StyleSheet, View, type PressableProps, type StyleProp, type ViewStyle } from "react-native";
 
 import { AccentButton, GlassSurface } from "@/components/LiquidGlass";
+import { interaction, radii, spacing } from "@/constants/designTokens";
 
 type GlassButtonTone = "primary" | "neutral" | "destructive";
 type GlassButtonProps = Omit<PressableProps, "children" | "style"> & {
@@ -55,8 +56,8 @@ export function GlassButton({
 }
 
 const styles = StyleSheet.create({
-  button: { minHeight: 50, borderRadius: 25, overflow: "hidden", shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.2, shadowRadius: 14, elevation: 7 },
-  content: { flex: 1, minHeight: 48, paddingHorizontal: 16, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
-  disabled: { opacity: 0.42 },
-  pressed: { opacity: 0.84, transform: [{ scale: 0.985 }] },
+  button: { minHeight: interaction.comfortableTouchTarget, borderRadius: radii.pill, overflow: "hidden", shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.18, shadowRadius: 14, elevation: 7 },
+  content: { flex: 1, minHeight: interaction.comfortableTouchTarget, paddingHorizontal: spacing.lg, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm },
+  disabled: { opacity: interaction.disabledOpacity },
+  pressed: { opacity: 0.84, transform: [{ scale: interaction.pressedScale }] },
 });

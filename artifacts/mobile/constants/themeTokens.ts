@@ -81,8 +81,10 @@ export function resolveThemeTokens(mode: AppearanceMode, scheme: ColorScheme) {
   const accentSecond = scheme === "mono"
     ? (dark ? "#C9C9CF" : "#45454B")
     : blendHex(accent, dark ? lightAnchor : darkAnchor, dark ? 0.18 : 0.12);
-  const surface = dark ? "rgba(18,18,20,0.55)" : "rgba(250,250,252,0.60)";
-  const surfaceElevated = dark ? "rgba(28,28,31,0.72)" : "rgba(255,255,255,0.78)";
+  const surfaceSubtle = dark ? "rgba(255,255,255,0.045)" : "rgba(255,255,255,0.44)";
+  const surface = dark ? "rgba(255,255,255,0.075)" : "rgba(255,255,255,0.64)";
+  const surfaceElevated = dark ? "rgba(30,30,33,0.76)" : "rgba(255,255,255,0.84)";
+  const surfaceModal = dark ? "rgba(24,24,27,0.88)" : "rgba(255,255,255,0.92)";
   const textPrimary = dark ? "#F5F5F7" : "#1A1A1D";
   const textSecondary = dark ? "rgba(255,255,255,0.60)" : "rgba(0,0,0,0.55)";
   const divider = dark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.09)";
@@ -90,11 +92,12 @@ export function resolveThemeTokens(mode: AppearanceMode, scheme: ColorScheme) {
   const background = dark ? "#070708" : "#F4F4F7";
 
   return {
-    mode, surface, surfaceElevated, textPrimary, textSecondary, divider, accent,
+    mode, surfaceSubtle, surface, surfaceElevated, surfaceModal, textPrimary, textSecondary, divider, accent,
     accentGradient: [accent, accentSecond] as readonly [string, string],
     accentGlow: accent, accentGlowOpacity: dark ? 0.34 : 0.2, destructive,
     destructiveSurface: dark ? "rgba(90,18,26,0.55)" : "rgba(255,235,238,0.82)",
-    glassRim: dark ? "rgba(255,255,255,0.20)" : "rgba(255,255,255,0.86)",
+    glassRim: dark ? "rgba(255,255,255,0.16)" : "rgba(255,255,255,0.92)",
+    glassHighlight: dark ? "rgba(255,255,255,0.24)" : "rgba(255,255,255,0.98)",
     backdrop: dark ? "rgba(0,0,0,0.48)" : "rgba(10,10,14,0.30)",
     text: textPrimary, tint: accent, background, foreground: textPrimary, card: surface,
     cardForeground: textPrimary, primary: accent,

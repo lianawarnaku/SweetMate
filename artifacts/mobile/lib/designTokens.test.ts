@@ -1,6 +1,7 @@
 import {
   glass,
   interaction,
+  layout,
   motion,
   radii,
   spacing,
@@ -14,6 +15,8 @@ function assert(condition: boolean, message: string) {
 assert(spacing.xs < spacing.sm && spacing.sm < spacing.lg, "spacing must increase predictably");
 assert(radii.control < radii.card, "cards must feel softer than controls");
 assert(interaction.minimumTouchTarget >= 44, "touch targets must meet the mobile minimum");
+assert(layout.screenGutter >= spacing.lg, "screen gutters must preserve comfortable breathing room");
+assert(layout.cardPadding < layout.sectionGap, "card padding must remain tighter than section spacing");
 assert(typography.display.fontSize > typography.title.fontSize, "type hierarchy must remain visible");
 assert(motion.quick < motion.standard && motion.standard < motion.deliberate, "motion speeds must be ordered");
 assert(glass.subtle.blurIntensity < glass.card.blurIntensity, "subtle glass must stay behind cards");

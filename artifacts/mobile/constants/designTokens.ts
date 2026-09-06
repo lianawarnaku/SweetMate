@@ -15,6 +15,14 @@ export const spacing = {
   "3xl": 48,
 } as const;
 
+export const layout = {
+  screenGutter: 20,
+  sectionGap: 24,
+  cardPadding: 18,
+  compactCardPadding: 14,
+  contentMaxWidth: 560,
+} as const;
+
 export const radii = {
   small: 10,
   control: 14,
@@ -44,6 +52,24 @@ export const interaction = {
   comfortableTouchTarget: 50,
   pressedScale: 0.985,
   disabledOpacity: 0.42,
+} as const;
+
+export const elevation = {
+  flat: {
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
+  },
+  floating: {
+    shadowOpacity: 0.18,
+    shadowRadius: 18,
+    elevation: 8,
+  },
+  modal: {
+    shadowOpacity: 0.28,
+    shadowRadius: 32,
+    elevation: 18,
+  },
 } as const;
 
 export const glass = {
