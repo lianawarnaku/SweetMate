@@ -8,17 +8,20 @@ function assert(condition: boolean, message: string) {
 
 const fresh = resolveDisplayPreferenceDefaults({});
 assert(fresh.colorScheme === "mono", "new users must default to Black & White");
+assert(fresh.appearanceMode === "dark", "new users must default to dark appearance");
 assert(!fresh.pointsEnabled, "new users must default leaderboard to off");
 assert(!fresh.roommateActivityEnabled, "new users must default Roommate Activity to off");
 
 const existing = resolveDisplayPreferenceDefaults({
   colorScheme: "pinkWhite",
+  appearanceMode: "light",
   pointsEnabled: true,
   roommateActivityEnabled: true,
   plantEnabled: false,
   preferencesVersion: 1,
 });
 assert(existing.colorScheme === "pinkWhite", "an explicit existing theme must survive migration");
+assert(existing.appearanceMode === "light", "an explicit appearance mode must survive migration");
 assert(existing.pointsEnabled, "an explicit enabled leaderboard must survive migration");
 assert(existing.roommateActivityEnabled, "explicit enabled activity must survive migration");
 assert(!existing.plantEnabled, "an unrelated explicit preference must survive migration");

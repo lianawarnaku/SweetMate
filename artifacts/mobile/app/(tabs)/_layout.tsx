@@ -1,6 +1,5 @@
 import { Feather } from "@expo/vector-icons";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
-import { BlurView } from "expo-blur";
 import { Tabs } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -17,6 +16,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "@/constants/colors";
 import { useAppContextSelector } from "@/context/AppContext";
 import { SmoothPressable } from "@/components/SmoothPressable";
+import { GlassSurface } from "@/components/LiquidGlass";
 import { clampTabIndicatorX, resolveDraggedTabIndex } from "@/lib/tabBarGesture";
 import { tapLight } from "@/lib/haptics";
 
@@ -27,7 +27,6 @@ function ScrollableTabBar({ state, descriptors, navigation }: BottomTabBarProps)
   const pointsEnabled = useAppContextSelector(
     (context) => context.pointsEnabled,
   );
-  const colorScheme = useAppContextSelector((context) => context.colorScheme);
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
   // Expo Router auto-registers every route file, even when its Tabs.Screen
@@ -195,17 +194,7 @@ function ScrollableTabBar({ state, descriptors, navigation }: BottomTabBarProps)
         },
       ]}
     >
-      <BlurView
-        intensity={68}
-        tint={colorScheme === "mono" ? "dark" : "light"}
-        style={StyleSheet.absoluteFill}
-      />
-      <View
-        style={[
-          StyleSheet.absoluteFill,
-          colorScheme === "mono" ? styles.darkGlassTint : styles.lightGlassTint,
-        ]}
-      />
+      <GlassSurface variant="elevated" style={StyleSheet.absoluteFill} />
       <View
         style={styles.tabBarContent}
         onLayout={(event) => setContentWidth(event.nativeEvent.layout.width)}
@@ -218,10 +207,7 @@ function ScrollableTabBar({ state, descriptors, navigation }: BottomTabBarProps)
                 styles.selectionBubble,
                 {
                   width: tabWidth,
-                  backgroundColor:
-                    colorScheme === "mono"
-                      ? "rgba(255,255,255,0.14)"
-                      : "rgba(29,25,27,0.11)",
+                  backgroundColor: colors.secondary,
                   transform: [{ translateX: indicatorX }],
                 },
               ]}
@@ -383,13 +369,11 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     overflow: "hidden",
     elevation: 12,
-    shadowColor: "#3D2B20",
+    shadowColor: "transparent",
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.14,
     shadowRadius: 20,
   },
-  lightGlassTint: { backgroundColor: "rgba(255, 252, 247, 0.64)" },
-  darkGlassTint: { backgroundColor: "rgba(8, 8, 10, 0.62)" },
   tabBarContent: {
     flex: 1,
     flexDirection: "row",

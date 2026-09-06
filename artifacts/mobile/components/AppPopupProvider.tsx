@@ -82,9 +82,9 @@ export function AppPopupProvider({ children }: { children: ReactNode }) {
           <GlassModalBackdrop
             onPress={popup?.dismissible === false ? undefined : dismissPopup}
           />
-          <GlassModalSurface style={[styles.card, { marginBottom: Math.max(insets.bottom, 16) }]}>
-            <View style={[styles.icon, { backgroundColor: colors.primary + "14" }]}>
-              <Feather name={popup?.icon ?? "info"} size={22} color={colors.primary} />
+          <GlassModalSurface destructive={popup?.actions.some((action) => action.destructive)} style={[styles.card, { marginBottom: Math.max(insets.bottom, 16) }]}>
+            <View style={[styles.icon, { backgroundColor: colors.secondary }]}>
+              <Feather name={popup?.icon ?? "info"} size={22} color={colors.accent} />
             </View>
             <Text accessibilityRole="header" style={[styles.title, { color: colors.foreground }]}>{popup?.title}</Text>
             <Text style={[styles.message, { color: colors.mutedForeground }]}>{popup?.message}</Text>
@@ -101,8 +101,13 @@ export function AppPopupProvider({ children }: { children: ReactNode }) {
                   tone={action.destructive ? "destructive" : action.primary ? "primary" : "neutral"}
                   style={styles.action}
                 >
-                  {runningActionLabel === action.label ? <ActivityIndicator size="small" color="#fff" /> : null}
-                  <Text style={[styles.actionText, { color: action.primary || action.destructive ? "#fff" : colors.foreground }]}>
+                  {runningActionLabel === action.label ? (
+                    <ActivityIndicator
+                      size="small"
+                      color={action.destructive ? colors.destructiveForeground : action.primary ? colors.primaryForeground : colors.foreground}
+                    />
+                  ) : null}
+                  <Text style={[styles.actionText, { color: action.destructive ? colors.destructiveForeground : action.primary ? colors.primaryForeground : colors.foreground }]}>
                     {runningActionLabel === action.label ? "Working…" : action.label}
                   </Text>
                 </GlassButton>

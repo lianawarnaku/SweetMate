@@ -142,7 +142,7 @@ assert(
 );
 assert(
   !group.includes("styles.activityHeaderIcon, { backgroundColor:"),
-  "Room Health and Roommates heading icons must render without tiles",
+  "House Monitor and Roommates heading icons must render without tiles",
 );
 assert(
   group.includes("compactOverdueItems(rc") &&

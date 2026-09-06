@@ -45,8 +45,15 @@ for (const name of glassPopupComponents) {
 }
 
 const glassSurface = readFileSync(join(root, "components", "GlassModalSurface.tsx"), "utf8");
-if (!glassSurface.includes("<BlurView")) {
+const liquidGlass = readFileSync(join(root, "components", "LiquidGlass.tsx"), "utf8");
+if (!glassSurface.includes("GlassSheet") || !liquidGlass.includes("<BlurView")) {
   violations.push("components/GlassModalSurface.tsx: shared popup surface must retain native blur");
+}
+if (!liquidGlass.includes("isLiquidGlassAvailable()") || !liquidGlass.includes("isGlassEffectAPIAvailable()")) {
+  violations.push("components/LiquidGlass.tsx: native glass must use both runtime availability guards");
+}
+if (!liquidGlass.includes("isReduceTransparencyEnabled()")) {
+  violations.push("components/LiquidGlass.tsx: glass must provide the reduce-transparency fallback");
 }
 
 if (violations.length) throw new Error(`Prohibited app-controlled native popups:\n${violations.join("\n")}`);

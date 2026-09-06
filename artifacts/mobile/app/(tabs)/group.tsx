@@ -26,7 +26,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { ActionMenuModal, type ActionMenuItem } from "@/components/ActionMenuModal";
 import { useAppPopup } from "@/components/AppPopupProvider";
 import { ScreenHeader } from "@/components/ScreenHeader";
-import { RoomHealthMonitor } from "@/components/RoomHealthMonitor";
+import { HouseMonitor, type HouseMonitorLocalEvent } from "@/components/HouseMonitor";
 import { ManualChoreForm } from "@/components/ManualChoreForm";
 import { RoommateAvatar } from "@/components/RoommateAvatar";
 import { Surface } from "@/components/Surface";
@@ -144,37 +144,15 @@ function buildMonthGrid(monthAnchor: Date): { date: Date; inMonth: boolean }[][]
   return rows;
 }
 
-const HEALTH_MESSAGES: Record<string, { title: string; subtitle: string }> = {
-  blooming: {
-    title: "In full bloom! 🌸",
-    subtitle: "Look! Your home looks beautiful!",
-  },
-  thriving: {
-    title: "Thriving! 🌿",
-    subtitle: "Your home is in great shape",
-  },
-  healthy: {
-    title: "Looking good",
-    subtitle: "Keep the momentum going",
-  },
-  struggling: {
-    title: "Needs attention",
-    subtitle: "A few chores are overdue",
-  },
-  dying: {
-    title: "SOS! 🚨",
-    subtitle: "Your home needs help now",
-  },
-};
-
 export default function GroupChoresScreen() {
   const { showPopup } = useAppPopup();
   const colors = useTheme();
   const insets = useSafeAreaInsets();
-  const { roommates, chores, currentUserId, householdId, activeSweet, setChoreCompleted, pickUpChore, sendNudge, removeNudge, nudges, roommateStatuses, setRoommateStatus, choreChart, choreChartStartedAt, pointsEnabled, plantEnabled, roommateActivityEnabled, isHost, deleteChore } =
+  const { roommates, chores, householdChoreSummary, currentUserId, householdId, activeSweet, setChoreCompleted, pickUpChore, sendNudge, removeNudge, nudges, roommateStatuses, setRoommateStatus, choreChart, choreChartStartedAt, pointsEnabled, plantEnabled, roommateActivityEnabled, isHost, deleteChore } =
     useAppContextSelector((context) => ({
       roommates: context.roommates,
       chores: context.chores,
+      householdChoreSummary: context.householdChoreSummary,
       currentUserId: context.currentUserId,
       householdId: context.householdId,
       activeSweet: context.activeSweet,
@@ -200,6 +178,10 @@ export default function GroupChoresScreen() {
   const { confirm, info } = useConfirm();
   const [nudgedChores, setNudgedChores] = useState<Set<string>>(new Set());
   const [pickedUpChores, setPickedUpChores] = useState<Set<string>>(new Set());
+  const [houseMonitorEvent, setHouseMonitorEvent] = useState<HouseMonitorLocalEvent>({
+    nonce: 0,
+    type: "created",
+  });
   const [viewMode] = useState<"activity" | "calendar">("activity");
   const [monthOffset, setMonthOffset] = useState(0);
   const [roommatesExpanded, setRoommatesExpanded] = useState(true);
@@ -246,7 +228,7 @@ export default function GroupChoresScreen() {
     if (autoCollapseTriggeredRef.current || offset <= previous) return;
 
     // A small fraction of the measured summary height adapts across phones,
-    // member counts, font sizes, and whether Room Health is enabled.
+    // member counts, font sizes, and whether the House Monitor is enabled.
     const threshold = Math.max(24, Math.min(72, taskListTopRef.current * 0.12));
     if (offset < threshold) return;
 
@@ -536,9 +518,11 @@ export default function GroupChoresScreen() {
           } else if (completionChore.assignedTo === currentUserId) {
             hapticSuccess();
             setChoreCompleted(completionChore.id, true);
+            setHouseMonitorEvent((event) => ({ nonce: event.nonce + 1, type: "completed" }));
           } else {
             hapticSuccess();
             pickUpChore(completionChore.id, currentUserId);
+            setHouseMonitorEvent((event) => ({ nonce: event.nonce + 1, type: "completed" }));
             setPickedUpChores((prev) => new Set([...prev, completionChore.id]));
             info(
               "pickup_success",
@@ -565,37 +549,6 @@ export default function GroupChoresScreen() {
   );
   const displayedHouseholdChores =
     choreView === "archived" ? archivedHouseholdChores : activeHouseholdChores;
-  const totalChores = activeHouseholdChores.length;
-  const completedChores = useMemo(
-    () => activeHouseholdChores.filter((chore) => chore.completed).length,
-    [activeHouseholdChores],
-  );
-  const healthPct = totalChores > 0 ? completedChores / totalChores : 0;
-
-  const stage =
-    healthPct >= 1
-      ? "blooming"
-      : healthPct >= 0.75
-      ? "thriving"
-      : healthPct >= 0.5
-      ? "healthy"
-      : healthPct >= 0.25
-      ? "struggling"
-      : "dying";
-
-  const healthColor =
-    healthPct >= 1
-      ? "#E879A0"
-      : healthPct >= 0.75
-      ? colors.success
-      : healthPct >= 0.5
-      ? colors.primary
-      : healthPct >= 0.25
-      ? colors.warning
-      : colors.destructive;
-
-  const msg = HEALTH_MESSAGES[stage];
-
   const roommatesWithChores = useMemo(() => {
     const choresByRoommate = new Map<string, typeof displayedHouseholdChores>();
     displayedHouseholdChores.forEach((chore) => {
@@ -843,95 +796,22 @@ export default function GroupChoresScreen() {
         onScroll={handleGroupScroll}
         scrollEventThrottle={32}
       >
-        {/* The enabled plant is intentionally open and integrated into the page. */}
+        {/* Household chore count forms the body; completion fills the roof. */}
         {!listView && plantEnabled && <View
           style={styles.plantSection}
-          accessibilityRole="summary"
-          accessibilityLabel={`Room health ${Math.round(healthPct * 100)} percent. ${msg.title}. ${msg.subtitle}`}
         >
           <View style={styles.summaryHeader}>
             <View style={styles.activityHeaderIcon}>
-              <Feather name="activity" size={14} color={healthColor} />
+              <Feather name="home" size={14} color={colors.primary} />
             </View>
-            <Text style={[styles.activityTitle, { color: colors.foreground }]}>Room Health</Text>
+            <Text style={[styles.activityTitle, { color: colors.foreground }]}>House Monitor</Text>
           </View>
-
-          <View style={styles.plantCardInner}>
-            {/* Left: Animated plant */}
-            <View style={styles.plantContainer}>
-              <RoomHealthMonitor
-                health={healthPct}
-                size={130}
-                activeColor={healthColor}
-                inactiveColor={colors.muted}
-              />
-            </View>
-
-            {/* Right: Health info */}
-            <View style={styles.healthInfo}>
-              <Text
-                style={[
-                  styles.healthRoom,
-                  { color: colors.mutedForeground },
-                ]}
-              >
-                Household overview
-              </Text>
-
-              <Text
-                style={[styles.healthTitle, { color: healthColor }]}
-                numberOfLines={1}
-                adjustsFontSizeToFit
-              >
-                {msg.title}
-              </Text>
-
-              <Text
-                style={[
-                  styles.healthSubtitle,
-                  { color: colors.mutedForeground },
-                ]}
-                numberOfLines={2}
-              >
-                {msg.subtitle}
-              </Text>
-
-              {/* Percentage badge */}
-              <View
-                style={[
-                  styles.pctBadge,
-                  { backgroundColor: healthColor + "18" },
-                ]}
-              >
-                <Text style={[styles.pctText, { color: healthColor }]}>
-                  {Math.round(healthPct * 100)}%
-                </Text>
-              </View>
-
-              {/* Progress bar */}
-              <View
-                style={[styles.track, { backgroundColor: colors.muted }]}
-              >
-                <View
-                  style={[
-                    styles.fill,
-                    {
-                      backgroundColor: healthColor,
-                      width: `${healthPct * 100}%` as `${number}%`,
-                    },
-                  ]}
-                />
-              </View>
-
-              <View style={styles.statsRow}>
-                <Text style={[styles.stat, { color: colors.mutedForeground }]}>
-                  ✓ {completedChores} done
-                </Text>
-                <Text style={[styles.stat, { color: colors.mutedForeground }]}>
-                  {totalChores - completedChores} left
-                </Text>
-              </View>
-            </View>
+          <View style={styles.monitorContainer}>
+            <HouseMonitor
+              totalChores={householdChoreSummary.totalChores}
+              completedChores={householdChoreSummary.completedChores}
+              localEvent={houseMonitorEvent}
+            />
           </View>
         </View>}
 
@@ -1433,7 +1313,12 @@ export default function GroupChoresScreen() {
               key={editingChore?.id ?? `${showAddChoreModal}-${addChoreTargetId ?? "self"}`}
               initialAssigneeId={addChoreTargetId ?? currentUserId}
               initialChore={editingChore}
-              onCreated={closeAddChoreSheet}
+              onCreated={() => {
+                if (!editingChore) {
+                  setHouseMonitorEvent((event) => ({ nonce: event.nonce + 1, type: "created" }));
+                }
+                closeAddChoreSheet();
+              }}
             />
           </KeyboardAvoidingView>
         </Animated.View>
@@ -1454,7 +1339,7 @@ const styles = StyleSheet.create({
   },
   headerSub: { fontFamily: "Inter_400Regular", fontSize: 13 },
   headerTitle: { fontFamily: "Inter_700Bold", fontSize: 30, lineHeight: 36, marginTop: 2 },
-  // Open plant summary — intentionally not enclosed in a separate card.
+  // Open house monitor summary — intentionally not enclosed in a separate card.
   plantSection: {
     marginHorizontal: 16,
     marginBottom: 18,
@@ -1467,53 +1352,7 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 10,
   },
-  plantCardInner: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    alignItems: "center",
-    paddingHorizontal: 4,
-    paddingTop: 4,
-    gap: 12,
-  },
-  plantContainer: {
-    width: 134,
-    minHeight: 188,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  healthInfo: {
-    flex: 1,
-    minWidth: 156,
-    paddingVertical: 12,
-    gap: 6,
-  },
-  healthRoom: { fontFamily: "Inter_400Regular", fontSize: 12 },
-  healthTitle: {
-    fontFamily: "Inter_700Bold",
-    fontSize: 20,
-    lineHeight: 24,
-  },
-  healthSubtitle: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 12,
-    lineHeight: 16,
-    marginBottom: 4,
-  },
-  pctBadge: {
-    alignSelf: "flex-start",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 10,
-    marginBottom: 6,
-  },
-  pctText: { fontFamily: "Inter_700Bold", fontSize: 18 },
-  track: { height: 7, borderRadius: 4, overflow: "hidden", marginBottom: 4 },
-  fill: { height: 7, borderRadius: 4 },
-  statsRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  stat: { fontFamily: "Inter_400Regular", fontSize: 11 },
+  monitorContainer: { alignItems: "center", paddingVertical: 8 },
 
   // Roommate list
   listPad: { paddingHorizontal: 16, gap: 12 },

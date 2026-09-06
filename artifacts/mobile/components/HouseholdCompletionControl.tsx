@@ -4,12 +4,35 @@ import { StyleSheet, Text, View } from "react-native";
 
 import { useTheme } from "@/constants/colors";
 import { useAppContext } from "@/context/AppContext";
+import { useAppPopup } from "@/components/AppPopupProvider";
 import { SmoothPressable } from "@/components/SmoothPressable";
 
 export function HouseholdCompletionControl() {
   const colors = useTheme();
+  const { showPopup } = useAppPopup();
   const { householdComplete, setHouseholdComplete, roommates } = useAppContext();
-  const canComplete = roommates.length >= 2;
+  const hasRoommates = roommates.length >= 2;
+
+  const completeHousehold = () => {
+    if (hasRoommates) {
+      setHouseholdComplete(true);
+      return;
+    }
+
+    showPopup({
+      title: "Warning",
+      message: "Warning: You have no roomates added.",
+      icon: "alert-triangle",
+      actions: [
+        { label: "Cancel" },
+        {
+          label: "Complete anyway",
+          primary: true,
+          onPress: () => setHouseholdComplete(true),
+        },
+      ],
+    });
+  };
 
   return (
     <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -27,33 +50,30 @@ export function HouseholdCompletionControl() {
         <Text style={[styles.hint, { color: colors.mutedForeground }]}>
           {householdComplete
             ? "The chore-chart generator is unlocked."
-            : canComplete
+            : hasRoommates
               ? `${roommates.length} members added. Confirm that everyone is here.`
-              : "Add all roommates first."}
+              : "You can finish now and add Sweetmates later."}
         </Text>
       </View>
       {!householdComplete && (
         <SmoothPressable
           accessibilityRole="button"
           accessibilityHint="Unlocks household chore-chart planning"
-          disabled={!canComplete}
-          onPress={() => setHouseholdComplete(true)}
+          accessibilityLabel="Mark household setup complete"
+          onPress={completeHousehold}
           containerStyle={styles.actionSlot}
           style={[
             styles.action,
             {
-              backgroundColor: canComplete ? colors.action : colors.muted,
-              borderColor: canComplete ? colors.primary : colors.border,
-              opacity: canComplete ? 1 : 0.65,
+              backgroundColor: colors.action,
+              borderColor: colors.primary,
             },
           ]}
         >
           <Text
             style={[
               styles.actionText,
-              {
-                color: canComplete ? colors.actionForeground : colors.mutedForeground,
-              },
+              { color: colors.actionForeground },
             ]}
           >
             Mark household complete

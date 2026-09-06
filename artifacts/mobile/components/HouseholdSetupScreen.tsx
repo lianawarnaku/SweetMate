@@ -590,15 +590,23 @@ export function HouseholdSetupScreen({
                 )) : <Text style={[styles.reviewMeta, { color: colors.mutedForeground }]}>Select household features to create mapped chores.</Text>}
               </View>
               <Text style={[styles.label, { color: colors.mutedForeground, marginTop: 4 }]}>ADD A CUSTOM CHORE</Text>
+              <Text style={[styles.optionSectionTitle, { color: colors.foreground }]}>Chore type</Text>
               <View style={styles.chips}>
                 {(["kitchen", "bathroom", "cleaning", "laundry", "other"] as ChoreCategory[]).map((category) => (
-                  <Chip key={category} label={category} selected={customCategory === category} onPress={() => setCustomCategory(category)} colors={colors} />
+                  <Chip key={category} label={`${category.charAt(0).toUpperCase()}${category.slice(1)}`} selected={customCategory === category} onPress={() => setCustomCategory(category)} colors={colors} />
                 ))}
               </View>
+              <Text style={[styles.optionSectionTitle, { color: colors.foreground }]}>Frequency</Text>
               <View style={styles.chips}>
                 {(["daily", "weekly", "monthly"] as PersistedRecurrence[]).map((recurrence) => (
-                  <Chip key={recurrence} label={recurrence} selected={customRecurrence === recurrence} onPress={() => setCustomRecurrence(recurrence)} colors={colors} />
+                  <Chip key={recurrence} label={`${recurrence.charAt(0).toUpperCase()}${recurrence.slice(1)}`} selected={customRecurrence === recurrence} onPress={() => setCustomRecurrence(recurrence)} colors={colors} />
                 ))}
+              </View>
+              <View style={styles.optionSectionHeader}>
+                <Text style={[styles.optionSectionTitle, { color: colors.foreground }]}>Difficulty</Text>
+                <Text style={[styles.optionSectionNote, { color: colors.mutedForeground }]}>This will be used to auto-allocate chores evenly among Sweetmates.</Text>
+              </View>
+              <View style={styles.chips}>
                 {[10, 15, 25, 30].map((points) => (
                   <Chip key={points} label={`${points} pts`} selected={customPoints === points} onPress={() => setCustomPoints(points)} colors={colors} />
                 ))}
@@ -677,6 +685,7 @@ const styles = StyleSheet.create({
   timezoneChip: { paddingHorizontal: 14, height: 38, borderRadius: 12, borderWidth: 1, alignItems: "center", justifyContent: "center" },
   timezoneChipText: { fontFamily: "Inter_600SemiBold", fontSize: 13 }, swatch: { width: 39, height: 39, borderRadius: 20, alignItems: "center", justifyContent: "center", borderColor: "transparent" }, optionList: { gap: 10 }, selectionCard: { borderWidth: 1.5, borderRadius: 16, padding: 14, flexDirection: "row", alignItems: "center", gap: 12 }, selectionIcon: { width: 42, height: 42, borderRadius: 13, alignItems: "center", justifyContent: "center" }, selectionTitle: { fontFamily: "Inter_700Bold", fontSize: 18 }, selectionSub: { fontFamily: "Inter_400Regular", fontSize: 14, lineHeight: 18, marginTop: 2 },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 9 }, chip: { minHeight: 40, borderWidth: 1, borderRadius: 20, paddingHorizontal: 13, flexDirection: "row", alignItems: "center", gap: 6 }, chipText: { fontFamily: "Inter_600SemiBold", fontSize: 14 }, customRow: { height: 52, borderWidth: 1, borderRadius: 14, paddingLeft: 14, paddingRight: 6, flexDirection: "row", alignItems: "center" }, addButton: { width: 40, height: 40, borderRadius: 11, alignItems: "center", justifyContent: "center" }, customChore: { flexDirection: "row", alignItems: "center", gap: 9, paddingVertical: 5 }, customChoreText: { flex: 1, fontFamily: "Inter_500Medium", fontSize: 15 },
+  optionSectionHeader: { gap: 4 }, optionSectionTitle: { fontFamily: "Inter_700Bold", fontSize: 15 }, optionSectionNote: { fontFamily: "Inter_400Regular", fontSize: 13, lineHeight: 18 },
   itemSections: { gap: 14 }, itemSection: { borderBottomWidth: 1, paddingBottom: 14, gap: 12 }, itemSectionHeader: { flexDirection: "row", alignItems: "center", gap: 9 }, itemSectionIcon: { width: 34, height: 34, borderRadius: 10, alignItems: "center", justifyContent: "center" }, itemSectionTitle: { fontFamily: "Inter_700Bold", fontSize: 20 },
   reviewList: { gap: 8 },
   reviewRow: { minHeight: 58, borderWidth: 1, borderRadius: 13, padding: 11, flexDirection: "row", alignItems: "center", gap: 8 },
