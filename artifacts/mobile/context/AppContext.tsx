@@ -20,6 +20,7 @@ import {
 import type { ItemCategory } from "@/constants/itemDifficulty";
 import type { Difficulty } from "@/lib/itemDifficulty";
 import { reportSupabaseError, reportRuntimeError } from "@/lib/runtimeDiagnostics";
+import { markVisibleAlertsRead } from "@/lib/alertReadState";
 import { findAssignedLoadDeviations } from "@/lib/chartLoadBalance";
 import { deleteLocalAnalyticsIdentity, track } from "@/lib/analytics";
 import {
@@ -2170,8 +2171,8 @@ export function AppProvider({
 
   const markAllAlertsRead = useCallback(() => {
     const readAt = new Date().toISOString();
-    setAppAlerts((current) => current.map((alert) => alert.readAt ? alert : { ...alert, readAt }));
-  }, []);
+    setAppAlerts((current) => markVisibleAlertsRead(current, currentUserId, readAt));
+  }, [currentUserId]);
 
   useEffect(() => {
     if (!nudgesReady || !householdId || !currentUserId) return;

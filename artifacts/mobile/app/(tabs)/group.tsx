@@ -52,13 +52,13 @@ import {
   type ExternalTaskDestination,
 } from "@/lib/externalTasks";
 import { reportRuntimeError } from "@/lib/runtimeDiagnostics";
-import { choreLocalDateKey } from "@/lib/choreOccurrences";
+import { choreLocalDateKey, isBeforeLocalCalendarDay } from "@/lib/choreOccurrences";
 import { activeChores, isArchivedIncomplete } from "@/lib/choreLifecycle";
 import { CHORE_RECURRENCE_LABELS } from "@/lib/choreSchedule";
 import { compactOverdueItems } from "@/lib/overdueDisplay";
 
 function isOverdue(dateStr: string) {
-  return new Date(dateStr) < new Date();
+  return isBeforeLocalCalendarDay(dateStr);
 }
 
 function formatDueDate(dateStr: string) {
@@ -981,6 +981,9 @@ export default function GroupChoresScreen() {
                     {rm.id === currentUserId ? "You" : rm.name.split(" ")[0]}
                   </Text>
                   <TouchableOpacity
+                    accessibilityRole="button"
+                    accessibilityLabel={`${rm.id === currentUserId ? "Your" : `${rm.name}'s`} status: ${status === "asleep" ? "sleeping" : status === "away" ? "do not disturb" : "home"}`}
+                    accessibilityHint="Changes this roommate's status"
                     onPress={() => cycleRoommateMood(rm.id)}
                     activeOpacity={0.6}
                     style={[
@@ -1001,6 +1004,9 @@ export default function GroupChoresScreen() {
           {(["active", "archived"] as const).map((option) => (
             <TouchableOpacity
               key={option}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: choreView === option }}
+              aria-selected={choreView === option}
               accessibilityLabel={
                 option === "active"
                   ? "Show active group chores"
@@ -1022,13 +1028,13 @@ export default function GroupChoresScreen() {
                 <Feather
                   name="archive"
                   size={13}
-                  color={choreView === option ? "#fff" : colors.mutedForeground}
+                  color={choreView === option ? colors.primaryForeground : colors.mutedForeground}
                 />
               ) : null}
               <Text
                 style={[
                   styles.choreFilterText,
-                  { color: choreView === option ? "#fff" : colors.mutedForeground },
+                  { color: choreView === option ? colors.primaryForeground : colors.mutedForeground },
                 ]}
               >
                 {option === "active"

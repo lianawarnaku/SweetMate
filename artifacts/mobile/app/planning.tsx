@@ -1244,6 +1244,8 @@ export default function PlanningScreen() {
       <View style={[styles.header, { paddingTop: topPad + 16 }]}>
         <View style={styles.headerRow}>
           <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel={setupMode ? "Back from Sweet Essentials" : "Back from Planning Helper"}
             onPress={() =>
               setupMode
                 ? router.replace("/sweet-setup" as never)

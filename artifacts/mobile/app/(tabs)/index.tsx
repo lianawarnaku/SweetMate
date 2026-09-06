@@ -66,6 +66,7 @@ import {
 } from "@/lib/calendarItems";
 import {
   choreLocalDateKey,
+  isBeforeLocalCalendarDay,
   isChoreActiveOnDay,
 } from "@/lib/choreOccurrences";
 import {
@@ -269,7 +270,7 @@ function isSameDay(left: Date | string, right: Date | string) {
 
 function isOverdue(dateStr: string, completed: boolean) {
   if (completed) return false;
-  return new Date(dateStr) < new Date();
+  return isBeforeLocalCalendarDay(dateStr);
 }
 
 function formatDueDate(dateStr: string) {

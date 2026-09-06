@@ -29,6 +29,7 @@ import { Surface } from "@/components/Surface";
 import { useAppContextSelector, type BorrowItem } from "@/context/AppContext";
 import { useTheme } from "@/constants/colors";
 import { historyPage, isHistoricalResolution } from "@/lib/resolutionHistory";
+import { isBeforeLocalCalendarDay } from "@/lib/choreOccurrences";
 import {
   canManageBorrowItem,
   canSaveBorrowDraft,
@@ -140,7 +141,7 @@ export default function BorrowScreen() {
     return {
       activeBorrows: active,
       returnedBorrows: history,
-      overdue: active.filter((borrow) => !borrow.returned && new Date(borrow.dueDate) < new Date()),
+      overdue: active.filter((borrow) => !borrow.returned && isBeforeLocalCalendarDay(borrow.dueDate)),
     };
   }, [borrowItems]);
   const visibleReturnedBorrows = useMemo(
@@ -418,7 +419,7 @@ export default function BorrowScreen() {
           const borrowerName = borrower?.name ?? borrow.borrowerName ?? "Former Sweetmate";
           const isSelfBorrow = borrow.borrowedFrom === borrow.borrowedBy;
           const isOverdueItem =
-            !borrow.returned && new Date(borrow.dueDate) < new Date();
+            !borrow.returned && isBeforeLocalCalendarDay(borrow.dueDate);
           const dueText = borrow.returned
             ? `Returned ${new Date(borrow.returnedAt ?? "").toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
             : formatDue(borrow.dueDate);

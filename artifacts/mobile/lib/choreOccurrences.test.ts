@@ -5,6 +5,7 @@ import {
   choreScheduledDate,
   deleteRecurringChore,
   isChoreActiveOnDay,
+  isBeforeLocalCalendarDay,
   isChoreCarryoverOnDay,
   MAX_RECURRING_OCCURRENCES_PER_PASS,
   materializeRecurringOccurrences,
@@ -32,6 +33,18 @@ assert(isChoreActiveOnDay(oneOff, new Date(2026, 6, 27, 12)), "one-off must be a
 assert(isChoreCarryoverOnDay(oneOff, new Date(2026, 6, 28, 0, 0, 0, 1)), "one-off must carry after midnight");
 assert(isChoreCarryoverOnDay(oneOff, new Date(2026, 6, 29, 12)), "one-off must continue carrying over");
 assert(choreLocalDateKey(oneOff.dueDate) === "2026-07-27", "carryover must preserve the original date");
+assert(
+  !isBeforeLocalCalendarDay("2026-07-27", new Date(2026, 6, 27, 23, 59)),
+  "an item due today must not become overdue before the day ends",
+);
+assert(
+  isBeforeLocalCalendarDay("2026-07-26", new Date(2026, 6, 27, 0, 1)),
+  "an item from a previous calendar day must be overdue",
+);
+assert(
+  !isBeforeLocalCalendarDay("not-a-date", new Date(2026, 6, 27)),
+  "invalid dates must not be presented as overdue",
+);
 
 const completed = {
   ...oneOff,

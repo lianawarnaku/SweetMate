@@ -76,14 +76,24 @@ export default function TaskDifficultyScreen() {
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { paddingTop: insets.top + 12, borderBottomColor: colors.border }]}>
-        <TouchableOpacity onPress={() => router.back()} style={[styles.iconButton, { backgroundColor: colors.muted }]}>
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="Back from Task Difficulty"
+          onPress={() => router.back()}
+          style={[styles.iconButton, { backgroundColor: colors.muted }]}
+        >
           <Feather name="chevron-left" size={21} color={colors.foreground} />
         </TouchableOpacity>
         <View style={styles.headerCopy}>
           <Text style={[styles.title, { color: colors.foreground }]}>Task Difficulty</Text>
           <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>Shared by your whole household</Text>
         </View>
-        <TouchableOpacity onPress={reset}>
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="Reset task difficulties"
+          accessibilityHint="Restores the household defaults"
+          onPress={reset}
+        >
           <Text style={[styles.reset, { color: colors.primary }]}>Reset</Text>
         </TouchableOpacity>
       </View>

@@ -82,7 +82,12 @@ export default function AlertsScreen() {
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { paddingTop: insets.top + 12, borderBottomColor: colors.border }]}>
-        <TouchableOpacity onPress={() => router.back()} style={[styles.icon, { backgroundColor: colors.muted }]}>
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="Back from alerts"
+          onPress={() => router.back()}
+          style={[styles.icon, { backgroundColor: colors.muted }]}
+        >
           <Feather name="chevron-left" size={21} color={colors.foreground} />
         </TouchableOpacity>
         <Text style={[styles.title, { color: colors.foreground }]}>Alerts</Text>
