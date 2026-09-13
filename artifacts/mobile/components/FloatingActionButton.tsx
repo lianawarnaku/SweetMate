@@ -29,10 +29,12 @@ export function useFloatingActionMetrics() {
 export function FloatingActionButton({
   onPress,
   accessibilityLabel,
+  accessibilityHint,
   icon = "plus",
 }: {
   onPress: () => void;
   accessibilityLabel: string;
+  accessibilityHint?: string;
   icon?: keyof typeof Feather.glyphMap;
 }) {
   const colors = useTheme();
@@ -43,8 +45,9 @@ export function FloatingActionButton({
     <SmoothPressable
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
+      accessibilityHint={accessibilityHint ?? `Opens the ${accessibilityLabel.toLowerCase()} form`}
       containerStyle={[styles.container, { bottom }]}
-      style={[styles.button, { backgroundColor: colors.primary }]}
+      style={[styles.button, { backgroundColor: colors.action, borderColor: colors.primary }]}
       onPress={() => {
         if (pressLocked.current) return;
         pressLocked.current = true;
@@ -54,7 +57,7 @@ export function FloatingActionButton({
         }, 450);
       }}
     >
-      <Feather name={icon} size={25} color={colors.primaryForeground} />
+      <Feather name={icon} size={25} color={colors.actionForeground} />
     </SmoothPressable>
   );
 }
@@ -69,6 +72,7 @@ const styles = StyleSheet.create({
     elevation: 12,
   },
   button: {
+    borderWidth: 1,
     width: FAB_SIZE,
     height: FAB_SIZE,
     borderRadius: FAB_SIZE / 2,

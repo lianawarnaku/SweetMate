@@ -171,6 +171,7 @@ export default function SettingsScreen() {
     restartChartProcess,
     currentProposedChart,
     isHost,
+    householdComplete,
     removeRoommate,
     deleteOwnAccount,
     openQuickGuide,
@@ -732,10 +733,33 @@ export default function SettingsScreen() {
                   {householdName ?? "No household selected"}
                 </Text>
               </View>
+              <View style={[styles.householdStatusBadge, { backgroundColor: colors.success + "18", borderColor: colors.success + "55" }]}>
+                <View style={[styles.householdStatusDot, { backgroundColor: colors.success }]} />
+                <Text style={[styles.householdStatusText, { color: colors.success }]}>Active</Text>
+              </View>
+            </View>
+            <View style={styles.householdSummaryRow} accessibilityRole="summary">
+              <View style={[styles.householdSummaryChip, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+                <Feather name="users" size={13} color={colors.primary} />
+                <Text style={[styles.householdSummaryText, { color: colors.foreground }]}>
+                  {roommates.length} {roommates.length === 1 ? "member" : "members"}
+                </Text>
+              </View>
+              <View style={[styles.householdSummaryChip, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+                <Feather name={isHost ? "shield" : "user"} size={13} color={colors.primary} />
+                <Text style={[styles.householdSummaryText, { color: colors.foreground }]}>{isHost ? "Host" : "Member"}</Text>
+              </View>
+              <View style={[styles.householdSummaryChip, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+                <Feather name={householdComplete ? "check-circle" : "clock"} size={13} color={householdComplete ? colors.success : colors.mutedForeground} />
+                <Text style={[styles.householdSummaryText, { color: householdComplete ? colors.success : colors.mutedForeground }]}>
+                  {householdComplete ? "Setup complete" : "Setup in progress"}
+                </Text>
+              </View>
             </View>
             <TouchableOpacity
               accessibilityRole="button"
               accessibilityLabel="Switch household"
+              accessibilityHint="View, switch, join, or create a household"
               style={[
                 styles.householdSwitchButton,
                 { borderColor: colors.border },
@@ -767,6 +791,7 @@ export default function SettingsScreen() {
                 imageUri={me?.avatarUri}
               />
               <View style={{ flex: 1 }}>
+                <Text style={[styles.currentUserLabel, { color: colors.mutedForeground }]}>YOU</Text>
                 <Text
                   style={[styles.accountName, { color: colors.foreground }]}
                 >
@@ -778,16 +803,7 @@ export default function SettingsScreen() {
                     { color: colors.mutedForeground },
                   ]}
                 >
-                  {householdName ?? "Your household"}
-                </Text>
-                <Text
-                  style={[
-                    styles.accountUsername,
-                    { color: colors.mutedForeground },
-                  ]}
-                >
-                  {roommates.length}{" "}
-                  {roommates.length === 1 ? "member" : "members"}
+                  {isHost ? "Household host" : "Household member"}
                 </Text>
               </View>
               <Feather name="shield" size={16} color={colors.success} />
@@ -843,11 +859,14 @@ export default function SettingsScreen() {
                       >
                         {roommate.name}
                       </Text>
+                      <Text style={[styles.memberRole, { color: colors.mutedForeground }]}>Member</Text>
                       <TouchableOpacity
                         onPress={() =>
                           confirmRemoveRoommate(roommate.id, roommate.name)
                         }
                         disabled={removingRoommateId !== null}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Remove ${roommate.name} from ${householdName ?? "this household"}`}
                         style={[
                           styles.memberRemoveBtn,
                           {
@@ -1185,11 +1204,17 @@ export default function SettingsScreen() {
               />
               <View style={{ flex: 1, gap: 8 }}>
                 <TouchableOpacity
-                  style={[styles.photoBtn, { backgroundColor: colors.primary }]}
+                  style={[
+                    styles.photoBtn,
+                    {
+                      backgroundColor: colors.action,
+                      borderColor: colors.primary,
+                    },
+                  ]}
                   onPress={pickImage}
                 >
-                  <Feather name="camera" size={14} color="#fff" />
-                  <Text style={styles.photoBtnText}>
+                  <Feather name="camera" size={14} color={colors.actionForeground} />
+                  <Text style={[styles.photoBtnText, { color: colors.actionForeground }]}>
                     {avatarUri ? "Change Photo" : "Choose Photo"}
                   </Text>
                 </TouchableOpacity>
@@ -1573,7 +1598,7 @@ export default function SettingsScreen() {
           <TouchableOpacity
             style={[
               styles.saveBtn,
-              { backgroundColor: name.trim() ? colors.primary : colors.muted },
+              { backgroundColor: name.trim() ? colors.action : colors.muted },
             ]}
             disabled={!name.trim()}
             onPress={save}
@@ -1816,7 +1841,7 @@ export default function SettingsScreen() {
                     style={[
                       styles.authPrimaryBtn,
                       {
-                        backgroundColor: colors.primary,
+                        backgroundColor: colors.action,
                         opacity: authLoading ? 0.6 : 1,
                       },
                     ]}
@@ -1895,7 +1920,7 @@ export default function SettingsScreen() {
                     style={[
                       styles.authPrimaryBtn,
                       {
-                        backgroundColor: colors.primary,
+                        backgroundColor: colors.action,
                         opacity: authLoading ? 0.6 : 1,
                       },
                     ]}
@@ -2016,7 +2041,7 @@ export default function SettingsScreen() {
                     style={[
                       styles.authPrimaryBtn,
                       {
-                        backgroundColor: colors.primary,
+                        backgroundColor: colors.action,
                         opacity: authLoading ? 0.6 : 1,
                       },
                     ]}
@@ -2080,6 +2105,28 @@ const styles = StyleSheet.create({
   householdCard: {
     gap: 18,
   },
+  householdStatusBadge: {
+    minHeight: 28,
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingHorizontal: 9,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+  },
+  householdStatusDot: { width: 6, height: 6, borderRadius: 3 },
+  householdStatusText: { fontFamily: "Inter_600SemiBold", fontSize: 12 },
+  householdSummaryRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  householdSummaryChip: {
+    minHeight: 32,
+    borderRadius: 16,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+  },
+  householdSummaryText: { fontFamily: "Inter_500Medium", fontSize: 12 },
   householdTileGroup: {
     gap: 8,
   },
@@ -2247,12 +2294,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 6,
     borderRadius: 10,
+    borderWidth: 1,
     paddingVertical: 9,
     paddingHorizontal: 12,
     justifyContent: "center",
   },
   photoBtnText: {
-    color: "#fff",
     fontFamily: "Inter_600SemiBold",
     fontSize: 13,
   },
@@ -2334,6 +2381,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 12,
   },
+  currentUserLabel: { fontFamily: "Inter_600SemiBold", fontSize: 10, letterSpacing: 1.1 },
   accountName: {
     fontFamily: "Inter_600SemiBold",
     fontSize: 17,
@@ -2401,6 +2449,7 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_600SemiBold",
     fontSize: 14,
   },
+  memberRole: { fontFamily: "Inter_400Regular", fontSize: 12 },
   memberRemoveBtn: {
     minHeight: 36,
     borderWidth: 1,

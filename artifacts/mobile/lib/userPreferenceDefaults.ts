@@ -1,12 +1,15 @@
 import {
   normalizeColorScheme,
+  normalizeAppearanceMode,
+  type AppearanceMode,
   type ColorScheme,
 } from "../constants/themeTokens.ts";
 
-export const USER_PREFERENCES_VERSION = 2;
+export const USER_PREFERENCES_VERSION = 3;
 
 export interface StoredDisplayPreferences {
   colorScheme?: unknown;
+  appearanceMode?: unknown;
   pointsEnabled?: boolean;
   roommateActivityEnabled?: boolean;
   plantEnabled?: boolean;
@@ -15,6 +18,7 @@ export interface StoredDisplayPreferences {
 
 export interface ResolvedDisplayPreferences {
   colorScheme: ColorScheme;
+  appearanceMode: AppearanceMode;
   pointsEnabled: boolean;
   roommateActivityEnabled: boolean;
   plantEnabled: boolean;
@@ -26,6 +30,7 @@ export function resolveDisplayPreferenceDefaults(
 ): ResolvedDisplayPreferences {
   return {
     colorScheme: normalizeColorScheme(stored.colorScheme),
+    appearanceMode: normalizeAppearanceMode(stored.appearanceMode),
     pointsEnabled:
       typeof stored.pointsEnabled === "boolean" ? stored.pointsEnabled : false,
     roommateActivityEnabled:

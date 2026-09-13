@@ -483,10 +483,10 @@ export function HouseholdSetupScreen({
                   navigationPendingRef.current = true;
                   router.push(`/planning?type=home-checklist&setup=household&housingType=${housingType}` as never);
                 }}
-                style={[styles.decisionButton, { backgroundColor: colors.primary, opacity: loading ? 0.65 : 1 }]}
+                style={[styles.decisionButton, { backgroundColor: colors.action, opacity: loading ? 0.65 : 1 }]}
               >
-                <Feather name="shopping-bag" size={18} color="#fff" />
-                <Text style={styles.decisionPrimaryText}>Browse Sweet Essentials</Text>
+                <Feather name="shopping-bag" size={18} color={colors.actionForeground} />
+                <Text style={[styles.decisionPrimaryText, { color: colors.actionForeground }]}>Browse Sweet Essentials</Text>
               </Pressable>
               <Pressable
                 disabled={loading}
@@ -552,8 +552,8 @@ export function HouseholdSetupScreen({
                       placeholderTextColor={colors.mutedForeground}
                       style={[styles.input, { color: colors.foreground }]}
                     />
-                    <Pressable onPress={() => addCustomItem(section.key)} style={[styles.addButton, { backgroundColor: colors.primary }]}>
-                      <Feather name="plus" color="#fff" size={18} />
+                    <Pressable onPress={() => addCustomItem(section.key)} style={[styles.addButton, { backgroundColor: colors.action }]}>
+                      <Feather name="plus" color={colors.actionForeground} size={18} />
                     </Pressable>
                   </View>
                 </View>
@@ -613,7 +613,7 @@ export function HouseholdSetupScreen({
               </View>
               <View style={[styles.customRow, { backgroundColor: colors.muted, borderColor: colors.border }]}>
                 <TextInput value={customChore} onChangeText={setCustomChore} onSubmitEditing={addCustomChore} placeholder="e.g. Water the plants" placeholderTextColor={colors.mutedForeground} style={[styles.input, { color: colors.foreground }]} />
-                <Pressable onPress={addCustomChore} style={[styles.addButton, { backgroundColor: colors.primary }]}><Feather name="plus" color="#fff" size={18} /></Pressable>
+                <Pressable onPress={addCustomChore} style={[styles.addButton, { backgroundColor: colors.action }]}><Feather name="plus" color={colors.actionForeground} size={18} /></Pressable>
               </View>
               {chores.map((chore) => (
                 <Pressable key={chore} onPress={() => setChores(chores.filter((item) => item !== chore))} style={styles.customChore}>
@@ -638,8 +638,8 @@ export function HouseholdSetupScreen({
               setError(null);
             }} style={[styles.back, { borderColor: colors.border }]}><Feather name="arrow-left" size={18} color={colors.foreground} /><Text style={[styles.backText, { color: colors.foreground }]}>Back</Text></Pressable>}
             {(step !== 3 || mode === "join") ? (
-              <Pressable disabled={loading} onPress={mode === "join" ? submitJoin : step === 5 ? submitCreate : next} style={[styles.primary, { backgroundColor: colors.primary, opacity: loading ? .65 : 1 }]}>
-                {loading ? <ActivityIndicator color="#fff" /> : <><Text style={styles.primaryText}>{mode === "join" ? "Join household" : "Continue"}</Text><Feather name="arrow-right" size={17} color="#fff" /></>}
+              <Pressable disabled={loading} onPress={mode === "join" ? submitJoin : step === 5 ? submitCreate : next} style={[styles.primary, { backgroundColor: colors.action, opacity: loading ? .65 : 1 }]}>
+                {loading ? <ActivityIndicator color={colors.actionForeground} /> : <><Text style={[styles.primaryText, { color: colors.actionForeground }]}>{mode === "join" ? "Join household" : "Continue"}</Text><Feather name="arrow-right" size={17} color={colors.actionForeground} /></>}
               </Pressable>
             ) : null}
           </View>

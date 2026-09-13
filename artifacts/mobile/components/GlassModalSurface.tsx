@@ -1,4 +1,3 @@
-import { BlurView } from "expo-blur";
 import type { ReactNode } from "react";
 import {
   Pressable,
@@ -9,7 +8,8 @@ import {
 } from "react-native";
 
 import { useTheme } from "@/constants/colors";
-import { useAppContextSelector } from "@/context/AppContext";
+import { GlassSheet } from "@/components/LiquidGlass";
+import { elevation } from "@/constants/designTokens";
 
 export function GlassModalBackdrop({
   onPress,
@@ -18,10 +18,10 @@ export function GlassModalBackdrop({
   onPress?: () => void;
   accessibilityLabel?: string;
 }) {
+  const colors = useTheme();
   return (
     <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
-      <BlurView intensity={24} tint="dark" style={StyleSheet.absoluteFill} />
-      <View style={[StyleSheet.absoluteFill, styles.backdropTint]} />
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.backdrop }]} />
       <Pressable
         accessibilityRole={onPress ? "button" : undefined}
         accessibilityLabel={onPress ? accessibilityLabel : undefined}
@@ -36,44 +36,28 @@ export function GlassModalBackdrop({
 export function GlassModalSurface({
   children,
   style,
+  destructive = false,
 }: {
   children: ReactNode;
   style?: StyleProp<ViewStyle>;
+  destructive?: boolean;
 }) {
   const colors = useTheme();
-  const colorScheme = useAppContextSelector((context) => context.colorScheme);
-  const dark = colorScheme === "mono";
 
   return (
-    <View style={[styles.surface, { borderColor: colors.border }, style]}>
-      <BlurView
-        intensity={76}
-        tint={dark ? "dark" : "light"}
-        style={StyleSheet.absoluteFill}
-      />
-      <View
-        pointerEvents="none"
-        style={[
-          StyleSheet.absoluteFill,
-          dark ? styles.darkTint : styles.lightTint,
-        ]}
-      />
+    <GlassSheet variant={destructive ? "destructive" : "modal"} style={[styles.surface, { borderColor: destructive ? colors.destructive : colors.glassRim }, style]}>
       {children}
-    </View>
+    </GlassSheet>
   );
 }
 
 const styles = StyleSheet.create({
-  backdropTint: { backgroundColor: "rgba(0,0,0,0.38)" },
   surface: {
     overflow: "hidden",
     borderWidth: 1,
-    shadowColor: "#000",
     shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.3,
-    shadowRadius: 30,
-    elevation: 18,
+    shadowOpacity: elevation.modal.shadowOpacity,
+    shadowRadius: elevation.modal.shadowRadius,
+    elevation: elevation.modal.elevation,
   },
-  darkTint: { backgroundColor: "rgba(18,20,21,0.7)" },
-  lightTint: { backgroundColor: "rgba(255,252,248,0.7)" },
 });

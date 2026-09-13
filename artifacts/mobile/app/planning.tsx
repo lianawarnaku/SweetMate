@@ -1244,6 +1244,8 @@ export default function PlanningScreen() {
       <View style={[styles.header, { paddingTop: topPad + 16 }]}>
         <View style={styles.headerRow}>
           <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel={setupMode ? "Back from Sweet Essentials" : "Back from Planning Helper"}
             onPress={() =>
               setupMode
                 ? router.replace("/sweet-setup" as never)
@@ -1259,7 +1261,7 @@ export default function PlanningScreen() {
               {setupMode ? "Sweet Essentials" : "Planning Helper"}
             </Text>
             <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-              {setupMode ? "Choose what your new Sweet needs" : "Formulaic plans for your Sweet"}
+              {setupMode ? "Choose what your new Sweet needs" : "Choose a tool, customize it, then review"}
             </Text>
           </View>
         </View>
@@ -1267,11 +1269,15 @@ export default function PlanningScreen() {
 
       {/* ── Plan type selector ── */}
       {!setupMode ? <><Text style={[styles.sectionLabel, { color: colors.foreground }]}>
-        What do you need?
+        Choose a planning tool
       </Text>
 
-      <View style={styles.typeRow}>
+      <View accessibilityRole="radiogroup" style={styles.typeRow}>
         <TouchableOpacity
+          accessibilityRole="radio"
+          accessibilityState={{ checked: isChoreChart, disabled: !householdComplete }}
+          accessibilityLabel="Chore Chart"
+          accessibilityHint={householdComplete ? "Build a weekly chore rotation" : "Finish household setup to unlock"}
           disabled={!householdComplete}
           style={[
             styles.typeCard,
@@ -1309,8 +1315,8 @@ export default function PlanningScreen() {
           </Text>
           <Text style={[styles.typeDesc, { color: colors.mutedForeground }]}>
             {householdComplete
-              ? "Fair weekly schedule for all roommates"
-              : "Locked until household setup is complete"}
+              ? "Weekly chore rotation"
+              : "Finish setup to unlock"}
           </Text>
           {!householdComplete && (
             <Feather name="lock" size={16} color={colors.mutedForeground} />
@@ -1318,6 +1324,10 @@ export default function PlanningScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
+          accessibilityRole="radio"
+          accessibilityState={{ checked: selectedType === "home-checklist" }}
+          accessibilityLabel="Sweet Essentials"
+          accessibilityHint="Track what your shared home still needs"
           style={[
             styles.typeCard,
             {
@@ -1368,7 +1378,7 @@ export default function PlanningScreen() {
             Sweet Essentials
           </Text>
           <Text style={[styles.typeDesc, { color: colors.mutedForeground }]}>
-            What to buy for a new Sweet
+            Shared home checklist
           </Text>
         </TouchableOpacity>
       </View>
@@ -1378,6 +1388,16 @@ export default function PlanningScreen() {
           <Text style={[styles.lockText, { color: colors.mutedForeground }]}>
             Add all roommates and mark household setup complete before building a chore chart.
           </Text>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel="Finish household setup"
+            accessibilityHint="Opens household settings"
+            onPress={() => router.push("/settings")}
+            style={[styles.finishSetupButton, { backgroundColor: colors.action }]}
+          >
+            <Text style={[styles.finishSetupText, { color: colors.actionForeground }]}>Finish setup</Text>
+            <Feather name="arrow-right" size={15} color={colors.actionForeground} />
+          </TouchableOpacity>
         </View>
       )}</> : null}
 
@@ -1660,7 +1680,10 @@ export default function PlanningScreen() {
                 style={[styles.sectionCard, { backgroundColor: colors.card, borderColor: colors.border }]}
               >
                 <TouchableOpacity
-                  style={styles.sectionCardHeader}
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded: isExpanded }}
+                  accessibilityLabel={`${section.title}, ${ownedCoreCount} of ${coreItems.length} core items owned`}
+                  style={[styles.sectionCardHeader, isExpanded && styles.sectionCardHeaderExpanded]}
                   onPress={() => toggleExpandSection(section.id)}
                   activeOpacity={0.7}
                 >
@@ -1814,11 +1837,11 @@ export default function PlanningScreen() {
                 key={value}
                 onPress={() => setCustomTaskDifficulty(value)}
                 style={[styles.customTaskChip, {
-                  backgroundColor: value === customTaskDifficulty ? colors.primary : colors.muted,
+                  backgroundColor: value === customTaskDifficulty ? colors.action : colors.muted,
                   borderColor: value === customTaskDifficulty ? colors.primary : colors.border,
                 }]}
               >
-                <Text style={{ color: value === customTaskDifficulty ? colors.primaryForeground : colors.mutedForeground, fontFamily: "Inter_700Bold" }}>{value}</Text>
+                <Text style={{ color: value === customTaskDifficulty ? colors.actionForeground : colors.mutedForeground, fontFamily: "Inter_700Bold" }}>{value}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -1826,10 +1849,10 @@ export default function PlanningScreen() {
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.customTaskOptions}>
             {(["daily", "everyOtherDay", "weekly", "biweekly", "monthly"] as ChoreFrequency[]).map((value) => (
               <TouchableOpacity key={value} onPress={() => setCustomTaskFrequency(value)} style={[styles.customTextChip, {
-                backgroundColor: value === customTaskFrequency ? colors.primary : colors.muted,
+                backgroundColor: value === customTaskFrequency ? colors.action : colors.muted,
                 borderColor: value === customTaskFrequency ? colors.primary : colors.border,
               }]}>
-                <Text style={{ color: value === customTaskFrequency ? colors.primaryForeground : colors.mutedForeground, fontFamily: "Inter_600SemiBold", fontSize: 12 }}>{value}</Text>
+                <Text style={{ color: value === customTaskFrequency ? colors.actionForeground : colors.mutedForeground, fontFamily: "Inter_600SemiBold", fontSize: 12 }}>{value}</Text>
               </TouchableOpacity>
             ))}
           </ScrollView>
@@ -1837,10 +1860,10 @@ export default function PlanningScreen() {
           <View style={styles.customTaskOptions}>
             {(["morning", "night", "any"] as ChoreTimeOfDay[]).map((value) => (
               <TouchableOpacity key={value} onPress={() => setCustomTaskTime(value)} style={[styles.customTextChip, {
-                backgroundColor: value === customTaskTime ? colors.primary : colors.muted,
+                backgroundColor: value === customTaskTime ? colors.action : colors.muted,
                 borderColor: value === customTaskTime ? colors.primary : colors.border,
               }]}>
-                <Text style={{ color: value === customTaskTime ? colors.primaryForeground : colors.mutedForeground, fontFamily: "Inter_600SemiBold", fontSize: 12 }}>{value}</Text>
+                <Text style={{ color: value === customTaskTime ? colors.actionForeground : colors.mutedForeground, fontFamily: "Inter_600SemiBold", fontSize: 12 }}>{value}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -1858,10 +1881,10 @@ export default function PlanningScreen() {
               setCustomTaskTitle("");
               setCustomTaskDifficulty(3);
             }}
-            style={[styles.saveCustomTask, { backgroundColor: colors.primary, opacity: customTaskTitle.trim() ? 1 : 0.5 }]}
+            style={[styles.saveCustomTask, { backgroundColor: colors.action, opacity: customTaskTitle.trim() ? 1 : 0.5 }]}
           >
-            <Feather name="plus" size={16} color={colors.primaryForeground} />
-            <Text style={[styles.saveCustomTaskText, { color: colors.primaryForeground }]}>Add custom task</Text>
+            <Feather name="plus" size={16} color={colors.actionForeground} />
+            <Text style={[styles.saveCustomTaskText, { color: colors.actionForeground }]}>Add custom task</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -2182,7 +2205,7 @@ export default function PlanningScreen() {
           <TouchableOpacity
             disabled={shortlistSaving || shortlistTransferLoading}
             onPress={() => void continueHouseholdSetup()}
-            style={[styles.shortlistSave, { backgroundColor: colors.primary, opacity: shortlistSaving || shortlistTransferLoading ? 0.6 : 1 }]}
+            style={[styles.shortlistSave, { backgroundColor: colors.action, opacity: shortlistSaving || shortlistTransferLoading ? 0.6 : 1 }]}
             accessibilityRole="button"
             accessibilityLabel="Save selected essentials and continue household setup"
           >
@@ -2192,7 +2215,7 @@ export default function PlanningScreen() {
           <TouchableOpacity
             disabled={shortlistSaving || shortlistTransferLoading}
             onPress={() => void saveShortlist()}
-            style={[styles.shortlistSave, { backgroundColor: colors.primary, opacity: shortlistSaving || shortlistTransferLoading ? 0.6 : 1 }]}
+            style={[styles.shortlistSave, { backgroundColor: colors.action, opacity: shortlistSaving || shortlistTransferLoading ? 0.6 : 1 }]}
             accessibilityRole="button"
             accessibilityLabel="Save shortlist"
           >
@@ -2220,7 +2243,7 @@ export default function PlanningScreen() {
       {/* Build / Generate button */}
       {!choreChartData && (
         <Pressable
-          style={[styles.generateBtn, { backgroundColor: canGenerate && !loading ? colors.primary : colors.muted }]}
+          style={[styles.generateBtn, { backgroundColor: canGenerate && !loading ? colors.action : colors.muted }]}
           disabled={!canGenerate || loading}
           onPress={generate}
           accessibilityRole="button"
@@ -2296,8 +2319,9 @@ const styles = StyleSheet.create({
   typeCard: {
     flex: 1,
     borderRadius: 16,
-    borderWidth: 2,
-    padding: 16,
+    borderWidth: 1,
+    minHeight: 142,
+    padding: 14,
     alignItems: "center",
     gap: 8,
   },
@@ -2361,14 +2385,16 @@ const styles = StyleSheet.create({
   sectionCard: {
     borderRadius: 16,
     borderWidth: 1,
-    padding: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
   },
   sectionCardHeader: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    marginBottom: 12,
+    minHeight: 44,
   },
+  sectionCardHeaderExpanded: { marginBottom: 8 },
   sectionCardIcon: {
     width: 32,
     height: 32,
@@ -2499,6 +2525,7 @@ const styles = StyleSheet.create({
   generateText: { color: "#fff", fontFamily: "Inter_700Bold", fontSize: 15 },
   lockBanner: {
     flexDirection: "row",
+    flexWrap: "wrap",
     alignItems: "center",
     gap: 8,
     marginHorizontal: 16,
@@ -2508,6 +2535,17 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   lockText: { flex: 1, fontFamily: "Inter_500Medium", fontSize: 13, lineHeight: 17 },
+  finishSetupButton: {
+    minHeight: 38,
+    marginLeft: 24,
+    paddingHorizontal: 13,
+    borderRadius: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+  },
+  finishSetupText: { fontFamily: "Inter_700Bold", fontSize: 12 },
 
   // ── Banners ──
   successBanner: {

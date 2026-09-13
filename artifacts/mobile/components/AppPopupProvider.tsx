@@ -34,15 +34,18 @@ export function AppPopupProvider({ children }: { children: ReactNode }) {
   const insets = useSafeAreaInsets();
   const [popup, setPopup] = useState<PopupRequest | null>(null);
   const [running, setRunning] = useState(false);
+  const [runningActionLabel, setRunningActionLabel] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const dismissPopup = useCallback(() => {
     if (running) return;
     setPopup(null);
     setError(null);
+    setRunningActionLabel(null);
   }, [running]);
   const showPopup = useCallback((request: PopupRequest) => {
     setRunning(false);
+    setRunningActionLabel(null);
     setError(null);
     setPopup(request);
   }, []);
@@ -51,6 +54,7 @@ export function AppPopupProvider({ children }: { children: ReactNode }) {
   const run = async (action: AppPopupAction) => {
     if (running) return;
     setRunning(true);
+    setRunningActionLabel(action.label);
     setError(null);
     try {
       await action.onPress?.();
@@ -59,6 +63,7 @@ export function AppPopupProvider({ children }: { children: ReactNode }) {
       setError("That action could not be completed. Please try again.");
     } finally {
       setRunning(false);
+      setRunningActionLabel(null);
     }
   };
 
@@ -77,9 +82,9 @@ export function AppPopupProvider({ children }: { children: ReactNode }) {
           <GlassModalBackdrop
             onPress={popup?.dismissible === false ? undefined : dismissPopup}
           />
-          <GlassModalSurface style={[styles.card, { marginBottom: Math.max(insets.bottom, 16) }]}>
-            <View style={[styles.icon, { backgroundColor: colors.primary + "14" }]}>
-              <Feather name={popup?.icon ?? "info"} size={22} color={colors.primary} />
+          <GlassModalSurface destructive={popup?.actions.some((action) => action.destructive)} style={[styles.card, { marginBottom: Math.max(insets.bottom, 16) }]}>
+            <View style={[styles.icon, { backgroundColor: colors.secondary }]}>
+              <Feather name={popup?.icon ?? "info"} size={22} color={colors.accent} />
             </View>
             <Text accessibilityRole="header" style={[styles.title, { color: colors.foreground }]}>{popup?.title}</Text>
             <Text style={[styles.message, { color: colors.mutedForeground }]}>{popup?.message}</Text>
@@ -90,13 +95,21 @@ export function AppPopupProvider({ children }: { children: ReactNode }) {
                   key={action.label}
                   accessibilityRole="button"
                   accessibilityLabel={action.destructive ? `${action.label}, destructive action` : action.label}
+                  accessibilityState={{ disabled: running, busy: runningActionLabel === action.label }}
                   disabled={running}
                   onPress={() => void run(action)}
                   tone={action.destructive ? "destructive" : action.primary ? "primary" : "neutral"}
                   style={styles.action}
                 >
-                  {running && action.primary ? <ActivityIndicator size="small" color="#fff" /> : null}
-                  <Text style={[styles.actionText, { color: action.primary || action.destructive ? "#fff" : colors.foreground }]}>{action.label}</Text>
+                  {runningActionLabel === action.label ? (
+                    <ActivityIndicator
+                      size="small"
+                      color={action.destructive ? colors.destructiveForeground : action.primary ? colors.primaryForeground : colors.foreground}
+                    />
+                  ) : null}
+                  <Text style={[styles.actionText, { color: action.destructive ? colors.destructiveForeground : action.primary ? colors.primaryForeground : colors.foreground }]}>
+                    {runningActionLabel === action.label ? "Working…" : action.label}
+                  </Text>
                 </GlassButton>
               ))}
             </View>

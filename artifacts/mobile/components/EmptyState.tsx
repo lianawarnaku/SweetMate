@@ -8,16 +8,21 @@ interface EmptyStateProps {
   icon: keyof typeof Feather.glyphMap;
   title: string;
   subtitle?: string;
+  compact?: boolean;
 }
 
-export function EmptyState({ icon, title, subtitle }: EmptyStateProps) {
+export function EmptyState({ icon, title, subtitle, compact = false }: EmptyStateProps) {
   const colors = useTheme();
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, compact && styles.compactContainer]}>
       <View
-        style={[styles.iconContainer, { backgroundColor: colors.secondary }]}
+        style={[
+          styles.iconContainer,
+          compact && styles.compactIconContainer,
+          { backgroundColor: colors.secondary },
+        ]}
       >
-        <Feather name={icon} size={32} color={colors.mutedForeground} />
+        <Feather name={icon} size={compact ? 22 : 32} color={colors.mutedForeground} />
       </View>
       <Text style={[styles.title, { color: colors.foreground }]}>{title}</Text>
       {subtitle ? (
@@ -37,6 +42,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     gap: 12,
   },
+  compactContainer: { paddingVertical: 28, gap: 8 },
   iconContainer: {
     width: 72,
     height: 72,
@@ -45,6 +51,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: 4,
   },
+  compactIconContainer: { width: 48, height: 48, borderRadius: 24, marginBottom: 2 },
   title: {
     fontSize: 17,
     fontFamily: "Inter_600SemiBold",

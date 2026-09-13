@@ -134,20 +134,22 @@ assert(
   "My Chores must keep category icons unboxed and render points in their compact badge",
 );
 assert(
-  home.includes("styles.sectionDividerLine") &&
-    home.includes("styles.sectionDividerLabel") &&
-    home.includes("height: StyleSheet.hairlineWidth") &&
-    !home.includes("borderBottomWidth: 2"),
-  "My Sweet section headings must use centered labels between balanced hairline dividers",
+  home.includes("styles.sectionCountBadge") &&
+    home.includes("accessibilityState={{ expanded }}") &&
+    home.includes("minHeight: 52") &&
+    !home.includes("styles.sectionDividerLine"),
+  "My Sweet section headings must use full-width accessible controls with count badges",
 );
 assert(
   !group.includes("styles.activityHeaderIcon, { backgroundColor:"),
   "House Monitor and Roommates heading icons must render without tiles",
 );
 assert(
-  group.includes("const visibleChores = rc.slice(0, visibleLimit)") &&
-    group.includes("visibleLimit + 50"),
-  "Group Chores must render large sections in bounded batches",
+  group.includes("compactOverdueItems(rc") &&
+    group.includes("overdueDisplay.visibleItems.slice(0, visibleLimit)") &&
+    group.includes("visibleLimit + 20") &&
+    home.includes("compactOverdueItems(filtered"),
+  "My Sweet and Group Chores must share overdue recovery while Group keeps bounded rendering batches",
 );
 assert(
   !expenses.includes("styles.expCatIcon, { backgroundColor:"),

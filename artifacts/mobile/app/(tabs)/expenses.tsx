@@ -32,7 +32,8 @@ import { Surface } from "@/components/Surface";
 import { ActionMenuModal } from "@/components/ActionMenuModal";
 import { HistoryDisclosure } from "@/components/HistoryDisclosure";
 import { FloatingActionButton, useFloatingActionMetrics } from "@/components/FloatingActionButton";
-import { HeaderActions } from "@/components/HeaderActions";
+import { ScreenHeader } from "@/components/ScreenHeader";
+import { InlineFeedback } from "@/components/InlineFeedback";
 import { RoommateAvatar } from "@/components/RoommateAvatar";
 import { useTheme } from "@/constants/colors";
 import { useConfirm } from "@/hooks/useConfirm";
@@ -584,21 +585,11 @@ export default function ExpensesScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Header */}
-      <View
-        style={[
-          styles.header,
-          { paddingTop: topPad + 16, backgroundColor: colors.background },
-        ]}
-      >
-        <View>
-          <Text style={[styles.title, { color: colors.foreground }]}>Expenses</Text>
-          <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>Shared costs and repayments</Text>
-        </View>
-        <View style={styles.headerButtons}>
-          <HeaderActions />
-        </View>
-      </View>
+      <ScreenHeader
+        title="Expenses"
+        subtitle="Shared costs and repayments"
+        topPadding={topPad + 16}
+      />
 
       <>
           {/* Balance cards — You owe on top, Owed to you below */}
@@ -1103,7 +1094,7 @@ export default function ExpensesScreen() {
                               </View>
                             ) : isMe ? (
                               <TouchableOpacity
-                                style={[styles.detailMarkPaidBtn, { backgroundColor: colors.primary }]}
+                                style={[styles.detailMarkPaidBtn, { backgroundColor: colors.action }]}
                                 onPress={() => {
                                   confirm(
                                     "mark_paid",
@@ -1566,7 +1557,7 @@ export default function ExpensesScreen() {
                     style={[
                       styles.recurringCheckbox,
                       {
-                        backgroundColor: expRecurring ? colors.primary : "transparent",
+                        backgroundColor: expRecurring ? colors.action : "transparent",
                         borderColor: expRecurring ? colors.primary : colors.mutedForeground,
                       },
                     ]}
@@ -1798,20 +1789,10 @@ export default function ExpensesScreen() {
               )}
 
               {!allocationValidation.valid ? (
-                <Text
-                  accessibilityLiveRegion="polite"
-                  style={{ color: colors.destructive, fontFamily: "Inter_500Medium", fontSize: 13 }}
-                >
-                  {allocationValidation.reason}
-                </Text>
+                <InlineFeedback message={allocationValidation.reason ?? "Check the split amounts."} tone="warning" />
               ) : null}
               {iouSubmitError ? (
-                <Text
-                  accessibilityLiveRegion="polite"
-                  style={{ color: colors.destructive, fontFamily: "Inter_500Medium", fontSize: 13 }}
-                >
-                  {iouSubmitError}
-                </Text>
+                <InlineFeedback message={iouSubmitError} tone="error" />
               ) : null}
 
             </ScrollView>
@@ -1830,7 +1811,7 @@ export default function ExpensesScreen() {
               <TouchableOpacity
                 style={[
                   styles.iouSendBtn,
-                  { backgroundColor: canSubmit ? colors.primary : colors.muted },
+                  { backgroundColor: canSubmit ? colors.action : colors.muted },
                 ]}
                 disabled={!canSubmit || submittingIou}
                 onPress={handleSendIOU}

@@ -29,6 +29,7 @@ import {
   updateMappedReminderIfPresent,
 } from "@/lib/externalTasks";
 import { reportRuntimeError } from "@/lib/runtimeDiagnostics";
+import { InlineFeedback } from "@/components/InlineFeedback";
 
 const CATEGORIES: {
   key: ChoreCategory;
@@ -399,10 +400,10 @@ export function ManualChoreForm({
         style={[styles.input, styles.notes, { color: colors.foreground, backgroundColor: colors.secondary, borderColor: colors.border }]}
       />
 
-      {error && <Text style={[styles.error, { color: colors.destructive }]}>{error}</Text>}
+      {error ? <InlineFeedback message={error} tone="error" /> : null}
       <TouchableOpacity
         onPress={submit}
-        style={[styles.submit, { backgroundColor: title.trim() ? colors.primary : colors.muted }]}
+        style={[styles.submit, { backgroundColor: title.trim() ? colors.action : colors.muted }]}
       >
         <Text style={styles.submitText}>
           {initialChore ? "Save Changes" : "Add Chore"}

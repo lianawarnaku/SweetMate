@@ -22,6 +22,7 @@ export function HistoryDisclosure({
         accessibilityRole="button"
         accessibilityState={{ expanded }}
         accessibilityLabel={`History, ${count} records`}
+        accessibilityHint={expanded ? "Collapses history" : "Expands history"}
         onPress={onToggle}
         style={[
           styles.header,

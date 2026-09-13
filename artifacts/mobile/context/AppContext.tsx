@@ -15,11 +15,13 @@ import { AppState, InteractionManager } from "react-native";
 
 import { supabase } from "@/lib/supabase";
 import {
+  type AppearanceMode,
   type ColorScheme,
 } from "@/constants/themeTokens";
 import type { ItemCategory } from "@/constants/itemDifficulty";
 import type { Difficulty } from "@/lib/itemDifficulty";
 import { reportSupabaseError, reportRuntimeError } from "@/lib/runtimeDiagnostics";
+import { markVisibleAlertsRead } from "@/lib/alertReadState";
 import { findAssignedLoadDeviations } from "@/lib/chartLoadBalance";
 import { deleteLocalAnalyticsIdentity, track } from "@/lib/analytics";
 import {
@@ -483,6 +485,8 @@ interface AppContextType {
   setHouseholdComplete: (complete: boolean) => void;
   colorScheme: ColorScheme;
   setColorScheme: (scheme: ColorScheme) => void;
+  appearanceMode: AppearanceMode;
+  setAppearanceMode: (mode: AppearanceMode) => void;
   pointsEnabled: boolean;
   setPointsEnabled: (enabled: boolean) => void;
   plantEnabled: boolean;
@@ -929,6 +933,7 @@ export function AppProvider({
   const [currentUserId, setCurrentUserIdState] = useState<string>(CURRENT_USER_ID);
   const [pendingIouDraft, setPendingIouDraftState] = useState<PendingIouDraft | null>(null);
   const [colorScheme, setColorScheme] = useState<ColorScheme>("mono");
+  const [appearanceMode, setAppearanceMode] = useState<AppearanceMode>("dark");
   const [pointsEnabled, setPointsEnabled] = useState(false);
   const [plantEnabled, setPlantEnabled] = useState(true);
   const [roommateActivityEnabled, setRoommateActivityEnabled] = useState(false);
@@ -1078,6 +1083,7 @@ export function AppProvider({
   useLayoutEffect(() => {
     setLocalPreferencesLoaded(false);
     setColorScheme("mono");
+    setAppearanceMode("dark");
     setPointsEnabled(false);
     setPlantEnabled(true);
     setRoommateActivityEnabled(false);
@@ -1102,6 +1108,7 @@ export function AppProvider({
 
       type StoredUserPreferences = Partial<{
         colorScheme: unknown;
+        appearanceMode: unknown;
         pointsEnabled: boolean;
         plantEnabled: boolean;
         roommateActivityEnabled: boolean;
@@ -1127,6 +1134,7 @@ export function AppProvider({
         if (!legacy.appearanceMigratedToUserId) {
           preferences = {
             colorScheme: legacy.colorScheme,
+            appearanceMode: legacy.appearanceMode,
             pointsEnabled: legacy.pointsEnabled,
             plantEnabled: legacy.plantEnabled,
             roommateActivityEnabled: legacy.roommateActivityEnabled,
@@ -1150,6 +1158,7 @@ export function AppProvider({
 
       const displayPreferences = resolveDisplayPreferenceDefaults(preferences);
       setColorScheme(displayPreferences.colorScheme);
+      setAppearanceMode(displayPreferences.appearanceMode);
       setPointsEnabled(displayPreferences.pointsEnabled);
       setPlantEnabled(displayPreferences.plantEnabled);
       setRoommateActivityEnabled(displayPreferences.roommateActivityEnabled);
@@ -1195,6 +1204,7 @@ export function AppProvider({
         userPreferencesKey(preferenceUserId),
         JSON.stringify({
           colorScheme,
+          appearanceMode,
           pointsEnabled,
           plantEnabled,
           roommateActivityEnabled,
@@ -1214,6 +1224,7 @@ export function AppProvider({
     return () => interaction.cancel();
   }, [
     colorScheme,
+    appearanceMode,
     leaderboardPeriod,
     localPreferencesLoaded,
     plantEnabled,
@@ -2174,8 +2185,8 @@ export function AppProvider({
 
   const markAllAlertsRead = useCallback(() => {
     const readAt = new Date().toISOString();
-    setAppAlerts((current) => current.map((alert) => alert.readAt ? alert : { ...alert, readAt }));
-  }, []);
+    setAppAlerts((current) => markVisibleAlertsRead(current, currentUserId, readAt));
+  }, [currentUserId]);
 
   useEffect(() => {
     if (!nudgesReady || !householdId || !currentUserId) return;
@@ -4826,6 +4837,8 @@ export function AppProvider({
     setHouseholdComplete,
     colorScheme,
     setColorScheme,
+    appearanceMode,
+    setAppearanceMode,
     pointsEnabled,
     setPointsEnabled,
     plantEnabled,
@@ -4936,7 +4949,7 @@ export function AppProvider({
     completeHouseholdSetup, quickGuideOpen, openQuickGuide,
     dismissQuickGuide, visibleAppAlerts, markAlertRead, markAllAlertsRead,
     householdComplete, setHouseholdComplete,
-    colorScheme, pointsEnabled, plantEnabled, roommateActivityEnabled, leaderboardPeriod, householdId, memberships, activeSweet, householdName,
+    colorScheme, appearanceMode, pointsEnabled, plantEnabled, roommateActivityEnabled, leaderboardPeriod, householdId, memberships, activeSweet, householdName,
     inviteCode, householdLoading, householdError, membersLoading, currentMemberRole,
     refreshMembers, refreshHousehold, createHousehold, joinHousehold, switchSweet, leaveSweet,
     deleteHousehold, removeRoommate, deleteOwnAccount, currentUserId,

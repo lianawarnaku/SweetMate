@@ -58,19 +58,22 @@ export function HouseholdCompletionControl() {
       {!householdComplete && (
         <SmoothPressable
           accessibilityRole="button"
+          accessibilityHint="Unlocks household chore-chart planning"
+          accessibilityLabel="Mark household setup complete"
           onPress={completeHousehold}
           containerStyle={styles.actionSlot}
           style={[
             styles.action,
             {
-              backgroundColor: colors.primary,
+              backgroundColor: colors.action,
+              borderColor: colors.primary,
             },
           ]}
         >
           <Text
             style={[
               styles.actionText,
-              { color: colors.primaryForeground },
+              { color: colors.actionForeground },
             ]}
           >
             Mark household complete
@@ -96,6 +99,7 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 13,
+    borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
   },

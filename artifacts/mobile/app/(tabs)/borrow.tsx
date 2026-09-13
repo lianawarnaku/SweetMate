@@ -22,12 +22,14 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { EmptyState } from "@/components/EmptyState";
 import { ActionMenuModal } from "@/components/ActionMenuModal";
 import { FloatingActionButton, useFloatingActionMetrics } from "@/components/FloatingActionButton";
-import { HeaderActions } from "@/components/HeaderActions";
+import { ScreenHeader } from "@/components/ScreenHeader";
+import { InlineFeedback } from "@/components/InlineFeedback";
 import { RoommateAvatar } from "@/components/RoommateAvatar";
 import { Surface } from "@/components/Surface";
 import { useAppContextSelector, type BorrowItem } from "@/context/AppContext";
 import { useTheme } from "@/constants/colors";
 import { historyPage, isHistoricalResolution } from "@/lib/resolutionHistory";
+import { isBeforeLocalCalendarDay } from "@/lib/choreOccurrences";
 import {
   canManageBorrowItem,
   canSaveBorrowDraft,
@@ -139,7 +141,7 @@ export default function BorrowScreen() {
     return {
       activeBorrows: active,
       returnedBorrows: history,
-      overdue: active.filter((borrow) => !borrow.returned && new Date(borrow.dueDate) < new Date()),
+      overdue: active.filter((borrow) => !borrow.returned && isBeforeLocalCalendarDay(borrow.dueDate)),
     };
   }, [borrowItems]);
   const visibleReturnedBorrows = useMemo(
@@ -277,27 +279,11 @@ export default function BorrowScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View
-        style={[
-          styles.header,
-          {
-            paddingTop: topPad + 16,
-            backgroundColor: colors.background,
-          },
-        ]}
-      >
-        <View>
-          <Text style={[styles.title, { color: colors.foreground }]}>
-            Borrowing
-          </Text>
-          <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-            Track shared items between Sweetmates
-          </Text>
-        </View>
-        <View style={styles.headerButtons}>
-          <HeaderActions />
-        </View>
-      </View>
+      <ScreenHeader
+        title="Borrowing"
+        subtitle="Track shared items between Sweetmates"
+        topPadding={topPad + 16}
+      />
 
       {overdue.length > 0 ? (
         <View
@@ -316,21 +302,7 @@ export default function BorrowScreen() {
         </View>
       ) : null}
       {actionError ? (
-        <View
-          accessibilityLiveRegion="assertive"
-          style={[
-            styles.actionError,
-            {
-              backgroundColor: colors.destructive + "12",
-              borderColor: colors.destructive + "44",
-            },
-          ]}
-        >
-          <Feather name="alert-circle" size={16} color={colors.destructive} />
-          <Text style={[styles.overdueText, { color: colors.destructive }]}>
-            {actionError}
-          </Text>
-        </View>
+        <InlineFeedback message={actionError} tone="error" style={styles.actionError} />
       ) : null}
 
       <FlatList
@@ -447,7 +419,7 @@ export default function BorrowScreen() {
           const borrowerName = borrower?.name ?? borrow.borrowerName ?? "Former Sweetmate";
           const isSelfBorrow = borrow.borrowedFrom === borrow.borrowedBy;
           const isOverdueItem =
-            !borrow.returned && new Date(borrow.dueDate) < new Date();
+            !borrow.returned && isBeforeLocalCalendarDay(borrow.dueDate);
           const dueText = borrow.returned
             ? `Returned ${new Date(borrow.returnedAt ?? "").toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
             : formatDue(borrow.dueDate);
@@ -884,9 +856,7 @@ export default function BorrowScreen() {
           </View>
 
           {formError && (
-            <Text style={[styles.notesText, { color: colors.destructive }]}>
-              {formError}
-            </Text>
+            <InlineFeedback message={formError} tone="error" />
           )}
 
           <TouchableOpacity

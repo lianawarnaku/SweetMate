@@ -7,6 +7,7 @@ import {
   Dimensions,
   FlatList,
   KeyboardAvoidingView,
+  LayoutAnimation,
   Modal,
   PanResponder,
   Platform,
@@ -37,10 +38,12 @@ import {
   useAppContextSelector,
 } from "@/context/AppContext";
 import { useTheme } from "@/constants/colors";
+import { motion, radii, spacing, typography } from "@/constants/designTokens";
 import { success as hapticSuccess, tapLight } from "@/lib/haptics";
 import { clampTabIndicatorX, resolveDraggedTabIndex } from "@/lib/tabBarGesture";
 import { useDraggableSheet } from "@/hooks/useDraggableSheet";
 import { useChoreLifecycleNow } from "@/hooks/useChoreLifecycleNow";
+import { useAccessibilityPreferences } from "@/hooks/useAccessibilityPreferences";
 import {
   exportChoreToDestinations,
   getExternalTaskDestination,
@@ -51,6 +54,8 @@ import {
 import { reportRuntimeError } from "@/lib/runtimeDiagnostics";
 import { isActiveSweetMember, resolveChorePermissions } from "@/lib/chorePermissions";
 import { logChorePermissionCheck } from "@/lib/choreDiagnostics";
+import { selectUpNextChore } from "@/lib/homeFocus";
+import { compactOverdueItems } from "@/lib/overdueDisplay";
 import { CHORE_RECURRENCE_LABELS } from "@/lib/choreSchedule";
 import {
   deriveCalendarItems,
@@ -61,6 +66,7 @@ import {
 } from "@/lib/calendarItems";
 import {
   choreLocalDateKey,
+  isBeforeLocalCalendarDay,
   isChoreActiveOnDay,
 } from "@/lib/choreOccurrences";
 import {
@@ -83,7 +89,122 @@ const CATEGORIES: { key: ChoreCategory; label: string; icon: keyof typeof Feathe
 ];
 
 type Filter = "week" | "today" | "done" | "archived" | "day";
-type HomeSectionId = "my-chores" | "shopping";
+type HomeSectionId = "my-chores" | "schedule" | "shopping";
+
+function TodayFocusCard({
+  chore,
+  remainingCount,
+  completedCount,
+  totalCount,
+  shoppingCount,
+  reduceMotion,
+  onOpenChore,
+}: {
+  chore?: Chore;
+  remainingCount: number;
+  completedCount: number;
+  totalCount: number;
+  shoppingCount: number;
+  reduceMotion: boolean;
+  onOpenChore: (chore: Chore) => void;
+}) {
+  const colors = useTheme();
+  const progress = totalCount > 0 ? completedCount / totalCount : 1;
+  const progressAnimation = useRef(new Animated.Value(progress)).current;
+  const allDone = remainingCount === 0;
+
+  useEffect(() => {
+    if (reduceMotion) {
+      progressAnimation.setValue(progress);
+      return;
+    }
+    Animated.timing(progressAnimation, {
+      toValue: progress,
+      duration: motion.standard,
+      useNativeDriver: false,
+    }).start();
+  }, [progress, progressAnimation, reduceMotion]);
+
+  return (
+    <Surface level="elevated" style={[styles.todayFocusCard, { borderColor: colors.border }]}>
+      <View style={styles.todayFocusHeader}>
+        <View style={[styles.todayIcon, { backgroundColor: colors.secondary }]}>
+          <Feather
+            name={allDone ? "check" : "sun"}
+            size={18}
+            color={allDone ? colors.success : colors.foreground}
+          />
+        </View>
+        <View style={styles.todayHeadingGroup}>
+          <Text style={[styles.todayEyebrow, { color: colors.mutedForeground }]}>TODAY</Text>
+          <Text style={[styles.todayTitle, { color: colors.foreground }]}>
+            {allDone
+              ? "You're all caught up"
+              : `${remainingCount} ${remainingCount === 1 ? "chore" : "chores"} need attention`}
+          </Text>
+        </View>
+        <Text style={[styles.todayProgressCount, { color: colors.mutedForeground }]}>
+          {completedCount}/{totalCount}
+        </Text>
+      </View>
+
+      <View style={styles.progressSection}>
+        <View style={styles.todayProgressLabelRow}>
+          <Text style={[styles.todayProgressLabel, { color: colors.mutedForeground }]}>My Progress</Text>
+          <Text style={[styles.todayProgressValue, { color: colors.mutedForeground }]}>
+            {completedCount}/{totalCount} done
+          </Text>
+        </View>
+        <View style={[styles.todayProgressTrack, { backgroundColor: colors.muted }]}>
+          <Animated.View
+            style={[
+              styles.todayProgressFill,
+              {
+                backgroundColor: colors.success,
+                width: progressAnimation.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: ["0%", "100%"],
+                }),
+              },
+            ]}
+          />
+        </View>
+      </View>
+
+      {chore ? (
+        <TouchableOpacity
+          style={[styles.upNextRow, { backgroundColor: colors.muted }]}
+          onPress={() => onOpenChore(chore)}
+          activeOpacity={0.72}
+          accessibilityRole="button"
+          accessibilityLabel={`Up next: ${chore.title}`}
+          accessibilityHint="Opens chore actions"
+        >
+          <View style={styles.upNextCopy}>
+            <Text style={[styles.upNextLabel, { color: colors.mutedForeground }]}>UP NEXT</Text>
+            <Text style={[styles.upNextTitle, { color: colors.foreground }]} numberOfLines={1}>
+              {chore.title}
+            </Text>
+            <Text style={[styles.upNextMeta, { color: colors.mutedForeground }]}>
+              {formatDueDate(chore.dueDate)}
+            </Text>
+          </View>
+          <View style={[styles.upNextAction, { borderColor: colors.border }]}>
+            <Feather name="arrow-up-right" size={17} color={colors.foreground} />
+          </View>
+        </TouchableOpacity>
+      ) : (
+        <View style={styles.todayQuietState}>
+          <Text style={[styles.todayQuietCopy, { color: colors.mutedForeground }]}>
+            {shoppingCount > 0
+              ? `${shoppingCount} shopping ${shoppingCount === 1 ? "item is" : "items are"} still waiting`
+              : "Nothing else needs your attention right now"}
+          </Text>
+        </View>
+      )}
+    </Surface>
+  );
+}
 
 function CollapsibleSectionHeader({
   title,
@@ -101,23 +222,28 @@ function CollapsibleSectionHeader({
   const colors = useTheme();
   return (
     <TouchableOpacity
-      style={styles.sectionTitleRow}
+      style={[
+        styles.sectionTitleRow,
+        { backgroundColor: colors.muted, borderColor: colors.border },
+      ]}
       onPress={onToggle}
       activeOpacity={0.7}
       accessibilityRole="button"
       accessibilityState={{ expanded }}
       accessibilityLabel={`${expanded ? "Collapse" : "Expand"} ${title}, ${count} ${count === 1 ? "item" : "items"}`}
     >
-      <View style={[styles.sectionDividerLine, { backgroundColor: colors.border }]} />
-      <View style={styles.sectionDividerLabel}>
-        <Feather name={icon} size={14} color={colors.mutedForeground} />
+      <View style={[styles.sectionIcon, { backgroundColor: colors.secondary }]}>
+        <Feather name={icon} size={16} color={colors.foreground} />
+      </View>
+      <View style={styles.sectionTitleCopy}>
         <Text style={[styles.sectionTitleText, { color: colors.foreground }]}>{title}</Text>
+      </View>
+      <View style={[styles.sectionCountBadge, { backgroundColor: colors.secondary }]}>
         <Text style={[styles.sectionTitleCount, { color: colors.mutedForeground }]}>
           {count}
         </Text>
-        <Feather name={expanded ? "chevron-down" : "chevron-right"} size={16} color={colors.mutedForeground} />
       </View>
-      <View style={[styles.sectionDividerLine, { backgroundColor: colors.border }]} />
+      <Feather name={expanded ? "chevron-up" : "chevron-down"} size={18} color={colors.mutedForeground} />
     </TouchableOpacity>
   );
 }
@@ -144,7 +270,7 @@ function isSameDay(left: Date | string, right: Date | string) {
 
 function isOverdue(dateStr: string, completed: boolean) {
   if (completed) return false;
-  return new Date(dateStr) < new Date();
+  return isBeforeLocalCalendarDay(dateStr);
 }
 
 function formatDueDate(dateStr: string) {
@@ -184,12 +310,14 @@ function ChoreRow({
   onManage,
 }: ChoreRowProps) {
   const colors = useTheme();
+  const { reduceMotion } = useAccessibilityPreferences();
   const pointsEnabled = useAppContextSelector(
     (context) => context.pointsEnabled,
   );
   const cat = CATEGORIES.find((c) => c.key === chore.category) ?? CATEGORIES[5];
   const overdue = isOverdue(chore.dueDate, chore.completed);
   const handleCheckPress = () => {
+    if (!reduceMotion) LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     onSetCompleted(chore.id, !chore.completed);
     if (!chore.completed) hapticSuccess();
@@ -202,10 +330,18 @@ function ChoreRow({
     : isToday(chore.dueDate)
     ? colors.primary
     : colors.mutedForeground;
+  const dueIcon = chore.completed
+    ? "check-circle"
+    : overdue
+      ? "alert-circle"
+      : isToday(chore.dueDate)
+        ? "clock"
+        : "calendar";
 
   return (
     <View style={{ borderRadius: 12, overflow: "hidden", position: "relative" }}>
       <Surface
+        level="subtle"
         style={[
           styles.choreRow,
           {
@@ -240,13 +376,8 @@ function ChoreRow({
         </View>
       )}
 
-      <TouchableOpacity
+      <View
         style={styles.choreInfo}
-        activeOpacity={0.65}
-        delayLongPress={450}
-        onLongPress={onManage}
-        accessibilityRole="button"
-        accessibilityLabel={`Manage ${chore.title}`}
       >
         <Text
           style={[
@@ -261,13 +392,29 @@ function ChoreRow({
           {chore.title}
         </Text>
         <View style={styles.choreMeta}>
-          <Text style={[styles.dueDateText, { color: dueDateColor }]}>
+          <View
+            style={[
+              styles.dueStatus,
+              { backgroundColor: overdue ? colors.warning + "16" : colors.muted },
+            ]}
+          >
+            <Feather name={dueIcon} size={11} color={dueDateColor} />
+            <Text style={[styles.dueDateText, { color: dueDateColor }]} numberOfLines={1}>
             {formatDueDate(chore.dueDate)}
-            {chore.recurring ? ` · ${CHORE_RECURRENCE_LABELS[chore.recurring]}` : ""}
-            {chore.assignmentMode === "round-robin" ? " · Round Robin" : ""}
-          </Text>
+            </Text>
+          </View>
+          {chore.recurring ? (
+            <Text style={[styles.choreDetailText, { color: colors.mutedForeground }]} numberOfLines={1}>
+              {CHORE_RECURRENCE_LABELS[chore.recurring]}
+            </Text>
+          ) : null}
+          {chore.assignmentMode === "round-robin" ? (
+            <Text style={[styles.choreDetailText, { color: colors.mutedForeground }]} numberOfLines={1}>
+              Round Robin
+            </Text>
+          ) : null}
         </View>
-      </TouchableOpacity>
+      </View>
 
       <View style={styles.trailingActions}>
         <TouchableOpacity
@@ -313,7 +460,7 @@ function CalendarDayDetails({
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <TouchableOpacity style={styles.dayModalBackdrop} activeOpacity={1} onPress={onClose} accessibilityLabel="Close scheduled items" />
-      <Surface style={[styles.dayModalSheet, { borderColor: colors.border }]}>
+      <Surface level="modal" style={[styles.dayModalSheet, { borderColor: colors.border }]}>
         <View style={styles.dayModalHandle} />
         <View style={styles.dayModalHeader}>
           <View style={{ flex: 1 }}>
@@ -393,17 +540,19 @@ export default function MyChoresScreen() {
     }));
 
   const currentUser = roommates.find((r) => r.id === currentUserId);
+  const { reduceMotion } = useAccessibilityPreferences();
   const { listView, pinchGesture, showCoach, dismissCoach } =
     usePinchListView(currentUserId, "home");
   const lifecycleNow = useChoreLifecycleNow(chores);
   const [filter, setFilter] = useState<Filter>("today");
+  const [showEarlierChores, setShowEarlierChores] = useState(false);
   const [selectedDate, setSelectedDate] = useState(() => new Date());
   const [weekOffset, setWeekOffset] = useState(0);
   const [calendarExpanded, setCalendarExpanded] = useState(false);
   const [dayDetailsOpen, setDayDetailsOpen] = useState(false);
   const [expandedHomeSections, setExpandedHomeSections] = useState<
     Record<HomeSectionId, boolean>
-  >({ "my-chores": true, shopping: true });
+  >({ "my-chores": true, schedule: false, shopping: true });
   const [showModal, setShowModal] = useState(false);
   const [editingChoreId, setEditingChoreId] = useState<string | null>(null);
   const [actionChoreId, setActionChoreId] = useState<string | null>(null);
@@ -505,6 +654,15 @@ export default function MyChoresScreen() {
     () => activePersonalChores.reduce((count, chore) => count + (chore.completed ? 0 : 1), 0),
     [activePersonalChores],
   );
+  const todayChores = useMemo(
+    () =>
+      activePersonalChores.filter(
+        (chore) => isChoreActiveOnDay(chore, lifecycleNow),
+      ),
+    [activePersonalChores, lifecycleNow],
+  );
+  const todayIncompleteChores = todayChores.filter((chore) => !chore.completed);
+  const upNextChore = selectUpNextChore(todayIncompleteChores);
   const archivedPersonalChoreCount = useMemo(
     () => myChores.filter((chore) => isArchivedIncomplete(chore, lifecycleNow)).length,
     [lifecycleNow, myChores],
@@ -774,10 +932,18 @@ export default function MyChoresScreen() {
     return colors.success;
   };
   const toggleHomeSection = (sectionId: HomeSectionId) => {
+    if (!reduceMotion) LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setExpandedHomeSections((current) => ({
       ...current,
       [sectionId]: !current[sectionId],
     }));
+    Haptics.selectionAsync();
+  };
+  const selectFilter = (nextFilter: Filter) => {
+    if (nextFilter === filter) return;
+    if (!reduceMotion) LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setFilter(nextFilter);
+    setShowEarlierChores(false);
     Haptics.selectionAsync();
   };
   const filtered = useMemo(
@@ -798,13 +964,17 @@ export default function MyChoresScreen() {
     },
     [activePersonalChores, filter, lifecycleNow, myChores, selectedDate],
   );
-
-  const completedCount = useMemo(
-    () => activePersonalChores.filter((chore) => chore.completed).length,
-    [activePersonalChores],
-  );
-  const totalCount = activePersonalChores.length;
-  const healthPct = totalCount > 0 ? completedCount / totalCount : 0;
+  const displayedChores = useMemo(() => {
+    if (filter !== "today") return filtered;
+    return compactOverdueItems(filtered, {
+      expanded: showEarlierChores,
+      isOverdue: (chore) => isOverdue(chore.dueDate, chore.completed),
+      keyForRepeatedItem: (chore) => chore.recurring
+        ? chore.title.trim().toLocaleLowerCase()
+        : chore.id,
+    }).visibleItems;
+  }, [filter, filtered, showEarlierChores]);
+  const hiddenEarlierChoreCount = filter === "today" ? filtered.length - displayedChores.length : 0;
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const botPad = Platform.OS === "web" ? 34 : 0;
@@ -861,7 +1031,7 @@ export default function MyChoresScreen() {
     <GestureDetector gesture={pinchGesture}>
       <View style={[styles.container, { backgroundColor: colors.background }]}>
       <FlatList
-        data={expandedHomeSections["my-chores"] ? filtered : []}
+        data={expandedHomeSections["my-chores"] ? displayedChores : []}
         keyExtractor={(item) => item.id}
         contentContainerStyle={[
           styles.listContent,
@@ -900,7 +1070,29 @@ export default function MyChoresScreen() {
 
             <PinchListViewCoach visible={showCoach} onDismiss={dismissCoach} />
 
-            {!listView && <Surface style={[styles.calendarCard, { borderColor: colors.border }]}>
+            {!listView && (
+              <TodayFocusCard
+                chore={upNextChore}
+                remainingCount={todayIncompleteChores.length}
+                completedCount={todayChores.length - todayIncompleteChores.length}
+                totalCount={todayChores.length}
+                shoppingCount={myShoppingItems.length}
+                reduceMotion={reduceMotion}
+                onOpenChore={openChoreActions}
+              />
+            )}
+
+            {!listView && (
+              <CollapsibleSectionHeader
+                title="Schedule"
+                count={selectedCalendarItems.length}
+                icon="calendar"
+                expanded={expandedHomeSections.schedule}
+                onToggle={() => toggleHomeSection("schedule")}
+              />
+            )}
+
+            {!listView && expandedHomeSections.schedule && <Surface style={[styles.calendarCard, { borderColor: colors.border }]}>
               <View style={styles.calendarTopRow}>
                 <TouchableOpacity
                   style={[styles.calendarNavButton, { backgroundColor: colors.muted }]}
@@ -1120,28 +1312,6 @@ export default function MyChoresScreen() {
               }}
             />
 
-            {!listView && <View style={styles.progressSection}>
-              <View style={styles.progressHeader}>
-                <Text style={[styles.progressLabel, { color: colors.foreground }]}>
-                  My Progress
-                </Text>
-                <Text style={[styles.progressCount, { color: colors.mutedForeground }]}>
-                  {completedCount}/{totalCount} done
-                </Text>
-              </View>
-              <View style={[styles.progressTrack, { backgroundColor: colors.muted }]}>
-                <View
-                  style={[
-                    styles.progressFill,
-                    {
-                      backgroundColor: colors.success,
-                      width: `${healthPct * 100}%` as `${number}%`,
-                    },
-                  ]}
-                />
-              </View>
-            </View>}
-
             <CollapsibleSectionHeader
               title="My Chores"
               count={filtered.length}
@@ -1150,7 +1320,13 @@ export default function MyChoresScreen() {
               onToggle={() => toggleHomeSection("my-chores")}
             />
 
-            {expandedHomeSections["my-chores"] && <View style={styles.filterRow}>
+            {expandedHomeSections["my-chores"] && <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.filterRow}
+              style={styles.filterScroller}
+              accessibilityRole="tablist"
+            >
               {(["today", "done", "week", "archived"] as Filter[]).map((f) => (
                 <TouchableOpacity
                   key={f}
@@ -1159,9 +1335,12 @@ export default function MyChoresScreen() {
                     {
                       backgroundColor:
                         filter === f ? selectedTint : colors.secondary,
+                      borderColor: filter === f ? colors.foreground + "35" : colors.border,
                     },
                   ]}
-                  onPress={() => setFilter(f)}
+                  onPress={() => selectFilter(f)}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: filter === f }}
                   accessibilityLabel={
                     f === "today"
                       ? "Show today's chores"
@@ -1172,13 +1351,19 @@ export default function MyChoresScreen() {
                           : "Show this week's chores"
                   }
                 >
-                  {f === "week" || f === "archived" ? (
-                    <Feather
-                      name={f === "archived" ? "archive" : "calendar"}
-                      size={13}
-                      color={filter === f ? colors.foreground : colors.mutedForeground}
-                    />
-                  ) : null}
+                  <Feather
+                    name={
+                      f === "archived"
+                        ? "archive"
+                        : f === "week"
+                          ? "calendar"
+                          : f === "done"
+                            ? "check-circle"
+                            : "sun"
+                    }
+                    size={13}
+                    color={filter === f ? colors.foreground : colors.mutedForeground}
+                  />
                   <Text
                     style={[
                       styles.filterText,
@@ -1190,37 +1375,62 @@ export default function MyChoresScreen() {
                     {f === "today"
                       ? "Today"
                       : f === "done"
-                        ? "Done"
+                        ? "Completed"
                         : f === "archived"
                           ? `Archived ${archivedPersonalChoreCount}`
-                          : "Week"}
+                          : "This Week"}
                   </Text>
                 </TouchableOpacity>
               ))}
-            </View>}
+            </ScrollView>}
             {expandedHomeSections["my-chores"] && filter === "done" ? (
               <Text style={[styles.doneRetentionHint, { color: colors.mutedForeground }]}>
                 Completed chores stay here for 7 days. Older activity is available in Calendar.
               </Text>
             ) : null}
+            {expandedHomeSections["my-chores"] && hiddenEarlierChoreCount > 0 ? (
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel={`${hiddenEarlierChoreCount} earlier chores hidden`}
+                accessibilityHint="Shows every overdue chore in today's list"
+                onPress={() => setShowEarlierChores(true)}
+                style={[styles.earlierChoresBanner, { backgroundColor: colors.muted, borderColor: colors.border }]}
+              >
+                <View style={styles.earlierChoresCopy}>
+                  <Feather name="archive" size={16} color={colors.primary} />
+                  <View style={styles.earlierChoresTextWrap}>
+                    <Text style={[styles.earlierChoresTitle, { color: colors.foreground }]}>
+                      {hiddenEarlierChoreCount} earlier {hiddenEarlierChoreCount === 1 ? "chore" : "chores"} tucked away
+                    </Text>
+                    <Text style={[styles.earlierChoresSubtitle, { color: colors.mutedForeground }]}>Focus on what matters now. Nothing was removed.</Text>
+                  </View>
+                </View>
+                <Text style={[styles.earlierChoresAction, { color: colors.primary }]}>Show all</Text>
+              </TouchableOpacity>
+            ) : null}
           </>
         }
         ListEmptyComponent={expandedHomeSections["my-chores"] ? (
           <EmptyState
-            icon="check-circle"
+            compact
+            icon={filter === "archived" ? "archive" : filter === "week" ? "calendar" : "check-circle"}
             title={
               filter === "done"
                 ? "No completed chores yet"
                 : filter === "archived"
                   ? "No archived chores"
-                  : "No chores here"
+                  : filter === "week"
+                    ? "Your week is clear"
+                    : "Nothing left for today"
             }
             subtitle={
               filter === "done"
-                ? "Complete some chores to see them here"
+                ? "Completed chores from the last seven days will appear here."
                 : filter === "archived"
-                  ? "Older incomplete chores will appear here"
-                  : "Tap + to add your first chore"
+                  ? "Older incomplete chores will appear here when they need review."
+                  : filter === "week"
+                    ? "You have no remaining chores scheduled this week."
+                    : "Enjoy the breathing room, or tap + to add something new."
             }
           />
         ) : null}
@@ -1242,7 +1452,12 @@ export default function MyChoresScreen() {
                   onToggle={() => toggleHomeSection("shopping")}
                 />
                 {expandedHomeSections.shopping && (myShoppingItems.length === 0 ? (
-                  <Text style={[styles.sectionEmpty, { color: colors.mutedForeground }]}>No active shopping items</Text>
+                  <EmptyState
+                    compact
+                    icon="shopping-bag"
+                    title="Your shopping list is clear"
+                    subtitle="Items assigned to you will appear here."
+                  />
                 ) : (
                 <Surface
                   style={[
@@ -1429,16 +1644,72 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   totalPointsText: { fontFamily: "Inter_700Bold", fontSize: 14 },
-  progressSection: {
-    paddingHorizontal: 2,
-    paddingVertical: 4,
-    marginBottom: 10,
-  },
-  calendarCard: {
-    borderRadius: 22,
+  progressSection: { marginTop: spacing.lg },
+  todayFocusCard: {
+    borderRadius: radii.floating,
     borderWidth: 1,
-    padding: 12,
-    marginBottom: 14,
+    padding: spacing.lg,
+    marginBottom: spacing.md,
+  },
+  todayFocusHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+  },
+  todayIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: radii.control,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  todayHeadingGroup: { flex: 1, minWidth: 0 },
+  todayEyebrow: { ...typography.caption, fontSize: 11, letterSpacing: 1.2 },
+  todayTitle: { ...typography.heading, marginTop: spacing.hairline },
+  todayProgressCount: { ...typography.caption, fontVariant: ["tabular-nums"] },
+  todayProgressLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: spacing.sm,
+  },
+  todayProgressLabel: { ...typography.caption },
+  todayProgressValue: { ...typography.caption, fontVariant: ["tabular-nums"] },
+  todayProgressTrack: {
+    height: 5,
+    borderRadius: radii.pill,
+    overflow: "hidden",
+  },
+  todayProgressFill: { height: "100%", borderRadius: radii.pill },
+  upNextRow: {
+    minHeight: 72,
+    borderRadius: radii.control,
+    marginTop: spacing.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+  },
+  upNextCopy: { flex: 1, minWidth: 0 },
+  upNextLabel: { ...typography.caption, fontSize: 10, letterSpacing: 1 },
+  upNextTitle: { ...typography.label, marginTop: spacing.hairline },
+  upNextMeta: { ...typography.caption, marginTop: spacing.hairline },
+  upNextAction: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  todayQuietState: { paddingTop: spacing.lg },
+  todayQuietCopy: { ...typography.caption, textAlign: "center" },
+  calendarCard: {
+    borderRadius: radii.card,
+    borderWidth: 1,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
   },
   calendarTopRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   calendarNavButton: {
@@ -1511,7 +1782,7 @@ const styles = StyleSheet.create({
   previewOwner: { maxWidth: 72, fontFamily: "Inter_400Regular", fontSize: 11 },
   previewMore: { fontFamily: "Inter_600SemiBold", fontSize: 11, marginLeft: 16 },
   dayModalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.35)" },
-  dayModalSheet: { position: "absolute", left: 0, right: 0, bottom: 0, borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 1, paddingBottom: Platform.OS === "ios" ? 28 : 16 },
+  dayModalSheet: { position: "absolute", left: 0, right: 0, bottom: 0, borderTopLeftRadius: radii.floating, borderTopRightRadius: radii.floating, borderWidth: 1, paddingBottom: Platform.OS === "ios" ? 28 : spacing.lg },
   dayModalHandle: { width: 38, height: 4, borderRadius: 2, backgroundColor: "#9CA3AF", opacity: 0.55, alignSelf: "center", marginTop: 9 },
   dayModalHeader: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 18, paddingTop: 14, paddingBottom: 10 },
   dayModalTitle: { fontFamily: "Inter_700Bold", fontSize: 18 },
@@ -1526,67 +1797,56 @@ const styles = StyleSheet.create({
   dayItemTitle: { fontFamily: "Inter_600SemiBold", fontSize: 13 },
   dayItemDescription: { fontFamily: "Inter_400Regular", fontSize: 11, lineHeight: 15, marginTop: 2 },
   dayItemAmount: { fontFamily: "Inter_700Bold", fontSize: 12 },
-  progressHeader: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: 8,
-    marginBottom: 8,
-  },
-  progressLabel: { fontFamily: "Inter_600SemiBold", fontSize: 14, flexShrink: 1, paddingRight: 4 },
-  progressCount: { fontFamily: "Inter_400Regular", fontSize: 13, flexShrink: 0 },
-  progressTrack: {
-    height: 6,
-    borderRadius: 3,
-    overflow: "hidden",
-  },
-  progressFill: { height: 6, borderRadius: 3 },
   sectionTitleRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-    minHeight: 36,
-    marginTop: 18,
-    marginBottom: 10,
+    gap: spacing.md,
+    minHeight: 52,
+    marginTop: spacing.lg,
+    marginBottom: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: radii.control,
+    borderWidth: 1,
   },
-  sectionDividerLine: { flex: 1, height: StyleSheet.hairlineWidth },
-  sectionDividerLabel: {
-    flexDirection: "row",
+  sectionIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: radii.small,
     alignItems: "center",
     justifyContent: "center",
-    gap: 6,
-    flexShrink: 0,
   },
+  sectionTitleCopy: { flex: 1, minWidth: 0 },
   sectionTitleText: {
     fontFamily: "Inter_700Bold",
     fontSize: 15,
-    flexShrink: 1,
+  },
+  sectionCountBadge: {
+    minWidth: 28,
+    height: 24,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radii.pill,
+    alignItems: "center",
+    justifyContent: "center",
   },
   sectionTitleCount: {
     fontFamily: "Inter_500Medium",
     fontSize: 12,
-    flexShrink: 1,
-  },
-  sectionEmpty: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 4,
   },
   filterRow: {
-    flexDirection: "row",
     paddingHorizontal: 16,
     gap: 8,
-    marginBottom: 12,
+    paddingBottom: 12,
   },
+  filterScroller: { marginHorizontal: -16 },
   filterBtn: {
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
-    paddingHorizontal: 16,
-    paddingVertical: 7,
-    borderRadius: 20,
+    minHeight: 40,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: radii.pill,
+    borderWidth: 1,
   },
   filterText: { fontFamily: "Inter_600SemiBold", fontSize: 13 },
   doneRetentionHint: {
@@ -1597,21 +1857,43 @@ const styles = StyleSheet.create({
     marginTop: -4,
     marginBottom: 12,
   },
+  earlierChoresBanner: {
+    minHeight: 58,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderRadius: radii.card,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  earlierChoresCopy: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: 10 },
+  earlierChoresTextWrap: { flex: 1, minWidth: 0 },
+  earlierChoresTitle: { fontFamily: "Inter_600SemiBold", fontSize: 13 },
+  earlierChoresSubtitle: { fontFamily: "Inter_400Regular", fontSize: 11, lineHeight: 15, marginTop: 1 },
+  earlierChoresAction: { fontFamily: "Inter_700Bold", fontSize: 12 },
   listContent: { paddingHorizontal: 16, gap: 12 },
   choreRow: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 14,
-    borderRadius: 18,
+    paddingVertical: spacing.md,
+    paddingLeft: spacing.sm,
+    paddingRight: spacing.md,
+    borderRadius: radii.card,
     borderWidth: 1,
-    gap: 10,
+    gap: spacing.sm,
   },
   checkBox: {
+    width: 44,
+    height: 44,
     alignItems: "center",
     justifyContent: "center",
   },
   categoryVisual: {
-    width: 18,
+    width: 28,
+    height: 28,
+    borderRadius: radii.small,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1625,9 +1907,19 @@ const styles = StyleSheet.create({
   },
   leftPointsText: { fontFamily: "Inter_700Bold", fontSize: 10 },
   choreInfo: { flex: 1, minWidth: 0 },
-  choreTitle: { fontFamily: "Inter_500Medium", fontSize: 15 },
-  choreMeta: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 },
-  dueDateText: { fontFamily: "Inter_400Regular", fontSize: 12 },
+  choreTitle: { ...typography.label },
+  choreMeta: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginTop: spacing.xs, overflow: "hidden" },
+  dueStatus: {
+    minHeight: 24,
+    maxWidth: "68%",
+    borderRadius: radii.pill,
+    paddingHorizontal: spacing.sm,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+  },
+  dueDateText: { ...typography.caption, fontFamily: "Inter_500Medium", flexShrink: 1 },
+  choreDetailText: { ...typography.caption, fontSize: 11, flexShrink: 1 },
   pointsBadge: {
     paddingHorizontal: 8,
     paddingVertical: 3,
@@ -1641,8 +1933,8 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   taskActionsButton: {
-    width: 32,
-    height: 32,
+    width: 40,
+    height: 40,
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,

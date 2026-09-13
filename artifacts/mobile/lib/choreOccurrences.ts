@@ -19,6 +19,15 @@ export function choreLocalDateKey(value: string | Date): string {
   ].join("-");
 }
 
+export function isBeforeLocalCalendarDay(
+  value: string | Date,
+  reference: string | Date = new Date(),
+): boolean {
+  const valueKey = choreLocalDateKey(value);
+  const referenceKey = choreLocalDateKey(reference);
+  return Boolean(valueKey && referenceKey && valueKey < referenceKey);
+}
+
 export function choreScheduledDate(chore: Chore): string {
   return chore.scheduledDate ?? choreLocalDateKey(chore.dueDate);
 }

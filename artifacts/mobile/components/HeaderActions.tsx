@@ -27,7 +27,8 @@ export function HeaderActions() {
     <View style={styles.cluster}>
       <SmoothPressable
         accessibilityRole="button"
-        accessibilityLabel="Open household alerts"
+        accessibilityLabel={hasPendingAlert ? "Open household alerts, unread alerts available" : "Open household alerts"}
+        accessibilityHint="Shows household reminders and updates"
         onPress={() => router.push("/alerts")}
         containerStyle={styles.hitArea}
         style={[styles.button, { backgroundColor: colors.muted }]}
@@ -48,6 +49,7 @@ export function HeaderActions() {
       <SmoothPressable
         accessibilityRole="button"
         accessibilityLabel="Open settings"
+        accessibilityHint="Opens appearance, accessibility, and account settings"
         onPress={() => router.push("/settings")}
         containerStyle={styles.hitArea}
         style={[styles.button, { backgroundColor: colors.muted }]}

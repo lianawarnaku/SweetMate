@@ -32,13 +32,23 @@ export default function AlertsScreen() {
     appAlerts, markAlertRead, markAllAlertsRead,
   } = useAppContext();
   const [busy, setBusy] = useState(false);
+  const [overdueExpanded, setOverdueExpanded] = useState(false);
   const proposal = currentProposedChart?.status === "pending" ? currentProposedChart : null;
   const visibleAlerts = appAlerts.filter(
     (alert) => !alert.recipientId || alert.recipientId === currentUserId,
   );
+  const overdueAlerts = visibleAlerts.filter((alert) => alert.type === "overdue-chore");
+  const groupOverdueAlerts = overdueAlerts.length >= 3;
+  const informationalAlerts = groupOverdueAlerts
+    ? visibleAlerts.filter((alert) => alert.type !== "overdue-chore")
+    : visibleAlerts;
   const feedItems = [
     ...(proposal ? [{ type: "proposal" as const, id: proposal.id }] : []),
-    ...visibleAlerts.map((alert) => ({ type: "informational" as const, id: alert.id, alert })),
+    ...(groupOverdueAlerts ? [{ type: "overdue-summary" as const, id: "overdue-summary", alerts: overdueAlerts }] : []),
+    ...informationalAlerts.map((alert) => ({ type: "informational" as const, id: alert.id, alert })),
+    ...(groupOverdueAlerts && overdueExpanded
+      ? overdueAlerts.map((alert) => ({ type: "informational" as const, id: alert.id, alert }))
+      : []),
   ];
   const unreadCount = visibleAlerts.filter((alert) => !alert.readAt).length;
   const myApproval = chartApprovals.find((approval) => approval.memberId === currentUserId);
@@ -72,7 +82,12 @@ export default function AlertsScreen() {
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { paddingTop: insets.top + 12, borderBottomColor: colors.border }]}>
-        <TouchableOpacity onPress={() => router.back()} style={[styles.icon, { backgroundColor: colors.muted }]}>
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="Back from alerts"
+          onPress={() => router.back()}
+          style={[styles.icon, { backgroundColor: colors.muted }]}
+        >
           <Feather name="chevron-left" size={21} color={colors.foreground} />
         </TouchableOpacity>
         <Text style={[styles.title, { color: colors.foreground }]}>Alerts</Text>
@@ -91,6 +106,35 @@ export default function AlertsScreen() {
           </View>
         ) : (
           feedItems.map((feedItem) => {
+            if (feedItem.type === "overdue-summary") {
+              const unreadOverdue = feedItem.alerts.filter((alert) => !alert.readAt).length;
+              return (
+                <TouchableOpacity
+                  key={feedItem.id}
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded: overdueExpanded }}
+                  accessibilityLabel={`${feedItem.alerts.length} overdue chores${unreadOverdue ? `, ${unreadOverdue} unread` : ""}`}
+                  accessibilityHint={overdueExpanded ? "Collapses overdue chore alerts" : "Shows each overdue chore alert"}
+                  onPress={() => setOverdueExpanded((value) => !value)}
+                  activeOpacity={0.78}
+                  style={[styles.nudgeCard, { backgroundColor: colors.card, borderColor: unreadOverdue ? colors.primary : colors.border }]}
+                >
+                  <View style={[styles.nudgeIcon, { backgroundColor: colors.primary + "14" }]}>
+                    <Feather name="clock" size={19} color={colors.primary} />
+                  </View>
+                  <View style={styles.nudgeCopy}>
+                    <View style={styles.alertTitleRow}>
+                      {unreadOverdue ? <View style={[styles.unreadDot, { backgroundColor: colors.primary }]} /> : null}
+                      <Text style={[styles.nudgeTitle, { color: colors.foreground }]}>
+                        {feedItem.alerts.length} chores need attention
+                      </Text>
+                    </View>
+                    <Text style={[styles.alertMessage, { color: colors.mutedForeground }]}>Review your household schedule when you’re ready.</Text>
+                  </View>
+                  <Feather name={overdueExpanded ? "chevron-up" : "chevron-down"} size={19} color={colors.mutedForeground} />
+                </TouchableOpacity>
+              );
+            }
             if (feedItem.type === "informational") {
               const icon =
                 feedItem.alert.type === "difficulty-imbalance" ? "bar-chart-2" :
@@ -161,8 +205,8 @@ export default function AlertsScreen() {
                     );
                   })}
                 </View>
-                <TouchableOpacity disabled={busy || myApproval?.approved} onPress={() => act(approveProposedChart)} style={[styles.primary, { backgroundColor: colors.primary, opacity: busy || myApproval?.approved ? 0.55 : 1 }]}>
-                  <Text style={[styles.primaryText, { color: colors.primaryForeground }]}>{myApproval?.approved ? "Approved" : "Approve chart"}</Text>
+                <TouchableOpacity disabled={busy || myApproval?.approved} onPress={() => act(approveProposedChart)} style={[styles.primary, { backgroundColor: colors.action, opacity: busy || myApproval?.approved ? 0.55 : 1 }]}>
+                  <Text style={[styles.primaryText, { color: colors.actionForeground }]}>{myApproval?.approved ? "Approved" : "Approve chart"}</Text>
                 </TouchableOpacity>
                 {isHost && (
                   <TouchableOpacity disabled={busy} onPress={() => act(forceApproveProposedChart)} style={[styles.override, { borderColor: colors.primary }]}>

@@ -48,7 +48,7 @@ export function PreferencesOnboardingScreen() {
         <SmoothPressable
           accessibilityRole="button"
           onPress={finishPreferencesOnboarding}
-          style={[styles.continueButton, { backgroundColor: colors.primary }]}
+          style={[styles.continueButton, { backgroundColor: colors.action }]}
         >
           <Text style={styles.continueText}>Continue</Text>
           <Feather name="arrow-right" size={18} color="#fff" />
