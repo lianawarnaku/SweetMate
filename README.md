@@ -2,7 +2,7 @@
 
 **A happier home, together.** SweetMate helps roommates share the work of running a home—chores, expenses, shopping, and borrowed items—in one mobile app.
 
-[Visit the product website](https://sweetmate.info) · [Explore the source](https://github.com/lianawarnaku/SweetMate)
+[Try the iOS beta on TestFlight](https://testflight.apple.com/join/Ee5PRBzr) · [Visit the product website](https://sweetmate.info) · [Explore the source](https://github.com/lianawarnaku/SweetMate)
 
 Shared living often means scattered group chats, forgotten tasks, and uncertainty about who owes what. SweetMate brings those everyday decisions into a shared household workspace, with a personal view of what needs attention next.
 
@@ -14,6 +14,10 @@ Shared living often means scattered group chats, forgotten tasks, and uncertaint
 - **Keep track of borrowed items:** record loans, due dates, and returns.
 - **Set up a household:** invite roommates and plan the essentials for a shared home.
 - **Make it yours:** choose light or dark appearance, accent colors, and optional points and rankings.
+
+## Try SweetMate
+
+Open the [public TestFlight invitation](https://testflight.apple.com/join/Ee5PRBzr) on your iPhone, install Apple’s TestFlight app, and follow the invitation to install SweetMate. The link serves the latest build approved and enabled for external testing; it may lag behind `main`. Share feedback through TestFlight.
 
 ## Product preview
 
