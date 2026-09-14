@@ -1,6 +1,5 @@
 import { BlurView } from "expo-blur";
 import { GlassView, isGlassEffectAPIAvailable, isLiquidGlassAvailable } from "expo-glass-effect";
-import { LinearGradient } from "expo-linear-gradient";
 import React, { type ReactNode, useEffect, useState } from "react";
 import { AccessibilityInfo, Platform, Pressable, StyleSheet, View, type PressableProps, type StyleProp, type ViewProps, type ViewStyle } from "react-native";
 
@@ -39,7 +38,10 @@ function useReduceTransparency() {
 export function GlassSurface({ children, style, variant = "regular", interactive = false, ...props }: ViewProps & { variant?: GlassVariant; interactive?: boolean }) {
   const colors = useTheme();
   const reduceTransparency = useReduceTransparency();
-  const nativeGlass = Platform.OS === "ios" && !reduceTransparency && isLiquidGlassAvailable() && isGlassEffectAPIAvailable();
+  // Sheets need a stable frosted fill; native interactive glass adds a bright
+  // specular highlight and does not honor our modal opacity.
+  const isSheet = variant === "modal" || variant === "destructive";
+  const nativeGlass = Platform.OS === "ios" && !isSheet && !interactive && !reduceTransparency && isLiquidGlassAvailable() && isGlassEffectAPIAvailable();
   const level = variant === "destructive" ? "modal" : variantLevel[variant];
   const treatment = glass[level];
   const baseColor = variant === "destructive"
@@ -55,8 +57,8 @@ export function GlassSurface({ children, style, variant = "regular", interactive
   const surfaceStyle = [
     styles.clip,
     {
-      borderColor: colors.glassRim,
-      shadowColor: colors.mode === "dark" ? "#000000" : colors.accentGlow,
+      borderColor: colors.divider,
+      shadowColor: "#000000",
       shadowOpacity: shadow.shadowOpacity,
       shadowRadius: shadow.shadowRadius,
       elevation: shadow.elevation,
@@ -66,28 +68,31 @@ export function GlassSurface({ children, style, variant = "regular", interactive
 
   if (nativeGlass) {
     return (
-      <GlassView {...props} colorScheme={colors.mode} glassEffectStyle="regular" isInteractive={interactive} tintColor={variant === "destructive" ? colors.destructive : colors.accent} style={surfaceStyle}>
+      <GlassView {...props} colorScheme={colors.mode} glassEffectStyle="regular" isInteractive={interactive} tintColor={colors.mode === "dark" ? "#242428" : "#E8E8ED"} style={surfaceStyle}>
         {children}
       </GlassView>
     );
   }
-  // Web blur can rasterize a surface together with its children, making text
-  // and icons appear soft. Keep the translucent glass color but render it
-  // without BlurView in browser previews.
-  if (reduceTransparency || Platform.OS === "web") {
-    return (
-      <View {...props} style={[surfaceStyle, { backgroundColor: baseColor, borderColor: colors.divider }]}>
-        <View pointerEvents="none" style={[styles.topRim, { backgroundColor: colors.glassHighlight }]} />
-        {children}
-      </View>
-    );
-  }
+  // Blur only the background layer so labels and icons remain sharp.
+  // A dense modal tint prevents the underlying page showing through the text.
+  const fill = reduceTransparency
+    ? (colors.mode === "dark" ? "#202024" : "#F7F7FA")
+    : baseColor;
   return (
     <View {...props} style={surfaceStyle}>
-      <BlurView intensity={treatment.blurIntensity} tint={colors.mode} style={StyleSheet.absoluteFill} />
-      <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: baseColor }]} />
-      <LinearGradient pointerEvents="none" colors={[`${variant === "destructive" ? colors.destructive : colors.accent}30`, "transparent"]} start={{ x: 0.5, y: 0 }} end={{ x: 0.5, y: 0.48 }} style={StyleSheet.absoluteFill} />
-      <View pointerEvents="none" style={[styles.topRim, { backgroundColor: colors.glassHighlight }]} />
+      {!reduceTransparency && Platform.OS !== "web" && (
+        <BlurView pointerEvents="none" intensity={treatment.blurIntensity} tint={colors.mode} style={StyleSheet.absoluteFill} />
+      )}
+      <View
+        pointerEvents="none"
+        style={[
+          StyleSheet.absoluteFill,
+          { backgroundColor: fill },
+          Platform.OS === "web" && !reduceTransparency && isSheet
+            ? styles.webFrost
+            : undefined,
+        ]}
+      />
       {children}
     </View>
   );
@@ -98,9 +103,7 @@ type GlassButtonProps = Omit<PressableProps, "children" | "style"> & { children:
 export function AccentButton({ children, style, disabled, ...props }: GlassButtonProps) {
   const colors = useTheme();
   return (
-    <Pressable {...props} disabled={disabled} style={({ pressed }) => [styles.button, { shadowColor: colors.accentGlow, shadowOpacity: colors.accentGlowOpacity }, style, disabled && styles.disabled, pressed && !disabled && styles.pressed]}>
-      <GlassSurface interactive style={StyleSheet.absoluteFill} />
-      <LinearGradient colors={colors.accentGradient} start={{ x: 0, y: 1 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} />
+    <Pressable {...props} disabled={disabled} style={({ pressed }) => [styles.button, { backgroundColor: colors.action }, style, disabled && styles.disabled, pressed && !disabled && styles.pressed]}>
       <View style={styles.buttonContent}>{children}</View>
     </Pressable>
   );
@@ -109,7 +112,7 @@ export function AccentButton({ children, style, disabled, ...props }: GlassButto
 export function NeutralButton({ children, style, disabled, ...props }: GlassButtonProps) {
   const colors = useTheme();
   return (
-    <Pressable {...props} disabled={disabled} style={({ pressed }) => [styles.button, { backgroundColor: colors.textPrimary }, style, disabled && styles.disabled, pressed && !disabled && styles.pressed]}>
+    <Pressable {...props} disabled={disabled} style={({ pressed }) => [styles.button, { backgroundColor: colors.surfaceElevated }, style, disabled && styles.disabled, pressed && !disabled && styles.pressed]}>
       <View style={styles.buttonContent}>{children}</View>
     </Pressable>
   );
@@ -117,7 +120,7 @@ export function NeutralButton({ children, style, disabled, ...props }: GlassButt
 
 export function AccentChip({ children, style, ...props }: ViewProps) {
   const colors = useTheme();
-  return <GlassSurface {...props} style={[styles.chip, { borderColor: colors.accent, shadowColor: colors.accentGlow }, style]}>{children}</GlassSurface>;
+  return <GlassSurface {...props} style={[styles.chip, { borderColor: colors.divider }, style]}>{children}</GlassSurface>;
 }
 
 export function GlassSheet(props: ViewProps & { variant?: GlassVariant }) {
@@ -130,10 +133,10 @@ export function GlassTabBar(props: ViewProps) {
 
 const styles = StyleSheet.create({
   clip: { overflow: "hidden", borderWidth: StyleSheet.hairlineWidth, shadowOffset: { width: 0, height: 10 } },
-  topRim: { position: "absolute", top: 0, left: spacing.lg, right: spacing.lg, height: StyleSheet.hairlineWidth },
-  button: { minHeight: interaction.comfortableTouchTarget, borderRadius: radii.pill, overflow: "hidden", shadowOffset: { width: 0, height: 5 }, shadowRadius: 14, elevation: 7 },
+  webFrost: { backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)" } as ViewStyle,
+  button: { minHeight: interaction.comfortableTouchTarget, borderRadius: radii.pill, overflow: "hidden", borderWidth: StyleSheet.hairlineWidth, borderColor: "transparent" },
   buttonContent: { flex: 1, minHeight: interaction.comfortableTouchTarget, paddingHorizontal: spacing.lg, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm },
-  chip: { minHeight: 34, borderRadius: radii.pill, paddingHorizontal: spacing.md, alignItems: "center", justifyContent: "center", shadowOpacity: 0.16, shadowRadius: 10 },
+  chip: { minHeight: 34, borderRadius: radii.pill, paddingHorizontal: spacing.md, alignItems: "center", justifyContent: "center" },
   disabled: { opacity: interaction.disabledOpacity },
   pressed: { opacity: 0.86, transform: [{ scale: interaction.pressedScale }] },
 });

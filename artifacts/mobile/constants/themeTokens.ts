@@ -84,7 +84,7 @@ export function resolveThemeTokens(mode: AppearanceMode, scheme: ColorScheme) {
   const surfaceSubtle = dark ? "rgba(255,255,255,0.045)" : "rgba(255,255,255,0.44)";
   const surface = dark ? "rgba(255,255,255,0.075)" : "rgba(255,255,255,0.64)";
   const surfaceElevated = dark ? "rgba(30,30,33,0.76)" : "rgba(255,255,255,0.84)";
-  const surfaceModal = dark ? "rgba(24,24,27,0.88)" : "rgba(255,255,255,0.92)";
+  const surfaceModal = dark ? "rgba(24,24,27,0.96)" : "rgba(248,248,251,0.96)";
   const textPrimary = dark ? "#F5F5F7" : "#1A1A1D";
   const textSecondary = dark ? "rgba(255,255,255,0.60)" : "rgba(0,0,0,0.55)";
   const divider = dark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.09)";
@@ -95,9 +95,9 @@ export function resolveThemeTokens(mode: AppearanceMode, scheme: ColorScheme) {
     mode, surfaceSubtle, surface, surfaceElevated, surfaceModal, textPrimary, textSecondary, divider, accent,
     accentGradient: [accent, accentSecond] as readonly [string, string],
     accentGlow: accent, accentGlowOpacity: dark ? 0.34 : 0.2, destructive,
-    destructiveSurface: dark ? "rgba(90,18,26,0.55)" : "rgba(255,235,238,0.82)",
-    glassRim: dark ? "rgba(255,255,255,0.16)" : "rgba(255,255,255,0.92)",
-    glassHighlight: dark ? "rgba(255,255,255,0.24)" : "rgba(255,255,255,0.98)",
+    destructiveSurface: dark ? "rgba(49,27,31,0.96)" : "rgba(255,240,242,0.96)",
+    glassRim: divider,
+    glassHighlight: "transparent",
     backdrop: dark ? "rgba(0,0,0,0.48)" : "rgba(10,10,14,0.30)",
     text: textPrimary, tint: accent, background, foreground: textPrimary, card: surface,
     cardForeground: textPrimary, primary: accent,

@@ -738,7 +738,7 @@ export default function ShoppingScreen() {
         onRequestClose={() => setAssignPickerListId(null)}
       >
         <Pressable style={styles.overlay} onPress={() => setAssignPickerListId(null)} />
-        <Surface style={[styles.sheet, { paddingBottom: insets.bottom + 24 }]}>
+        <Surface level="modal" style={[styles.sheet, { paddingBottom: insets.bottom + 24 }]}>
           <View style={[styles.handle, { backgroundColor: colors.border }]} />
           <Text style={[styles.sheetTitle, { color: colors.foreground }]}>Assign list to</Text>
           {pickerList && (
@@ -812,6 +812,7 @@ export default function ShoppingScreen() {
         />
         <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} pointerEvents="box-none">
           <Surface
+            level="modal"
             style={[
               styles.sheet,
               { paddingBottom: insets.bottom + 24 },
@@ -884,6 +885,7 @@ export default function ShoppingScreen() {
         <Pressable style={styles.overlay} onPress={() => setShowNewListModal(false)} />
         <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} pointerEvents="box-none">
           <Surface
+            level="modal"
             style={[
               styles.sheet,
               { paddingBottom: insets.bottom + 24 },

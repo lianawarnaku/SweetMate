@@ -677,6 +677,7 @@ export default function BorrowScreen() {
         <Pressable style={styles.overlay} onPress={() => setShowModal(false)} />
         <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} pointerEvents="box-none">
         <Surface
+          level="modal"
           style={[
             styles.sheet,
             {

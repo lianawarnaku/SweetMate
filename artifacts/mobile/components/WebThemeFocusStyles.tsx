@@ -27,16 +27,6 @@ export function WebThemeFocusStyles() {
         outline: 2px solid ${colors.primary};
         outline-offset: 2px;
       }
-      @media (hover: hover) {
-        :where(button, [role="button"], [role="checkbox"], [role="radio"], [role="tab"]):hover {
-          outline: 1px solid ${colors.primary};
-          outline-offset: 1px;
-        }
-      }
-      :where(button, [role="button"], [role="checkbox"], [role="radio"], [role="tab"]):active {
-        outline: 2px solid ${colors.primary};
-        outline-offset: 1px;
-      }
     `;
   }, [colors.primary]);
 

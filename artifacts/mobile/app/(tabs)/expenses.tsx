@@ -984,7 +984,7 @@ export default function ExpensesScreen() {
                   style={styles.detailOverlay}
                   onPress={() => setDetailExpenseId(null)}
                 />
-                <View style={[styles.detailSheet, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                <Surface level="modal" style={[styles.detailSheet, { borderColor: colors.border }]}>
                   {/* Handle */}
                   <View style={[styles.detailHandle, { backgroundColor: colors.border }]} />
 
@@ -1183,7 +1183,7 @@ export default function ExpensesScreen() {
                   >
                     <Text style={[styles.detailCloseBtnText, { color: colors.foreground }]}>Close</Text>
                   </TouchableOpacity>
-                </View>
+                </Surface>
               </Modal>
             );
           })()}

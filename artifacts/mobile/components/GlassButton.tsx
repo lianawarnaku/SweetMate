@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
 import { Pressable, StyleSheet, View, type PressableProps, type StyleProp, type ViewStyle } from "react-native";
 
-import { AccentButton, GlassSurface } from "@/components/LiquidGlass";
+import { AccentButton } from "@/components/LiquidGlass";
+import { useTheme } from "@/constants/colors";
 import { interaction, radii, spacing } from "@/constants/designTokens";
 
 type GlassButtonTone = "primary" | "neutral" | "destructive";
@@ -21,6 +22,7 @@ export function GlassButton({
   hitSlop = 4,
   ...props
 }: GlassButtonProps) {
+  const colors = useTheme();
   if (tone === "primary") {
     return (
       <AccentButton
@@ -44,19 +46,19 @@ export function GlassButton({
       hitSlop={hitSlop}
       style={({ pressed }) => [
         styles.button,
+        { backgroundColor: tone === "destructive" ? colors.destructive : colors.surfaceElevated, borderColor: colors.divider },
         style,
         disabled && styles.disabled,
         pressed && !disabled && styles.pressed,
       ]}
     >
-      <GlassSurface interactive variant={tone === "destructive" ? "destructive" : "elevated"} style={StyleSheet.absoluteFill} />
       <View style={styles.content}>{children}</View>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  button: { minHeight: interaction.comfortableTouchTarget, borderRadius: radii.pill, overflow: "hidden", shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.18, shadowRadius: 14, elevation: 7 },
+  button: { minHeight: interaction.comfortableTouchTarget, borderRadius: radii.pill, overflow: "hidden", borderWidth: StyleSheet.hairlineWidth },
   content: { flex: 1, minHeight: interaction.comfortableTouchTarget, paddingHorizontal: spacing.lg, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm },
   disabled: { opacity: interaction.disabledOpacity },
   pressed: { opacity: 0.84, transform: [{ scale: interaction.pressedScale }] },

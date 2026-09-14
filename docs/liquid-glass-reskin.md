@@ -9,22 +9,27 @@ material tokens so every existing screen participates in mode changes.
 | --- | --- |
 | `colors.background` | Mode-specific canvas behind translucent material |
 | `colors.card` / `Surface` | `surface` / guarded `GlassSurface` |
-| Elevated modal card | `GlassSheet` using `surfaceElevated` and a top accent wash |
-| Primary `GlassButton` | `AccentButton` with the resolved two-stop accent gradient |
-| Neutral modal action | Elevated interactive glass button |
-| Destructive modal action | Constant-red destructive glass material |
+| Elevated modal card | `GlassSheet` using a dense `surfaceModal` tint over background blur |
+| Primary `GlassButton` | `AccentButton` with a flat theme action fill |
+| Neutral modal action | Neutral filled button without a reflective overlay |
+| Destructive modal action | Red filled action with a readable foreground |
 | Selected tab bubble | Mode-aware secondary glass highlight |
 | Custom blurred tab shell | Guarded elevated glass tab shell |
 | `foreground` / `mutedForeground` | `textPrimary` / `textSecondary` |
-| `border` | Hairline `divider` / bright `glassRim` |
+| `border` | Subtle hairline `divider` |
 
 ## Material tiers
 
-1. iOS Liquid Glass uses `GlassView` only when both Expo runtime checks pass.
-2. Older iOS, Android, and web use `BlurView`, a theme-accent top gradient,
-   and a hairline rim.
-3. Reduce Transparency replaces blur with the resolved opaque surface.
+1. Non-interactive cards and navigation can use native iOS glass when both
+   runtime checks pass, with a neutral tint rather than a white accent wash.
+2. Popup sheets always use background blur plus a 96%-opaque modal tint.
+   Web sheets use a background-only CSS backdrop filter so foreground text
+   remains crisp. Regular web cards use their translucent fill without blur.
+3. Reduce Transparency replaces the material with a fully opaque surface.
+4. Buttons use flat fills without native interactive glass, gradients, bright
+   top rims, or glow shadows. Web keyboard focus rings remain; hover and press
+   no longer add white outlines.
 
-The shared `Surface`, popup surface, button, and tab-bar paths all route
-through these guards. Screen-specific colors continue to read `useTheme()`,
-whose legacy aliases now resolve from the same mode-aware token object.
+Shopping, borrowing, expense details, household switching, account sheets,
+and shared action/confirmation dialogs all select the modal surface tier.
+Full-screen forms retain their opaque page background.

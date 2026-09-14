@@ -1,3 +1,4 @@
+import { Surface } from "@/components/Surface";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
@@ -923,11 +924,11 @@ export default function SettingsScreen() {
               style={styles.switcherBackdrop}
               onPress={() => setHouseholdSwitcherOpen(false)}
             />
-            <View
+            <Surface
+              level="modal"
               style={[
                 styles.switcherSheet,
                 {
-                  backgroundColor: colors.card,
                   borderColor: colors.border,
                   paddingBottom: insets.bottom + 18,
                 },
@@ -1109,7 +1110,7 @@ export default function SettingsScreen() {
                 <Text style={[styles.switcherActionText, { color: colors.foreground }]}>Join Household</Text>
               </TouchableOpacity>
               </View>
-            </View>
+            </Surface>
           </Modal>
 
           <Text
@@ -1647,11 +1648,11 @@ export default function SettingsScreen() {
           behavior={Platform.OS === "ios" ? "padding" : undefined}
           pointerEvents="box-none"
         >
-          <View
+          <Surface
+            level="modal"
             style={[
               styles.authSheet,
               {
-                backgroundColor: colors.card,
                 paddingBottom: insets.bottom + 24,
               },
             ]}
@@ -2055,7 +2056,7 @@ export default function SettingsScreen() {
                 </View>
               </>
             )}
-          </View>
+          </Surface>
         </KeyboardAvoidingView>
       </Modal>
     </View>
