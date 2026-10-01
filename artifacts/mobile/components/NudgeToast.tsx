@@ -181,9 +181,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   content: { flex: 1, paddingVertical: 3 },
-  title: { fontFamily: "Inter_700Bold", fontSize: 15 },
-  copy: { fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 2 },
-  error: { color: "#FECACA", fontFamily: "Inter_500Medium", fontSize: 12, marginTop: 3 },
+  title: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 15 },
+  copy: { fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 12, marginTop: 2 },
+  error: { color: "#FECACA", fontFamily: "Inter_500Medium", includeFontPadding: false, fontSize: 12, marginTop: 3 },
   dismissButton: {
     width: 44,
     height: 44,

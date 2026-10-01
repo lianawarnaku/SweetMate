@@ -63,7 +63,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
   },
   initials: {
-    fontFamily: "Inter_700Bold",
+    fontFamily: "Inter_700Bold", includeFontPadding: false,
     letterSpacing: 0.5,
   },
 });

@@ -9,9 +9,13 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+
+import * as SystemUI from "expo-system-ui";
+import { NavigationThemeProvider } from "@/components/NavigationThemeProvider";
+import { BRAND_BASE_DARK } from "@/constants/brand";
 
 import { AuthGate } from "@/components/AuthGate";
 import { HouseLoader } from "@/components/HouseLoader";
@@ -42,6 +46,11 @@ const queryClient = new QueryClient();
 
 function ThemedStatusBar() {
   const colors = useTheme();
+  useEffect(() => {
+    void SystemUI.setBackgroundColorAsync(colors.background).catch((error) =>
+      reportRuntimeError("set window background color", error),
+    );
+  }, [colors.background]);
   return <StatusBar style={colors.mode === "dark" ? "light" : "dark"} />;
 }
 
@@ -65,11 +74,17 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (fontsLoaded || fontError) {
-      SplashScreen.hideAsync().catch(() => {});
       const launchTimer = setTimeout(() => setLaunchAnimationComplete(true), 1200);
       return () => clearTimeout(launchTimer);
     }
   }, [fontsLoaded, fontError]);
+
+  const splashHidden = useRef(false);
+  const onRootLayout = useCallback(() => {
+    if (splashHidden.current) return;
+    splashHidden.current = true;
+    void SplashScreen.hideAsync().catch(() => {});
+  }, []);
 
   if (!fontsLoaded && !fontError) return null;
 
@@ -81,41 +96,43 @@ export default function RootLayout() {
                 }
               >
         <QueryClientProvider client={queryClient}>
-          <GestureHandlerRootView style={{ flex: 1 }}>
+          <GestureHandlerRootView style={{ flex: 1, backgroundColor: BRAND_BASE_DARK }} onLayout={onRootLayout}>
             <AppProvider session={session}>
-              <WebThemeFocusStyles />
-              <ThemedStatusBar />
-              <AppPopupProvider>
-                <AnalyticsConsentManager session={session} />
-                {!launchAnimationComplete ? (
-                  <HouseLoader />
-                ) : (
-                  <AuthGate session={session} sessionLoading={sessionLoading}>
-                    <>
-                      <HouseholdSetupRouteGuard />
-                      <Stack
-                        screenOptions={{
-                          headerShown: false,
-                          animation: "fade_from_bottom",
-                          animationDuration: 220,
-                          gestureEnabled: true,
-                        }}
-                        initialRouteName="(tabs)"
-                      >
-                        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                        <Stack.Screen name="settings" options={{ headerShown: false, presentation: "card" }} />
-                        <Stack.Screen name="planning" options={{ headerShown: false, presentation: "card" }} />
-                        <Stack.Screen name="task-difficulty" options={{ headerShown: false, presentation: "card" }} />
-                        <Stack.Screen name="alerts" options={{ headerShown: false, presentation: "card" }} />
-                        <Stack.Screen name="auth/callback" options={{ headerShown: false }} />
-                        <Stack.Screen name="+not-found" />
-                      </Stack>
-                      <QuickGuideModal />
-                      <NudgeToast />
-                    </>
-                  </AuthGate>
-                )}
-              </AppPopupProvider>
+              <NavigationThemeProvider>
+                <WebThemeFocusStyles />
+                <ThemedStatusBar />
+                <AppPopupProvider>
+                  <AnalyticsConsentManager session={session} />
+                  {!launchAnimationComplete ? (
+                    <HouseLoader />
+                  ) : (
+                    <AuthGate session={session} sessionLoading={sessionLoading}>
+                      <>
+                        <HouseholdSetupRouteGuard />
+                        <Stack
+                          screenOptions={{
+                            headerShown: false,
+                            animation: "fade_from_bottom",
+                            animationDuration: 220,
+                            gestureEnabled: true,
+                          }}
+                          initialRouteName="(tabs)"
+                        >
+                          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                          <Stack.Screen name="settings" options={{ headerShown: false, presentation: "card" }} />
+                          <Stack.Screen name="planning" options={{ headerShown: false, presentation: "card" }} />
+                          <Stack.Screen name="task-difficulty" options={{ headerShown: false, presentation: "card" }} />
+                          <Stack.Screen name="alerts" options={{ headerShown: false, presentation: "card" }} />
+                          <Stack.Screen name="auth/callback" options={{ headerShown: false }} />
+                          <Stack.Screen name="+not-found" />
+                        </Stack>
+                        <QuickGuideModal />
+                        <NudgeToast />
+                      </>
+                    </AuthGate>
+                  )}
+                </AppPopupProvider>
+              </NavigationThemeProvider>
             </AppProvider>
           </GestureHandlerRootView>
         </QueryClientProvider>

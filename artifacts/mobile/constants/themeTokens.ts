@@ -102,8 +102,10 @@ export function resolveThemeTokens(mode: AppearanceMode, scheme: ColorScheme) {
     text: textPrimary, tint: accent, background, foreground: textPrimary, card: surface,
     cardForeground: textPrimary, primary: accent,
     primaryForeground: dark && scheme === "mono" ? "#111114" : "#FFFFFF",
-    action: accent,
-    actionForeground: dark && scheme === "mono" ? "#111114" : "#FFFFFF",
+    // Keep monochrome action fills subdued; the bright accent is for text/icons.
+    action: dark && scheme === "mono" ? "#35353C" : accent,
+    actionForeground: "#FFFFFF",
+    focusRing: dark && scheme === "mono" ? "#85858F" : accent,
     secondary: dark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.06)",
     secondaryForeground: textPrimary, muted: dark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.05)",
     mutedForeground: textSecondary, accentForeground: dark && scheme === "mono" ? "#111114" : "#FFFFFF",

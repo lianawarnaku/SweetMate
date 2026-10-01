@@ -415,15 +415,15 @@ export function ManualChoreForm({
 
 const styles = StyleSheet.create({
   content: { paddingHorizontal: 20, paddingTop: 18, paddingBottom: 36, gap: 10 },
-  label: { fontFamily: "Inter_600SemiBold", fontSize: 13, marginTop: 5 },
-  input: { minHeight: 48, borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, fontFamily: "Inter_400Regular", fontSize: 15 },
+  label: { fontFamily: "Inter_600SemiBold", includeFontPadding: false, fontSize: 13, marginTop: 5 },
+  input: { minHeight: 48, borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 15 },
   notes: { minHeight: 82, paddingTop: 12, textAlignVertical: "top" },
   wrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   chip: { minHeight: 38, borderWidth: 1, borderRadius: 19, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", gap: 6 },
   allMembersChip: { alignSelf: "flex-start" },
-  chipText: { fontFamily: "Inter_600SemiBold", fontSize: 13 },
-  orderText: { fontFamily: "Inter_400Regular", fontSize: 12, lineHeight: 17 },
-  error: { fontFamily: "Inter_600SemiBold", fontSize: 13 },
+  chipText: { fontFamily: "Inter_600SemiBold", includeFontPadding: false, fontSize: 13 },
+  orderText: { fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 12, lineHeight: 17 },
+  error: { fontFamily: "Inter_600SemiBold", includeFontPadding: false, fontSize: 13 },
   submit: { minHeight: 52, borderRadius: 16, alignItems: "center", justifyContent: "center", marginTop: 8 },
-  submitText: { color: "#fff", fontFamily: "Inter_700Bold", fontSize: 16 },
+  submitText: { color: "#fff", fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 16 },
 });

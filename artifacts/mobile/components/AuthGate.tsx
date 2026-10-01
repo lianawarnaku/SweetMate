@@ -73,8 +73,8 @@ function HouseholdLoadError({ message, onRetry }: { message: string; onRetry: ()
 
 const styles = StyleSheet.create({
   errorScreen: { flex: 1, alignItems: "center", justifyContent: "center", padding: 28 },
-  errorTitle: { fontFamily: "Inter_700Bold", fontSize: 22, textAlign: "center" },
-  errorMessage: { fontFamily: "Inter_400Regular", fontSize: 15, lineHeight: 21, textAlign: "center", marginTop: 8 },
+  errorTitle: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 22, textAlign: "center" },
+  errorMessage: { fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 15, lineHeight: 21, textAlign: "center", marginTop: 8 },
   retryButton: { minHeight: 48, minWidth: 140, borderRadius: 14, alignItems: "center", justifyContent: "center", marginTop: 20, paddingHorizontal: 20 },
-  retryText: { fontFamily: "Inter_700Bold", fontSize: 15 },
+  retryText: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 15 },
 });

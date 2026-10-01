@@ -20,15 +20,18 @@ export function WebThemeFocusStyles() {
     }
 
     style.textContent = `
-      :where(button, input, textarea, select, [role="button"], [role="checkbox"], [role="radio"], [role="tab"]):focus {
+      :where(button, a, input, textarea, select, [tabindex], [role="button"], [role="checkbox"], [role="radio"], [role="tab"]) {
+        -webkit-tap-highlight-color: transparent;
+      }
+      :where(button, a, input, textarea, select, [tabindex], [role="button"], [role="checkbox"], [role="radio"], [role="tab"]):focus:not(:focus-visible) {
         outline: none;
       }
-      :where(button, input, textarea, select, [role="button"], [role="checkbox"], [role="radio"], [role="tab"]):focus-visible {
-        outline: 2px solid ${colors.primary};
+      :where(button, a, input, textarea, select, [tabindex], [role="button"], [role="checkbox"], [role="radio"], [role="tab"]):focus-visible {
+        outline: 2px solid ${colors.focusRing};
         outline-offset: 2px;
       }
     `;
-  }, [colors.primary]);
+  }, [colors.focusRing]);
 
   return null;
 }

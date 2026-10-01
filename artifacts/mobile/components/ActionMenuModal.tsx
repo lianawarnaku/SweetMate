@@ -1,3 +1,4 @@
+import { KEYBOARD_BEHAVIOR } from "@/lib/keyboard";
 import { Feather } from "@expo/vector-icons";
 import React, { useEffect, useRef, useState } from "react";
 import {
@@ -188,7 +189,7 @@ export function ActionMenuModal({
       accessibilityViewIsModal
     >
       <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        behavior={KEYBOARD_BEHAVIOR}
         style={styles.fill}
       >
         <GlassModalBackdrop />
@@ -229,7 +230,7 @@ export function ActionMenuModal({
           <GlassModalSurface
             style={[
               styles.sheet,
-              { paddingBottom: Math.max(insets.bottom, 14) + 10 },
+              { paddingBottom: insets.bottom + 18 },
             ]}
           >
           <View style={[styles.handle, { backgroundColor: colors.border }]} />
@@ -349,7 +350,7 @@ export function ActionMenuModal({
                       {action.badge ? (
                         <Text style={{
                           color: action.accentColor ?? colors.primary,
-                          fontFamily: "Inter_700Bold",
+                          fontFamily: "Inter_700Bold", includeFontPadding: false,
                           fontSize: 13,
                         }}>
                           {action.badge}
@@ -416,11 +417,14 @@ const styles = StyleSheet.create({
     backgroundColor: "#080B12",
   },
   sheetMotion: {
-    marginHorizontal: 12,
-    marginBottom: 10,
+    marginHorizontal: 0,
+    marginBottom: 0,
   },
   sheet: {
-    borderRadius: 26,
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
     paddingHorizontal: 18,
     paddingTop: 10,
     shadowColor: "#000000",
@@ -437,20 +441,20 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   eyebrow: {
-    fontFamily: "Inter_600SemiBold",
+    fontFamily: "Inter_600SemiBold", includeFontPadding: false,
     fontSize: 11,
     letterSpacing: 0.7,
     textTransform: "uppercase",
     marginBottom: 4,
   },
   title: {
-    fontFamily: "Inter_700Bold",
+    fontFamily: "Inter_700Bold", includeFontPadding: false,
     fontSize: 22,
     lineHeight: 28,
     textAlign: "center",
   },
   message: {
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Inter_400Regular", includeFontPadding: false,
     fontSize: 14,
     lineHeight: 20,
     textAlign: "center",
@@ -458,7 +462,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   error: {
-    fontFamily: "Inter_500Medium",
+    fontFamily: "Inter_500Medium", includeFontPadding: false,
     fontSize: 13,
     lineHeight: 18,
     textAlign: "center",
@@ -483,11 +487,11 @@ const styles = StyleSheet.create({
   },
   actionLabel: {
     flex: 1,
-    fontFamily: "Inter_600SemiBold",
+    fontFamily: "Inter_600SemiBold", includeFontPadding: false,
     fontSize: 15,
   },
   destructiveHint: {
-    fontFamily: "Inter_600SemiBold",
+    fontFamily: "Inter_600SemiBold", includeFontPadding: false,
     fontSize: 11,
     textTransform: "uppercase",
   },
@@ -499,7 +503,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginTop: 10,
   },
-  cancelText: { fontFamily: "Inter_600SemiBold", fontSize: 15 },
+  cancelText: { fontFamily: "Inter_600SemiBold", includeFontPadding: false, fontSize: 15 },
   warningIcon: {
     width: 48,
     height: 48,
@@ -521,7 +525,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   confirmButtonText: {
-    fontFamily: "Inter_700Bold",
+    fontFamily: "Inter_700Bold", includeFontPadding: false,
     fontSize: 14,
     textAlign: "center",
   },

@@ -1,3 +1,4 @@
+import { KEYBOARD_BEHAVIOR } from "@/lib/keyboard";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { router, useLocalSearchParams } from "expo-router";
@@ -376,7 +377,7 @@ const customStyles = StyleSheet.create({
     borderWidth: 1,
   },
   customText: {
-    fontFamily: "Inter_500Medium",
+    fontFamily: "Inter_500Medium", includeFontPadding: false,
     fontSize: 13,
     flex: 1,
   },
@@ -391,7 +392,7 @@ const customStyles = StyleSheet.create({
   },
   inlineInput: {
     flex: 1,
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Inter_400Regular", includeFontPadding: false,
     fontSize: 13,
     paddingVertical: 4,
   },
@@ -413,7 +414,7 @@ const customStyles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  triggerText: { fontFamily: "Inter_600SemiBold", fontSize: 13 },
+  triggerText: { fontFamily: "Inter_600SemiBold", includeFontPadding: false, fontSize: 13 },
 });
 
 // ── Essential item row with optional roommate assignment ───────────────────
@@ -576,8 +577,8 @@ const essentialRowStyles = StyleSheet.create({
     flexWrap: "wrap",
   },
   assignmentCopy: { flex: 1, minWidth: 110 },
-  assignLabel: { fontFamily: "Inter_500Medium", fontSize: 12, lineHeight: 16 },
-  assignmentError: { fontFamily: "Inter_500Medium", fontSize: 11, marginTop: 2 },
+  assignLabel: { fontFamily: "Inter_500Medium", includeFontPadding: false, fontSize: 12, lineHeight: 16 },
+  assignmentError: { fontFamily: "Inter_500Medium", includeFontPadding: false, fontSize: 11, marginTop: 2 },
   selfAssignButton: {
     flexDirection: "row",
     alignItems: "center",
@@ -587,7 +588,7 @@ const essentialRowStyles = StyleSheet.create({
     borderRadius: 17,
     borderWidth: 1,
   },
-  selfAssignText: { fontFamily: "Inter_600SemiBold", fontSize: 12 },
+  selfAssignText: { fontFamily: "Inter_600SemiBold", includeFontPadding: false, fontSize: 12 },
 });
 
 // ── Section card wrapper ───────────────────────────────────────────────────
@@ -1233,7 +1234,7 @@ export default function PlanningScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
     <KeyboardAvoidingView
       style={{ flex: 1 }}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      behavior={KEYBOARD_BEHAVIOR}
     >
     <ScrollView
       style={{ flex: 1 }}
@@ -1852,7 +1853,7 @@ export default function PlanningScreen() {
                 backgroundColor: value === customTaskFrequency ? colors.action : colors.muted,
                 borderColor: value === customTaskFrequency ? colors.primary : colors.border,
               }]}>
-                <Text style={{ color: value === customTaskFrequency ? colors.actionForeground : colors.mutedForeground, fontFamily: "Inter_600SemiBold", fontSize: 12 }}>{value}</Text>
+                <Text style={{ color: value === customTaskFrequency ? colors.actionForeground : colors.mutedForeground, fontFamily: "Inter_600SemiBold", includeFontPadding: false, fontSize: 12 }}>{value}</Text>
               </TouchableOpacity>
             ))}
           </ScrollView>
@@ -1863,7 +1864,7 @@ export default function PlanningScreen() {
                 backgroundColor: value === customTaskTime ? colors.action : colors.muted,
                 borderColor: value === customTaskTime ? colors.primary : colors.border,
               }]}>
-                <Text style={{ color: value === customTaskTime ? colors.actionForeground : colors.mutedForeground, fontFamily: "Inter_600SemiBold", fontSize: 12 }}>{value}</Text>
+                <Text style={{ color: value === customTaskTime ? colors.actionForeground : colors.mutedForeground, fontFamily: "Inter_600SemiBold", includeFontPadding: false, fontSize: 12 }}>{value}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -2126,7 +2127,7 @@ export default function PlanningScreen() {
             </View>
           ))}
         </ScrollView>
-        <View style={[styles.shortlistFooter, { borderTopColor: colors.border, backgroundColor: colors.background }]}>
+        <View style={[styles.shortlistFooter, { borderTopColor: colors.border, backgroundColor: colors.background, paddingBottom: insets.bottom + 16 }]}>
           <Text style={[styles.shortlistCount, { color: colors.foreground }]}>
             {shortlistSelectedCount} selected
           </Text>
@@ -2298,11 +2299,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  title: { fontFamily: "Inter_700Bold", fontSize: 28 },
-  subtitle: { fontFamily: "Inter_400Regular", fontSize: 14, marginTop: 4 },
+  title: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 28 },
+  subtitle: { fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 14, marginTop: 4 },
 
   sectionLabel: {
-    fontFamily: "Inter_600SemiBold",
+    fontFamily: "Inter_600SemiBold", includeFontPadding: false,
     fontSize: 15,
     paddingHorizontal: 20,
     marginBottom: 10,
@@ -2332,9 +2333,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  typeTitle: { fontFamily: "Inter_700Bold", fontSize: 14, textAlign: "center" },
+  typeTitle: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 14, textAlign: "center" },
   typeDesc: {
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Inter_400Regular", includeFontPadding: false,
     fontSize: 11,
     textAlign: "center",
     lineHeight: 15,
@@ -2363,12 +2364,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   housingLabel: {
-    fontFamily: "Inter_700Bold",
+    fontFamily: "Inter_700Bold", includeFontPadding: false,
     fontSize: 11,
     textAlign: "center",
   },
   housingDesc: {
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Inter_400Regular", includeFontPadding: false,
     fontSize: 9,
     textAlign: "center",
     lineHeight: 13,
@@ -2402,9 +2403,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  sectionCardTitle: { fontFamily: "Inter_700Bold", fontSize: 15 },
+  sectionCardTitle: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 15 },
   essentialSubsectionTitle: {
-    fontFamily: "Inter_700Bold",
+    fontFamily: "Inter_700Bold", includeFontPadding: false,
     fontSize: 11,
     letterSpacing: 0.6,
     textTransform: "uppercase",
@@ -2421,31 +2422,31 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     gap: 14,
   },
-  shortlistTitle: { fontFamily: "Inter_700Bold", fontSize: 22 },
-  shortlistHelper: { fontFamily: "Inter_400Regular", fontSize: 13, lineHeight: 18, marginTop: 4 },
-  shortlistUpdatedBy: { fontFamily: "Inter_500Medium", fontSize: 12, marginTop: 5 },
+  shortlistTitle: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 22 },
+  shortlistHelper: { fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 13, lineHeight: 18, marginTop: 4 },
+  shortlistUpdatedBy: { fontFamily: "Inter_500Medium", includeFontPadding: false, fontSize: 12, marginTop: 5 },
   shortlistScroll: { flex: 1 },
   shortlistContent: { padding: 16, gap: 12 },
   recommendationBanner: { borderWidth: 1, borderRadius: 16, padding: 14, flexDirection: "row", alignItems: "center", gap: 12 },
   shortlistCategory: { borderWidth: 1, borderRadius: 16, padding: 14 },
   shortlistSubsectionHeader: { flexDirection: "row", alignItems: "center", gap: 12 },
-  shortlistAction: { fontFamily: "Inter_600SemiBold", fontSize: 12, paddingVertical: 8 },
+  shortlistAction: { fontFamily: "Inter_600SemiBold", includeFontPadding: false, fontSize: 12, paddingVertical: 8 },
   shortlistRow: { minHeight: 44, flexDirection: "row", alignItems: "center", gap: 10 },
-  shortlistStatus: { fontFamily: "Inter_500Medium", fontSize: 11 },
+  shortlistStatus: { fontFamily: "Inter_500Medium", includeFontPadding: false, fontSize: 11 },
   shortlistFooter: {
     borderTopWidth: StyleSheet.hairlineWidth,
     padding: 16,
     gap: 8,
   },
-  shortlistCount: { fontFamily: "Inter_700Bold", fontSize: 14 },
+  shortlistCount: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 14 },
   shortlistTransferFeedback: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
   shortlistTransferMessage: { flex: 1 },
   shortlistButtons: { flexDirection: "row", flexWrap: "wrap", alignItems: "stretch", gap: 10 },
   shortlistSave: { flex: 1, minWidth: 150, minHeight: 48, borderRadius: 12, paddingHorizontal: 14, alignItems: "center", justifyContent: "center" },
   shortlistSecondary: { borderWidth: 1, backgroundColor: "transparent" },
-  shortlistSecondaryText: { fontFamily: "Inter_700Bold", fontSize: 13, textAlign: "center" },
+  shortlistSecondaryText: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 13, textAlign: "center" },
   amenityHint: {
-    fontFamily: "Inter_500Medium",
+    fontFamily: "Inter_500Medium", includeFontPadding: false,
     fontSize: 12,
     marginBottom: 10,
   },
@@ -2459,7 +2460,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1,
   },
-  chipText: { fontFamily: "Inter_500Medium", fontSize: 12 },
+  chipText: { fontFamily: "Inter_500Medium", includeFontPadding: false, fontSize: 12 },
 
   // ── Checkboxes ──
   checkRow: {
@@ -2476,7 +2477,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  checkLabel: { fontFamily: "Inter_400Regular", fontSize: 13, flex: 1 },
+  checkLabel: { fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 13, flex: 1 },
 
   // ── Inputs ──
   textarea: {
@@ -2485,31 +2486,31 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     padding: 14,
     fontSize: 14,
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Inter_400Regular", includeFontPadding: false,
     minHeight: 70,
     textAlignVertical: "top",
     marginBottom: 12,
   },
   customTaskCard: { marginHorizontal: 16, marginTop: 14, borderWidth: 1, borderRadius: 18, padding: 14, gap: 10 },
   preferenceSection: { marginHorizontal: 16, marginTop: 14, gap: 10 },
-  preferenceIntro: { fontFamily: "Inter_400Regular", fontSize: 13, marginTop: -7 },
+  preferenceIntro: { fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 13, marginTop: -7 },
   customTaskHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
-  customTaskTitle: { fontFamily: "Inter_700Bold", fontSize: 18 },
-  customTaskHint: { fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 2 },
-  editDifficultyLink: { fontFamily: "Inter_700Bold", fontSize: 12 },
+  customTaskTitle: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 18 },
+  customTaskHint: { fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 12, marginTop: 2 },
+  editDifficultyLink: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 12 },
   savedCustomTask: { borderWidth: 1, borderRadius: 12, padding: 10, flexDirection: "row", alignItems: "center" },
-  savedCustomTitle: { fontFamily: "Inter_600SemiBold", fontSize: 14 },
-  savedCustomMeta: { fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 2 },
-  customTaskInput: { height: 46, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, fontFamily: "Inter_500Medium", fontSize: 15 },
-  customTaskFieldLabel: { fontFamily: "Inter_700Bold", fontSize: 11, letterSpacing: 1, marginTop: 2 },
+  savedCustomTitle: { fontFamily: "Inter_600SemiBold", includeFontPadding: false, fontSize: 14 },
+  savedCustomMeta: { fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 12, marginTop: 2 },
+  customTaskInput: { height: 46, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, fontFamily: "Inter_500Medium", includeFontPadding: false, fontSize: 15 },
+  customTaskFieldLabel: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 11, letterSpacing: 1, marginTop: 2 },
   customTaskOptions: { flexDirection: "row", gap: 7 },
   customTaskChip: { flex: 1, height: 36, borderWidth: 1, borderRadius: 9, alignItems: "center", justifyContent: "center" },
   customTextChip: { minHeight: 36, borderWidth: 1, borderRadius: 9, paddingHorizontal: 11, alignItems: "center", justifyContent: "center" },
   saveCustomTask: { height: 46, borderRadius: 12, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7 },
-  saveCustomTaskText: { fontFamily: "Inter_700Bold", fontSize: 14 },
+  saveCustomTaskText: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 14 },
   generatedTaskCard: { marginHorizontal: 16, marginTop: 12, borderWidth: 1, borderRadius: 18, padding: 14 },
   generatedTaskRow: { minHeight: 56, borderTopWidth: StyleSheet.hairlineWidth, flexDirection: "row", alignItems: "center", paddingVertical: 9 },
-  generatedDifficulty: { fontFamily: "Inter_700Bold", fontSize: 15 },
+  generatedDifficulty: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 15 },
 
   // ── Generate button ──
   generateBtn: {
@@ -2522,7 +2523,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingVertical: 14,
   },
-  generateText: { color: "#fff", fontFamily: "Inter_700Bold", fontSize: 15 },
+  generateText: { color: "#fff", fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 15 },
   lockBanner: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -2534,7 +2535,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 12,
   },
-  lockText: { flex: 1, fontFamily: "Inter_500Medium", fontSize: 13, lineHeight: 17 },
+  lockText: { flex: 1, fontFamily: "Inter_500Medium", includeFontPadding: false, fontSize: 13, lineHeight: 17 },
   finishSetupButton: {
     minHeight: 38,
     marginLeft: 24,
@@ -2545,7 +2546,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 6,
   },
-  finishSetupText: { fontFamily: "Inter_700Bold", fontSize: 12 },
+  finishSetupText: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 12 },
 
   // ── Banners ──
   successBanner: {
@@ -2558,7 +2559,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     padding: 14,
   },
-  successText: { fontFamily: "Inter_600SemiBold", fontSize: 13, flex: 1 },
+  successText: { fontFamily: "Inter_600SemiBold", includeFontPadding: false, fontSize: 13, flex: 1 },
   checkedBadge: {
     paddingHorizontal: 8,
     paddingVertical: 3,
@@ -2566,7 +2567,7 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   checkedBadgeText: {
-    fontFamily: "Inter_700Bold",
+    fontFamily: "Inter_700Bold", includeFontPadding: false,
     fontSize: 11,
   },
   errorBox: {
@@ -2579,7 +2580,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     padding: 14,
   },
-  errorText: { fontFamily: "Inter_500Medium", fontSize: 13, flex: 1 },
+  errorText: { fontFamily: "Inter_500Medium", includeFontPadding: false, fontSize: 13, flex: 1 },
 
   // ── Result card (home checklist / fallback) ──
   resultCard: {
@@ -2594,9 +2595,9 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 12,
   },
-  resultTitle: { fontFamily: "Inter_700Bold", fontSize: 15, flex: 1 },
+  resultTitle: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 15, flex: 1 },
   resultText: {
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Inter_400Regular", includeFontPadding: false,
     fontSize: 13,
     lineHeight: 20,
   },
@@ -2637,7 +2638,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   slotLabel: {
-    fontFamily: "Inter_600SemiBold",
+    fontFamily: "Inter_600SemiBold", includeFontPadding: false,
     fontSize: 14,
   },
   weekTile: {
@@ -2650,7 +2651,7 @@ const styles = StyleSheet.create({
     minWidth: 72,
   },
   weekTileNum: {
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Inter_400Regular", includeFontPadding: false,
     fontSize: 11,
   },
   weekTileDot: {
@@ -2659,7 +2660,7 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   weekTileName: {
-    fontFamily: "Inter_600SemiBold",
+    fontFamily: "Inter_600SemiBold", includeFontPadding: false,
     fontSize: 12,
     textAlign: "center",
   },
@@ -2673,7 +2674,7 @@ const styles = StyleSheet.create({
   },
   fairnessNoteText: {
     flex: 1,
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Inter_400Regular", includeFontPadding: false,
     fontSize: 12,
     lineHeight: 18,
   },
@@ -2703,7 +2704,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   rebuildText: {
-    fontFamily: "Inter_500Medium",
+    fontFamily: "Inter_500Medium", includeFontPadding: false,
     fontSize: 14,
   },
 });

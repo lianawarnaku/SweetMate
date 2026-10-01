@@ -172,10 +172,10 @@ const styles = StyleSheet.create({
   panel: { marginHorizontal: 16, borderWidth: 1, borderRadius: 16, overflow: "hidden" },
   row: { minHeight: 76, padding: 14, flexDirection: "row", alignItems: "center", gap: 12 },
   copy: { flex: 1, minWidth: 0 },
-  title: { fontFamily: "Inter_600SemiBold", fontSize: 15 },
-  description: { fontFamily: "Inter_400Regular", fontSize: 12, lineHeight: 17, marginTop: 3 },
+  title: { fontFamily: "Inter_600SemiBold", includeFontPadding: false, fontSize: 15 },
+  description: { fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 12, lineHeight: 17, marginTop: 3 },
   policyLink: { minHeight: 44, alignItems: "center", justifyContent: "center" },
-  policyText: { fontFamily: "Inter_600SemiBold", fontSize: 13 },
+  policyText: { fontFamily: "Inter_600SemiBold", includeFontPadding: false, fontSize: 13 },
   overlay: {
     flex: 1,
     alignItems: "center",
@@ -183,8 +183,8 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   notice: { width: "100%", maxWidth: 440, borderRadius: 30, padding: 22 },
-  noticeTitle: { fontFamily: "Inter_700Bold", fontSize: 22 },
-  noticeBody: { fontFamily: "Inter_400Regular", fontSize: 14, lineHeight: 20, marginVertical: 12 },
+  noticeTitle: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 22 },
+  noticeBody: { fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 14, lineHeight: 20, marginVertical: 12 },
   consentActions: { flexDirection: "row", gap: 10, marginTop: 18 },
   consentButton: {
     flex: 1,
@@ -192,7 +192,7 @@ const styles = StyleSheet.create({
     borderRadius: 25,
   },
   consentText: {
-    fontFamily: "Inter_700Bold",
+    fontFamily: "Inter_700Bold", includeFontPadding: false,
     fontSize: 14,
     textAlign: "center",
   },

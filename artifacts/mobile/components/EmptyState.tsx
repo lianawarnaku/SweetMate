@@ -54,12 +54,12 @@ const styles = StyleSheet.create({
   compactIconContainer: { width: 48, height: 48, borderRadius: 24, marginBottom: 2 },
   title: {
     fontSize: 17,
-    fontFamily: "Inter_600SemiBold",
+    fontFamily: "Inter_600SemiBold", includeFontPadding: false,
     textAlign: "center",
   },
   subtitle: {
     fontSize: 14,
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Inter_400Regular", includeFontPadding: false,
     textAlign: "center",
     lineHeight: 20,
   },

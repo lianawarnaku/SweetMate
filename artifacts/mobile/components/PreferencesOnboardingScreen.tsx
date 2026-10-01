@@ -62,20 +62,20 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   brand: { alignItems: "center", marginBottom: 12 },
   eyebrow: {
-    fontFamily: "Inter_700Bold",
+    fontFamily: "Inter_700Bold", includeFontPadding: false,
     fontSize: 12,
     letterSpacing: 1.5,
     textAlign: "center",
   },
   title: {
-    fontFamily: "Inter_700Bold",
+    fontFamily: "Inter_700Bold", includeFontPadding: false,
     fontSize: 32,
     lineHeight: 36,
     textAlign: "center",
     marginTop: 5,
   },
   subtitle: {
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Inter_400Regular", includeFontPadding: false,
     fontSize: 16,
     lineHeight: 21,
     textAlign: "center",
@@ -93,6 +93,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 10,
   },
-  continueText: { color: "#fff", fontFamily: "Inter_700Bold", fontSize: 17 },
+  continueText: { color: "#fff", fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 17 },
   completion: { marginTop: 16 },
 });

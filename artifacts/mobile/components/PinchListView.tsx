@@ -146,8 +146,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   copy: { flex: 1, gap: 3 },
-  title: { fontFamily: "Inter_700Bold", fontSize: 16 },
-  message: { fontFamily: "Inter_400Regular", fontSize: 13, lineHeight: 18 },
+  title: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 16 },
+  message: { fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 13, lineHeight: 18 },
   close: {
     position: "absolute",
     top: 12,

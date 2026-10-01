@@ -11,7 +11,7 @@ import {
   Text,
   View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useTabBarLayout } from "@/hooks/useTabBarLayout";
 
 import { useTheme } from "@/constants/colors";
 import { useAppContextSelector } from "@/context/AppContext";
@@ -27,8 +27,7 @@ function ScrollableTabBar({ state, descriptors, navigation }: BottomTabBarProps)
   const pointsEnabled = useAppContextSelector(
     (context) => context.pointsEnabled,
   );
-  const insets = useSafeAreaInsets();
-  const isWeb = Platform.OS === "web";
+  const { tabBarBottom } = useTabBarLayout();
   // Expo Router auto-registers every route file, even when its Tabs.Screen
   // configuration is conditionally omitted. Remove the route from the array
   // we actually render so it creates neither a button nor a flex slot.
@@ -189,7 +188,7 @@ function ScrollableTabBar({ state, descriptors, navigation }: BottomTabBarProps)
       style={[
         styles.tabBarShell,
         {
-          bottom: isWeb ? 12 : Math.max(insets.bottom, 8),
+          bottom: tabBarBottom,
           borderColor: colors.border,
         },
       ]}

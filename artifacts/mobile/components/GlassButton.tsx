@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Pressable, StyleSheet, View, type PressableProps, type StyleProp, type ViewStyle } from "react-native";
 
 import { AccentButton } from "@/components/LiquidGlass";
+import { androidRipple } from "@/lib/ripple";
 import { useTheme } from "@/constants/colors";
 import { interaction, radii, spacing } from "@/constants/designTokens";
 
@@ -41,6 +42,7 @@ export function GlassButton({
     <Pressable
       {...props}
       disabled={disabled}
+      android_ripple={disabled ? undefined : props.android_ripple ?? androidRipple(colors.foreground)}
       accessibilityRole={accessibilityRole}
       accessibilityState={{ ...accessibilityState, disabled: Boolean(disabled) }}
       hitSlop={hitSlop}

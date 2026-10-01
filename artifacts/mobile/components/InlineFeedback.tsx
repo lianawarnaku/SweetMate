@@ -53,5 +53,5 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 9,
   },
-  message: { flex: 1, fontFamily: "Inter_500Medium", fontSize: 13, lineHeight: 18 },
+  message: { flex: 1, fontFamily: "Inter_500Medium", includeFontPadding: false, fontSize: 13, lineHeight: 18 },
 });

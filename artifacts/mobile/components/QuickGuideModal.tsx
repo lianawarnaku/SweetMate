@@ -150,7 +150,7 @@ export function QuickGuideModal() {
               onPress={close}
               style={styles.button}
             >
-              <Text style={[styles.buttonText, { color: "#fff" }]}>
+              <Text style={[styles.buttonText, { color: colors.actionForeground }]}>
                 GOT IT
               </Text>
             </GlassButton>
@@ -186,12 +186,12 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   title: {
-    fontFamily: "Inter_700Bold",
+    fontFamily: "Inter_700Bold", includeFontPadding: false,
     fontSize: 24,
     letterSpacing: 0.8,
   },
   intro: {
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Inter_400Regular", includeFontPadding: false,
     fontSize: 16,
     lineHeight: 21,
     marginTop: 4,
@@ -208,12 +208,12 @@ const styles = StyleSheet.create({
   },
   itemCopy: { flex: 1 },
   itemTitle: {
-    fontFamily: "Inter_700Bold",
+    fontFamily: "Inter_700Bold", includeFontPadding: false,
     fontSize: 17,
     lineHeight: 21,
   },
   itemDescription: {
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Inter_400Regular", includeFontPadding: false,
     fontSize: 15,
     lineHeight: 20,
     marginTop: 2,
@@ -226,7 +226,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   buttonText: {
-    fontFamily: "Inter_700Bold",
+    fontFamily: "Inter_700Bold", includeFontPadding: false,
     fontSize: 16,
     letterSpacing: 0.6,
   },

@@ -104,8 +104,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   copy: { flex: 1, minWidth: 180 },
-  title: { fontFamily: "Inter_700Bold", fontSize: 16 },
-  hint: { fontFamily: "Inter_400Regular", fontSize: 13, lineHeight: 17, marginTop: 2 },
+  title: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 16 },
+  hint: { fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 13, lineHeight: 17, marginTop: 2 },
   action: {
     width: "100%",
     minHeight: 46,
@@ -115,5 +115,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
   },
   actionSlot: { width: "100%" },
-  actionText: { fontFamily: "Inter_700Bold", fontSize: 15 },
+  actionText: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 15 },
 });

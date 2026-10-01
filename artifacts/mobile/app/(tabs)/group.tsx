@@ -1,3 +1,4 @@
+import { KEYBOARD_BEHAVIOR } from "@/lib/keyboard";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -37,6 +38,7 @@ import {
   type ChoreAssignment,
   type Chore,
 } from "@/context/AppContext";
+import { useTabBarLayout } from "@/hooks/useTabBarLayout";
 import { useTheme } from "@/constants/colors";
 import { error as hapticError, success as hapticSuccess } from "@/lib/haptics";
 import { isActiveSweetMember, resolveChorePermissions } from "@/lib/chorePermissions";
@@ -537,7 +539,7 @@ export default function GroupChoresScreen() {
     : null;
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
-  const botPad = Platform.OS === "web" ? 34 : 0;
+  const { contentBottomPadding } = useTabBarLayout();
 
   const activeHouseholdChores = useMemo(
     () => activeChores(chores, lifecycleNow),
@@ -637,7 +639,7 @@ export default function GroupChoresScreen() {
           return (
             <ScrollView
               showsVerticalScrollIndicator={false}
-              contentContainerStyle={{ paddingBottom: 90 + botPad, paddingHorizontal: 16 }}
+              contentContainerStyle={{ paddingBottom: contentBottomPadding, paddingHorizontal: 16 }}
             >
               {/* Month header */}
               <Surface style={[styles.monthHeader, { borderColor: colors.border }]}>
@@ -792,7 +794,7 @@ export default function GroupChoresScreen() {
       ) : (
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 90 + botPad }}
+        contentContainerStyle={{ paddingBottom: contentBottomPadding }}
         onScroll={handleGroupScroll}
         scrollEventThrottle={32}
       >
@@ -1306,7 +1308,7 @@ export default function GroupChoresScreen() {
           </View>
 
           <KeyboardAvoidingView
-            behavior={Platform.OS === "ios" ? "padding" : undefined}
+            behavior={KEYBOARD_BEHAVIOR}
             style={{ flex: 1 }}
           >
             <ManualChoreForm
@@ -1337,8 +1339,8 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     justifyContent: "space-between",
   },
-  headerSub: { fontFamily: "Inter_400Regular", fontSize: 13 },
-  headerTitle: { fontFamily: "Inter_700Bold", fontSize: 30, lineHeight: 36, marginTop: 2 },
+  headerSub: { fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 13 },
+  headerTitle: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 30, lineHeight: 36, marginTop: 2 },
   // Open house monitor summary — intentionally not enclosed in a separate card.
   plantSection: {
     marginHorizontal: 16,
@@ -1370,7 +1372,7 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
     borderRadius: 20,
   },
-  choreFilterText: { fontFamily: "Inter_600SemiBold", fontSize: 13 },
+  choreFilterText: { fontFamily: "Inter_600SemiBold", includeFontPadding: false, fontSize: 13 },
   section: {
     borderRadius: 22,
     borderWidth: 1,
@@ -1383,8 +1385,8 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   sectionInfo: { flex: 1 },
-  roommateName: { fontFamily: "Inter_600SemiBold", fontSize: 15 },
-  roommateStats: { fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 1 },
+  roommateName: { fontFamily: "Inter_600SemiBold", includeFontPadding: false, fontSize: 15 },
+  roommateStats: { fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 12, marginTop: 1 },
   miniBarContainer: { alignItems: "flex-end", gap: 4 },
   miniTrack: {
     width: 64,
@@ -1398,9 +1400,9 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: 8,
   },
-  ptsText: { fontFamily: "Inter_700Bold", fontSize: 12 },
+  ptsText: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 12 },
   noChores: {
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Inter_400Regular", includeFontPadding: false,
     fontSize: 13,
     paddingHorizontal: 14,
     paddingBottom: 12,
@@ -1411,7 +1413,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderTopWidth: StyleSheet.hairlineWidth,
   },
-  loadMoreChoresText: { fontFamily: "Inter_600SemiBold", fontSize: 13 },
+  loadMoreChoresText: { fontFamily: "Inter_600SemiBold", includeFontPadding: false, fontSize: 13 },
   overdueRecovery: {
     minHeight: 58,
     borderTopWidth: StyleSheet.hairlineWidth,
@@ -1422,9 +1424,9 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   overdueRecoveryCopy: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: 9 },
-  overdueRecoveryTitle: { fontFamily: "Inter_600SemiBold", fontSize: 13 },
-  overdueRecoverySubtitle: { fontFamily: "Inter_400Regular", fontSize: 11, marginTop: 1 },
-  overdueRecoveryAction: { fontFamily: "Inter_700Bold", fontSize: 12 },
+  overdueRecoveryTitle: { fontFamily: "Inter_600SemiBold", includeFontPadding: false, fontSize: 13 },
+  overdueRecoverySubtitle: { fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 11, marginTop: 1 },
+  overdueRecoveryAction: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 12 },
   choreRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -1433,8 +1435,8 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     gap: 10,
   },
-  choreTitle: { fontFamily: "Inter_500Medium", fontSize: 14 },
-  choreDate: { fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 1 },
+  choreTitle: { fontFamily: "Inter_500Medium", includeFontPadding: false, fontSize: 14 },
+  choreDate: { fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 12, marginTop: 1 },
   moreActionsButton: {
     width: 44,
     height: 44,
@@ -1465,7 +1467,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  activityTitle: { fontFamily: "Inter_600SemiBold", fontSize: 14, flex: 1 },
+  activityTitle: { fontFamily: "Inter_600SemiBold", includeFontPadding: false, fontSize: 14, flex: 1 },
   distBadge: {
     flexDirection: "row",
     alignItems: "center",
@@ -1475,7 +1477,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
   },
-  distText: { fontFamily: "Inter_500Medium", fontSize: 11 },
+  distText: { fontFamily: "Inter_500Medium", includeFontPadding: false, fontSize: 11 },
   activitySection: {
     borderTopWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: 14,
@@ -1483,7 +1485,7 @@ const styles = StyleSheet.create({
     paddingBottom: 14,
     gap: 10,
   },
-  activitySectionLabel: { fontFamily: "Inter_500Medium", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5 },
+  activitySectionLabel: { fontFamily: "Inter_500Medium", includeFontPadding: false, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5 },
   myStatusRow: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
   statusDotBig: {
     position: "absolute",
@@ -1517,8 +1519,8 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     alignSelf: "flex-start",
   },
-  myStatusLabel: { fontFamily: "Inter_600SemiBold", fontSize: 13 },
-  myStatusSub: { fontFamily: "Inter_400Regular", fontSize: 11 },
+  myStatusLabel: { fontFamily: "Inter_600SemiBold", includeFontPadding: false, fontSize: 13 },
+  myStatusSub: { fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 11 },
   statusBtnRow: { flexDirection: "row", gap: 6 },
   statusBtn: {
     flexDirection: "row",
@@ -1528,7 +1530,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 7,
   },
-  statusBtnText: { fontFamily: "Inter_600SemiBold", fontSize: 12 },
+  statusBtnText: { fontFamily: "Inter_600SemiBold", includeFontPadding: false, fontSize: 12 },
   homeLocBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -1538,8 +1540,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 9,
   },
-  homeLocText: { fontFamily: "Inter_600SemiBold", fontSize: 12 },
-  homeLocHint: { fontFamily: "Inter_400Regular", fontSize: 11, marginLeft: "auto" as unknown as number },
+  homeLocText: { fontFamily: "Inter_600SemiBold", includeFontPadding: false, fontSize: 12 },
+  homeLocHint: { fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 11, marginLeft: "auto" as unknown as number },
   activityGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -1554,14 +1556,14 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     minWidth: 72,
   },
-  activityRmName: { fontFamily: "Inter_500Medium", fontSize: 11 },
+  activityRmName: { fontFamily: "Inter_500Medium", includeFontPadding: false, fontSize: 11 },
   activityRmBadge: {
     borderRadius: 6,
     paddingHorizontal: 6,
     paddingVertical: 2,
   },
-  activityRmStatus: { fontFamily: "Inter_600SemiBold", fontSize: 10 },
-  activityHint: { fontFamily: "Inter_400Regular", fontSize: 11, textAlign: "center", marginTop: 2 },
+  activityRmStatus: { fontFamily: "Inter_600SemiBold", includeFontPadding: false, fontSize: 10 },
+  activityHint: { fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 11, textAlign: "center", marginTop: 2 },
 
   // ── Roommates ──
   roommatesGrid: {
@@ -1582,7 +1584,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   roommateTileName: {
-    fontFamily: "Inter_600SemiBold",
+    fontFamily: "Inter_600SemiBold", includeFontPadding: false,
     fontSize: 12,
     maxWidth: "100%",
   },
@@ -1623,7 +1625,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "transparent",
   },
-  tabSwitchText: { fontFamily: "Inter_600SemiBold", fontSize: 13 },
+  tabSwitchText: { fontFamily: "Inter_600SemiBold", includeFontPadding: false, fontSize: 13 },
 
   // ── Calendar ──
   monthHeader: {
@@ -1636,7 +1638,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginBottom: 8,
   },
-  monthLabel: { fontFamily: "Inter_700Bold", fontSize: 16 },
+  monthLabel: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 16 },
   monthNavBtn: {
     width: 32,
     height: 32,
@@ -1652,7 +1654,7 @@ const styles = StyleSheet.create({
   dowText: {
     flex: 1,
     textAlign: "center",
-    fontFamily: "Inter_500Medium",
+    fontFamily: "Inter_500Medium", includeFontPadding: false,
     fontSize: 11,
     textTransform: "uppercase",
     letterSpacing: 0.5,
@@ -1702,8 +1704,8 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 8,
   },
-  weekChipText: { fontFamily: "Inter_700Bold", fontSize: 11 },
-  weekRangeText: { fontFamily: "Inter_500Medium", fontSize: 12 },
+  weekChipText: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 11 },
+  weekRangeText: { fontFamily: "Inter_500Medium", includeFontPadding: false, fontSize: 12 },
   assignRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -1719,7 +1721,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  slotLabelText: { flex: 1, fontFamily: "Inter_500Medium", fontSize: 13 },
+  slotLabelText: { flex: 1, fontFamily: "Inter_500Medium", includeFontPadding: false, fontSize: 13 },
   assigneeTag: {
     flexDirection: "row",
     alignItems: "center",
@@ -1730,7 +1732,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   assigneeDot: { width: 6, height: 6, borderRadius: 3 },
-  assigneeName: { fontFamily: "Inter_600SemiBold", fontSize: 11 },
+  assigneeName: { fontFamily: "Inter_600SemiBold", includeFontPadding: false, fontSize: 11 },
   weekOutCard: {
     borderRadius: 12,
     borderWidth: 1,
@@ -1739,7 +1741,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     alignItems: "center",
   },
-  weekOutText: { fontFamily: "Inter_400Regular", fontSize: 12 },
+  weekOutText: { fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 12 },
   calEmptyCard: {
     borderRadius: 14,
     borderWidth: 1,
@@ -1747,8 +1749,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 6,
   },
-  calEmptyTitle: { fontFamily: "Inter_700Bold", fontSize: 15 },
-  calEmptySub: { fontFamily: "Inter_400Regular", fontSize: 12, textAlign: "center" },
+  calEmptyTitle: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 15 },
+  calEmptySub: { fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 12, textAlign: "center" },
 
   // ── Section-header + button ──
   sectionAddBtn: {
@@ -1771,8 +1773,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     gap: 12,
   },
-  addChoreHeaderTitle: { fontFamily: "Inter_700Bold", fontSize: 26 },
-  addChoreHeaderSub: { fontFamily: "Inter_400Regular", fontSize: 13, marginTop: 2 },
+  addChoreHeaderTitle: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 26 },
+  addChoreHeaderSub: { fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 13, marginTop: 2 },
   addChoreCloseBtn: {
     width: 40,
     height: 40,
@@ -1800,7 +1802,7 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
   },
   addChoreLabel: {
-    fontFamily: "Inter_500Medium",
+    fontFamily: "Inter_500Medium", includeFontPadding: false,
     fontSize: 13,
     marginBottom: 4,
     marginTop: 6,
@@ -1810,7 +1812,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     paddingHorizontal: 14,
     paddingVertical: 11,
-    fontFamily: "Inter_500Medium",
+    fontFamily: "Inter_500Medium", includeFontPadding: false,
     fontSize: 15,
     marginBottom: 4,
   },
@@ -1850,5 +1852,5 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderRadius: 14,
   },
-  addChoreSubmitText: { fontFamily: "Inter_700Bold", fontSize: 16 },
+  addChoreSubmitText: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 16 },
 });

@@ -55,5 +55,5 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 10,
   },
-  title: { flex: 1, fontFamily: "Inter_600SemiBold", fontSize: 15 },
+  title: { flex: 1, fontFamily: "Inter_600SemiBold", includeFontPadding: false, fontSize: 15 },
 });

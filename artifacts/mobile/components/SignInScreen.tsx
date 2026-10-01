@@ -1,3 +1,4 @@
+import { KEYBOARD_BEHAVIOR } from "@/lib/keyboard";
 // Email/password sign-in and sign-up UI, shown by AuthGate whenever there's
 // no Supabase session. Toggles between two modes:
 //   - "signin" → supabase.auth.signInWithPassword
@@ -220,7 +221,7 @@ export function SignInScreen() {
   return (
     <KeyboardAvoidingView
       style={[styles.root, { backgroundColor: colors.background }]}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      behavior={KEYBOARD_BEHAVIOR}
     >
       <ScrollView
         contentContainerStyle={[
@@ -417,12 +418,12 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   title: {
-    fontFamily: "Inter_700Bold",
+    fontFamily: "Inter_700Bold", includeFontPadding: false,
     fontSize: 30,
     marginBottom: 6,
   },
   subtitle: {
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Inter_400Regular", includeFontPadding: false,
     fontSize: 14,
     textAlign: "center",
     marginBottom: 32,
@@ -430,7 +431,7 @@ const styles = StyleSheet.create({
   },
   form: { alignSelf: "stretch", maxWidth: 420, width: "100%" },
   label: {
-    fontFamily: "Inter_500Medium",
+    fontFamily: "Inter_500Medium", includeFontPadding: false,
     fontSize: 12,
     letterSpacing: 0.4,
     textTransform: "uppercase",
@@ -442,7 +443,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 15,
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Inter_400Regular", includeFontPadding: false,
   },
   banner: {
     marginTop: 14,
@@ -454,7 +455,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   bannerText: {
-    fontFamily: "Inter_500Medium",
+    fontFamily: "Inter_500Medium", includeFontPadding: false,
     fontSize: 13,
     flex: 1,
     lineHeight: 18,
@@ -466,7 +467,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   resendText: {
-    fontFamily: "Inter_600SemiBold",
+    fontFamily: "Inter_600SemiBold", includeFontPadding: false,
     fontSize: 13,
   },
   submit: {
@@ -477,7 +478,7 @@ const styles = StyleSheet.create({
   },
   submitText: {
     color: "#fff",
-    fontFamily: "Inter_700Bold",
+    fontFamily: "Inter_700Bold", includeFontPadding: false,
     fontSize: 15,
   },
   dividerRow: {
@@ -488,7 +489,7 @@ const styles = StyleSheet.create({
   },
   dividerLine: { flex: 1, height: StyleSheet.hairlineWidth },
   dividerText: {
-    fontFamily: "Inter_500Medium",
+    fontFamily: "Inter_500Medium", includeFontPadding: false,
     fontSize: 10,
     letterSpacing: 0.6,
   },
@@ -504,7 +505,7 @@ const styles = StyleSheet.create({
   },
   appleButton: { backgroundColor: "#000", borderColor: "#000" },
   socialButtonText: {
-    fontFamily: "Inter_600SemiBold",
+    fontFamily: "Inter_600SemiBold", includeFontPadding: false,
     fontSize: 15,
   },
   switchRow: {
@@ -512,13 +513,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   switchText: {
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Inter_400Regular", includeFontPadding: false,
     fontSize: 13,
   },
   privacyCopy: {
     marginTop: 14,
     textAlign: "center",
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Inter_400Regular", includeFontPadding: false,
     fontSize: 12,
     lineHeight: 17,
   },

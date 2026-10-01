@@ -1,3 +1,4 @@
+import { KEYBOARD_BEHAVIOR } from "@/lib/keyboard";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
@@ -805,12 +806,12 @@ export default function ShoppingScreen() {
       </Modal>
 
       {/* ── Add Item Modal ── */}
-      <Modal visible={showShoppingModal} transparent animationType="slide">
+      <Modal visible={showShoppingModal} transparent animationType="slide" onRequestClose={() => setShowShoppingModal(false)}>
         <Pressable
           style={styles.overlay}
           onPress={() => { setShowShoppingModal(false); setTargetListId(null); }}
         />
-        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} pointerEvents="box-none">
+        <KeyboardAvoidingView behavior={KEYBOARD_BEHAVIOR} pointerEvents="box-none">
           <Surface
             level="modal"
             style={[
@@ -881,9 +882,9 @@ export default function ShoppingScreen() {
       </Modal>
 
       {/* ── New List Modal ── */}
-      <Modal visible={showNewListModal} transparent animationType="slide">
+      <Modal visible={showNewListModal} transparent animationType="slide" onRequestClose={() => setShowNewListModal(false)}>
         <Pressable style={styles.overlay} onPress={() => setShowNewListModal(false)} />
-        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} pointerEvents="box-none">
+        <KeyboardAvoidingView behavior={KEYBOARD_BEHAVIOR} pointerEvents="box-none">
           <Surface
             level="modal"
             style={[
@@ -950,8 +951,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 16,
   },
-  title: { fontFamily: "Inter_700Bold", fontSize: 30, lineHeight: 36 },
-  subtitle: { fontFamily: "Inter_400Regular", fontSize: 13, marginTop: 2 },
+  title: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 30, lineHeight: 36 },
+  subtitle: { fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 13, marginTop: 2 },
   addHeaderBtn: {
     width: 40,
     height: 40,
@@ -965,8 +966,8 @@ const styles = StyleSheet.create({
   summaryTopRow: { flexDirection: "row", alignItems: "center", gap: 10 },
   summaryIcon: { width: 34, height: 34, borderRadius: 12, alignItems: "center", justifyContent: "center" },
   summaryCopy: { flex: 1 },
-  summaryTitle: { fontFamily: "Inter_600SemiBold", fontSize: 14 },
-  summaryText: { fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 2 },
+  summaryTitle: { fontFamily: "Inter_600SemiBold", includeFontPadding: false, fontSize: 14 },
+  summaryText: { fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 12, marginTop: 2 },
   progressTrack: { height: 5, borderRadius: 3, overflow: "hidden" },
   progressFill: { height: "100%", borderRadius: 3 },
   listContent: { paddingHorizontal: 16, paddingTop: 4 },
@@ -996,8 +997,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  listName: { flex: 1, fontFamily: "Inter_600SemiBold", fontSize: 15 },
-  listCount: { fontFamily: "Inter_400Regular", fontSize: 12 },
+  listName: { flex: 1, fontFamily: "Inter_600SemiBold", includeFontPadding: false, fontSize: 15 },
+  listCount: { fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 12 },
   listAddBtn: {
     width: 28,
     height: 28,
@@ -1030,25 +1031,25 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     gap: 2,
   },
-  priceDollar: { fontFamily: "Inter_600SemiBold", fontSize: 14 },
-  priceInput: { flex: 1, fontFamily: "Inter_500Medium", fontSize: 14, paddingVertical: 4 },
+  priceDollar: { fontFamily: "Inter_600SemiBold", includeFontPadding: false, fontSize: 14 },
+  priceInput: { flex: 1, fontFamily: "Inter_500Medium", includeFontPadding: false, fontSize: 14, paddingVertical: 4 },
   promptRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
     paddingVertical: 8,
   },
-  promptItemName: { fontFamily: "Inter_500Medium", fontSize: 14 },
-  promptItemOwner: { fontFamily: "Inter_500Medium", fontSize: 12, marginTop: 2 },
+  promptItemName: { fontFamily: "Inter_500Medium", includeFontPadding: false, fontSize: 14 },
+  promptItemOwner: { fontFamily: "Inter_500Medium", includeFontPadding: false, fontSize: 12, marginTop: 2 },
   pickerHint: {
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Inter_400Regular", includeFontPadding: false,
     fontSize: 12,
     marginTop: 4,
     marginBottom: 4,
   },
   listItems: { paddingBottom: 4 },
   listEmpty: {
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Inter_400Regular", includeFontPadding: false,
     fontSize: 13,
     textAlign: "center",
     paddingVertical: 14,
@@ -1066,10 +1067,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  shopName: { fontFamily: "Inter_500Medium", fontSize: 14 },
-  shopMeta: { fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 1 },
+  shopName: { fontFamily: "Inter_500Medium", includeFontPadding: false, fontSize: 14 },
+  shopMeta: { fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 12, marginTop: 1 },
   assignBtn: { minHeight: 32, alignItems: "center", justifyContent: "center" },
-  inlineYou: { fontFamily: "Inter_600SemiBold", fontSize: 12 },
+  inlineYou: { fontFamily: "Inter_600SemiBold", includeFontPadding: false, fontSize: 12 },
   assignedPill: {
     flexDirection: "row",
     alignItems: "center",
@@ -1080,7 +1081,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   pillDot: { width: 7, height: 7, borderRadius: 4 },
-  pillText: { fontFamily: "Inter_500Medium", fontSize: 12 },
+  pillText: { fontFamily: "Inter_500Medium", includeFontPadding: false, fontSize: 12 },
   assignGhost: {
     width: 28,
     height: 28,
@@ -1107,16 +1108,16 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     marginBottom: 6,
   },
-  sheetTitle: { fontFamily: "Inter_700Bold", fontSize: 20, marginBottom: 4 },
-  sheetSubtitle: { fontFamily: "Inter_400Regular", fontSize: 16 },
-  label: { fontFamily: "Inter_500Medium", fontSize: 13, marginBottom: 4 },
+  sheetTitle: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 20, marginBottom: 4 },
+  sheetSubtitle: { fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 16 },
+  label: { fontFamily: "Inter_500Medium", includeFontPadding: false, fontSize: 13, marginBottom: 4 },
   input: {
     borderRadius: 12,
     borderWidth: 1,
     paddingHorizontal: 14,
     paddingVertical: 11,
     fontSize: 15,
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Inter_400Regular", includeFontPadding: false,
   },
   addBtn: {
     borderRadius: 14,
@@ -1125,9 +1126,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  addBtnText: { fontFamily: "Inter_700Bold", fontSize: 16, color: "#fff" },
+  addBtnText: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 16, color: "#fff" },
   assignPickerItemName: {
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Inter_400Regular", includeFontPadding: false,
     fontSize: 14,
     marginTop: -6,
     marginBottom: 4,
@@ -1171,7 +1172,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   clearAssignText: {
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Inter_400Regular", includeFontPadding: false,
     fontSize: 14,
   },
 });

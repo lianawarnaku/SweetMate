@@ -3,6 +3,7 @@ import { GlassView, isGlassEffectAPIAvailable, isLiquidGlassAvailable } from "ex
 import React, { type ReactNode, useEffect, useState } from "react";
 import { AccessibilityInfo, Platform, Pressable, StyleSheet, View, type PressableProps, type StyleProp, type ViewProps, type ViewStyle } from "react-native";
 
+import { androidRipple } from "@/lib/ripple";
 import { useTheme } from "@/constants/colors";
 import { elevation, glass, interaction, radii, spacing, type GlassLevel } from "@/constants/designTokens";
 
@@ -75,12 +76,13 @@ export function GlassSurface({ children, style, variant = "regular", interactive
   }
   // Blur only the background layer so labels and icons remain sharp.
   // A dense modal tint prevents the underlying page showing through the text.
-  const fill = reduceTransparency
+  const opaqueFallback = reduceTransparency || Platform.OS === "android";
+  const fill = opaqueFallback
     ? (colors.mode === "dark" ? "#202024" : "#F7F7FA")
     : baseColor;
   return (
     <View {...props} style={surfaceStyle}>
-      {!reduceTransparency && Platform.OS !== "web" && (
+      {!opaqueFallback && Platform.OS !== "web" && (
         <BlurView pointerEvents="none" intensity={treatment.blurIntensity} tint={colors.mode} style={StyleSheet.absoluteFill} />
       )}
       <View
@@ -103,7 +105,7 @@ type GlassButtonProps = Omit<PressableProps, "children" | "style"> & { children:
 export function AccentButton({ children, style, disabled, ...props }: GlassButtonProps) {
   const colors = useTheme();
   return (
-    <Pressable {...props} disabled={disabled} style={({ pressed }) => [styles.button, { backgroundColor: colors.action }, style, disabled && styles.disabled, pressed && !disabled && styles.pressed]}>
+    <Pressable {...props} android_ripple={disabled ? undefined : props.android_ripple ?? androidRipple(colors.foreground)} disabled={disabled} style={({ pressed }) => [styles.button, { backgroundColor: colors.action }, style, disabled && styles.disabled, pressed && !disabled && styles.pressed]}>
       <View style={styles.buttonContent}>{children}</View>
     </Pressable>
   );
@@ -112,7 +114,7 @@ export function AccentButton({ children, style, disabled, ...props }: GlassButto
 export function NeutralButton({ children, style, disabled, ...props }: GlassButtonProps) {
   const colors = useTheme();
   return (
-    <Pressable {...props} disabled={disabled} style={({ pressed }) => [styles.button, { backgroundColor: colors.surfaceElevated }, style, disabled && styles.disabled, pressed && !disabled && styles.pressed]}>
+    <Pressable {...props} android_ripple={disabled ? undefined : props.android_ripple ?? androidRipple(colors.foreground)} disabled={disabled} style={({ pressed }) => [styles.button, { backgroundColor: colors.surfaceElevated }, style, disabled && styles.disabled, pressed && !disabled && styles.pressed]}>
       <View style={styles.buttonContent}>{children}</View>
     </Pressable>
   );

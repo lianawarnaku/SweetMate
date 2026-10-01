@@ -1,3 +1,4 @@
+import { KEYBOARD_BEHAVIOR } from "@/lib/keyboard";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
@@ -447,6 +448,7 @@ function CalendarDayDetails({
   onItemPress: (item: CalendarItem) => void;
 }) {
   const colors = useTheme();
+  const insets = useSafeAreaInsets();
   const groups: { type: CalendarItemType; title: string; items: CalendarItem[] }[] = [
     { type: "chore", title: "Chores", items: items.filter((item) => item.type === "chore") },
     { type: "shopping-item", title: "Shopping", items: items.filter((item) => item.type === "shopping-item" || item.type === "shopping-list") },
@@ -460,7 +462,7 @@ function CalendarDayDetails({
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <TouchableOpacity style={styles.dayModalBackdrop} activeOpacity={1} onPress={onClose} accessibilityLabel="Close scheduled items" />
-      <Surface level="modal" style={[styles.dayModalSheet, { borderColor: colors.border }]}>
+      <Surface level="modal" style={[styles.dayModalSheet, { borderColor: colors.border, paddingBottom: insets.bottom + 16 }]}>
         <View style={styles.dayModalHandle} />
         <View style={styles.dayModalHeader}>
           <View style={{ flex: 1 }}>
@@ -1597,7 +1599,7 @@ export default function MyChoresScreen() {
           </View>
 
           <KeyboardAvoidingView
-            behavior={Platform.OS === "ios" ? "padding" : undefined}
+            behavior={KEYBOARD_BEHAVIOR}
             style={{ flex: 1 }}
           >
             <ManualChoreForm
@@ -1634,7 +1636,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   greeting: { fontSize: 13, fontFamily: "Inter_400Regular" },
-  username: { fontSize: 30, lineHeight: 36, fontFamily: "Inter_700Bold", marginTop: 2 },
+  username: { fontSize: 30, lineHeight: 36, fontFamily: "Inter_700Bold", includeFontPadding: false, marginTop: 2 },
   totalPoints: {
     flexDirection: "row",
     alignItems: "center",
@@ -1643,7 +1645,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 20,
   },
-  totalPointsText: { fontFamily: "Inter_700Bold", fontSize: 14 },
+  totalPointsText: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 14 },
   progressSection: { marginTop: spacing.lg },
   todayFocusCard: {
     borderRadius: radii.floating,
@@ -1720,9 +1722,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   calendarMonthButton: { flex: 1 },
-  calendarMonth: { fontFamily: "Inter_700Bold", fontSize: 16 },
+  calendarMonth: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 16 },
   calendarExpandHint: { flexDirection: "row", alignItems: "center", gap: 2 },
-  calendarTodayHint: { fontFamily: "Inter_400Regular", fontSize: 10, marginTop: 1 },
+  calendarTodayHint: { fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 10, marginTop: 1 },
   todoBadge: {
     flexDirection: "row",
     alignItems: "center",
@@ -1734,7 +1736,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
   },
-  todoBadgeText: { fontFamily: "Inter_600SemiBold", fontSize: 12 },
+  todoBadgeText: { fontFamily: "Inter_600SemiBold", includeFontPadding: false, fontSize: 12 },
   calendarDaysWrap: { marginTop: 12 },
   calendarDays: { flexDirection: "row", gap: CALENDAR_DAY_GAP },
   calendarSelectionBubble: {
@@ -1760,43 +1762,43 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingVertical: 6,
   },
-  calendarWeekday: { fontFamily: "Inter_500Medium", fontSize: 10, textTransform: "uppercase" },
-  calendarDate: { fontFamily: "Inter_700Bold", fontSize: 18, marginTop: 2 },
+  calendarWeekday: { fontFamily: "Inter_500Medium", includeFontPadding: false, fontSize: 10, textTransform: "uppercase" },
+  calendarDate: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 18, marginTop: 2 },
   calendarMarkers: { height: 10, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 2, marginTop: 2 },
   calendarDot: { width: 5, height: 5, borderRadius: 3 },
-  markerMore: { fontFamily: "Inter_600SemiBold", fontSize: 7, lineHeight: 9 },
-  selectedDateLabel: { fontFamily: "Inter_600SemiBold", fontSize: 14, marginTop: 11 },
+  markerMore: { fontFamily: "Inter_600SemiBold", includeFontPadding: false, fontSize: 7, lineHeight: 9 },
+  selectedDateLabel: { fontFamily: "Inter_600SemiBold", includeFontPadding: false, fontSize: 14, marginTop: 11 },
   monthView: { marginTop: 10 },
   monthWeekdays: { flexDirection: "row" },
-  monthWeekday: { width: "14.2857%", textAlign: "center", fontFamily: "Inter_600SemiBold", fontSize: 10 },
+  monthWeekday: { width: "14.2857%", textAlign: "center", fontFamily: "Inter_600SemiBold", includeFontPadding: false, fontSize: 10 },
   monthGrid: { flexDirection: "row", flexWrap: "wrap", marginTop: 5 },
   monthDay: { width: "14.2857%", height: 42, borderRadius: 12, alignItems: "center", justifyContent: "center" },
   monthDots: { height: 5, flexDirection: "row", alignItems: "center", gap: 2, marginTop: 3 },
   monthDot: { width: 4, height: 4, borderRadius: 2 },
   householdPreview: { borderTopWidth: StyleSheet.hairlineWidth, marginTop: 10, paddingTop: 10, gap: 7 },
-  previewTitle: { fontFamily: "Inter_700Bold", fontSize: 13 },
-  previewEmpty: { fontFamily: "Inter_400Regular", fontSize: 12, paddingVertical: 4 },
+  previewTitle: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 13 },
+  previewEmpty: { fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 12, paddingVertical: 4 },
   previewRow: { flexDirection: "row", alignItems: "center", gap: 8, minHeight: 24 },
   previewOwnerDot: { width: 8, height: 8, borderRadius: 4 },
-  previewChore: { flex: 1, fontFamily: "Inter_500Medium", fontSize: 12 },
-  previewOwner: { maxWidth: 72, fontFamily: "Inter_400Regular", fontSize: 11 },
-  previewMore: { fontFamily: "Inter_600SemiBold", fontSize: 11, marginLeft: 16 },
+  previewChore: { flex: 1, fontFamily: "Inter_500Medium", includeFontPadding: false, fontSize: 12 },
+  previewOwner: { maxWidth: 72, fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 11 },
+  previewMore: { fontFamily: "Inter_600SemiBold", includeFontPadding: false, fontSize: 11, marginLeft: 16 },
   dayModalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.35)" },
-  dayModalSheet: { position: "absolute", left: 0, right: 0, bottom: 0, borderTopLeftRadius: radii.floating, borderTopRightRadius: radii.floating, borderWidth: 1, paddingBottom: Platform.OS === "ios" ? 28 : spacing.lg },
+  dayModalSheet: { position: "absolute", left: 0, right: 0, bottom: 0, borderTopLeftRadius: radii.floating, borderTopRightRadius: radii.floating, borderWidth: 1 },
   dayModalHandle: { width: 38, height: 4, borderRadius: 2, backgroundColor: "#9CA3AF", opacity: 0.55, alignSelf: "center", marginTop: 9 },
   dayModalHeader: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 18, paddingTop: 14, paddingBottom: 10 },
-  dayModalTitle: { fontFamily: "Inter_700Bold", fontSize: 18 },
-  dayModalSubtitle: { fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 2 },
+  dayModalTitle: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 18 },
+  dayModalSubtitle: { fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 12, marginTop: 2 },
   dayModalClose: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center" },
   dayModalContent: { paddingHorizontal: 18, paddingBottom: 12, gap: 16 },
   dayEmpty: { alignItems: "center", gap: 8, paddingVertical: 32 },
   dayGroup: { gap: 7 },
-  dayGroupTitle: { fontFamily: "Inter_700Bold", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8 },
+  dayGroupTitle: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8 },
   dayItem: { minHeight: 62, borderRadius: 14, borderWidth: 1, padding: 10, flexDirection: "row", alignItems: "center", gap: 10 },
   dayItemIcon: { width: 32, height: 32, borderRadius: 10, alignItems: "center", justifyContent: "center" },
-  dayItemTitle: { fontFamily: "Inter_600SemiBold", fontSize: 13 },
-  dayItemDescription: { fontFamily: "Inter_400Regular", fontSize: 11, lineHeight: 15, marginTop: 2 },
-  dayItemAmount: { fontFamily: "Inter_700Bold", fontSize: 12 },
+  dayItemTitle: { fontFamily: "Inter_600SemiBold", includeFontPadding: false, fontSize: 13 },
+  dayItemDescription: { fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 11, lineHeight: 15, marginTop: 2 },
+  dayItemAmount: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 12 },
   sectionTitleRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -1817,7 +1819,7 @@ const styles = StyleSheet.create({
   },
   sectionTitleCopy: { flex: 1, minWidth: 0 },
   sectionTitleText: {
-    fontFamily: "Inter_700Bold",
+    fontFamily: "Inter_700Bold", includeFontPadding: false,
     fontSize: 15,
   },
   sectionCountBadge: {
@@ -1829,7 +1831,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   sectionTitleCount: {
-    fontFamily: "Inter_500Medium",
+    fontFamily: "Inter_500Medium", includeFontPadding: false,
     fontSize: 12,
   },
   filterRow: {
@@ -1848,9 +1850,9 @@ const styles = StyleSheet.create({
     borderRadius: radii.pill,
     borderWidth: 1,
   },
-  filterText: { fontFamily: "Inter_600SemiBold", fontSize: 13 },
+  filterText: { fontFamily: "Inter_600SemiBold", includeFontPadding: false, fontSize: 13 },
   doneRetentionHint: {
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Inter_400Regular", includeFontPadding: false,
     fontSize: 12,
     lineHeight: 17,
     marginHorizontal: 16,
@@ -1870,9 +1872,9 @@ const styles = StyleSheet.create({
   },
   earlierChoresCopy: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: 10 },
   earlierChoresTextWrap: { flex: 1, minWidth: 0 },
-  earlierChoresTitle: { fontFamily: "Inter_600SemiBold", fontSize: 13 },
-  earlierChoresSubtitle: { fontFamily: "Inter_400Regular", fontSize: 11, lineHeight: 15, marginTop: 1 },
-  earlierChoresAction: { fontFamily: "Inter_700Bold", fontSize: 12 },
+  earlierChoresTitle: { fontFamily: "Inter_600SemiBold", includeFontPadding: false, fontSize: 13 },
+  earlierChoresSubtitle: { fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 11, lineHeight: 15, marginTop: 1 },
+  earlierChoresAction: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 12 },
   listContent: { paddingHorizontal: 16, gap: 12 },
   choreRow: {
     flexDirection: "row",
@@ -1905,7 +1907,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 5,
   },
-  leftPointsText: { fontFamily: "Inter_700Bold", fontSize: 10 },
+  leftPointsText: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 10 },
   choreInfo: { flex: 1, minWidth: 0 },
   choreTitle: { ...typography.label },
   choreMeta: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginTop: spacing.xs, overflow: "hidden" },
@@ -1918,14 +1920,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: spacing.xs,
   },
-  dueDateText: { ...typography.caption, fontFamily: "Inter_500Medium", flexShrink: 1 },
+  dueDateText: { ...typography.caption, fontFamily: "Inter_500Medium", includeFontPadding: false, flexShrink: 1 },
   choreDetailText: { ...typography.caption, fontSize: 11, flexShrink: 1 },
   pointsBadge: {
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 10,
   },
-  pointsText: { fontFamily: "Inter_700Bold", fontSize: 12 },
+  pointsText: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 12 },
   trailingActions: {
     flexDirection: "row",
     alignItems: "center",
@@ -1963,8 +1965,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     gap: 12,
   },
-  addChoreHeaderTitle: { fontFamily: "Inter_700Bold", fontSize: 26 },
-  addChoreHeaderSub: { fontFamily: "Inter_400Regular", fontSize: 13, marginTop: 2 },
+  addChoreHeaderTitle: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 26 },
+  addChoreHeaderSub: { fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 13, marginTop: 2 },
   addChoreCloseBtn: {
     width: 40,
     height: 40,
@@ -1999,9 +2001,9 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderRadius: 22,
   },
-  addChoreSubmitText: { fontFamily: "Inter_700Bold", fontSize: 16 },
+  addChoreSubmitText: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 16 },
   fieldLabel: {
-    fontFamily: "Inter_500Medium",
+    fontFamily: "Inter_500Medium", includeFontPadding: false,
     fontSize: 13,
     marginTop: 8,
     marginBottom: 6,
@@ -2012,7 +2014,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     fontSize: 15,
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Inter_400Regular", includeFontPadding: false,
   },
   categoryScroll: { marginBottom: 4 },
   catChip: {
@@ -2025,7 +2027,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginRight: 8,
   },
-  catChipText: { fontFamily: "Inter_500Medium", fontSize: 12 },
+  catChipText: { fontFamily: "Inter_500Medium", includeFontPadding: false, fontSize: 12 },
   pointsRow: { flexDirection: "row", gap: 8, flexWrap: "wrap", marginBottom: 8 },
   pointsChip: {
     paddingHorizontal: 14,
@@ -2041,7 +2043,7 @@ const styles = StyleSheet.create({
   },
   addBtnText: {
     color: "#fff",
-    fontFamily: "Inter_700Bold",
+    fontFamily: "Inter_700Bold", includeFontPadding: false,
     fontSize: 16,
   },
   toBuyCard: {
@@ -2061,6 +2063,6 @@ const styles = StyleSheet.create({
     paddingVertical: 11,
     gap: 10,
   },
-  toBuyItem: { fontFamily: "Inter_500Medium", fontSize: 14, flex: 1 },
-  toBuySection: { fontFamily: "Inter_400Regular", fontSize: 11 },
+  toBuyItem: { fontFamily: "Inter_500Medium", includeFontPadding: false, fontSize: 14, flex: 1 },
+  toBuySection: { fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 11 },
 });

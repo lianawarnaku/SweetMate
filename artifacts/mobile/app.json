@@ -44,10 +44,9 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/sweetmate-splash.png",
+          "image": "./assets/images/sweetmate-splash-on-dark.png",
           "imageWidth": 224,
-          "resizeMode": "contain",
-          "backgroundColor": "#FFFFFF"
+          "resizeMode": "contain"
         }
       ],
       "expo-font",
@@ -69,6 +68,10 @@
       "eas": {
         "projectId": "66fa0c25-5e31-481a-ae0a-0a057806cf27"
       }
+    },
+    "androidNavigationBar": {
+      "barStyle": "dark-content",
+      "enforceContrast": true
     }
   }
 }

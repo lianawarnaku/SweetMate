@@ -1,3 +1,4 @@
+import { KEYBOARD_BEHAVIOR } from "@/lib/keyboard";
 // grabbing a specific named export from a package
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -673,9 +674,9 @@ export default function BorrowScreen() {
         }
       />
 
-      <Modal visible={showModal} transparent animationType="slide">
+      <Modal visible={showModal} transparent animationType="slide" onRequestClose={closeModal}>
         <Pressable style={styles.overlay} onPress={() => setShowModal(false)} />
-        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} pointerEvents="box-none">
+        <KeyboardAvoidingView behavior={KEYBOARD_BEHAVIOR} pointerEvents="box-none">
         <Surface
           level="modal"
           style={[
@@ -740,7 +741,7 @@ export default function BorrowScreen() {
                     style={{
                       color:
                         borrowedFrom === r.id ? r.color : colors.mutedForeground,
-                      fontFamily: "Inter_600SemiBold",
+                      fontFamily: "Inter_600SemiBold", includeFontPadding: false,
                       fontSize: 13,
                     }}
                   >
@@ -776,7 +777,7 @@ export default function BorrowScreen() {
                 <Text
                   style={{
                     color: borrowedBy === r.id ? r.color : colors.mutedForeground,
-                    fontFamily: "Inter_600SemiBold",
+                    fontFamily: "Inter_600SemiBold", includeFontPadding: false,
                     fontSize: 13,
                   }}
                 >
@@ -909,8 +910,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 16,
   },
-  title: { fontFamily: "Inter_700Bold", fontSize: 30, lineHeight: 36 },
-  subtitle: { fontFamily: "Inter_400Regular", fontSize: 13, marginTop: 2 },
+  title: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 30, lineHeight: 36 },
+  subtitle: { fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 13, marginTop: 2 },
   addBtn: {
     width: 40,
     height: 40,
@@ -929,7 +930,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     padding: 12,
   },
-  overdueText: { fontFamily: "Inter_600SemiBold", fontSize: 13, flex: 1 },
+  overdueText: { fontFamily: "Inter_600SemiBold", includeFontPadding: false, fontSize: 13, flex: 1 },
   actionError: {
     flexDirection: "row",
     alignItems: "center",
@@ -942,7 +943,7 @@ const styles = StyleSheet.create({
   },
   list: { paddingHorizontal: 16, gap: 12 },
   sectionHeader: {
-    fontFamily: "Inter_600SemiBold",
+    fontFamily: "Inter_600SemiBold", includeFontPadding: false,
     fontSize: 12,
     textTransform: "uppercase",
     letterSpacing: 0.8,
@@ -957,7 +958,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   cardContent: { flex: 1, gap: 3 },
-  borrowItemName: { fontFamily: "Inter_600SemiBold", fontSize: 15 },
+  borrowItemName: { fontFamily: "Inter_600SemiBold", includeFontPadding: false, fontSize: 15 },
   privateBadge: {
     alignSelf: "flex-start",
     flexDirection: "row",
@@ -967,10 +968,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 7,
     paddingVertical: 3,
   },
-  privateBadgeText: { fontFamily: "Inter_600SemiBold", fontSize: 11 },
+  privateBadgeText: { fontFamily: "Inter_600SemiBold", includeFontPadding: false, fontSize: 11 },
   ownerRow: { flexDirection: "row", alignItems: "center", gap: 5 },
-  ownerText: { fontFamily: "Inter_400Regular", fontSize: 12 },
-  notesText: { fontFamily: "Inter_400Regular", fontSize: 12, fontStyle: "italic" },
+  ownerText: { fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 12 },
+  notesText: { fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 12, fontStyle: "italic" },
   dueText: { fontSize: 12, marginTop: 2 },
   cardActions: { alignItems: "flex-end", gap: 8 },
   returnBtn: {
@@ -982,7 +983,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
   },
-  returnBtnText: { fontFamily: "Inter_600SemiBold", fontSize: 12 },
+  returnBtnText: { fontFamily: "Inter_600SemiBold", includeFontPadding: false, fontSize: 12 },
   overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.35)" },
   sheet: {
     borderTopLeftRadius: 24,
@@ -1000,15 +1001,15 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     marginBottom: 16,
   },
-  sheetTitle: { fontFamily: "Inter_700Bold", fontSize: 20, marginBottom: 12 },
-  label: { fontFamily: "Inter_500Medium", fontSize: 13, marginTop: 8, marginBottom: 6 },
+  sheetTitle: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 20, marginBottom: 12 },
+  label: { fontFamily: "Inter_500Medium", includeFontPadding: false, fontSize: 13, marginTop: 8, marginBottom: 6 },
   input: {
     borderRadius: 10,
     borderWidth: 1,
     paddingHorizontal: 14,
     paddingVertical: 10,
     fontSize: 15,
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Inter_400Regular", includeFontPadding: false,
   },
   roommateChip: {
     flexDirection: "row",
@@ -1037,9 +1038,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   privacyCopy: { flex: 1, minWidth: 0 },
-  privacyTitle: { fontFamily: "Inter_600SemiBold", fontSize: 14 },
+  privacyTitle: { fontFamily: "Inter_600SemiBold", includeFontPadding: false, fontSize: 14 },
   privacyDescription: {
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Inter_400Regular", includeFontPadding: false,
     fontSize: 12,
     lineHeight: 17,
     marginTop: 2,
@@ -1051,7 +1052,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   saveBtn: { marginTop: 12, borderRadius: 12, paddingVertical: 14, alignItems: "center" },
-  saveBtnText: { color: "#fff", fontFamily: "Inter_700Bold", fontSize: 16 },
+  saveBtnText: { color: "#fff", fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 16 },
 
   // ── Collapsed "Returned" section ──
   returnedTile: {
@@ -1071,8 +1072,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  returnedTileTitle: { fontFamily: "Inter_700Bold", fontSize: 15 },
-  returnedTileSub: { fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 2 },
+  returnedTileTitle: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 15 },
+  returnedTileSub: { fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 12, marginTop: 2 },
   historyFooter: { gap: 8 },
   hideReturnedBtn: {
     flexDirection: "row",
@@ -1084,5 +1085,5 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     marginTop: 12,
   },
-  hideReturnedText: { fontFamily: "Inter_500Medium", fontSize: 12 },
+  hideReturnedText: { fontFamily: "Inter_500Medium", includeFontPadding: false, fontSize: 12 },
 });

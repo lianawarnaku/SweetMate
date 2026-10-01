@@ -284,6 +284,6 @@ const styles = StyleSheet.create({
     marginTop: 3,
   },
   square: { flex: 1, borderRadius: 3 },
-  progress: { fontFamily: "Inter_700Bold", fontSize: 20, marginTop: 8 },
-  caption: { fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 2 },
+  progress: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 20, marginTop: 8 },
+  caption: { fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 12, marginTop: 2 },
 });

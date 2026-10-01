@@ -12,6 +12,8 @@ import Animated, {
 } from "react-native-reanimated";
 
 import { useAccessibilityPreferences } from "@/hooks/useAccessibilityPreferences";
+import { useTheme } from "@/constants/colors";
+import { androidRipple } from "@/lib/ripple";
 import { tapLight } from "@/lib/haptics";
 
 type SmoothPressableProps = Omit<PressableProps, "style"> & {
@@ -25,6 +27,7 @@ export function SmoothPressable({
   containerStyle,
   haptic = true,
   disabled,
+  android_ripple,
   accessibilityRole = "button",
   accessibilityState,
   hitSlop = 4,
@@ -33,6 +36,7 @@ export function SmoothPressable({
   onPressOut,
   ...props
 }: SmoothPressableProps) {
+  const colors = useTheme();
   const { reduceMotion } = useAccessibilityPreferences();
   const pressed = useSharedValue(0);
   const animatedStyle = useAnimatedStyle(() => ({
@@ -45,6 +49,7 @@ export function SmoothPressable({
       <Pressable
         {...props}
         disabled={disabled}
+        android_ripple={disabled ? undefined : android_ripple ?? androidRipple(colors.foreground)}
         accessibilityRole={accessibilityRole}
         accessibilityState={{ ...accessibilityState, disabled: Boolean(disabled) }}
         hitSlop={hitSlop}

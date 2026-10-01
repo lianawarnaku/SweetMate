@@ -134,12 +134,12 @@ const styles = StyleSheet.create({
     padding: 18,
     gap: 14,
   },
-  title: { fontFamily: "Inter_700Bold", fontSize: 18 },
-  sectionLabel: { fontFamily: "Inter_700Bold", fontSize: 12, letterSpacing: 1, textTransform: "uppercase" },
+  title: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 18 },
+  sectionLabel: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 12, letterSpacing: 1, textTransform: "uppercase" },
   modeControl: { flexDirection: "row", padding: 4, borderWidth: 1, borderRadius: 18, gap: 4 },
   modeOptionSlot: { flex: 1 },
   modeOption: { minHeight: 42, borderRadius: 14, borderWidth: 1, borderColor: "transparent", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7 },
-  modeLabel: { fontFamily: "Inter_700Bold", fontSize: 14, textTransform: "capitalize" },
+  modeLabel: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 14, textTransform: "capitalize" },
   schemeGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   schemeOptionSlot: { width: "48%" },
   schemeOption: {
@@ -161,7 +161,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   schemeSwatchPrimary: { width: 17, height: 17, borderRadius: 9 },
-  schemeLabel: { flex: 1, fontFamily: "Inter_600SemiBold", fontSize: 12 },
+  schemeLabel: { flex: 1, fontFamily: "Inter_600SemiBold", includeFontPadding: false, fontSize: 12 },
   preferenceRow: {
     minHeight: 58,
     borderTopWidth: StyleSheet.hairlineWidth,
@@ -172,7 +172,7 @@ const styles = StyleSheet.create({
   },
   preferenceLabel: {
     flex: 1,
-    fontFamily: "Inter_600SemiBold",
+    fontFamily: "Inter_600SemiBold", includeFontPadding: false,
     fontSize: 14,
     paddingRight: 12,
   },

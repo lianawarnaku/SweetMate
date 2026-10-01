@@ -40,6 +40,6 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   copy: { flex: 1, minWidth: 0 },
-  title: { fontFamily: "Inter_700Bold", fontSize: 30, lineHeight: 36 },
-  subtitle: { fontFamily: "Inter_400Regular", fontSize: 13, lineHeight: 18, marginTop: 2 },
+  title: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 30, lineHeight: 36 },
+  subtitle: { fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 13, lineHeight: 18, marginTop: 2 },
 });
