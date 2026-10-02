@@ -35,6 +35,7 @@ minimumReleaseAgeExclude:
   - stripe-replit-sync
 
 packages:
+  - supabase/functions
   - artifacts/*
   - lib/*
   # Postgres/Drizzle scaffolding — disabled. Mobile state lives in

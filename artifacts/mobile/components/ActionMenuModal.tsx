@@ -3,6 +3,9 @@ import { Feather } from "@expo/vector-icons";
 import React, { useEffect, useRef, useState } from "react";
 import {
   Animated,
+  ActivityIndicator,
+  ScrollView,
+  useWindowDimensions,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -14,7 +17,10 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useTheme } from "@/constants/colors";
-import { GlassModalBackdrop, GlassModalSurface } from "@/components/GlassModalSurface";
+import {
+  GlassModalBackdrop,
+  GlassModalSurface,
+} from "@/components/GlassModalSurface";
 import { GlassButton } from "@/components/GlassButton";
 import { InlineFeedback } from "@/components/InlineFeedback";
 import { useAccessibilityPreferences } from "@/hooks/useAccessibilityPreferences";
@@ -59,6 +65,7 @@ export function ActionMenuModal({
   const colors = useTheme();
   const { reduceMotion } = useAccessibilityPreferences();
   const insets = useSafeAreaInsets();
+  const { height, width, fontScale } = useWindowDimensions();
   const progress = useRef(new Animated.Value(0)).current;
   const [confirming, setConfirming] = useState<ActionMenuItem | null>(null);
   const [running, setRunning] = useState(false);
@@ -73,6 +80,13 @@ export function ActionMenuModal({
       runningRef.current = false;
       setActionError(null);
       setActionSuccess(null);
+    }
+    // Initial confirmation is captured when the sheet opens. Parent rerenders
+    // must not reset the pending-action lock.
+  }, [visible]);
+
+  useEffect(() => {
+    if (visible) {
       progress.setValue(0);
       if (reduceMotion) {
         progress.setValue(1);
@@ -86,10 +100,11 @@ export function ActionMenuModal({
         }).start();
       }
     }
-  }, [initialConfirmationAction, progress, reduceMotion, visible]);
+    return () => progress.stopAnimation();
+  }, [progress, reduceMotion, visible]);
 
   const dismiss = (force = false, afterDismiss?: () => void) => {
-    if (running && !force) return;
+    if (runningRef.current && !force) return;
     if (reduceMotion) {
       onClose();
       if (afterDismiss) setTimeout(afterDismiss, 0);
@@ -188,10 +203,7 @@ export function ActionMenuModal({
       statusBarTranslucent
       accessibilityViewIsModal
     >
-      <KeyboardAvoidingView
-        behavior={KEYBOARD_BEHAVIOR}
-        style={styles.fill}
-      >
+      <KeyboardAvoidingView behavior={KEYBOARD_BEHAVIOR} style={styles.fill}>
         <GlassModalBackdrop />
         <Animated.View
           pointerEvents="none"
@@ -209,6 +221,7 @@ export function ActionMenuModal({
           accessibilityRole="button"
           accessibilityLabel="Close action menu"
           style={StyleSheet.absoluteFill}
+          disabled={running}
           onPress={() => dismiss()}
         />
         <Animated.View
@@ -228,181 +241,261 @@ export function ActionMenuModal({
           ]}
         >
           <GlassModalSurface
-            style={[
-              styles.sheet,
-              { paddingBottom: insets.bottom + 18 },
-            ]}
+            style={[styles.sheet, { maxHeight: height - insets.top - 16 }]}
           >
-          <View style={[styles.handle, { backgroundColor: colors.border }]} />
-          {confirming?.confirmation ? (
-            <>
-              <View
-                style={[
-                styles.warningIcon,
-                  {
-                    backgroundColor: confirming.destructive
-                      ? colors.destructive + "14"
-                      : colors.primary + "14",
-                  },
-                ]}
-              >
-                <Feather
-                  name={confirming.destructive ? "alert-triangle" : confirming.icon}
-                  size={22}
-                  color={confirming.destructive ? colors.destructive : colors.primary}
-                />
-              </View>
-              <Text style={[styles.title, { color: colors.foreground }]}>
-                {confirming.confirmation.title}
-              </Text>
-              <Text style={[styles.message, { color: colors.mutedForeground }]}>
-                {confirming.confirmation.message}
-              </Text>
-              {actionError ? <InlineFeedback message={actionError} tone="error" /> : null}
-              <View style={styles.confirmButtons}>
-                <GlassButton
+            <ScrollView
+              style={{ flexShrink: 1 }}
+              bounces={false}
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={{ paddingBottom: insets.bottom + 18 }}
+            >
+              <View style={{ alignItems: "flex-end" }}>
+                <Pressable
                   accessibilityRole="button"
-                  tone="neutral"
-                  style={styles.confirmButton}
-                  onPress={() => setConfirming(null)}
+                  accessibilityLabel="Close action menu"
+                  accessibilityState={{ disabled: running }}
                   disabled={running}
-                >
-                  <Text
-                    style={[
-                      styles.confirmButtonText,
-                      { color: colors.secondaryForeground },
-                    ]}
-                  >
-                    Cancel
-                  </Text>
-                </GlassButton>
-                <GlassButton
-                  accessibilityRole="button"
-                  accessibilityLabel={confirming.confirmation.confirmLabel}
-                  tone={confirming.destructive ? "destructive" : "primary"}
-                  style={styles.confirmButton}
-                  onPress={() => {
-                    void confirmAction();
+                  onPress={() => dismiss()}
+                  style={{
+                    minWidth: 48,
+                    minHeight: 48,
+                    alignItems: "center",
+                    justifyContent: "center",
                   }}
-                  disabled={running}
                 >
-                  <Feather
-                    name={confirming.icon}
-                    size={16}
-                    color={confirming.destructive ? colors.destructiveForeground : "#fff"}
-                  />
-                  <Text
+                  <Feather name="x" size={20} color={colors.foreground} />
+                </Pressable>
+              </View>
+              {running ? (
+                <View
+                  accessibilityRole="progressbar"
+                  accessibilityLabel="Completing action"
+                  accessibilityLiveRegion="polite"
+                  style={{ alignItems: "center", gap: 8, paddingBottom: 12 }}
+                >
+                  <ActivityIndicator color={colors.primary} />
+                  <Text style={[styles.message, { color: colors.foreground }]}>
+                    Completing action…
+                  </Text>
+                </View>
+              ) : null}
+              {confirming?.confirmation ? (
+                <>
+                  <View
                     style={[
-                      styles.confirmButtonText,
+                      styles.warningIcon,
                       {
-                        color: confirming.destructive
-                          ? colors.destructiveForeground
-                          : "#fff",
+                        backgroundColor: confirming.destructive
+                          ? colors.destructive + "14"
+                          : colors.primary + "14",
                       },
                     ]}
                   >
-                    {confirming.confirmation.confirmLabel}
+                    <Feather
+                      name={
+                        confirming.destructive
+                          ? "alert-triangle"
+                          : confirming.icon
+                      }
+                      size={22}
+                      color={
+                        confirming.destructive
+                          ? colors.destructive
+                          : colors.primary
+                      }
+                    />
+                  </View>
+                  <Text style={[styles.title, { color: colors.foreground }]}>
+                    {confirming.confirmation.title}
                   </Text>
-                </GlassButton>
-              </View>
-            </>
-          ) : (
-            <>
-              <Text style={[styles.eyebrow, { color: colors.mutedForeground }]}>
-                Actions
-              </Text>
-              <Text
-                style={[styles.title, { color: colors.foreground }]}
-                numberOfLines={2}
-              >
-                {title}
-              </Text>
-              {subtitle ? (
-                <Text style={[styles.message, { color: colors.mutedForeground }]}>
-                  {subtitle}
-                </Text>
-              ) : null}
-              {actionError ? <InlineFeedback message={actionError} tone="error" /> : null}
-              {actionSuccess ? <InlineFeedback message={actionSuccess} tone="success" /> : null}
-              <View style={styles.actions}>
-                {actions.map((action) => (
-                  <GlassButton
-                    key={action.key}
-                    disabled={running}
-                    accessibilityRole="button"
-                    accessibilityLabel={action.label}
-                    tone={action.destructive ? "destructive" : "neutral"}
-                    style={styles.action}
-                    onPress={() => {
-                      void runAction(action);
-                    }}
+                  <Text
+                    style={[styles.message, { color: colors.mutedForeground }]}
                   >
-                    <View
-                      style={[
-                        styles.actionIcon,
-                        {
-                        backgroundColor: action.destructive
-                          ? colors.destructive + "16"
-                            : (action.accentColor ?? colors.primary) + "12",
-                        },
-                      ]}
+                    {confirming.confirmation.message}
+                  </Text>
+                  {actionError ? (
+                    <InlineFeedback message={actionError} tone="error" />
+                  ) : null}
+                  <View
+                    style={[
+                      styles.confirmButtons,
+                      width < 360 || fontScale > 1.3
+                        ? { flexDirection: "column" }
+                        : null,
+                    ]}
+                  >
+                    <GlassButton
+                      accessibilityRole="button"
+                      tone="neutral"
+                      style={styles.confirmButton}
+                      onPress={() => setConfirming(null)}
+                      disabled={running}
                     >
-                      {action.badge ? (
-                        <Text style={{
-                          color: action.accentColor ?? colors.primary,
-                          fontFamily: "Inter_700Bold", includeFontPadding: false,
-                          fontSize: 13,
-                        }}>
-                          {action.badge}
-                        </Text>
-                      ) : (
-                        <Feather
-                          name={action.icon}
-                          size={18}
-                          color={action.destructive ? colors.destructive : action.accentColor ?? colors.primary}
-                        />
-                      )}
-                    </View>
-                    <Text
-                      style={[
-                        styles.actionLabel,
-                        {
-                          color: action.destructive
-                            ? colors.destructive
-                            : colors.foreground,
-                        },
-                      ]}
-                    >
-                      {action.label}
-                    </Text>
-                    {action.destructive ? (
                       <Text
                         style={[
-                          styles.destructiveHint,
-                          { color: colors.destructive },
+                          styles.confirmButtonText,
+                          { color: colors.secondaryForeground },
                         ]}
                       >
-                        Permanent
+                        Cancel
                       </Text>
-                    ) : (
-                      <Feather name="chevron-right" size={17} color={colors.mutedForeground} />
-                    )}
+                    </GlassButton>
+                    <GlassButton
+                      accessibilityRole="button"
+                      accessibilityLabel={confirming.confirmation.confirmLabel}
+                      tone={confirming.destructive ? "destructive" : "primary"}
+                      style={styles.confirmButton}
+                      onPress={() => {
+                        void confirmAction();
+                      }}
+                      disabled={running}
+                    >
+                      <Feather
+                        name={confirming.icon}
+                        size={16}
+                        color={
+                          confirming.destructive
+                            ? colors.destructiveForeground
+                            : "#fff"
+                        }
+                      />
+                      <Text
+                        style={[
+                          styles.confirmButtonText,
+                          {
+                            color: confirming.destructive
+                              ? colors.destructiveForeground
+                              : "#fff",
+                          },
+                        ]}
+                      >
+                        {confirming.confirmation.confirmLabel}
+                      </Text>
+                    </GlassButton>
+                  </View>
+                </>
+              ) : (
+                <>
+                  <Text
+                    style={[styles.eyebrow, { color: colors.mutedForeground }]}
+                  >
+                    Actions
+                  </Text>
+                  <Text
+                    style={[styles.title, { color: colors.foreground }]}
+                    numberOfLines={2}
+                  >
+                    {title}
+                  </Text>
+                  {subtitle ? (
+                    <Text
+                      style={[
+                        styles.message,
+                        { color: colors.mutedForeground },
+                      ]}
+                    >
+                      {subtitle}
+                    </Text>
+                  ) : null}
+                  {actionError ? (
+                    <InlineFeedback message={actionError} tone="error" />
+                  ) : null}
+                  {actionSuccess ? (
+                    <InlineFeedback message={actionSuccess} tone="success" />
+                  ) : null}
+                  <View style={styles.actions}>
+                    {actions.map((action) => (
+                      <GlassButton
+                        key={action.key}
+                        disabled={running}
+                        accessibilityRole="button"
+                        accessibilityLabel={action.label}
+                        tone={action.destructive ? "destructive" : "neutral"}
+                        style={styles.action}
+                        onPress={() => {
+                          void runAction(action);
+                        }}
+                      >
+                        <View
+                          style={[
+                            styles.actionIcon,
+                            {
+                              backgroundColor: action.destructive
+                                ? colors.destructive + "16"
+                                : (action.accentColor ?? colors.primary) + "12",
+                            },
+                          ]}
+                        >
+                          {action.badge ? (
+                            <Text
+                              style={{
+                                color: action.accentColor ?? colors.primary,
+                                fontFamily: "Inter_700Bold",
+                                includeFontPadding: false,
+                                fontSize: 13,
+                              }}
+                            >
+                              {action.badge}
+                            </Text>
+                          ) : (
+                            <Feather
+                              name={action.icon}
+                              size={18}
+                              color={
+                                action.destructive
+                                  ? colors.destructive
+                                  : (action.accentColor ?? colors.primary)
+                              }
+                            />
+                          )}
+                        </View>
+                        <Text
+                          style={[
+                            styles.actionLabel,
+                            {
+                              color: action.destructive
+                                ? colors.destructive
+                                : colors.foreground,
+                            },
+                          ]}
+                        >
+                          {action.label}
+                        </Text>
+                        {action.destructive ? (
+                          <Text
+                            style={[
+                              styles.destructiveHint,
+                              { color: colors.destructive },
+                            ]}
+                          >
+                            Permanent
+                          </Text>
+                        ) : (
+                          <Feather
+                            name="chevron-right"
+                            size={17}
+                            color={colors.mutedForeground}
+                          />
+                        )}
+                      </GlassButton>
+                    ))}
+                  </View>
+                  <GlassButton
+                    accessibilityRole="button"
+                    tone="neutral"
+                    style={styles.cancelButton}
+                    onPress={() => dismiss()}
+                    disabled={running}
+                  >
+                    <Text
+                      style={[styles.cancelText, { color: colors.foreground }]}
+                    >
+                      Cancel
+                    </Text>
                   </GlassButton>
-                ))}
-              </View>
-              <GlassButton
-                accessibilityRole="button"
-                tone="neutral"
-                style={styles.cancelButton}
-                onPress={() => dismiss()}
-                disabled={running}
-              >
-                <Text style={[styles.cancelText, { color: colors.foreground }]}>
-                  Cancel
-                </Text>
-              </GlassButton>
-            </>
-          )}
+                </>
+              )}
+            </ScrollView>
           </GlassModalSurface>
         </Animated.View>
       </KeyboardAvoidingView>
@@ -419,6 +512,9 @@ const styles = StyleSheet.create({
   sheetMotion: {
     marginHorizontal: 0,
     marginBottom: 0,
+    width: "100%",
+    maxWidth: 560,
+    alignSelf: "center",
   },
   sheet: {
     borderTopLeftRadius: 26,
@@ -441,28 +537,32 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   eyebrow: {
-    fontFamily: "Inter_600SemiBold", includeFontPadding: false,
+    fontFamily: "Inter_600SemiBold",
+    includeFontPadding: false,
     fontSize: 11,
     letterSpacing: 0.7,
     textTransform: "uppercase",
     marginBottom: 4,
   },
   title: {
-    fontFamily: "Inter_700Bold", includeFontPadding: false,
+    fontFamily: "Inter_700Bold",
+    includeFontPadding: false,
     fontSize: 22,
     lineHeight: 28,
     textAlign: "center",
   },
   message: {
-    fontFamily: "Inter_400Regular", includeFontPadding: false,
-    fontSize: 14,
-    lineHeight: 20,
+    fontFamily: "Inter_400Regular",
+    includeFontPadding: false,
+    fontSize: 17,
+    lineHeight: 24,
     textAlign: "center",
     marginTop: 6,
     marginBottom: 16,
   },
   error: {
-    fontFamily: "Inter_500Medium", includeFontPadding: false,
+    fontFamily: "Inter_500Medium",
+    includeFontPadding: false,
     fontSize: 13,
     lineHeight: 18,
     textAlign: "center",
@@ -487,11 +587,13 @@ const styles = StyleSheet.create({
   },
   actionLabel: {
     flex: 1,
-    fontFamily: "Inter_600SemiBold", includeFontPadding: false,
-    fontSize: 15,
+    fontFamily: "Inter_600SemiBold",
+    includeFontPadding: false,
+    fontSize: 17,
   },
   destructiveHint: {
-    fontFamily: "Inter_600SemiBold", includeFontPadding: false,
+    fontFamily: "Inter_600SemiBold",
+    includeFontPadding: false,
     fontSize: 11,
     textTransform: "uppercase",
   },
@@ -503,7 +605,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginTop: 10,
   },
-  cancelText: { fontFamily: "Inter_600SemiBold", includeFontPadding: false, fontSize: 15 },
+  cancelText: {
+    fontFamily: "Inter_600SemiBold",
+    includeFontPadding: false,
+    fontSize: 15,
+  },
   warningIcon: {
     width: 48,
     height: 48,
@@ -515,8 +621,10 @@ const styles = StyleSheet.create({
   },
   confirmButtons: { flexDirection: "row", gap: 10, marginTop: 4 },
   confirmButton: {
-    flex: 1,
+    flexGrow: 1,
+    flexBasis: 0,
     minHeight: 52,
+    paddingVertical: 14,
     borderRadius: 16,
     flexDirection: "row",
     alignItems: "center",
@@ -525,8 +633,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   confirmButtonText: {
-    fontFamily: "Inter_700Bold", includeFontPadding: false,
-    fontSize: 14,
+    fontFamily: "Inter_700Bold",
+    includeFontPadding: false,
+    fontSize: 17,
+    flexShrink: 1,
     textAlign: "center",
   },
 });

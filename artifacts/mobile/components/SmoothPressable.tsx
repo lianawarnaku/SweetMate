@@ -40,8 +40,8 @@ export function SmoothPressable({
   const { reduceMotion } = useAccessibilityPreferences();
   const pressed = useSharedValue(0);
   const animatedStyle = useAnimatedStyle(() => ({
-    opacity: 1 - pressed.value * 0.08,
-    transform: [{ scale: 1 - pressed.value * 0.025 }],
+    opacity: disabled ? 0.45 : 1 - pressed.value * 0.08,
+    transform: [{ scale: reduceMotion ? 1 : 1 - pressed.value * 0.025 }],
   }));
 
   return (
@@ -49,9 +49,16 @@ export function SmoothPressable({
       <Pressable
         {...props}
         disabled={disabled}
-        android_ripple={disabled ? undefined : android_ripple ?? androidRipple(colors.foreground)}
+        android_ripple={
+          disabled
+            ? undefined
+            : (android_ripple ?? androidRipple(colors.foreground))
+        }
         accessibilityRole={accessibilityRole}
-        accessibilityState={{ ...accessibilityState, disabled: Boolean(disabled) }}
+        accessibilityState={{
+          ...accessibilityState,
+          disabled: Boolean(disabled),
+        }}
         hitSlop={hitSlop}
         style={style}
         onPress={(event) => {

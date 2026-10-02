@@ -1,0 +1,6 @@
+Source: https://github.com/dickwu/apple-design-skill
+Revision: 6237cc12e323f4e3034a23f80c9550331f9c95e4
+Installed for Homie with skill-installer (git fallback).
+Sparse checkout expanded to include all supporting references and scripts.
+Nested Git metadata removed so this skill can be committed with Homie.
+Discovery: npx skills add ./.agents/skills/apple-design --list found apple-design and detected Codex.

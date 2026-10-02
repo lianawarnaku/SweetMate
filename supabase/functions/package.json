@@ -1,0 +1,7 @@
+{
+  "name": "@workspace/feedback-functions",
+  "private": true,
+  "dependencies": {
+    "zod": "catalog:"
+  }
+}

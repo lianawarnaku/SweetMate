@@ -21,6 +21,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { RoommateAvatar } from "@/components/RoommateAvatar";
+import { FeedbackSection } from "@/components/FeedbackSection";
 import { ActionMenuModal } from "@/components/ActionMenuModal";
 import { useAppContext } from "@/context/AppContext";
 import { useTheme } from "@/constants/colors";
@@ -1497,6 +1498,10 @@ export default function SettingsScreen() {
               color={colors.mutedForeground}
             />
           </TouchableOpacity>
+
+          {session?.user.id ? (
+            <FeedbackSection key={session.user.id} userId={session.user.id} email={session.user.email} />
+          ) : null}
 
           <CollapsibleSettingsSection
             title="ACCOUNT"
