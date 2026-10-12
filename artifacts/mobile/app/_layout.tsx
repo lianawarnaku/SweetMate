@@ -10,12 +10,12 @@ import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import * as SystemUI from "expo-system-ui";
 import { NavigationThemeProvider } from "@/components/NavigationThemeProvider";
-import { BRAND_BASE_DARK } from "@/constants/brand";
 
 import { AuthGate } from "@/components/AuthGate";
 import { HouseLoader } from "@/components/HouseLoader";
@@ -52,6 +52,11 @@ function ThemedStatusBar() {
     );
   }, [colors.background]);
   return <StatusBar style={colors.mode === "dark" ? "light" : "dark"} />;
+}
+
+function ThemedAppSurface({ children }: { children: React.ReactNode }) {
+  const colors = useTheme();
+  return <View style={{ flex: 1, backgroundColor: colors.background }}>{children}</View>;
 }
 
 export default function RootLayout() {
@@ -96,8 +101,9 @@ export default function RootLayout() {
                 }
               >
         <QueryClientProvider client={queryClient}>
-          <GestureHandlerRootView style={{ flex: 1, backgroundColor: BRAND_BASE_DARK }} onLayout={onRootLayout}>
+          <GestureHandlerRootView style={{ flex: 1 }} onLayout={onRootLayout}>
             <AppProvider session={session}>
+              <ThemedAppSurface>
               <NavigationThemeProvider>
                 <WebThemeFocusStyles />
                 <ThemedStatusBar />
@@ -133,6 +139,7 @@ export default function RootLayout() {
                   )}
                 </AppPopupProvider>
               </NavigationThemeProvider>
+              </ThemedAppSurface>
             </AppProvider>
           </GestureHandlerRootView>
         </QueryClientProvider>

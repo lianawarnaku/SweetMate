@@ -53,27 +53,25 @@ const PREFERENCE_DIMENSIONS = [
 ] as const;
 
 // ── Slot metadata (icon + color) for known slot keys; falls back for unknown ──
-const SLOT_VISUAL_DEFAULT = { icon: "check-square" as keyof typeof Feather.glyphMap, color: "#8A7462" };
-
-const SLOT_VISUAL_BY_KEY: Record<string, { icon: keyof typeof Feather.glyphMap; color: string }> = {
-  bathroom_heavy: { icon: "droplet", color: "#72503A" },
-  bathroom_light: { icon: "wind", color: "#A88C76" },
-  bathroom: { icon: "droplet", color: "#87644B" },
-  kitchen_heavy: { icon: "zap", color: "#9B623B" },
-  kitchen_light: { icon: "coffee", color: "#C39870" },
-  kitchen: { icon: "coffee", color: "#A7744D" },
-  vacuum_mop: { icon: "layers", color: "#806B58" },
-  vacuum: { icon: "layers", color: "#917661" },
-  mop: { icon: "layers", color: "#A1866F" },
-  laundry: { icon: "refresh-cw", color: "#B09177" },
-  trash: { icon: "trash-2", color: "#65483A" },
-  dishes: { icon: "circle", color: "#B98255" },
-  outdoor: { icon: "sun", color: "#C19362" },
-  ad_hoc: { icon: "help-circle", color: "#7B6252" },
+const SLOT_ICON_BY_KEY: Record<string, keyof typeof Feather.glyphMap> = {
+  bathroom_heavy: "droplet",
+  bathroom_light: "wind",
+  bathroom: "droplet",
+  kitchen_heavy: "zap",
+  kitchen_light: "coffee",
+  kitchen: "coffee",
+  vacuum_mop: "layers",
+  vacuum: "layers",
+  mop: "layers",
+  laundry: "refresh-cw",
+  trash: "trash-2",
+  dishes: "circle",
+  outdoor: "sun",
+  ad_hoc: "help-circle",
 };
 
-function slotVisualFor(key: string) {
-  return SLOT_VISUAL_BY_KEY[key] ?? SLOT_VISUAL_DEFAULT;
+function slotVisualFor(key: string, color: string) {
+  return { icon: SLOT_ICON_BY_KEY[key] ?? "check-square", color };
 }
 
 // Derive the slot list from stored chart data, falling back to week-one keys.
@@ -430,6 +428,7 @@ function EssentialItemRow({
   assignmentError,
   onToggleSelfAssignment,
   accentColor,
+  errorColor,
   textColor,
   mutedColor,
   roommates,
@@ -445,6 +444,7 @@ function EssentialItemRow({
   assignmentError: boolean;
   onToggleSelfAssignment: (assigned: boolean) => void;
   accentColor: string;
+  errorColor: string;
   textColor: string;
   mutedColor: string;
   roommates: Roommate[];
@@ -517,7 +517,7 @@ function EssentialItemRow({
               {assignmentSummary || "No one assigned yet"}
             </Text>
             {assignmentError ? (
-              <Text style={[essentialRowStyles.assignmentError, { color: "#B42318" }]}>
+              <Text style={[essentialRowStyles.assignmentError, { color: errorColor }]}>
                 Couldn’t save. Try again.
               </Text>
             ) : null}
@@ -1736,6 +1736,7 @@ export default function PlanningScreen() {
                               currentUserId={currentUserId}
                               assignmentPending={pendingAssignments.has(`${section.id}:${entry.id}`)}
                               assignmentError={assignmentErrors.has(`${section.id}:${entry.id}`)}
+                              errorColor={colors.destructive}
                               onToggleSelfAssignment={(assigned) =>
                                 void toggleSelfAssignment(section.id, entry.id, assigned)
                               }
@@ -1938,7 +1939,7 @@ export default function PlanningScreen() {
           {getActiveSlots(choreChartData).map((slot) => {
             const weeks = choreChartData.weeks.filter((e) => !!e.assignments[slot.key]);
             if (weeks.length === 0) return null;
-            const visual = slotVisualFor(slot.key);
+            const visual = slotVisualFor(slot.key, colors.primary);
             return (
               <View key={slot.key} style={[styles.slotSection, { backgroundColor: colors.card, borderColor: colors.border }]}>
                 {/* Section header */}

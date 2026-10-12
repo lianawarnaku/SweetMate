@@ -139,7 +139,7 @@ export function NudgeToast() {
           Someone in your Sweet sent you a reminder.
           {queue.length > 1 ? ` ${queue.length - 1} more waiting.` : ""}
         </Text>
-        {error ? <Text accessibilityLiveRegion="assertive" style={styles.error}>{error}</Text> : null}
+        {error ? <Text accessibilityLiveRegion="assertive" style={[styles.error, { color: colors.destructive }]}>{error}</Text> : null}
       </View>
       <Pressable
         accessibilityRole="button"
@@ -183,7 +183,7 @@ const styles = StyleSheet.create({
   content: { flex: 1, paddingVertical: 3 },
   title: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 15 },
   copy: { fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 12, marginTop: 2 },
-  error: { color: "#FECACA", fontFamily: "Inter_500Medium", includeFontPadding: false, fontSize: 12, marginTop: 3 },
+  error: { fontFamily: "Inter_500Medium", includeFontPadding: false, fontSize: 12, marginTop: 3 },
   dismissButton: {
     width: 44,
     height: 44,

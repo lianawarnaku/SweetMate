@@ -19,17 +19,6 @@ import { useAppContextSelector } from "@/context/AppContext";
 import { useTabBarLayout } from "@/hooks/useTabBarLayout";
 import { useTheme } from "@/constants/colors";
 
-const CANDY = {
-  strawberry: "#D85D7A",
-  strawberrySoft: "#FBE8ED",
-  caramel: "#A96C3F",
-  caramelSoft: "#F4E8DD",
-  lavender: "#765A9B",
-  lavenderSoft: "#EEE8F6",
-  mint: "#3D806C",
-  mintSoft: "#E3F3ED",
-} as const;
-const MEDALS = [CANDY.strawberry, CANDY.lavender, CANDY.caramel] as const;
 const MEDAL_LABELS = ["1st", "2nd", "3rd"] as const;
 
 const SWEET_ICONS: (keyof typeof Feather.glyphMap)[] = [
@@ -44,6 +33,8 @@ const SWEET_ICONS: (keyof typeof Feather.glyphMap)[] = [
 
 export default function LeaderboardScreen() {
   const colors = useTheme();
+  const rankingColors = [colors.primary, colors.accent, colors.success, colors.warning];
+  const medalColors = [colors.warning, colors.accent, colors.primary];
   const insets = useSafeAreaInsets();
   const { roommates, chores, currentUserId, pointsEnabled, leaderboardPeriod, setLeaderboardPeriod } =
     useAppContextSelector((context) => ({
@@ -107,13 +98,13 @@ export default function LeaderboardScreen() {
     >
       <View style={[styles.header, { paddingTop: topPad + 16 }]}>
         <View pointerEvents="none" style={styles.candyConfetti} accessibilityElementsHidden>
-          <View style={[styles.candyDot, styles.candyDotLarge, { backgroundColor: CANDY.strawberrySoft }]} />
-          <View style={[styles.candyDot, { backgroundColor: CANDY.mintSoft }]} />
-          <View style={[styles.candyDot, styles.candyDotSmall, { backgroundColor: CANDY.lavenderSoft }]} />
+          <View style={[styles.candyDot, styles.candyDotLarge, { backgroundColor: colors.primary + "18" }]} />
+          <View style={[styles.candyDot, { backgroundColor: colors.success + "18" }]} />
+          <View style={[styles.candyDot, styles.candyDotSmall, { backgroundColor: colors.accent + "18" }]} />
         </View>
         <View style={styles.headerTopRow}>
           <View>
-            <Text style={[styles.kicker, { color: CANDY.strawberry }]}>SWEET STANDINGS</Text>
+            <Text style={[styles.kicker, { color: colors.primary }]}>SWEET STANDINGS</Text>
             <Text style={[styles.title, { color: colors.foreground }]}>Leaderboard</Text>
             <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>A little treat for every chore completed</Text>
           </View>
@@ -127,7 +118,7 @@ export default function LeaderboardScreen() {
                 styles.periodBtn,
                 {
                   backgroundColor:
-                    period === p ? CANDY.strawberry : "transparent",
+                    period === p ? colors.primary : "transparent",
                 },
               ]}
               onPress={() => setLeaderboardPeriod(p)}
@@ -136,7 +127,7 @@ export default function LeaderboardScreen() {
                 style={[
                   styles.periodText,
                   {
-                    color: period === p ? "#fff" : colors.mutedForeground,
+                    color: period === p ? colors.primaryForeground : colors.mutedForeground,
                     fontFamily:
                       period === p ? "Inter_700Bold" : "Inter_400Regular",
                   },
@@ -156,10 +147,10 @@ export default function LeaderboardScreen() {
         ]}
       >
         <View style={styles.statItem}>
-          <View style={[styles.statIcon, { backgroundColor: CANDY.strawberrySoft }]}>
-            <Feather name="check" size={14} color={CANDY.strawberry} />
+          <View style={[styles.statIcon, { backgroundColor: colors.primary + "18" }]}>
+            <Feather name="check" size={14} color={colors.primary} />
           </View>
-          <Text style={[styles.statNum, { color: CANDY.strawberry }]}>
+          <Text style={[styles.statNum, { color: colors.primary }]}>
             {totalCompleted}
           </Text>
           <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>
@@ -168,10 +159,10 @@ export default function LeaderboardScreen() {
         </View>
         <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
         <View style={styles.statItem}>
-          <View style={[styles.statIcon, { backgroundColor: CANDY.mintSoft }]}>
-            <Feather name="star" size={14} color={CANDY.mint} />
+          <View style={[styles.statIcon, { backgroundColor: colors.success + "18" }]}>
+            <Feather name="star" size={14} color={colors.success} />
           </View>
-          <Text style={[styles.statNum, { color: CANDY.mint }]}>
+          <Text style={[styles.statNum, { color: colors.success }]}>
             {roommates.reduce((s, r) => s + r.points, 0)}
           </Text>
           <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>
@@ -180,10 +171,10 @@ export default function LeaderboardScreen() {
         </View>
         <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
         <View style={styles.statItem}>
-          <View style={[styles.statIcon, { backgroundColor: CANDY.lavenderSoft }]}>
-            <Feather name="users" size={14} color={CANDY.lavender} />
+          <View style={[styles.statIcon, { backgroundColor: colors.accent + "18" }]}>
+            <Feather name="users" size={14} color={colors.accent} />
           </View>
-          <Text style={[styles.statNum, { color: CANDY.lavender }]}>
+          <Text style={[styles.statNum, { color: colors.accent }]}>
             {roommates.length}
           </Text>
           <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>
@@ -203,10 +194,10 @@ export default function LeaderboardScreen() {
                 <View
                   style={[
                     styles.crownWrapper,
-                    { backgroundColor: MEDALS[1] + "22" },
+                    { backgroundColor: medalColors[1] + "22" },
                   ]}
                 >
-                  <Feather name="star" size={18} color={MEDALS[1]} accessibilityLabel="Second place sweet star" />
+                  <Feather name="star" size={18} color={medalColors[1]} accessibilityLabel="Second place sweet star" />
                 </View>
                 <RoommateAvatar
                   name={top3[1].name}
@@ -217,10 +208,10 @@ export default function LeaderboardScreen() {
                 <View
                   style={[
                     styles.medalBadge,
-                    { backgroundColor: MEDALS[1] + "22", borderColor: MEDALS[1] },
+                    { backgroundColor: medalColors[1] + "22", borderColor: medalColors[1] },
                   ]}
                 >
-                  <Text style={[styles.medalLabel, { color: MEDALS[1] }]}>
+                  <Text style={[styles.medalLabel, { color: medalColors[1] }]}>
                     {MEDAL_LABELS[1]}
                   </Text>
                 </View>
@@ -237,7 +228,7 @@ export default function LeaderboardScreen() {
                   style={[
                     styles.podiumBar,
                     {
-                      backgroundColor: MEDALS[1],
+                      backgroundColor: medalColors[1],
                       height: 60,
                     },
                   ]}
@@ -249,10 +240,10 @@ export default function LeaderboardScreen() {
               <View
                 style={[
                   styles.crownWrapper,
-                  { backgroundColor: MEDALS[0] + "22" },
+                  { backgroundColor: medalColors[0] + "22" },
                 ]}
               >
-                <Feather name="heart" size={20} color={MEDALS[0]} accessibilityLabel="First place sweet heart" />
+                <Feather name="heart" size={20} color={medalColors[0]} accessibilityLabel="First place sweet heart" />
               </View>
               <RoommateAvatar
                 name={top3[0].name}
@@ -263,10 +254,10 @@ export default function LeaderboardScreen() {
               <View
                 style={[
                   styles.medalBadge,
-                  { backgroundColor: MEDALS[0] + "22", borderColor: MEDALS[0] },
+                  { backgroundColor: medalColors[0] + "22", borderColor: medalColors[0] },
                 ]}
               >
-                <Text style={[styles.medalLabel, { color: MEDALS[0] }]}>
+                <Text style={[styles.medalLabel, { color: medalColors[0] }]}>
                   {MEDAL_LABELS[0]}
                 </Text>
               </View>
@@ -285,7 +276,7 @@ export default function LeaderboardScreen() {
               <View
                 style={[
                   styles.podiumBar,
-                  { backgroundColor: MEDALS[0], height: 80 },
+                  { backgroundColor: medalColors[0], height: 80 },
                 ]}
               />
             </View>
@@ -295,10 +286,10 @@ export default function LeaderboardScreen() {
                 <View
                   style={[
                     styles.crownWrapper,
-                    { backgroundColor: MEDALS[2] + "22" },
+                    { backgroundColor: medalColors[2] + "22" },
                   ]}
                 >
-                  <Feather name="award" size={18} color={MEDALS[2]} accessibilityLabel="Third place sweet award" />
+                  <Feather name="award" size={18} color={medalColors[2]} accessibilityLabel="Third place sweet award" />
                 </View>
                 <RoommateAvatar
                   name={top3[2].name}
@@ -309,10 +300,10 @@ export default function LeaderboardScreen() {
                 <View
                   style={[
                     styles.medalBadge,
-                    { backgroundColor: MEDALS[2] + "22", borderColor: MEDALS[2] },
+                    { backgroundColor: medalColors[2] + "22", borderColor: medalColors[2] },
                   ]}
                 >
-                  <Text style={[styles.medalLabel, { color: MEDALS[2] }]}>
+                  <Text style={[styles.medalLabel, { color: medalColors[2] }]}>
                     {MEDAL_LABELS[2]}
                   </Text>
                 </View>
@@ -333,7 +324,7 @@ export default function LeaderboardScreen() {
                 <View
                   style={[
                     styles.podiumBar,
-                    { backgroundColor: MEDALS[2], height: 44 },
+                    { backgroundColor: medalColors[2], height: 44 },
                   ]}
                 />
               </View>
@@ -343,8 +334,8 @@ export default function LeaderboardScreen() {
       ) : null}
 
       <View style={styles.rankingsHeader}>
-        <View style={[styles.rankingsIcon, { backgroundColor: CANDY.caramelSoft }]}>
-          <Feather name="gift" size={15} color={CANDY.caramel} />
+        <View style={[styles.rankingsIcon, { backgroundColor: colors.accent + "18" }]}>
+          <Feather name="gift" size={15} color={colors.accent} />
         </View>
         <Text style={[styles.sectionTitle, styles.rankingsTitle, { color: colors.foreground }]}>
           Full Rankings
@@ -368,8 +359,8 @@ export default function LeaderboardScreen() {
           : sorted[0].points;
         const pct = maxPts > 0 ? pts / maxPts : 0;
 
-        const candyColor = [CANDY.strawberry, CANDY.lavender, CANDY.caramel, CANDY.mint][idx % 4];
-        const candySoft = [CANDY.strawberrySoft, CANDY.lavenderSoft, CANDY.caramelSoft, CANDY.mintSoft][idx % 4];
+        const candyColor = rankingColors[idx % rankingColors.length];
+        const candySoft = `${candyColor}18`;
         return (
           <View
             key={r.id}
@@ -377,9 +368,9 @@ export default function LeaderboardScreen() {
               styles.rankRow,
               {
                 backgroundColor: isMe
-                  ? CANDY.strawberrySoft
+                  ? colors.primary + "18"
                   : colors.card,
-                borderColor: isMe ? CANDY.strawberry + "66" : colors.border,
+                borderColor: isMe ? colors.primary + "66" : colors.border,
               },
             ]}
           >
@@ -400,10 +391,10 @@ export default function LeaderboardScreen() {
                   {r.name} {isMe ? "(You)" : ""}
                 </Text>
                 {completed >= 5 ? (
-                  <View style={[styles.fairyBadge, { backgroundColor: CANDY.mintSoft }]}>
-                    <Feather name="star" size={10} color={CANDY.mint} />
+                  <View style={[styles.fairyBadge, { backgroundColor: colors.success + "18" }]}>
+                    <Feather name="star" size={10} color={colors.success} />
                     <Text
-                      style={[styles.fairyText, { color: CANDY.mint }]}
+                      style={[styles.fairyText, { color: colors.success }]}
                     >
                       Sweet streak
                     </Text>

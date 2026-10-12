@@ -8,13 +8,20 @@ function assert(condition: boolean, message: string) {
 const appRoot = resolve(process.cwd(), "app/(tabs)");
 const home = readFileSync(resolve(appRoot, "index.tsx"), "utf8");
 const group = readFileSync(resolve(appRoot, "group.tsx"), "utf8");
+const leaderboard = readFileSync(resolve(appRoot, "leaderboard.tsx"), "utf8");
+const rootLayout = readFileSync(resolve(process.cwd(), "app/_layout.tsx"), "utf8");
 const borrowing = readFileSync(resolve(appRoot, "borrow.tsx"), "utf8");
 const expenses = readFileSync(resolve(appRoot, "expenses.tsx"), "utf8");
 const shopping = readFileSync(resolve(appRoot, "shopping.tsx"), "utf8");
 const context = readFileSync(resolve(process.cwd(), "context/AppContext.tsx"), "utf8");
 const actionMenu = readFileSync(resolve(process.cwd(), "components/ActionMenuModal.tsx"), "utf8");
+const glassCheckCircle = readFileSync(resolve(process.cwd(), "components/GlassCheckCircle.tsx"), "utf8");
 const chorePermissionsLib = readFileSync(resolve(process.cwd(), "lib/chorePermissions.ts"), "utf8");
 const planning = readFileSync(resolve(process.cwd(), "app/planning.tsx"), "utf8");
+const nudgeToast = readFileSync(resolve(process.cwd(), "components/NudgeToast.tsx"), "utf8");
+const dayDetailsStart = home.indexOf("function CalendarDayDetails(");
+const dayDetailsEnd = home.indexOf("export default function MyChoresScreen()");
+const dayDetails = home.slice(dayDetailsStart, dayDetailsEnd);
 
 assert(
   context.includes('.from("chores")') &&
@@ -59,6 +66,12 @@ assert(
     group.includes("runAfterDismiss: calendarDestination == null"),
   "chore actions that present editors, alerts, or pickers must run after the shared menu dismisses",
 );
+assert(
+  actionMenu.includes("tone={action.destructive ? \"destructive\" : \"neutral\"}") &&
+    actionMenu.includes("action.destructive\n                                ? colors.destructiveForeground") &&
+    actionMenu.includes("{ color: colors.destructiveForeground }") ,
+  "destructive action rows must use contrasting foreground colors against their solid destructive background",
+);
 
 assert(
   context.includes("if (!isActiveSweetMember(activeSweet, householdId, userId)) return false;") &&
@@ -78,6 +91,58 @@ assert(
   home.includes('{currentUser?.name ?? "You"}') &&
     !home.includes('{currentUser?.name ?? "You"} 🏠'),
   "My Sweet must render the current user's name without the appended home emoji",
+);
+assert(
+  home.includes("if (!visible) return null;") &&
+    !home.includes('<Modal visible={visible} transparent animationType="slide"') &&
+    home.includes("LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);\n    setSelectedDate(date);") &&
+    home.includes("duration: 100,") &&
+    home.includes("duration: 160,") &&
+    home.includes('sectionId === "schedule" && expandedHomeSections.schedule') &&
+    home.includes("today ? colors.warning") &&
+    home.includes("textDecorationLine: selected ? \"underline\" : \"none\"") &&
+    !home.includes("calendarSelectionBubble") &&
+      home.includes('today ? ", today" : ""') &&
+    home.includes("onClose={closeCalendarDayDetails}"),
+  "selected calendar-day details must stay inline so another date can be selected without dismissing the list",
+);
+assert(
+  dayDetails.startsWith("function CalendarDayDetails(") &&
+    dayDetails.includes("<View style={styles.dayDetailsPanel}>") &&
+    !dayDetails.includes("<Surface") &&
+    dayDetails.includes("styles.dayItemDivider") &&
+    !dayDetails.includes("borderWidth: 1"),
+  "selected-day chores must render as an unframed agenda with divider-separated rows, not nested cards",
+);
+assert(
+  home.includes("? colors.primary\n    : isToday(chore.dueDate)") &&
+    home.includes("borderColor: colors.border") &&
+    home.includes("overdue ? colors.primary + \"16\" : colors.muted") &&
+    home.includes("textDecorationLine: chore.completed ? \"line-through\" : \"none\"") &&
+    group.includes('return `Overdue · originally due ${d.toLocaleDateString("en-US", {') &&
+    group.includes("state={chore.completed ? \"checked\" : overdue ? \"overdue\" : \"idle\"}") &&
+    borrowing.includes("backgroundColor: colors.primary + \"12\"") &&
+    borrowing.includes("borderColor: colors.border") &&
+    glassCheckCircle.includes('state === "overdue" ? colors.primary : colors.success'),
+  "overdue indicators must use the app accent without overdue row outlines or strikethrough",
+);
+assert(
+  !leaderboard.includes("CANDY.") &&
+    leaderboard.includes("period === p ? colors.primary : \"transparent\"") &&
+    leaderboard.includes("const candyColor = rankingColors[idx % rankingColors.length]"),
+  "leaderboard accents and selected controls must follow the user's theme tokens",
+);
+assert(
+  home.includes('const selectedTint = colors.primary + "22"') &&
+    group.includes("slotVisualFor(slot.key, colors.primary)") &&
+    planning.includes("slotVisualFor(slot.key, colors.primary)") &&
+    !group.includes("#72503A") &&
+    !planning.includes("#72503A") &&
+    planning.includes("errorColor={colors.destructive}") &&
+    nudgeToast.includes("{ color: colors.destructive }") &&
+    rootLayout.includes("backgroundColor: colors.background") &&
+    !rootLayout.includes("BRAND_BASE_DARK"),
+  "selected filters, chore decorations, errors, and the mounted root must follow the active theme",
 );
 
 assert(

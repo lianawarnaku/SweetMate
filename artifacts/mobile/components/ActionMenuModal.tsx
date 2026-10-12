@@ -421,7 +421,7 @@ export function ActionMenuModal({
                             styles.actionIcon,
                             {
                               backgroundColor: action.destructive
-                                ? colors.destructive + "16"
+                                ? colors.destructiveForeground + "20"
                                 : (action.accentColor ?? colors.primary) + "12",
                             },
                           ]}
@@ -443,7 +443,7 @@ export function ActionMenuModal({
                               size={18}
                               color={
                                 action.destructive
-                                  ? colors.destructive
+                                  ? colors.destructiveForeground
                                   : (action.accentColor ?? colors.primary)
                               }
                             />
@@ -454,7 +454,7 @@ export function ActionMenuModal({
                             styles.actionLabel,
                             {
                               color: action.destructive
-                                ? colors.destructive
+                                ? colors.destructiveForeground
                                 : colors.foreground,
                             },
                           ]}
@@ -465,7 +465,7 @@ export function ActionMenuModal({
                           <Text
                             style={[
                               styles.destructiveHint,
-                              { color: colors.destructive },
+                              { color: colors.destructiveForeground },
                             ]}
                           >
                             Permanent

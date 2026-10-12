@@ -68,7 +68,7 @@ function formatDueDate(dateStr: string) {
   const now = new Date();
   const diff = Math.round((d.getTime() - now.getTime()) / 86400000);
   if (choreLocalDateKey(d) < choreLocalDateKey(now)) {
-    return `Carried over · originally due ${d.toLocaleDateString("en-US", {
+    return `Overdue · originally due ${d.toLocaleDateString("en-US", {
       weekday: "short",
       month: "short",
       day: "numeric",
@@ -83,26 +83,25 @@ function formatDueDate(dateStr: string) {
 const DOW_LABELS = ["M", "T", "W", "T", "F", "S", "S"];
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
-const SLOT_VISUAL_DEFAULT = { icon: "check-square" as keyof typeof Feather.glyphMap, color: "#8A7462" };
-const SLOT_VISUAL_BY_KEY: Record<string, { icon: keyof typeof Feather.glyphMap; color: string }> = {
-  bathroom_heavy: { icon: "droplet", color: "#72503A" },
-  bathroom_light: { icon: "wind", color: "#A88C76" },
-  bathroom: { icon: "droplet", color: "#87644B" },
-  kitchen_heavy: { icon: "zap", color: "#9B623B" },
-  kitchen_light: { icon: "coffee", color: "#C39870" },
-  kitchen: { icon: "coffee", color: "#A7744D" },
-  vacuum_mop: { icon: "layers", color: "#806B58" },
-  vacuum: { icon: "layers", color: "#917661" },
-  mop: { icon: "layers", color: "#A1866F" },
-  laundry: { icon: "refresh-cw", color: "#B09177" },
-  trash: { icon: "trash-2", color: "#65483A" },
-  dishes: { icon: "circle", color: "#B98255" },
-  outdoor: { icon: "sun", color: "#C19362" },
-  ad_hoc: { icon: "help-circle", color: "#7B6252" },
+const SLOT_ICON_BY_KEY: Record<string, keyof typeof Feather.glyphMap> = {
+  bathroom_heavy: "droplet",
+  bathroom_light: "wind",
+  bathroom: "droplet",
+  kitchen_heavy: "zap",
+  kitchen_light: "coffee",
+  kitchen: "coffee",
+  vacuum_mop: "layers",
+  vacuum: "layers",
+  mop: "layers",
+  laundry: "refresh-cw",
+  trash: "trash-2",
+  dishes: "circle",
+  outdoor: "sun",
+  ad_hoc: "help-circle",
 };
 
-function slotVisualFor(key: string) {
-  return SLOT_VISUAL_BY_KEY[key] ?? SLOT_VISUAL_DEFAULT;
+function slotVisualFor(key: string, color: string) {
+  return { icon: SLOT_ICON_BY_KEY[key] ?? "check-square", color };
 }
 
 function humanizeSlotKey(k: string): string {
@@ -765,7 +764,7 @@ export default function GroupChoresScreen() {
                         const name = week.assignments[slot.key];
                         if (!name) return null;
                         const rm = roommates.find((r) => r.name === name);
-                        const visual = slotVisualFor(slot.key);
+                        const visual = slotVisualFor(slot.key, colors.primary);
                         const dotColor = rm?.color ?? visual.color;
                         return (
                           <View key={slot.key} style={[styles.assignRow, { borderTopColor: colors.border }]}>
@@ -1125,15 +1124,13 @@ export default function GroupChoresScreen() {
                               borderTopColor: colors.border,
                               backgroundColor: isPickedUp
                                 ? colors.success + "10"
-                                : overdue
-                                ? colors.warning + "08"
                                 : "transparent",
                             },
                           ]}
                         >
                           {/* Status icon */}
                           <GlassCheckCircle
-                            state={chore.completed ? "checked" : overdue ? "warning" : "idle"}
+                            state={chore.completed ? "checked" : overdue ? "overdue" : "idle"}
                           />
 
                           <View style={{ flex: 1 }}>
@@ -1158,7 +1155,7 @@ export default function GroupChoresScreen() {
                                 styles.choreDate,
                                 {
                                   color: overdue
-                                    ? colors.warning
+                                    ? colors.primary
                                     : colors.mutedForeground,
                                 },
                               ]}

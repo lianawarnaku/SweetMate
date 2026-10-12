@@ -291,13 +291,13 @@ export default function BorrowScreen() {
           style={[
             styles.overdueAlert,
             {
-              backgroundColor: colors.warning + "12",
-              borderColor: colors.warning + "44",
+              backgroundColor: colors.primary + "12",
+              borderColor: colors.border,
             },
           ]}
         >
-          <Feather name="alert-circle" size={16} color={colors.warning} />
-          <Text style={[styles.overdueText, { color: colors.warning }]}>
+          <Feather name="alert-circle" size={16} color={colors.primary} />
+          <Text style={[styles.overdueText, { color: colors.primary }]}>
             {overdue.length} item{overdue.length > 1 ? "s" : ""} overdue — time to return!
           </Text>
         </View>
@@ -478,11 +478,7 @@ export default function BorrowScreen() {
                 style={[
                   styles.borrowCard,
                   {
-                    borderColor: isOverdueItem
-                      ? colors.warning + "55"
-                      : borrow.returned
-                      ? colors.border
-                      : colors.border,
+                    borderColor: colors.border,
                     opacity: borrow.returned ? 0.65 : 1,
                   },
                 ]}
@@ -590,7 +586,7 @@ export default function BorrowScreen() {
                         color: borrow.returned
                           ? colors.success
                           : isOverdueItem
-                          ? colors.warning
+                          ? colors.primary
                           : colors.mutedForeground,
                         fontFamily: isOverdueItem
                           ? "Inter_600SemiBold"

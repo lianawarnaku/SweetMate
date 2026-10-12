@@ -4,7 +4,7 @@ import { StyleSheet, View } from "react-native";
 
 import { useTheme } from "@/constants/colors";
 
-type CheckCircleState = "idle" | "checked" | "warning";
+type CheckCircleState = "idle" | "checked" | "overdue";
 
 export function GlassCheckCircle({
   state = "idle",
@@ -14,7 +14,7 @@ export function GlassCheckCircle({
   size?: number;
 }) {
   const colors = useTheme();
-  const activeColor = state === "warning" ? colors.warning : colors.success;
+  const activeColor = state === "overdue" ? colors.primary : colors.success;
   const active = state !== "idle";
 
   return (
@@ -52,7 +52,7 @@ export function GlassCheckCircle({
       />
       {active ? (
         <Feather
-          name={state === "warning" ? "alert-circle" : "check"}
+          name={state === "overdue" ? "alert-circle" : "check"}
           size={Math.max(11, size * 0.5)}
           color={activeColor}
         />
