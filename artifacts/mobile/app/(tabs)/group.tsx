@@ -1,3 +1,4 @@
+import { ChoreFilterButton } from "@/components/ChoreFilterButton";
 import { SectionDivider } from "@/components/SectionDivider";
 import { CompletionUndoMenu } from "@/components/CompletionUndoMenu";
 import { KEYBOARD_BEHAVIOR } from "@/lib/keyboard";
@@ -899,48 +900,19 @@ export default function GroupChoresScreen() {
           </View>}
         </View> : null}
 
-        <View style={styles.choreFilterRow}>
+        <View style={styles.choreFilterRow} accessibilityRole="tablist">
           {(["active", "archived"] as const).map((option) => (
-            <TouchableOpacity
+            <ChoreFilterButton
               key={option}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: choreView === option }}
-              aria-selected={choreView === option}
-              accessibilityLabel={
-                option === "active"
-                  ? "Show active group chores"
-                  : `Show ${archivedHouseholdChores.length} archived group chores`
-              }
+              selected={choreView === option}
+              accessibilityLabel={option === "active" ? "Show active group chores" : `Show ${archivedHouseholdChores.length} archived group chores`}
               onPress={() => {
                 setChoreView(option);
                 setExpandedOverdueSections(new Set());
               }}
-              style={[
-                styles.choreFilterButton,
-                {
-                  backgroundColor:
-                    choreView === option ? colors.primary : colors.secondary,
-                },
-              ]}
-            >
-              {option === "archived" ? (
-                <Feather
-                  name="archive"
-                  size={13}
-                  color={choreView === option ? colors.primaryForeground : colors.mutedForeground}
-                />
-              ) : null}
-              <Text
-                style={[
-                  styles.choreFilterText,
-                  { color: choreView === option ? colors.primaryForeground : colors.mutedForeground },
-                ]}
-              >
-                {option === "active"
-                  ? "Active"
-                  : `Archived ${archivedHouseholdChores.length}`}
-              </Text>
-            </TouchableOpacity>
+              icon={option === "archived" ? "archive" : undefined}
+              label={option === "active" ? "Active" : `Archived ${archivedHouseholdChores.length}`}
+            />
           ))}
         </View>
 
@@ -1412,15 +1384,6 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 12,
   },
-  choreFilterButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    paddingHorizontal: 16,
-    paddingVertical: 7,
-    borderRadius: 20,
-  },
-  choreFilterText: { fontFamily: "Inter_600SemiBold", includeFontPadding: false, fontSize: 13 },
   section: {
     borderRadius: 22,
     borderWidth: 1,

@@ -1,3 +1,4 @@
+import { ChoreFilterButton } from "@/components/ChoreFilterButton";
 import { CompletionUndoMenu } from "@/components/CompletionUndoMenu";
 import { useHomeSections, type HomeSectionId } from "@/hooks/useHomeSections";
 import { SectionDivider as CollapsibleSectionHeader } from "@/components/SectionDivider";
@@ -1349,19 +1350,12 @@ export default function MyChoresScreen() {
               accessibilityRole="tablist"
             >
               {(["today", "done", "archived"] as Filter[]).map((f) => (
-                <TouchableOpacity
+                <ChoreFilterButton
                   key={f}
-                  style={[
-                    styles.filterBtn,
-                    {
-                      backgroundColor:
-                        filter === f ? selectedTint : colors.secondary,
-                      borderColor: filter === f ? colors.foreground + "35" : colors.border,
-                    },
-                  ]}
+                  selected={filter === f}
                   onPress={() => selectFilter(f)}
-                  accessibilityRole="tab"
-                  accessibilityState={{ selected: filter === f }}
+                  style={styles.filterBtn}
+                  icon={f === "archived" ? "archive" : undefined}
                   accessibilityLabel={
                     f === "today"
                       ? "Show today's chores"
@@ -1369,33 +1363,8 @@ export default function MyChoresScreen() {
                         ? "Show chores completed in the last 7 days"
                         : `Show ${archivedPersonalChoreCount} archived chores`
                   }
-                >
-                  <Feather
-                    name={
-                      f === "archived"
-                        ? "archive"
-                        : f === "done"
-                          ? "check-circle"
-                          : "sun"
-                    }
-                    size={13}
-                    color={filter === f ? colors.foreground : colors.mutedForeground}
-                  />
-                  <Text
-                    style={[
-                      styles.filterText,
-                      {
-                        color: filter === f ? colors.foreground : colors.mutedForeground,
-                      },
-                    ]}
-                  >
-                    {f === "today"
-                      ? "Today"
-                      : f === "done"
-                        ? "Completed"
-                        : `Archived ${archivedPersonalChoreCount}`}
-                  </Text>
-                </TouchableOpacity>
+                  label={f === "today" ? "Today" : f === "done" ? "Completed" : `Archived ${archivedPersonalChoreCount}`}
+                />
               ))}
             </View>}
             {expandedHomeSections["my-chores"] && filter === "done" ? (
@@ -1840,20 +1809,7 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingBottom: 12,
   },
-  filterBtn: {
-    flex: 1,
-    minWidth: 0,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 5,
-    minHeight: 44,
-    paddingHorizontal: 6,
-    paddingVertical: 8,
-    borderRadius: radii.small,
-    borderWidth: 1,
-  },
-  filterText: { fontFamily: "Inter_600SemiBold", includeFontPadding: false, fontSize: 13, flexShrink: 1, textAlign: "center" },
+  filterBtn: { flex: 1, paddingHorizontal: 6 },
   doneRetentionHint: {
     fontFamily: "Inter_400Regular", includeFontPadding: false,
     fontSize: 12,
