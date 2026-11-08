@@ -260,7 +260,7 @@ interface ChoreRowProps {
     completed: boolean;
     points: number;
     category: ChoreCategory;
-    recurring?: "daily" | "everyOtherDay" | "weekly" | "biweekly" | "monthly";
+    recurring?: "daily" | "everyOtherDay" | "everyThreeDays" | "weekly" | "biweekly" | "monthly";
     assignmentMode?: "specific-person" | "round-robin" | "unassigned";
   };
   onSetCompleted: (id: string, completed: boolean) => void;

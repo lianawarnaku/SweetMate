@@ -18,15 +18,15 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { useAppContext, type ChoreAssignment, type ChoreCategory, type ChoreChartData, type GeneratedTask, type Roommate } from "@/context/AppContext";
+import { useAppContext, type ProposedChart, type Roommate } from "@/context/AppContext";
 import { useTheme } from "@/constants/colors";
 import { error as hapticError } from "@/lib/haptics";
 import type { ChoreFrequency, ChoreTimeOfDay } from "@/constants/choreRules";
 import type { Difficulty } from "@/lib/itemDifficulty";
 import { generateHouseholdTasks, parseHouseholdAmenities } from "@/lib/taskGenerator";
 import { PreferenceBar } from "@/components/PreferenceBar";
-import { buildBalancedChart } from "@/lib/choreEngine";
-import { initialIntervalDaysFor } from "@/lib/choreSchedule";
+import { buildHouseholdChart, frequencyLabel } from "@/lib/choreChart";
+import { choreNow } from "@/lib/choreClock";
 import { reportRuntimeError } from "@/lib/runtimeDiagnostics";
 import {
   ESSENTIAL_CATALOG,
@@ -37,7 +37,6 @@ import { track } from "@/lib/analytics";
 import { essentialRecommendationsForHousingType } from "@/lib/essentialRecommendations";
 
 type PlanType = "chore-chart" | "home-checklist" | null;
-type HousingType = "traditional" | "suite" | "apartment" | null;
 
 const PREFERENCE_DIMENSIONS = [
   {
@@ -51,131 +50,6 @@ const PREFERENCE_DIMENSIONS = [
     helper: "e.g. running the dishwasher",
   },
 ] as const;
-
-// ── Slot metadata (icon + color) for known slot keys; falls back for unknown ──
-const SLOT_ICON_BY_KEY: Record<string, keyof typeof Feather.glyphMap> = {
-  bathroom_heavy: "droplet",
-  bathroom_light: "wind",
-  bathroom: "droplet",
-  kitchen_heavy: "zap",
-  kitchen_light: "coffee",
-  kitchen: "coffee",
-  vacuum_mop: "layers",
-  vacuum: "layers",
-  mop: "layers",
-  laundry: "refresh-cw",
-  trash: "trash-2",
-  dishes: "circle",
-  outdoor: "sun",
-  ad_hoc: "help-circle",
-};
-
-function slotVisualFor(key: string, color: string) {
-  return { icon: SLOT_ICON_BY_KEY[key] ?? "check-square", color };
-}
-
-// Derive the slot list from stored chart data, falling back to week-one keys.
-function getActiveSlots(data: ChoreChartData): { key: string; label: string; category?: ChoreCategory }[] {
-  if (data.slots && data.slots.length > 0) return data.slots;
-  const seen = new Set<string>();
-  const ordered: { key: string; label: string }[] = [];
-  for (const w of data.weeks) {
-    for (const k of Object.keys(w.assignments)) {
-      if (!seen.has(k)) {
-        seen.add(k);
-        ordered.push({ key: k, label: humanizeKey(k) });
-      }
-    }
-  }
-  return ordered;
-}
-
-function humanizeKey(k: string): string {
-  return k
-    .split("_")
-    .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
-    .join(" ");
-}
-
-// ── Kitchen amenities (all housing types) ──────────────────────────────────
-const KITCHEN_AMENITIES = [
-  { key: "kettle", label: "Kettle" },
-  { key: "microwave", label: "Microwave" },
-  { key: "fridge", label: "Refrigerator" },
-  { key: "coffee", label: "Coffee Machine" },
-  { key: "ice_maker", label: "Ice Maker" },
-  { key: "toaster_oven", label: "Toaster Oven" },
-  { key: "dining_table", label: "Dining Table" },
-  { key: "stove", label: "Stove / Cooktop" },
-  { key: "air_fryer", label: "Air Fryer" },
-  { key: "toaster", label: "Toaster" },
-  { key: "dishwasher", label: "Dishwasher" },
-  { key: "drying_rack", label: "Drying Rack" },
-  { key: "oven", label: "Oven" },
-];
-
-// ── Bathroom fixtures (suite + apartment) ──────────────────────────────────
-const BATHROOM_ITEMS = [
-  { key: "trash_can", label: "Trash Can" },
-  { key: "sink", label: "Sink" },
-  { key: "mirror", label: "Mirror" },
-  { key: "cabinet", label: "Cabinet / Shelf" },
-  { key: "shower", label: "Shower Area" },
-  { key: "toilet", label: "Toilet" },
-  { key: "bath_mat", label: "Bath Mat" },
-];
-
-// ── Bathroom chores (suite + apartment) ────────────────────────────────────
-const BATHROOM_CHORES = [
-  { key: "clean_floor", label: "Clean bathroom floor", points: 15 },
-  { key: "restock", label: "Restock supplies (soap, TP, napkins)", points: 10 },
-  { key: "clean_mirror", label: "Clean mirror & fixtures", points: 10 },
-];
-
-// ── Living area fixtures (apartment only) ──────────────────────────────────
-const LIVING_ITEMS = [
-  { key: "couches", label: "Couches / Sofa" },
-];
-
-// ── Living area chores (apartment only) ────────────────────────────────────
-const LIVING_CHORES = [
-  { key: "vacuum", label: "Vacuum floors & rugs", points: 20 },
-  { key: "counters", label: "Wipe countertops & surfaces", points: 15 },
-  { key: "wash_linens", label: "Wash kitchen towels & blankets", points: 15 },
-  { key: "trash", label: "Take out trash & recycling", points: 10 },
-  { key: "mop", label: "Mop hard floors", points: 20 },
-  { key: "dishes", label: "Do the dishes", points: 15 },
-  { key: "wipe_appliances", label: "Wipe down appliances", points: 10 },
-];
-
-// ── Kitchen chore map ──────────────────────────────────────────────────────
-const KITCHEN_CHORE_MAP: Record<string, { title: string; points: number }> = {
-  kettle: { title: "Descale kettle", points: 10 },
-  microwave: { title: "Clean microwave (inside & out)", points: 10 },
-  fridge: { title: "Wipe fridge shelves & door", points: 20 },
-  coffee: { title: "Descale & clean coffee machine", points: 15 },
-  ice_maker: { title: "Clean ice maker", points: 15 },
-  toaster_oven: { title: "Clean toaster oven tray", points: 10 },
-  dining_table: { title: "Wipe & disinfect dining table", points: 10 },
-  stove: { title: "Clean stovetop & burners", points: 20 },
-  air_fryer: { title: "Clean air fryer basket", points: 10 },
-  toaster: { title: "Empty & wipe toaster", points: 5 },
-  dishwasher: { title: "Run/empty dishwasher & wipe door", points: 10 },
-  drying_rack: { title: "Put away dishes from drying rack", points: 10 },
-  oven: { title: "Deep clean oven", points: 30 },
-};
-
-// ── Living item chore map ──────────────────────────────────────────────────
-const LIVING_ITEM_CHORE_MAP: Record<string, { title: string; points: number }> = {
-  couches: { title: "Vacuum & lint-roll couches", points: 15 },
-};
-
-function daysFromNow(days: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() + days);
-  d.setHours(23, 59, 0, 0);
-  return d.toISOString();
-}
 
 // ── Reusable checkbox row ──────────────────────────────────────────────────
 function CheckRow({
@@ -636,12 +510,12 @@ export default function PlanningScreen() {
   }>();
   const setupMode = params.setup === "household";
   const {
-    roommates, addChore, addChores, essentialsAssignees, setEssentialSelfAssignment,
+    roommates, chores, householdTimezone, itemDifficulties, currentProposedChart, proposeChart, essentialsAssignees, setEssentialSelfAssignment,
     essentialOwned, essentialShortlist, essentialShortlistUpdatedBy,
     setEssentialOwned, saveEssentialShortlist, addSelectedEssentialsToShopping,
     pointsEnabled, householdComplete, householdId, homeProfile, customTasks,
     addCustomTask, deleteCustomTask, memberPreferences, setMemberPreference,
-    currentUserId, setHouseholdSetupStep,
+    currentUserId, setHouseholdSetupStep, choreChartConfigurationReady, retryChoreChartConfiguration,
     shoppingLists, shoppingItems,
   } = useAppContext();
   const recommendations = essentialRecommendationsForHousingType(
@@ -656,15 +530,6 @@ export default function PlanningScreen() {
       ? params.type
       : null,
   );
-  const [housingType, setHousingType] = useState<HousingType>(homeProfile?.housingType ?? null);
-  const [kitchenAmenities, setKitchenAmenities] = useState<Set<string>>(new Set());
-  const [bathroomItems, setBathroomItems] = useState<Set<string>>(new Set());
-  const [bathroomChores, setBathroomChores] = useState<Set<string>>(new Set());
-  const [livingItems, setLivingItems] = useState<Set<string>>(new Set());
-  const [livingChores, setLivingChores] = useState<Set<string>>(new Set());
-  const [customKitchenChores, setCustomKitchenChores] = useState<string[]>([]);
-  const [customBathroomChores, setCustomBathroomChores] = useState<string[]>([]);
-  const [customLivingChores, setCustomLivingChores] = useState<string[]>([]);
   const [checkedEssentials, setCheckedEssentials] = useState<Record<string, Set<string>>>({});
   const [customEssentials, setCustomEssentials] = useState<Record<string, string[]>>({});
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
@@ -672,11 +537,11 @@ export default function PlanningScreen() {
   const [shoppingPreviewOpen, setShoppingPreviewOpen] = useState(false);
   const [shortlistDraft, setShortlistDraft] = useState<Record<string, Record<string, boolean>>>({});
   const [result, setResult] = useState<string | null>(null);
-  const [choreChartData, setChoreChartData] = useState<ChoreChartData | null>(null);
+  const [chartDraft, setChartDraft] = useState<ProposedChart["payload"] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [choresAdded, setChoresAdded] = useState(0);
-  const [generatedTasks, setGeneratedTasks] = useState<GeneratedTask[]>([]);
+  const draftInputs = JSON.stringify([homeProfile, customTasks, itemDifficulties, memberPreferences, roommates.map((member) => member.id), chores, currentProposedChart?.id]);
+  useEffect(() => { setChartDraft(null); }, [draftInputs]);
   const [customTaskTitle, setCustomTaskTitle] = useState("");
   const [customTaskDifficulty, setCustomTaskDifficulty] = useState<Difficulty>(3);
   const [customTaskFrequency, setCustomTaskFrequency] = useState<ChoreFrequency>("weekly");
@@ -945,238 +810,25 @@ export default function PlanningScreen() {
   // Each chore *group* (Bathroom Heavy etc.) is expanded into the individual
   // tasks it covers, so the user sees them as separate to-dos in My Home and
   // the Group tab.
-  function createChores(): number {
-    if (!housingType) return 0;
-    const n = roommates.length;
-    let count = 0;
-
-    type Subtask = { title: string; category: ChoreCategory; points: number };
-
-    // Legacy slot expansion retained only for previously stored charts.
-    const subtasksFor = (slotKey: string, slotLabel?: string, slotCategory?: ChoreCategory): Subtask[] => {
-      switch (slotKey) {
-        case "bathroom_heavy":
-          return [
-            { title: "Clean toilet", category: "bathroom", points: 15 },
-            { title: "Clean shower / tub", category: "bathroom", points: 15 },
-            { title: "Sweep & mop bathroom floor", category: "bathroom", points: 15 },
-          ];
-        case "bathroom_light":
-        case "bathroom": {
-          const list: Subtask[] = [
-            { title: "Clean bathroom sink", category: "bathroom", points: 10 },
-            { title: "Clean bathroom mirror", category: "bathroom", points: 10 },
-            { title: "Restock bathroom supplies", category: "bathroom", points: 10 },
-            { title: "Empty bathroom trash", category: "bathroom", points: 10 },
-          ];
-          if (bathroomItems.has("bath_mat")) {
-            list.push({ title: "Wash bathmat", category: "bathroom", points: 10 });
-          }
-          return list;
-        }
-        case "kitchen_heavy": {
-          const heavyKeys = ["stove", "microwave", "oven", "air_fryer", "toaster_oven"];
-          const labels = heavyKeys
-            .filter((k) => kitchenAmenities.has(k))
-            .map((k) => KITCHEN_AMENITIES.find((a) => a.key === k)?.label)
-            .filter((l): l is string => !!l);
-          const tasks: Subtask[] =
-            labels.length > 0
-              ? labels.map((label) => ({
-                  title: `Clean ${label.toLowerCase()}`,
-                  category: "kitchen",
-                  points: 15,
-                }))
-              : [
-                  { title: "Clean stove", category: "kitchen", points: 15 },
-                  { title: "Clean microwave", category: "kitchen", points: 15 },
-                ];
-          tasks.push({ title: "Wipe down kitchen appliances", category: "kitchen", points: 10 });
-          return tasks;
-        }
-        case "kitchen_light":
-        case "kitchen": {
-          const tasks: Subtask[] = [
-            { title: "Wipe kitchen countertops", category: "kitchen", points: 10 },
-          ];
-          if (kitchenAmenities.has("dishwasher"))
-            tasks.push({ title: "Run / unload dishwasher", category: "kitchen", points: 10 });
-          if (kitchenAmenities.has("drying_rack"))
-            tasks.push({ title: "Empty drying rack", category: "kitchen", points: 10 });
-          if (kitchenAmenities.has("fridge"))
-            tasks.push({ title: "Check & tidy fridge", category: "kitchen", points: 10 });
-          if (kitchenAmenities.has("dining_table"))
-            tasks.push({ title: "Wipe dining table", category: "kitchen", points: 10 });
-          if (tasks.length === 1) {
-            tasks.push({ title: "Run / unload dishwasher", category: "kitchen", points: 10 });
-            tasks.push({ title: "Check & tidy fridge", category: "kitchen", points: 10 });
-          }
-          return tasks;
-        }
-        case "vacuum_mop":
-        case "vacuum":
-        case "mop":
-          return [
-            { title: "Vacuum common areas", category: "cleaning", points: 15 },
-            { title: "Vacuum hallway", category: "cleaning", points: 10 },
-            { title: "Mop living room", category: "cleaning", points: 10 },
-          ];
-        case "laundry":
-          return [
-            { title: "Wash & dry laundry", category: "laundry", points: 15 },
-            { title: "Fold & put away laundry", category: "laundry", points: 10 },
-          ];
-        case "trash":
-          return [
-            { title: "Take out trash & recycling", category: "other", points: 10 },
-          ];
-        case "dishes":
-          return [{ title: "Do the dishes", category: "kitchen", points: 10 }];
-        case "outdoor":
-          return [{ title: "Outdoor cleanup / yard tasks", category: "outdoor", points: 15 }];
-        case "ad_hoc":
-          return [
-            { title: "Ad hoc helper — assist where needed", category: "other", points: 10 },
-          ];
-        default: {
-          // Unknown slot key — make one chore using the slot's label
-          const title = slotLabel ?? slotKey.replace(/_/g, " ");
-          return [{ title, category: slotCategory ?? "other", points: 10 }];
-        }
-      }
-    };
-
-    // ── Resolve a previously stored chart or use the legacy fixed defaults ──
-    const fallbackSlots: { key: string; label: string; category?: ChoreCategory }[] = [
-      { key: "bathroom_heavy", label: "Bathroom Heavy", category: "bathroom" },
-      { key: "kitchen_heavy", label: "Kitchen Heavy", category: "kitchen" },
-      { key: "bathroom_light", label: "Bathroom Light", category: "bathroom" },
-      { key: "kitchen_light", label: "Kitchen Light", category: "kitchen" },
-      { key: "vacuum_mop", label: "Vacuum & Mop", category: "cleaning" },
-      { key: "ad_hoc", label: "Ad Hoc", category: "other" },
-    ];
-
-    let activeSlots: { key: string; label: string; category?: ChoreCategory }[];
-    let week1: Record<string, string>;
-    if (choreChartData?.weeks?.[0]?.assignments) {
-      week1 = { ...choreChartData.weeks[0].assignments };
-      activeSlots =
-        choreChartData.slots && choreChartData.slots.length > 0
-          ? choreChartData.slots
-          : Object.keys(week1).map((k) => ({ key: k, label: k }));
-    } else {
-      // No stored chart — assign roommates 1:1 to the fixed legacy slots
-      week1 = {};
-      activeSlots = fallbackSlots.slice(0, Math.min(n, fallbackSlots.length));
-      for (let i = 0; i < activeSlots.length; i++) {
-        week1[activeSlots[i].key] = roommates[i].name;
-      }
-    }
-
-    // Expand each slot into its individual subtasks for the assigned person
-    for (const slot of activeSlots) {
-      const name = week1[slot.key];
-      if (!name) continue;
-      const roommate = roommates.find((r) => r.name === name);
-      if (!roommate) continue;
-      for (const t of subtasksFor(slot.key, slot.label, slot.category)) {
-        addChore({
-          title: t.title,
-          assignedTo: roommate.id,
-          dueDate: daysFromNow(7),
-          completed: false,
-          points: t.points,
-          category: t.category,
-        });
-        count++;
-      }
-    }
-
-    // ── Custom chores (user-defined additions) — rotate through roommates ──
-    const allCustom: [string, ChoreCategory, number][] = [
-      ...customKitchenChores.map((t): [string, ChoreCategory, number] => [t, "kitchen", 15]),
-      ...customBathroomChores.map((t): [string, ChoreCategory, number] => [t, "bathroom", 15]),
-      ...customLivingChores.map((t): [string, ChoreCategory, number] => [t, "cleaning", 15]),
-    ];
-    allCustom.forEach(([title, cat, pts], idx) => {
-      count++;
-      addChore({ title, assignedTo: roommates[idx % n].id, dueDate: daysFromNow(7), completed: false, points: pts, category: cat });
-    });
-
-    return count;
-  }
-
-  // ── Build a local checklist summary ─────────────────────────────────────
-  function buildContext(): string {
-    const parts: string[] = [];
-    if (housingType) {
-      const typeLabel =
-        housingType === "traditional"
-          ? "traditional-style (shared room, communal bathroom)"
-          : housingType === "suite"
-          ? "suite-style (private bedroom, en-suite bathroom)"
-          : "apartment-style (full kitchen, private bathroom, living area)";
-      parts.push(`Housing: ${typeLabel}`);
-    }
-    if (kitchenAmenities.size > 0) {
-      parts.push(`Kitchen amenities: ${[...kitchenAmenities].map((k) => KITCHEN_AMENITIES.find((a) => a.key === k)?.label).filter(Boolean).join(", ")}`);
-    }
-    if (housingType !== "traditional") {
-      if (bathroomItems.size > 0)
-        parts.push(`Bathroom fixtures: ${[...bathroomItems].map((k) => BATHROOM_ITEMS.find((a) => a.key === k)?.label).filter(Boolean).join(", ")}`);
-      if (bathroomChores.size > 0)
-        parts.push(`Bathroom tasks: ${[...bathroomChores].map((k) => BATHROOM_CHORES.find((a) => a.key === k)?.label).filter(Boolean).join(", ")}`);
-    }
-    if (housingType === "apartment") {
-      if (livingItems.size > 0)
-        parts.push(`Living area items: ${[...livingItems].map((k) => LIVING_ITEMS.find((a) => a.key === k)?.label).filter(Boolean).join(", ")}`);
-      if (livingChores.size > 0)
-        parts.push(`Living area tasks: ${[...livingChores].map((k) => LIVING_CHORES.find((a) => a.key === k)?.label).filter(Boolean).join(", ")}`);
-    }
-    // ── Home essentials selections ──
-    if (selectedType === "home-checklist") {
-      ESSENTIAL_CATALOG.forEach((section) => {
-        const checked = checkedEssentials[section.id];
-        const custom = customEssentials[section.id] ?? [];
-        const items = [...(checked ? [...checked] : []), ...custom];
-        if (items.length > 0) {
-          const assignments = essentialsAssignees[section.id] ?? {};
-          const itemsWithAssignment = items.map((item) => {
-            const names = (assignments[item] ?? []).flatMap((userId) => {
-              const member = roommates.find((roommate) => roommate.id === userId);
-              return member ? [member.name] : [];
-            });
-            return names.length ? `${item} (${names.join(", ")})` : item;
-          });
-          parts.push(`${section.title} (selected): ${itemsWithAssignment.join(", ")}`);
-        }
-      });
-    }
-
-    return parts.join(". ");
-  }
-
   const generate = async () => {
     if (!selectedType) return;
     if (selectedType === "chore-chart" && !householdComplete) return;
     setLoading(true);
     setError(null);
     setResult(null);
-    setChoreChartData(null);
-    setChoresAdded(0);
+    setChartDraft(null);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     try {
       if (selectedType === "chore-chart") {
+        if (!choreChartConfigurationReady) throw new Error("Wait for your saved chore settings to load before previewing a chart.");
         if (!householdId || !homeProfile) {
           throw new Error("Complete household setup before generating tasks.");
         }
         const tasks = await generateHouseholdTasks(
           householdId,
           parseHouseholdAmenities(homeProfile.items).flatMap((amenity) => {
-            const count = amenity.category === "bathroom"
-              ? Math.max(1, homeProfile.roomCounts?.bathroom ?? 1)
-              : 1;
+            const count = Math.max(1, homeProfile.roomCounts?.[amenity.category] ?? 1);
             return Array.from({ length: count }, (_, index) => ({
               ...amenity,
               roomInstanceId: `${amenity.category}-${index + 1}`,
@@ -1184,36 +836,14 @@ export default function PlanningScreen() {
           }),
           homeProfile.housingType,
           customTasks,
+          itemDifficulties.filter((entry) => entry.householdId === householdId),
         );
-        setGeneratedTasks(tasks);
-        const chart = buildBalancedChart(tasks, roommates, [], { mode: "perfectSplit" });
-        const assigneeByTask = new Map<string, string>();
-        chart.assignments.forEach((assignment) =>
-          assignment.taskIds.forEach((taskId) => assigneeByTask.set(taskId, assignment.memberId)),
-        );
-        const pointByDifficulty = [0, 5, 10, 15, 25, 30] as const;
-        const now = Date.now();
-        const added = addChores(tasks.map((task) => {
-          const intervalDays = initialIntervalDaysFor(task.frequency);
-          return {
-            title: task.title,
-            assignedTo: assigneeByTask.get(task.id) ?? roommates[0].id,
-            dueDate: new Date(now + intervalDays * 86_400_000).toISOString(),
-            completed: false,
-            points: pointByDifficulty[task.difficulty],
-            category:
-              task.itemCategory === "bathroom" ? "bathroom" :
-              task.itemCategory === "kitchen" ? "kitchen" :
-              task.itemCategory === "living" ? "cleaning" : "other",
-            // task.frequency and Chore's recurring field share the same
-            // daily/everyOtherDay/weekly/biweekly/monthly union — pass it
-            // through directly instead of re-deriving it, which previously
-            // collapsed everyOtherDay into daily and biweekly into weekly.
-            recurring: task.frequency,
-            sourceKey: task.id,
-          };
+        const includedTasks = tasks.filter((task) => !(homeProfile.removedGeneratedKeys ?? []).includes(task.id))
+          .map((task) => ({ ...task, frequency: homeProfile.recurrenceOverrides?.[task.id] ?? task.frequency }));
+        setChartDraft(buildHouseholdChart({
+          tasks: includedTasks, members: roommates, preferences: memberPreferences.filter((entry) => entry.householdId === householdId), chores,
+          householdId, now: choreNow(), timezone: householdTimezone, previous: currentProposedChart?.payload,
         }));
-        setChoresAdded(added);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         return;
       }
@@ -1230,17 +860,26 @@ export default function PlanningScreen() {
     }
   };
 
-  const addTasks = () => {
-    if (!housingType) return;
-    const added = createChores();
-    setChoresAdded(added);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  const sendChartForApproval = async () => {
+    if (!chartDraft) return;
+    setLoading(true);
+    setError(null);
+    try {
+      await proposeChart(chartDraft);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      router.push("/alerts");
+    } catch (failure) {
+      setError(failure && typeof failure === "object" && "message" in failure ? String(failure.message) : "Unable to send the chart. Please try again.");
+      hapticError();
+    } finally {
+      setLoading(false);
+    }
   };
 
   const isChoreChart = selectedType === "chore-chart";
   const canGenerate =
     selectedType !== null &&
-    (selectedType === "home-checklist" || (isChoreChart && householdComplete && housingType !== null));
+    (selectedType === "home-checklist" || (isChoreChart && householdComplete && choreChartConfigurationReady && homeProfile !== null && roommates.length > 0));
 
   // ── Render ───────────────────────────────────────────────────────────────
   return (
@@ -1304,7 +943,7 @@ export default function PlanningScreen() {
           onPress={() => {
             setSelectedType("chore-chart");
             setResult(null);
-            setChoresAdded(0);
+            setChartDraft(null);
           }}
         >
           <View
@@ -1329,7 +968,7 @@ export default function PlanningScreen() {
           </Text>
           <Text style={[styles.typeDesc, { color: colors.mutedForeground }]}>
             {householdComplete
-              ? "Weekly chore rotation"
+              ? "Recurring chore assignments"
               : "Finish setup to unlock"}
           </Text>
           {!householdComplete && (
@@ -1354,7 +993,7 @@ export default function PlanningScreen() {
           onPress={() => {
             setSelectedType("home-checklist");
             setResult(null);
-            setChoresAdded(0);
+            setChartDraft(null);
           }}
         >
           <View
@@ -1415,266 +1054,21 @@ export default function PlanningScreen() {
         </View>
       )}</> : null}
 
-      {/* ── Housing type (only for chore chart) ── */}
-      {isChoreChart && (
-        <>
-          <Text style={[styles.sectionLabel, { color: colors.foreground }]}>
-            Your housing type
+      {isChoreChart && !choreChartConfigurationReady && <View style={[styles.customTaskCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <Text style={[styles.preferenceIntro, { color: colors.mutedForeground }]}>Your saved chore settings must finish loading before a chart can be built.</Text>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Retry loading chore settings" style={{ minHeight: 44, justifyContent: "center" }} onPress={() => void retryChoreChartConfiguration().catch((error) => setError(error instanceof Error ? error.message : "Unable to load chore settings."))}>
+          <Text style={[styles.savedCustomTitle, { color: colors.primary }]}>Retry loading</Text>
+        </TouchableOpacity>
+      </View>}
+      {isChoreChart && homeProfile && (
+        <View style={[styles.customTaskCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text accessibilityRole="header" style={[styles.customTaskTitle, { color: colors.foreground }]}>Your household</Text>
+          <Text style={[styles.preferenceIntro, { color: colors.mutedForeground }]}>
+            Uses the features and room counts saved during household setup, plus your custom tasks and saved item difficulty levels.
           </Text>
-
-          <View style={styles.housingRow}>
-            {[
-              {
-                key: "traditional",
-                label: "Traditional",
-                desc: "Shared room\nCommunal bathroom",
-                icon: "users",
-              },
-              {
-                key: "suite",
-                label: "Suite-Style",
-                desc: "Private bedroom\nEn-suite bathroom",
-                icon: "home",
-              },
-              {
-                key: "apartment",
-                label: "Apartment",
-                desc: "Full kitchen\nIn-unit bathroom",
-                icon: "box",
-              },
-            ].map((h) => {
-              const active = housingType === h.key;
-              return (
-                <TouchableOpacity
-                  key={h.key}
-                  style={[
-                    styles.housingCard,
-                    {
-                      backgroundColor: active ? colors.primary + "12" : colors.card,
-                      borderColor: active ? colors.primary : colors.border,
-                    },
-                  ]}
-                  onPress={() => {
-                    setHousingType(h.key as HousingType);
-                    setResult(null);
-                    setChoresAdded(0);
-                  }}
-                >
-                  <View
-                    style={[
-                      styles.housingIcon,
-                      {
-                        backgroundColor: active
-                          ? colors.primary + "20"
-                          : colors.secondary,
-                      },
-                    ]}
-                  >
-                    <Feather
-                      name={h.icon as any}
-                      size={20}
-                      color={active ? colors.primary : colors.mutedForeground}
-                    />
-                  </View>
-                  <Text
-                    style={[
-                      styles.housingLabel,
-                      { color: active ? colors.primary : colors.foreground },
-                    ]}
-                  >
-                    {h.label}
-                  </Text>
-                  <Text
-                    style={[styles.housingDesc, { color: colors.mutedForeground }]}
-                  >
-                    {h.desc}
-                  </Text>
-                  {active && (
-                    <View
-                      style={[styles.housingDot, { backgroundColor: colors.primary }]}
-                    />
-                  )}
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </>
-      )}
-
-      {/* ── Amenity sections ── */}
-      {isChoreChart && housingType && (
-        <View style={styles.amenityArea}>
-
-          {/* Kitchen Setup */}
-          <SectionCard
-            title="Kitchen Setup"
-            icon="coffee"
-            cardBg={colors.card}
-            cardBorder={colors.border}
-            titleColor={colors.foreground}
-            iconBg={colors.primary + "18"}
-            accentColor={colors.primary}
-          >
-            <Text style={[styles.amenityHint, { color: colors.mutedForeground }]}>
-              Which kitchen appliances do you share?
-            </Text>
-            <View style={styles.chipWrap}>
-              {KITCHEN_AMENITIES.map((a) => (
-                <ChipToggle
-                  key={a.key}
-                  label={a.label}
-                  selected={kitchenAmenities.has(a.key)}
-                  onToggle={() =>
-                    setKitchenAmenities(toggleSet(kitchenAmenities, a.key))
-                  }
-                  accentColor={colors.primary}
-                  borderColor={colors.border}
-                  textColor={colors.foreground}
-                  mutedColor={colors.mutedForeground}
-                />
-              ))}
-            </View>
-            <CustomChoreInput
-              chores={customKitchenChores}
-              onAdd={(c) => setCustomKitchenChores((prev) => [...prev, c])}
-              onRemove={(i) => setCustomKitchenChores((prev) => prev.filter((_, idx) => idx !== i))}
-              accentColor={colors.primary}
-              textColor={colors.foreground}
-              mutedColor={colors.mutedForeground}
-              borderColor={colors.border}
-              cardBg={colors.card}
-            />
-          </SectionCard>
-
-          {/* Bathroom Setup (suite + apartment) */}
-          {(housingType === "suite" || housingType === "apartment") && (
-            <SectionCard
-              title="Bathroom Setup"
-              icon="droplet"
-              cardBg={colors.card}
-              cardBorder={colors.border}
-              titleColor={colors.foreground}
-              iconBg={colors.success + "18"}
-              accentColor={colors.success}
-            >
-              <Text style={[styles.amenityHint, { color: colors.mutedForeground }]}>
-                What's in your bathroom?
-              </Text>
-              <View style={styles.chipWrap}>
-                {BATHROOM_ITEMS.map((a) => (
-                  <ChipToggle
-                    key={a.key}
-                    label={a.label}
-                    selected={bathroomItems.has(a.key)}
-                    onToggle={() =>
-                      setBathroomItems(toggleSet(bathroomItems, a.key))
-                    }
-                    accentColor={colors.success}
-                    borderColor={colors.border}
-                    textColor={colors.foreground}
-                    mutedColor={colors.mutedForeground}
-                  />
-                ))}
-              </View>
-
-              <Text
-                style={[
-                  styles.amenityHint,
-                  { color: colors.mutedForeground, marginTop: 14 },
-                ]}
-              >
-                Chores to add to your chart:
-              </Text>
-              {BATHROOM_CHORES.map((c) => (
-                <CheckRow
-                  key={c.key}
-                  label={pointsEnabled ? `${c.label} (+${c.points} pts)` : c.label}
-                  checked={bathroomChores.has(c.key)}
-                  onToggle={() =>
-                    setBathroomChores(toggleSet(bathroomChores, c.key))
-                  }
-                  accentColor={colors.success}
-                  textColor={colors.foreground}
-                  mutedColor={colors.mutedForeground}
-                />
-              ))}
-              <CustomChoreInput
-                chores={customBathroomChores}
-                onAdd={(c) => setCustomBathroomChores((prev) => [...prev, c])}
-                onRemove={(i) => setCustomBathroomChores((prev) => prev.filter((_, idx) => idx !== i))}
-                accentColor={colors.success}
-                textColor={colors.foreground}
-                mutedColor={colors.mutedForeground}
-                borderColor={colors.border}
-                cardBg={colors.card}
-              />
-            </SectionCard>
-          )}
-
-          {/* Living Area (apartment only) */}
-          {housingType === "apartment" && (
-            <SectionCard
-              title="Living Area"
-              icon="tv"
-              cardBg={colors.card}
-              cardBorder={colors.border}
-              titleColor={colors.foreground}
-              iconBg={colors.warning + "18"}
-              accentColor={colors.warning}
-            >
-              <Text style={[styles.amenityHint, { color: colors.mutedForeground }]}>
-                What's in your living area?
-              </Text>
-              <View style={styles.chipWrap}>
-                {LIVING_ITEMS.map((a) => (
-                  <ChipToggle
-                    key={a.key}
-                    label={a.label}
-                    selected={livingItems.has(a.key)}
-                    onToggle={() =>
-                      setLivingItems(toggleSet(livingItems, a.key))
-                    }
-                    accentColor={colors.warning}
-                    borderColor={colors.border}
-                    textColor={colors.foreground}
-                    mutedColor={colors.mutedForeground}
-                  />
-                ))}
-              </View>
-
-              <Text
-                style={[
-                  styles.amenityHint,
-                  { color: colors.mutedForeground, marginTop: 14 },
-                ]}
-              >
-                Chores to add to your chart:
-              </Text>
-              {LIVING_CHORES.map((c) => (
-                <CheckRow
-                  key={c.key}
-                  label={pointsEnabled ? `${c.label} (+${c.points} pts)` : c.label}
-                  checked={livingChores.has(c.key)}
-                  onToggle={() =>
-                    setLivingChores(toggleSet(livingChores, c.key))
-                  }
-                  accentColor={colors.warning}
-                  textColor={colors.foreground}
-                  mutedColor={colors.mutedForeground}
-                />
-              ))}
-              <CustomChoreInput
-                chores={customLivingChores}
-                onAdd={(c) => setCustomLivingChores((prev) => [...prev, c])}
-                onRemove={(i) => setCustomLivingChores((prev) => prev.filter((_, idx) => idx !== i))}
-                accentColor={colors.warning}
-                textColor={colors.foreground}
-                mutedColor={colors.mutedForeground}
-                borderColor={colors.border}
-                cardBg={colors.card}
-              />
-            </SectionCard>
-          )}
+          <Text style={[styles.savedCustomMeta, { color: colors.foreground }]}>
+            {homeProfile.housingType} · {homeProfile.items.length} selected features
+          </Text>
         </View>
       )}
 
@@ -1787,11 +1181,11 @@ export default function PlanningScreen() {
             Your task preferences
           </Text>
           <Text style={[styles.preferenceIntro, { color: colors.mutedForeground }]}>
-            These are saved to your member profile and help balance the chart.
+            Preferences help choose starting assignments. Recurring chores then rotate among eligible Sweetmates. Use “Always me” or “Never me” during approval for a firm rule.
           </Text>
           {PREFERENCE_DIMENSIONS.map((dimension) => {
             const preference = memberPreferences.find(
-              (entry) => entry.memberId === currentUserId && entry.key === dimension.key,
+              (entry) => entry.householdId === householdId && entry.memberId === currentUserId && entry.key === dimension.key,
             );
             return (
               <PreferenceBar
@@ -1862,12 +1256,12 @@ export default function PlanningScreen() {
           </View>
           <Text style={[styles.customTaskFieldLabel, { color: colors.mutedForeground }]}>FREQUENCY</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.customTaskOptions}>
-            {(["daily", "everyOtherDay", "weekly", "biweekly", "monthly"] as ChoreFrequency[]).map((value) => (
+            {(["daily", "everyOtherDay", "everyThreeDays", "weekly", "biweekly", "monthly"] as ChoreFrequency[]).map((value) => (
               <TouchableOpacity key={value} onPress={() => setCustomTaskFrequency(value)} style={[styles.customTextChip, {
                 backgroundColor: value === customTaskFrequency ? colors.action : colors.muted,
                 borderColor: value === customTaskFrequency ? colors.primary : colors.border,
               }]}>
-                <Text style={{ color: value === customTaskFrequency ? colors.actionForeground : colors.mutedForeground, fontFamily: "Inter_600SemiBold", includeFontPadding: false, fontSize: 12 }}>{value}</Text>
+                <Text style={{ color: value === customTaskFrequency ? colors.actionForeground : colors.mutedForeground, fontFamily: "Inter_600SemiBold", includeFontPadding: false, fontSize: 12 }}>{frequencyLabel(value)}</Text>
               </TouchableOpacity>
             ))}
           </ScrollView>
@@ -1912,98 +1306,34 @@ export default function PlanningScreen() {
         </View>
       ) : null}
 
-      {generatedTasks.length > 0 && (
+      {isChoreChart && chartDraft && (
         <View style={[styles.generatedTaskCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Text style={[styles.customTaskTitle, { color: colors.foreground }]}>
-            Generated Tasks ({generatedTasks.length})
+          <Text accessibilityRole="header" style={[styles.customTaskTitle, { color: colors.foreground }]}>Proposed starting assignments</Text>
+          <Text style={[styles.preferenceIntro, { color: colors.mutedForeground, marginTop: 8 }]}>
+            Workload combines difficulty and how often chores recur, including retained unfinished work. Rotating chores change assignee each occurrence. Changes begin with upcoming chores after approval; completed history, overdue work and manual assignments are retained.
           </Text>
-          {generatedTasks.map((task) => (
-            <View key={task.id} style={[styles.generatedTaskRow, { borderTopColor: colors.border }]}>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.savedCustomTitle, { color: colors.foreground }]}>{task.title}</Text>
-                <Text style={[styles.savedCustomMeta, { color: colors.mutedForeground }]}>
-                  {task.item} · {task.frequency} · {task.timeOfDay}
-                </Text>
-              </View>
-              <Text style={[styles.generatedDifficulty, { color: colors.primary }]}>{task.difficulty}/5</Text>
+          {chartDraft.assignments.map((assignment) => (
+            <View key={assignment.memberId} style={{ marginTop: 16 }}>
+              <Text accessibilityRole="header" style={[styles.savedCustomTitle, { color: colors.foreground }]}>
+                {roommates.find((member) => member.id === assignment.memberId)?.name ?? "Sweetmate"} · {assignment.totalLoad.toFixed(1)} weighted workload
+              </Text>
+              {assignment.taskIds.length === 0 && <Text style={[styles.savedCustomMeta, { color: colors.mutedForeground }]}>No new starting assignments</Text>}
+              {assignment.taskIds.map((taskId) => {
+                const task = chartDraft.generatedTasks?.find((entry) => entry.id === taskId);
+                if (!task) return null;
+                return <View key={task.id} style={[styles.generatedTaskRow, { borderTopColor: colors.border }]}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.savedCustomTitle, { color: colors.foreground }]}>{task.title}</Text>
+                    <Text style={[styles.savedCustomMeta, { color: colors.mutedForeground }]}>
+                      {frequencyLabel(task.frequency)} · {task.timeOfDay} · {task.difficulty}/5 difficulty{chartDraft.manualAssignmentTaskIds?.includes(task.id) ? " · manual schedule" : chartDraft.pinnedAssignments?.[task.id] ? " · fixed assignee" : " · rotates"}
+                    </Text>
+                  </View>
+                </View>;
+              })}
             </View>
           ))}
         </View>
       )}
-
-      {/* ── Chore chart: category-section tiles ── */}
-      {choreChartData ? (
-        <View style={{ marginHorizontal: 16, marginTop: 12, gap: 10 }}>
-          {/* Header row */}
-          <View style={[styles.resultHeader, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <View style={[styles.resultHeaderIcon, { backgroundColor: colors.primary + "18" }]}>
-              <Feather name="calendar" size={16} color={colors.primary} />
-            </View>
-            <Text style={[styles.resultTitle, { color: colors.foreground }]}>12-Week Chore Chart</Text>
-            <TouchableOpacity
-              onPress={() => { setChoreChartData(null); setChoresAdded(0); }}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Feather name="x" size={16} color={colors.mutedForeground} />
-            </TouchableOpacity>
-          </View>
-
-          {/* One card per chore category */}
-          {getActiveSlots(choreChartData).map((slot) => {
-            const weeks = choreChartData.weeks.filter((e) => !!e.assignments[slot.key]);
-            if (weeks.length === 0) return null;
-            const visual = slotVisualFor(slot.key, colors.primary);
-            return (
-              <View key={slot.key} style={[styles.slotSection, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                {/* Section header */}
-                <View style={styles.slotHeader}>
-                  <View style={[styles.slotIcon, { backgroundColor: visual.color + "18" }]}>
-                    <Feather name={visual.icon} size={14} color={visual.color} />
-                  </View>
-                  <Text style={[styles.slotLabel, { color: colors.foreground }]}>{slot.label}</Text>
-                </View>
-                {/* Week tiles — horizontal scroll */}
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: 12, paddingTop: 4, gap: 8 }}
-                >
-                  {weeks.map((entry) => {
-                    const personName = entry.assignments[slot.key]!;
-                    const roommate = roommates.find((r) => r.name === personName);
-                    const chipColor = roommate?.color ?? visual.color;
-                    return (
-                      <View key={entry.week} style={[styles.weekTile, { borderColor: chipColor + "44", backgroundColor: chipColor + "10" }]}>
-                        <Text style={[styles.weekTileNum, { color: colors.mutedForeground }]}>Wk {entry.week}</Text>
-                        <View style={[styles.weekTileDot, { backgroundColor: chipColor }]} />
-                        <Text style={[styles.weekTileName, { color: chipColor }]} numberOfLines={1}>{personName}</Text>
-                      </View>
-                    );
-                  })}
-                </ScrollView>
-              </View>
-            );
-          })}
-
-          {/* Fairness note */}
-          {choreChartData.fairness_note ? (
-            <View style={[styles.fairnessNote, { backgroundColor: colors.success + "10", borderColor: colors.success + "30" }]}>
-              <Feather name="shield" size={13} color={colors.success} />
-              <Text style={[styles.fairnessNoteText, { color: colors.mutedForeground }]}>{choreChartData.fairness_note}</Text>
-            </View>
-          ) : null}
-
-          {/* Chores added banner */}
-          {choresAdded > 0 ? (
-            <View style={[styles.successBanner, { backgroundColor: colors.success + "14", borderColor: colors.success + "44" }]}>
-              <Feather name="check-circle" size={16} color={colors.success} />
-              <Text style={[styles.successText, { color: colors.success }]}>
-                {choresAdded} chore{choresAdded !== 1 ? "s" : ""} added to My Sweet!
-              </Text>
-            </View>
-          ) : null}
-        </View>
-      ) : null}
 
       {/* ── Home checklist / fallback text result ── */}
       {result ? (
@@ -2013,7 +1343,7 @@ export default function PlanningScreen() {
             <Text style={[styles.resultTitle, { color: colors.foreground }]}>
               Your {selectedType === "chore-chart" ? "Chore Chart" : "Sweet Checklist"}
             </Text>
-            <TouchableOpacity onPress={() => { setResult(null); setChoresAdded(0); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <TouchableOpacity onPress={() => { setResult(null); setChartDraft(null); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <Feather name="x" size={16} color={colors.mutedForeground} />
             </TouchableOpacity>
           </View>
@@ -2381,58 +1711,26 @@ export default function PlanningScreen() {
 
     {/* ── Sticky bottom button area ── */}
     <View style={[styles.stickyBottom, { backgroundColor: colors.background, borderTopColor: colors.border, paddingBottom: botPad + 16 }]}>
-      {/* Add Tasks button — shown after chart is generated */}
-      {choreChartData && choresAdded === 0 ? (
-        <Pressable
-          style={[styles.addTasksBtn, { backgroundColor: colors.success }]}
-          onPress={addTasks}
-        >
-          <Feather name="plus-circle" size={18} color="#fff" />
-          <Text style={styles.generateText}>Add Tasks to My Sweet</Text>
-        </Pressable>
-      ) : null}
-
-      {/* Build / Generate button */}
-      {!choreChartData && (
-        <Pressable
-          style={[styles.generateBtn, { backgroundColor: canGenerate && !loading ? colors.action : colors.muted }]}
-          disabled={!canGenerate || loading}
-          onPress={generate}
-          accessibilityRole="button"
-          accessibilityLabel={selectedType === "home-checklist" ? "Shortlist items" : "Build chore chart"}
-        >
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <>
-              {isChoreChart ? <Feather name="zap" size={18} color="#fff" /> : null}
-              <Text style={styles.generateText}>
-                {isChoreChart
-                  ? "Build Chore Chart"
-                  : selectedType === "home-checklist"
-                  ? "Shortlist Items"
-                  : "Generate"}
-              </Text>
-            </>
-          )}
-        </Pressable>
-      )}
-
-      {/* Rebuild button — shown after chart exists */}
-      {choreChartData ? (
-        <Pressable
-          style={[styles.rebuildBtn, { borderColor: colors.border }]}
-          onPress={generate}
-          disabled={loading}
-        >
-          {loading ? <ActivityIndicator color={colors.mutedForeground} size="small" /> : (
-            <>
-              <Feather name="refresh-cw" size={15} color={colors.mutedForeground} />
-              <Text style={[styles.rebuildText, { color: colors.mutedForeground }]}>Rebuild Chart</Text>
-            </>
-          )}
-        </Pressable>
-      ) : null}
+      <Pressable
+        style={[styles.generateBtn, { backgroundColor: canGenerate && !loading ? colors.action : colors.muted }]}
+        disabled={!canGenerate || loading}
+        onPress={isChoreChart && chartDraft ? sendChartForApproval : generate}
+        accessibilityRole="button"
+        accessibilityState={{ disabled: !canGenerate || loading, busy: loading }}
+        accessibilityLabel={isChoreChart ? chartDraft ? "Send chart for approval" : "Preview chore chart" : "Shortlist items"}
+      >
+        {loading ? <ActivityIndicator color={colors.actionForeground} /> : <>
+          <Feather name={isChoreChart && chartDraft ? "send" : "list"} size={18} color={colors.actionForeground} />
+          <Text style={[styles.generateText, { color: colors.actionForeground }]}>
+            {isChoreChart ? chartDraft ? "Send for approval" : "Preview chore chart" : "Shortlist Items"}
+          </Text>
+        </>}
+      </Pressable>
+      {isChoreChart && chartDraft ? <Pressable
+        style={[styles.rebuildBtn, { borderColor: colors.border, minHeight: 44 }]}
+        accessibilityRole="button" accessibilityLabel="Rebuild preview"
+        onPress={generate} disabled={loading}
+      ><Text style={[styles.rebuildText, { color: colors.foreground }]}>Rebuild preview</Text></Pressable> : null}
     </View>
     </KeyboardAvoidingView>
     </View>

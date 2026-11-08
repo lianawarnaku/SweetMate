@@ -6,7 +6,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useTheme } from "@/constants/colors";
 import { useAppContext } from "@/context/AppContext";
-import { buildBalancedChart } from "@/lib/choreEngine";
+import { buildHouseholdChart, frequencyLabel, withAssignmentRequest } from "@/lib/choreChart";
+import { choreNow } from "@/lib/choreClock";
 import { error as hapticError, success as hapticSuccess } from "@/lib/haptics";
 import { useConfirm } from "@/hooks/useConfirm";
 
@@ -28,7 +29,7 @@ export default function AlertsScreen() {
   const {
     currentProposedChart, chartApprovals, currentUserId, roommates,
     memberPreferences, approveProposedChart, forceApproveProposedChart,
-    proposeChart, isHost, acknowledgeNudge,
+    proposeChart, isHost, acknowledgeNudge, chores, householdTimezone, householdId,
     appAlerts, markAlertRead, markAllAlertsRead,
   } = useAppContext();
   const [busy, setBusy] = useState(false);
@@ -59,21 +60,21 @@ export default function AlertsScreen() {
     try {
       await action();
       hapticSuccess();
-    } catch {
+    } catch (error) {
       hapticError();
-      info("chart_update_error", "Unable to update chart", "Please try again.");
+      info("chart_update_error", "Unable to update chart", error && typeof error === "object" && "message" in error ? String(error.message) : "Please try again.");
     } finally {
       setBusy(false);
     }
   };
 
   const requestAssignment = (taskId: string, kind: "always" | "never") => {
-    if (!proposal) return;
+    if (!proposal || !householdId) return;
     act(async () => {
-      const payload = buildBalancedChart(tasks, roommates, memberPreferences, {
-        mode: "preference",
-        pinnedAssignments: kind === "always" ? { [taskId]: currentUserId } : undefined,
-        excludedAssignments: kind === "never" ? { [taskId]: [currentUserId] } : undefined,
+      const previous = withAssignmentRequest(proposal.payload, taskId, currentUserId, kind);
+      const payload = buildHouseholdChart({
+        tasks, members: roommates, preferences: memberPreferences, chores,
+        householdId, now: choreNow(), timezone: householdTimezone, previous,
       });
       await proposeChart(payload);
     });
@@ -180,24 +181,29 @@ export default function AlertsScreen() {
                 <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
                   <Text style={[styles.cardTitle, { color: colors.foreground }]}>Proposed chore chart</Text>
                   <Text style={[styles.meta, { color: colors.mutedForeground }]}>
-                    Review the assignments below. Chores stay hidden until everyone approves.
+                    Review starting assignments and weighted workload. Recurring chores rotate among eligible Sweetmates. Always me fixes the assignee; Never me excludes you. Changes begin after approval.
                   </Text>
+                  {proposal.payload.version !== 2 && <TouchableOpacity accessibilityRole="button" style={{ minHeight: 44, justifyContent: "center" }} onPress={() => router.push("/planning?type=chore-chart")}><Text style={[styles.request, { color: colors.primary }]}>Rebuild this older chart in the planner</Text></TouchableOpacity>}
                   {proposal.payload.assignments.map((assignment) => {
                     const member = roommates.find((value) => value.id === assignment.memberId);
                     return (
                       <View key={assignment.memberId} style={[styles.assignment, { borderTopColor: colors.border }]}>
-                        <Text style={[styles.member, { color: colors.foreground }]}>{member?.name ?? "Member"} · {assignment.totalLoad.toFixed(1)} load</Text>
+                        <Text style={[styles.member, { color: colors.foreground }]}>{member?.name ?? "Member"} · {assignment.totalLoad.toFixed(1)} weighted workload</Text>
                         {assignment.taskIds.map((taskId) => {
                           const task = tasks.find((value) => value.id === taskId);
                           if (!task) return null;
+                          const manual = proposal.payload.manualAssignmentTaskIds?.includes(taskId);
+                          const exclusions = proposal.payload.excludedAssignments?.[taskId] ?? [];
                           return (
                             <View key={taskId} style={styles.taskRow}>
                               <View style={{ flex: 1 }}>
                                 <Text style={[styles.task, { color: colors.foreground }]}>{task.title}</Text>
-                                <Text style={[styles.meta, { color: colors.mutedForeground }]}>{task.difficulty}/5 · {task.timeOfDay}</Text>
+                                <Text style={[styles.meta, { color: colors.mutedForeground }]}>{task.difficulty}/5 · {frequencyLabel(task.frequency)} · {task.timeOfDay}{manual ? " · manual schedule" : proposal.payload.pinnedAssignments?.[taskId] ? " · fixed assignee" : " · rotates"}</Text>
+                                {exclusions.length > 0 && <Text style={[styles.meta, { color: colors.mutedForeground }]}>Excludes {exclusions.map((id) => roommates.find((person) => person.id === id)?.name ?? "Former Sweetmate").join(", ")}</Text>}
+                                {manual && <Text style={[styles.meta, { color: colors.mutedForeground }]}>Edit this manual assignment in Group.</Text>}
                               </View>
-                              <TouchableOpacity disabled={busy} onPress={() => requestAssignment(taskId, "always")}><Text style={[styles.request, { color: colors.primary }]}>Always me</Text></TouchableOpacity>
-                              <TouchableOpacity disabled={busy} onPress={() => requestAssignment(taskId, "never")}><Text style={[styles.request, { color: colors.destructive }]}>Never me</Text></TouchableOpacity>
+                              <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Always assign ${task.title} to me`} style={{ minHeight: 44, justifyContent: "center", opacity: manual ? 0.4 : 1 }} disabled={busy || manual || proposal.payload.version !== 2} onPress={() => requestAssignment(taskId, "always")}><Text style={[styles.request, { color: colors.primary }]}>Always me</Text></TouchableOpacity>
+                              <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Never assign ${task.title} to me`} style={{ minHeight: 44, justifyContent: "center", opacity: manual ? 0.4 : 1 }} disabled={busy || manual || proposal.payload.version !== 2} onPress={() => requestAssignment(taskId, "never")}><Text style={[styles.request, { color: colors.destructive }]}>Never me</Text></TouchableOpacity>
                             </View>
                           );
                         })}
@@ -205,10 +211,10 @@ export default function AlertsScreen() {
                     );
                   })}
                 </View>
-                <TouchableOpacity disabled={busy || myApproval?.approved} onPress={() => act(approveProposedChart)} style={[styles.primary, { backgroundColor: colors.action, opacity: busy || myApproval?.approved ? 0.55 : 1 }]}>
+                <TouchableOpacity disabled={busy || myApproval?.approved || proposal.payload.version !== 2} onPress={() => act(approveProposedChart)} style={[styles.primary, { backgroundColor: colors.action, opacity: busy || myApproval?.approved ? 0.55 : 1 }]}>
                   <Text style={[styles.primaryText, { color: colors.actionForeground }]}>{myApproval?.approved ? "Approved" : "Approve chart"}</Text>
                 </TouchableOpacity>
-                {isHost && (
+                {isHost && proposal.payload.version === 2 && (
                   <TouchableOpacity disabled={busy} onPress={() => act(forceApproveProposedChart)} style={[styles.override, { borderColor: colors.primary }]}>
                     <Text style={[styles.overrideText, { color: colors.primary }]}>Create chart anyway</Text>
                   </TouchableOpacity>

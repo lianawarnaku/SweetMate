@@ -1,6 +1,5 @@
 import {
-  DEFAULT_ITEM_DIFFICULTY,
-  OTHER_DEFAULT_DIFFICULTY,
+  resolveItemDifficulty,
   type ItemCategory,
 } from "@/constants/itemDifficulty";
 import { supabase } from "@/lib/supabase";
@@ -30,7 +29,5 @@ export async function getItemDifficulty(
   if (data?.difficulty && data.difficulty >= 1 && data.difficulty <= 5) {
     return data.difficulty as Difficulty;
   }
-  return DEFAULT_ITEM_DIFFICULTY.find(
-    (entry) => entry.category === category && entry.item === item,
-  )?.difficulty ?? OTHER_DEFAULT_DIFFICULTY;
+  return resolveItemDifficulty(category, item);
 }

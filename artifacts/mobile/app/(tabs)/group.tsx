@@ -38,7 +38,6 @@ import { GlassCheckCircle } from "@/components/GlassCheckCircle";
 import { PinchListViewCoach, usePinchListView } from "@/components/PinchListView";
 import {
   useAppContextSelector,
-  type ChoreAssignment,
   type Chore,
 } from "@/context/AppContext";
 import { useTabBarLayout } from "@/hooks/useTabBarLayout";
@@ -61,6 +60,8 @@ import { choreLocalDateKey, isBeforeLocalCalendarDay } from "@/lib/choreOccurren
 import { activeChores, isArchivedIncomplete } from "@/lib/choreLifecycle";
 import { CHORE_RECURRENCE_LABELS } from "@/lib/choreSchedule";
 import { compactOverdueItems } from "@/lib/overdueDisplay";
+import { groupChoreChartWeeks, projectChoreChartSchedule } from "@/lib/choreChartSchedule";
+import { householdDateKey } from "@/lib/choreTimezone";
 
 function isOverdue(dateStr: string) {
   return isBeforeLocalCalendarDay(dateStr);
@@ -107,10 +108,6 @@ function slotVisualFor(key: string, color: string) {
   return { icon: SLOT_ICON_BY_KEY[key] ?? "check-square", color };
 }
 
-function humanizeSlotKey(k: string): string {
-  return k.split("_").map((s) => s.charAt(0).toUpperCase() + s.slice(1)).join(" ");
-}
-
 function startOfWeekMonday(d: Date): Date {
   const dow = d.getDay();
   const diff = dow === 0 ? -6 : 1 - dow;
@@ -118,16 +115,6 @@ function startOfWeekMonday(d: Date): Date {
   r.setDate(d.getDate() + diff);
   r.setHours(0, 0, 0, 0);
   return r;
-}
-
-function chartWeekFor(date: Date, startedAtIso: string | null): number | null {
-  if (!startedAtIso) return null;
-  const start = startOfWeekMonday(new Date(startedAtIso));
-  const targetMon = startOfWeekMonday(date);
-  const diffDays = Math.round((targetMon.getTime() - start.getTime()) / 86400000);
-  const weekIdx = Math.floor(diffDays / 7);
-  if (weekIdx < 0 || weekIdx >= 12) return null;
-  return weekIdx + 1;
 }
 
 function buildMonthGrid(monthAnchor: Date): { date: Date; inMonth: boolean }[][] {
@@ -152,13 +139,14 @@ export default function GroupChoresScreen() {
   const { showPopup } = useAppPopup();
   const colors = useTheme();
   const insets = useSafeAreaInsets();
-  const { roommates, chores, householdChoreSummary, currentUserId, householdId, activeSweet, setChoreCompleted, pickUpChore, sendNudge, removeNudge, nudges, roommateStatuses, setRoommateStatus, choreChart, choreChartStartedAt, pointsEnabled, plantEnabled, roommateActivityEnabled, isHost, deleteChore } =
+  const { roommates, chores, householdChoreSummary, currentUserId, householdId, householdTimezone, activeSweet, setChoreCompleted, pickUpChore, sendNudge, removeNudge, nudges, roommateStatuses, setRoommateStatus, pointsEnabled, plantEnabled, roommateActivityEnabled, isHost, deleteChore } =
     useAppContextSelector((context) => ({
       roommates: context.roommates,
       chores: context.chores,
       householdChoreSummary: context.householdChoreSummary,
       currentUserId: context.currentUserId,
       householdId: context.householdId,
+      householdTimezone: context.householdTimezone,
       activeSweet: context.activeSweet,
       setChoreCompleted: context.setChoreCompleted,
       pickUpChore: context.pickUpChore,
@@ -167,8 +155,6 @@ export default function GroupChoresScreen() {
       nudges: context.nudges,
       roommateStatuses: context.roommateStatuses,
       setRoommateStatus: context.setRoommateStatus,
-      choreChart: context.choreChart,
-      choreChartStartedAt: context.choreChartStartedAt,
       pointsEnabled: context.pointsEnabled,
       plantEnabled: context.plantEnabled,
       roommateActivityEnabled: context.roommateActivityEnabled,
@@ -186,8 +172,22 @@ export default function GroupChoresScreen() {
     nonce: 0,
     type: "created",
   });
-  const [viewMode] = useState<"activity" | "calendar">("activity");
+  const [viewMode, setViewMode] = useState<"activity" | "calendar">("activity");
   const [monthOffset, setMonthOffset] = useState(0);
+  const calendarData = useMemo(() => {
+    const todayKey = householdDateKey(lifecycleNow, householdTimezone);
+    const today = new Date(`${todayKey}T12:00:00`);
+    const monthAnchor = new Date(today.getFullYear(), today.getMonth() + monthOffset, 1);
+    const grid = buildMonthGrid(monthAnchor);
+    const occurrences = viewMode === "calendar" ? projectChoreChartSchedule(
+      chores.filter((chore) => !chore.householdId || chore.householdId === householdId),
+      roommates.map((roommate) => roommate.id), grid[0][0].date, grid[5][6].date, todayKey,
+    ) : [];
+    return {
+      today, monthAnchor, grid, weeks: groupChoreChartWeeks(occurrences),
+      scheduledDays: new Set(occurrences.map((occurrence) => occurrence.scheduledDate)),
+    };
+  }, [chores, roommates, householdId, householdTimezone, lifecycleNow, monthOffset, viewMode]);
   const [roommatesExpanded, setRoommatesExpanded] = useState(true);
   const [choreView, setChoreView] = useState<"active" | "archived">("active");
   const [visibleChoreLimits, setVisibleChoreLimits] = useState<Record<string, number>>({});
@@ -659,14 +659,26 @@ export default function GroupChoresScreen() {
 
       <PinchListViewCoach visible={showCoach} onDismiss={dismissCoach} />
 
+      <View style={styles.choreFilterRow} accessibilityRole="tablist">
+        {(["activity", "calendar"] as const).map((option) => (
+          <ChoreFilterButton
+            key={option}
+            selected={viewMode === option}
+            onPress={() => setViewMode(option)}
+            accessibilityLabel={option === "calendar" ? "Show chore calendar and weekly assignments" : "Show group chore list"}
+            icon={option === "calendar" ? "calendar" : "list"}
+            label={option === "calendar" ? "Calendar" : "List"}
+            style={styles.calendarViewButton}
+          />
+        ))}
+      </View>
+
       {viewMode === "calendar" ? (
         (() => {
-          const today = new Date();
-          const monthAnchor = new Date(today.getFullYear(), today.getMonth() + monthOffset, 1);
-          const grid = buildMonthGrid(monthAnchor);
+          const { today, monthAnchor, grid, weeks, scheduledDays } = calendarData;
           const monthLabel = `${MONTHS[monthAnchor.getMonth()]} ${monthAnchor.getFullYear()}`;
           const todayKey = today.toDateString();
-          // Weeks (Mondays) in this month, dedup, with chart-week mapping
+          // Match the visible grid, including weeks spanning two months.
           const monthWeeks = grid
             .map((row) => row[0].date)
             .filter((d, i, arr) => i === 0 || d.getTime() !== arr[i - 1].getTime());
@@ -679,7 +691,9 @@ export default function GroupChoresScreen() {
               {/* Month header */}
               <Surface style={[styles.monthHeader, { borderColor: colors.border }]}>
                 <TouchableOpacity
-                  onPress={() => setMonthOffset(monthOffset - 1)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Previous month"
+                  onPress={() => setMonthOffset((offset) => offset - 1)}
                   style={[styles.monthNavBtn, { backgroundColor: colors.muted }]}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
@@ -687,7 +701,9 @@ export default function GroupChoresScreen() {
                 </TouchableOpacity>
                 <Text style={[styles.monthLabel, { color: colors.foreground }]}>{monthLabel}</Text>
                 <TouchableOpacity
-                  onPress={() => setMonthOffset(monthOffset + 1)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Next month"
+                  onPress={() => setMonthOffset((offset) => offset + 1)}
                   style={[styles.monthNavBtn, { backgroundColor: colors.muted }]}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
@@ -710,7 +726,7 @@ export default function GroupChoresScreen() {
                   <View key={ri} style={styles.weekRow}>
                     {row.map(({ date, inMonth }, ci) => {
                       const isToday = date.toDateString() === todayKey;
-                      const cw = chartWeekFor(date, choreChartStartedAt);
+                      const hasChores = scheduledDays.has(choreLocalDateKey(date));
                       return (
                         <View
                           key={ci}
@@ -739,7 +755,7 @@ export default function GroupChoresScreen() {
                           >
                             {date.getDate()}
                           </Text>
-                          {cw !== null && inMonth && (
+                          {hasChores && inMonth && (
                             <View style={[styles.chartWeekDot, { backgroundColor: colors.primary }]} />
                           )}
                         </View>
@@ -749,80 +765,70 @@ export default function GroupChoresScreen() {
                 ))}
               </Surface>
 
-              {/* Per-week breakdown */}
-              {!choreChart || !choreChartStartedAt ? (
+              <Text style={[styles.calendarNote, { color: colors.mutedForeground }]}>
+                Upcoming assignments follow your current rotation. Saved chores and completed history stay as assigned.
+              </Text>
+
+              {/* Actual chores and read-only future occurrences, grouped by week. */}
+              {!weeks.length ? (
                 <Surface style={[styles.calEmptyCard, { borderColor: colors.border }]}>
                   <Feather name="calendar" size={22} color={colors.mutedForeground} />
-                  <Text style={[styles.calEmptyTitle, { color: colors.foreground }]}>No chart yet</Text>
+                  <Text style={[styles.calEmptyTitle, { color: colors.foreground }]}>No chores scheduled</Text>
                   <Text style={[styles.calEmptySub, { color: colors.mutedForeground }]}>
-                    Generate a chore chart in Settings → Planning to see week-by-week assignments here.
+                    Add a chore or generate a chart in Settings → Planning to see upcoming assignments.
                   </Text>
                 </Surface>
-              ) : (
-                monthWeeks.map((mon) => {
-                  const cw = chartWeekFor(mon, choreChartStartedAt);
-                  const sun = new Date(mon);
-                  sun.setDate(mon.getDate() + 6);
-                  const weekRange = `${fmt(mon)} – ${fmt(sun)}`;
-                  if (cw === null) {
-                    return (
-                      <View
-                        key={mon.toISOString()}
-                        style={[styles.weekOutCard, { backgroundColor: colors.muted, borderColor: colors.border }]}
-                      >
-                        <Text style={[styles.weekOutText, { color: colors.mutedForeground }]}>
-                          {weekRange} · outside chart
-                        </Text>
+              ) : monthWeeks.map((mon) => {
+                const week = weeks.find((entry) => entry.startsOn === choreLocalDateKey(mon));
+                const sun = new Date(mon);
+                sun.setDate(mon.getDate() + 6);
+                const weekRange = `${fmt(mon)} – ${fmt(sun)}`;
+                if (!week) return null;
+                const isCurrentWeek = choreLocalDateKey(today) >= week.startsOn && choreLocalDateKey(today) <= week.endsOn;
+                return (
+                  <Surface key={week.startsOn} style={[styles.weekCard, { borderColor: colors.border }]}>
+                    <View style={styles.weekCardHeader}>
+                      <View style={[styles.weekChip, { backgroundColor: colors.primary + "18" }]}>
+                        <Text style={[styles.weekChipText, { color: colors.primary }]}>{isCurrentWeek ? "This week" : "Week"}</Text>
                       </View>
-                    );
-                  }
-                  const week = choreChart.weeks.find((w) => w.week === cw);
-                  if (!week) return null;
-                  // Derive slots from the chart: prefer chart.slots, else infer from assignment keys
-                  const slots =
-                    choreChart.slots && choreChart.slots.length > 0
-                      ? choreChart.slots
-                      : Object.keys(week.assignments).map((k) => ({ key: k, label: humanizeSlotKey(k) }));
-                  return (
-                    <Surface
-                      key={mon.toISOString()}
-                      style={[styles.weekCard, { borderColor: colors.border }]}
-                    >
-                      <View style={styles.weekCardHeader}>
-                        <View style={[styles.weekChip, { backgroundColor: colors.primary + "18" }]}>
-                          <Text style={[styles.weekChipText, { color: colors.primary }]}>Week {cw}</Text>
-                        </View>
-                        <Text style={[styles.weekRangeText, { color: colors.mutedForeground }]}>
-                          {weekRange}
-                        </Text>
-                      </View>
-                      {slots.map((slot) => {
-                        const name = week.assignments[slot.key];
-                        if (!name) return null;
-                        const rm = roommates.find((r) => r.name === name);
-                        const visual = slotVisualFor(slot.key, colors.primary);
-                        const dotColor = rm?.color ?? visual.color;
-                        return (
-                          <View key={slot.key} style={[styles.assignRow, { borderTopColor: colors.border }]}>
-                            <View style={[styles.slotIconWrap, { backgroundColor: visual.color + "18" }]}>
-                              <Feather name={visual.icon} size={13} color={visual.color} />
-                            </View>
-                            <Text style={[styles.slotLabelText, { color: colors.foreground }]}>
-                              {slot.label}
+                      <Text style={[styles.weekRangeText, { color: colors.mutedForeground }]}>{weekRange}</Text>
+                    </View>
+                    {week.rows.map((row) => {
+                      const visual = slotVisualFor(row.category, colors.primary);
+                      return (
+                        <View key={row.id} style={[styles.assignRow, styles.scheduleRow, { borderTopColor: colors.border }]}>
+                          <View style={[styles.slotIconWrap, { backgroundColor: visual.color + "18" }]}>
+                            <Feather name={visual.icon} size={13} color={visual.color} />
+                          </View>
+                          <View style={styles.scheduleRowCopy}>
+                            <Text style={[styles.scheduleTitle, { color: colors.foreground }]}>{row.title}</Text>
+                            <Text style={[styles.scheduleFrequency, { color: colors.mutedForeground }]}>
+                              {row.recurring ? CHORE_RECURRENCE_LABELS[row.recurring] : "One time"}{row.occurrenceCount > 1 ? ` · ${row.occurrenceCount} occurrences` : ""}
                             </Text>
-                            <View style={[styles.assigneeTag, { backgroundColor: dotColor + "22", borderColor: dotColor + "55" }]}>
-                              <View style={[styles.assigneeDot, { backgroundColor: dotColor }]} />
-                              <Text style={[styles.assigneeName, { color: dotColor }]}>
-                                {rm?.id === currentUserId ? "You" : name}
-                              </Text>
+                            <View style={styles.scheduleAssignees}>
+                              {row.assignees.map((assignee) => {
+                                const roommate = roommates.find((entry) => entry.id === assignee.memberId);
+                                const name = roommate?.id === currentUserId ? "You" : roommate?.name ?? (!assignee.memberId || assignee.memberId === "unassigned" ? "Unassigned" : "Former roommate");
+                                const dotColor = roommate?.color ?? colors.mutedForeground;
+                                const dates = assignee.dates.map((date) => new Date(`${date}T12:00:00`).toLocaleDateString("en-US", { weekday: "short", day: "numeric" })).join(", ");
+                                return (
+                                  <View key={assignee.memberId} style={styles.scheduleAssigneeLine}>
+                                    <View style={[styles.assigneeTag, styles.scheduleAssigneeTag, { backgroundColor: dotColor + "22", borderColor: dotColor + "55" }]}>
+                                      <View style={[styles.assigneeDot, { backgroundColor: dotColor }]} />
+                                      <Text style={[styles.assigneeName, styles.scheduleAssigneeName, { color: dotColor }]}>{name}</Text>
+                                    </View>
+                                    <Text style={[styles.scheduleDates, { color: colors.mutedForeground }]}>{dates}</Text>
+                                  </View>
+                                );
+                              })}
                             </View>
                           </View>
-                        );
-                      })}
-                    </Surface>
-                  );
-                })
-              )}
+                        </View>
+                      );
+                    })}
+                  </Surface>
+                );
+              })}
             </ScrollView>
           );
         })()
@@ -1378,6 +1384,17 @@ const styles = StyleSheet.create({
 
   // Roommate list
   listPad: { paddingHorizontal: 16, gap: 12 },
+  calendarViewButton: { minHeight: 44 },
+  calendarNote: { fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 12, lineHeight: 18, marginBottom: 14 },
+  scheduleRow: { alignItems: "flex-start" },
+  scheduleRowCopy: { flex: 1, minWidth: 0 },
+  scheduleTitle: { fontFamily: "Inter_500Medium", includeFontPadding: false, fontSize: 13 },
+  scheduleFrequency: { fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 11, marginTop: 3 },
+  scheduleAssignees: { gap: 7, marginTop: 9 },
+  scheduleAssigneeLine: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 7 },
+  scheduleAssigneeTag: { maxWidth: "100%", flexShrink: 1 },
+  scheduleAssigneeName: { flexShrink: 1 },
+  scheduleDates: { flexShrink: 1, fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 12, lineHeight: 17 },
   choreFilterRow: {
     flexDirection: "row",
     paddingHorizontal: 16,
@@ -1634,6 +1651,8 @@ const styles = StyleSheet.create({
   },
   monthLabel: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 16 },
   monthNavBtn: {
+    minWidth: 44,
+    minHeight: 44,
     width: 32,
     height: 32,
     borderRadius: 16,

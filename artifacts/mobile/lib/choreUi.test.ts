@@ -42,11 +42,13 @@ assert(
   "completing a recurring occurrence must carry its mapped reminder forward to the newly generated occurrence instead of leaving it orphaned",
 );
 
+const chartMaterializer = readFileSync(resolve(process.cwd(), "lib/choreChart.ts"), "utf8");
 assert(
-  planning.includes("recurring: task.frequency") &&
-    planning.includes("initialIntervalDaysFor(task.frequency)") &&
-    !planning.includes('task.frequency === "daily" || task.frequency === "everyOtherDay" ? "daily"'),
-  "the planner must pass frequency straight through as the chore's recurring value instead of collapsing everyOtherDay into daily and biweekly into weekly",
+  planning.includes("buildHouseholdChart({") && planning.includes("await proposeChart(chartDraft)") &&
+    context.includes('supabase.rpc("apply_approved_chore_chart"') &&
+    chartMaterializer.includes("recurring: task.frequency") &&
+    chartMaterializer.replace(/\s/g, "").includes("advanceScheduledDate(today,task.frequency"),
+  "the planner must preview and propose shared tasks, then atomically apply approved chores with exact recurrence",
 );
 
 assert(
@@ -134,8 +136,8 @@ assert(
 );
 assert(
   home.includes('const selectedTint = colors.primary + "22"') &&
-    group.includes("slotVisualFor(slot.key, colors.primary)") &&
-    planning.includes("slotVisualFor(slot.key, colors.primary)") &&
+    group.includes("slotVisualFor(row.category, colors.primary)") &&
+    planning.includes("backgroundColor: colors.action") &&
     !group.includes("#72503A") &&
     !planning.includes("#72503A") &&
     planning.includes("errorColor={colors.destructive}") &&

@@ -21,6 +21,7 @@ import { AuthGate } from "@/components/AuthGate";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { QuickGuideModal } from "@/components/QuickGuideModal";
 import { NudgeToast } from "@/components/NudgeToast";
+import { ChoreChartApplyingOverlay } from "@/components/ChoreChartApplyingOverlay";
 import { AnalyticsConsentManager } from "@/components/AnalyticsConsentManager";
 import { HouseholdSetupRouteGuard } from "@/components/HouseholdSetupRouteGuard";
 import { AppPopupProvider } from "@/components/AppPopupProvider";
@@ -179,6 +180,7 @@ export default function RootLayout() {
                         </Stack>
                         {!launching && <QuickGuideModal />}
                         {!launching && <NudgeToast />}
+                        {!launching && <ChoreChartApplyingOverlay />}
                       </>
                     </AuthGate>
                   </AppPopupProvider>

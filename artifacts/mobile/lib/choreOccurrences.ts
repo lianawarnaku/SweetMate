@@ -1,7 +1,9 @@
 import type { Chore } from "../context/AppContext";
 import type { RecurringChoreDeleteScope } from "../context/AppContext";
 import { ARCHIVE_INCOMPLETE_AFTER_DAYS } from "./choreArchivePolicy.ts";
-import { advanceScheduledDate } from "./choreSchedule.ts";
+import { advanceScheduledDate, dueDateForScheduledDate, resolveRoundRobinParticipants, roundRobinAssigneeAfter } from "./choreSchedule.ts";
+import { householdDateKey } from "./choreTimezone.ts";
+export { dueDateForScheduledDate } from "./choreSchedule.ts";
 
 export const MAX_RECURRING_OCCURRENCES_PER_PASS = 366;
 const MAX_RECURRENCE_STEPS_PER_PASS = 10_000;
@@ -28,11 +30,16 @@ export function isBeforeLocalCalendarDay(
   return Boolean(valueKey && referenceKey && valueKey < referenceKey);
 }
 
-export function choreScheduledDate(chore: Chore): string {
-  return chore.scheduledDate ?? choreLocalDateKey(chore.dueDate);
+export function choreScheduledDate(chore: Chore, timezone?: string): string {
+  return chore.scheduledDate ?? (timezone ? householdDateKey(new Date(chore.dueDate), timezone) : choreLocalDateKey(chore.dueDate));
 }
 
-export function recurringMaterializationFloor(throughDay: Date): string {
+export function recurringMaterializationFloor(throughDay: Date, timezone?: string): string {
+  if (timezone) {
+    const floor = new Date(`${householdDateKey(throughDay, timezone)}T12:00:00.000Z`);
+    floor.setUTCDate(floor.getUTCDate() - ARCHIVE_INCOMPLETE_AFTER_DAYS);
+    return floor.toISOString().slice(0, 10);
+  }
   const floor = new Date(throughDay);
   floor.setDate(floor.getDate() - ARCHIVE_INCOMPLETE_AFTER_DAYS);
   return choreLocalDateKey(floor);
@@ -138,19 +145,22 @@ export function materializeRecurringOccurrences(
   chores: Chore[],
   throughDay: Date,
   createdAt = new Date().toISOString(),
+  timezone?: string,
+  activeMemberIds?: string[],
 ): Chore[] {
-  const throughKey = choreLocalDateKey(throughDay);
+  if (!Number.isFinite(throughDay.getTime())) return chores;
+  const throughKey = timezone ? householdDateKey(throughDay, timezone) : choreLocalDateKey(throughDay);
   if (!throughKey) return chores;
-  const archiveFloor = recurringMaterializationFloor(throughDay);
+  const archiveFloor = recurringMaterializationFloor(throughDay, timezone);
   const seriesIds = seriesIdsFor(chores);
   let changed = false;
   const normalized = chores.map((chore) => {
     const seriesId = seriesIds.get(chore.id);
     if (!seriesId) return chore;
-    const scheduledDate = choreScheduledDate(chore);
+    const scheduledDate = choreScheduledDate(chore, timezone);
     const initialScheduledDate =
       chore.initialScheduledDate ??
-      choreLocalDateKey(chore.initialDueDate ?? chore.dueDate);
+      (timezone ? householdDateKey(new Date(chore.initialDueDate ?? chore.dueDate), timezone) : choreLocalDateKey(chore.initialDueDate ?? chore.dueDate));
     const monthlyAnchorDay =
       chore.monthlyAnchorDay ?? Number(initialScheduledDate.slice(-2));
     if (
@@ -211,6 +221,11 @@ export function materializeRecurringOccurrences(
       ordered.map((chore) => [choreScheduledDate(chore), chore]),
     );
     const anchor = ordered[0];
+    const rotationTemplate = ordered.at(-1)!;
+    const participants = activeMemberIds
+      ? resolveRoundRobinParticipants(rotationTemplate, activeMemberIds)
+      : (rotationTemplate.roundRobinParticipantIds ?? []).filter((id) => !(rotationTemplate.excludedParticipantIds ?? []).includes(id));
+    const activeMembers = activeMemberIds ? new Set(activeMemberIds) : null;
     const seriesId = anchor.recurrenceSeriesId ?? anchor.id;
     let scheduledDate =
       anchor.initialScheduledDate ??
@@ -234,6 +249,24 @@ export function materializeRecurringOccurrences(
         : archiveFloor;
     let occurrenceIndex = 0;
     let prior = anchor;
+    let priorActual: Chore | undefined;
+    let priorActualIndex = -1;
+    const nextRotationOwner = (occurrence: number): string | undefined => {
+      if (!participants.length) return undefined;
+      if (priorActual) {
+        return roundRobinAssigneeAfter({
+          ...priorActual,
+          assignmentMode: "round-robin",
+          // The final cohort is already limited by the series' all-members/fixed policy.
+          roundRobinAllMembers: true,
+          excludedParticipantIds: rotationTemplate.excludedParticipantIds,
+        }, participants, occurrence - priorActualIndex);
+      }
+      // Reconstruct a missing earlier slot relative to the first stored actual assignment.
+      const anchorIndex = Math.max(0, participants.indexOf(anchor.assignedTo));
+      const offset = occurrence - (anchor.occurrenceIndex ?? 0);
+      return participants[((anchorIndex + offset) % participants.length + participants.length) % participants.length];
+    };
     let additionsForSeries = 0;
     let skippedUnmaterializedHistory = false;
     for (
@@ -244,7 +277,11 @@ export function materializeRecurringOccurrences(
       guard += 1
     ) {
       const existing = existingByDate.get(scheduledDate);
-      if (existing) prior = existing;
+      if (existing) {
+        prior = existing;
+        priorActual = existing;
+        priorActualIndex = occurrenceIndex;
+      }
       else if (
         !excludedDates.has(scheduledDate) &&
         (!storedMaterializationFloor || scheduledDate >= storedMaterializationFloor)
@@ -280,12 +317,18 @@ export function materializeRecurringOccurrences(
       ) break;
       const existing = existingByDate.get(scheduledDate);
       if (!existing && !excludedDates.has(scheduledDate)) {
-        const participants = (anchor.roundRobinParticipantIds ?? []).filter(
-          (memberId) => !(anchor.excludedParticipantIds ?? []).includes(memberId),
-        );
-        const cursor = participants.length
-          ? ((anchor.roundRobinCursor ?? 0) + occurrenceIndex) % participants.length
-          : 0;
+        const assignedTo = rotationTemplate.assignmentMode === "round-robin"
+          ? nextRotationOwner(occurrenceIndex)
+          : prior.assignedTo;
+        // Keep history, but wait for an assignment review if nobody eligible remains.
+        const canAssign = assignedTo !== undefined &&
+          (!assignedTo || !activeMembers || activeMembers.has(assignedTo));
+        if (!canAssign) {
+          scheduledDate = advanceScheduledDate(scheduledDate, anchor.recurring!, anchorDay);
+          occurrenceIndex += 1;
+          continue;
+        }
+        const cursor = Math.max(0, participants.indexOf(assignedTo));
         const addition: Chore = {
           ...prior,
           id: recurringOccurrenceId(
@@ -293,14 +336,16 @@ export function materializeRecurringOccurrences(
             seriesId,
             scheduledDate,
           ),
-          assignedTo:
-            anchor.assignmentMode === "round-robin"
-              ? participants[cursor] ?? prior.assignedTo
-              : prior.assignedTo,
+          assignedTo,
+          roundRobinParticipantIds: rotationTemplate.assignmentMode === "round-robin" ? participants : prior.roundRobinParticipantIds,
+          excludedParticipantIds: rotationTemplate.excludedParticipantIds,
+          roundRobinAllMembers: rotationTemplate.roundRobinAllMembers,
+          assignmentMode: rotationTemplate.assignmentMode,
           roundRobinCursor: cursor,
           dueDate: dueDateForScheduledDate(
             scheduledDate,
             anchor.initialDueDate ?? anchor.dueDate,
+            timezone,
           ),
           scheduledDate,
           initialScheduledDate:
@@ -310,9 +355,11 @@ export function materializeRecurringOccurrences(
           nextDueDate: dueDateForScheduledDate(
             scheduledDate,
             anchor.initialDueDate ?? anchor.dueDate,
+            timezone,
           ),
           completed: false,
           completedAt: undefined,
+          completedByUserId: undefined,
           recurrenceSeriesId: seriesId,
           occurrenceIndex,
           nextOccurrenceId: undefined,
@@ -323,9 +370,13 @@ export function materializeRecurringOccurrences(
         additionsForSeries += 1;
         existingByDate.set(scheduledDate, addition);
         prior = addition;
+        priorActual = addition;
+        priorActualIndex = occurrenceIndex;
         changed = true;
       } else if (existing) {
         prior = existing;
+        priorActual = existing;
+        priorActualIndex = occurrenceIndex;
       }
       scheduledDate = advanceScheduledDate(
         scheduledDate,
@@ -337,22 +388,4 @@ export function materializeRecurringOccurrences(
     }
   });
   return changed ? [...deduplicated, ...additions] : chores;
-}
-
-function dueDateForScheduledDate(
-  scheduledDate: string,
-  anchorTimestamp: string,
-): string {
-  const anchor = new Date(anchorTimestamp);
-  const [year, month, day] = scheduledDate.split("-").map(Number);
-  const due = new Date(
-    year,
-    month - 1,
-    day,
-    anchor.getHours(),
-    anchor.getMinutes(),
-    anchor.getSeconds(),
-    anchor.getMilliseconds(),
-  );
-  return due.toISOString();
 }

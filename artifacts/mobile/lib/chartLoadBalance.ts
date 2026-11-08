@@ -1,5 +1,5 @@
-import type { Assignment, GeneratedTask } from "@/context/AppContext";
-import { taskLoad } from "@/lib/choreEngine";
+import type { Assignment, GeneratedTask } from "../context/AppContext";
+import { taskLoad } from "./choreEngine.ts";
 
 /** Fractional distance from the household average required for a warning. */
 export const LOAD_DEVIATION_PERCENT_THRESHOLD = 0.25;
@@ -17,13 +17,15 @@ export interface LoadDeviation {
 
 /**
  * Recomputes approved assignment totals from their tasks rather than trusting
- * cached totals or looking at completed chores.
+ * cached totals or looking at completed chores. Include the saved workload
+ * baseline from the same chart so unmanaged chores are counted consistently.
  */
 export function findAssignedLoadDeviations(
   assignments: Assignment[],
   tasks: GeneratedTask[],
   percentThreshold = LOAD_DEVIATION_PERCENT_THRESHOLD,
   absoluteFloor = LOAD_DEVIATION_ABSOLUTE_FLOOR,
+  existingLoads: Record<string, number> = {},
 ): LoadDeviation[] {
   if (!assignments.length) return [];
 
@@ -33,7 +35,7 @@ export function findAssignedLoadDeviations(
     load: assignment.taskIds.reduce((sum, taskId) => {
       const task = tasksById.get(taskId);
       return sum + (task ? taskLoad(task, true) : 0);
-    }, 0),
+    }, existingLoads[assignment.memberId] ?? 0),
   }));
   const average =
     totals.reduce((sum, member) => sum + member.load, 0) / totals.length;

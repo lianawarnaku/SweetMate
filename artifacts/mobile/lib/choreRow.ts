@@ -38,6 +38,8 @@ export type ChoreRow = {
   occurrence_index: number | null;
   next_occurrence_id: string | null;
   source_key: string | null;
+  time_of_day?: "morning" | "night" | "any";
+  assignment_locked?: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -78,6 +80,8 @@ export function choreToRow(chore: Chore): ChoreRow | null {
     occurrence_index: chore.occurrenceIndex ?? null,
     next_occurrence_id: chore.nextOccurrenceId ?? null,
     source_key: chore.sourceKey ?? null,
+    time_of_day: chore.timeOfDay ?? "any",
+    assignment_locked: chore.assignmentLocked ?? false,
     created_at: chore.createdAt ?? new Date().toISOString(),
     updated_at: chore.updatedAt ?? new Date().toISOString(),
   };
@@ -122,6 +126,8 @@ export function rowToChore(row: ChoreRow): Chore {
     occurrenceIndex: row.occurrence_index ?? undefined,
     nextOccurrenceId: row.next_occurrence_id ?? undefined,
     sourceKey: row.source_key ?? undefined,
+    timeOfDay: row.time_of_day ?? "any",
+    assignmentLocked: row.assignment_locked ?? false,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

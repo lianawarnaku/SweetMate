@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import {
   DEFAULT_ITEM_DIFFICULTY,
+  ITEM_CATEGORIES,
   DIFFICULTY_LABELS,
   type ItemCategory,
 } from "@/constants/itemDifficulty";
@@ -19,6 +20,8 @@ const CATEGORY_LABELS: Record<ItemCategory, string> = {
   kitchen: "Kitchen",
   bathroom: "Bathroom",
   living: "Living Space",
+  bedroom: "Bedroom",
+  laundry: "Laundry",
   other: "Other",
 };
 
@@ -36,7 +39,7 @@ export default function TaskDifficultyScreen() {
     itemDifficulties.forEach((entry) => {
       entries.set(`${entry.category}:${entry.item}`, entry);
     });
-    return (["kitchen", "bathroom", "living", "other"] as ItemCategory[]).map((category) => ({
+    return ITEM_CATEGORIES.map((category) => ({
       category,
       items: [...entries.values()].filter((entry) => entry.category === category),
     }));

@@ -4,6 +4,7 @@ import {
   choreOccurrenceIdentity,
   choreScheduledDate,
   deleteRecurringChore,
+  dueDateForScheduledDate,
   isChoreActiveOnDay,
   isBeforeLocalCalendarDay,
   isChoreCarryoverOnDay,
@@ -293,3 +294,111 @@ assert(
   afterEditRematerialize.length === editedSeries.length,
   "moving a recurring occurrence's date must not spawn a phantom duplicate at the vacated slot",
 );
+
+// Household calendar/time semantics must not depend on the device's timezone.
+const priorDeviceTimezone = process.env.TZ;
+try {
+  process.env.TZ = "UTC";
+  const zonedAnchor: Chore = {
+    ...recurring, id: "zoned-daily", recurrenceSeriesId: "zoned-daily",
+    dueDate: "2026-03-07T14:15:32.125Z", initialDueDate: "2026-03-07T14:15:32.125Z",
+    scheduledDate: "2026-03-07", initialScheduledDate: "2026-03-07",
+    assignmentMode: "round-robin", assignedTo: "b", completed: true, completedByUserId: "b", roundRobinParticipantIds: ["a", "b", "c"],
+    roundRobinAllMembers: true, roundRobinCursor: 1,
+  };
+  const zoned = materializeRecurringOccurrences([zonedAnchor], new Date("2026-03-09T23:30:00.000Z"),
+    "2026-03-09T23:30:00.000Z", "America/New_York", ["a", "b", "c"]);
+  assert(zoned.slice(1).every((entry) => !entry.completed && entry.completedByUserId === undefined),
+    "new occurrences must not inherit a completed actor from the previous occurrence");
+  assert(zoned.find((entry) => entry.scheduledDate === "2026-03-08")?.dueDate === "2026-03-08T13:15:32.125Z",
+    "a future recurrence must keep household wall time, including minutes, seconds and milliseconds, across spring DST");
+  assert(zoned.find((entry) => entry.scheduledDate === "2026-03-09")?.assignedTo === "a",
+    "a normal three-person rotation must advance once per actual new occurrence");
+  assert(dueDateForScheduledDate("2026-11-01", "2026-10-31T13:15:32.125Z", "America/New_York") === "2026-11-01T14:15:32.125Z",
+    "fall DST must preserve the household wall time rather than the previous UTC offset");
+  process.env.TZ = "Asia/Tokyo";
+  const fromAnotherDevice = materializeRecurringOccurrences([zonedAnchor], new Date("2026-03-09T23:30:00.000Z"),
+    "2026-03-09T23:30:00.000Z", "America/New_York", ["a", "b", "c"]);
+  assert(JSON.stringify(fromAnotherDevice) === JSON.stringify(zoned),
+    "the same household recurrence must produce identical records from devices in different timezones");
+
+  const manuallyAssigned = { ...zoned[1], assignedTo: "a", roundRobinCursor: 0 };
+  const afterManual = materializeRecurringOccurrences([zonedAnchor, manuallyAssigned], new Date("2026-03-09T23:30:00.000Z"),
+    "2026-03-09T23:30:00.000Z", "America/New_York", ["a", "b", "c"]);
+  assert(afterManual.find((entry) => entry.scheduledDate === "2026-03-09")?.assignedTo === "b",
+    "the next turn must follow the actual last recorded assignee rather than recomputing history from an old cursor");
+  assert(afterManual.find((entry) => entry.id === manuallyAssigned.id)?.assignedTo === "a",
+    "materialization must never overwrite a recorded manual assignee");
+
+  const removedMember = materializeRecurringOccurrences([zonedAnchor], new Date("2026-03-09T23:30:00.000Z"),
+    "2026-03-09T23:30:00.000Z", "America/New_York", ["a", "c"]);
+  assert(removedMember[0].assignedTo === "b", "departed roommates must remain recorded in existing history");
+  assert(removedMember.find((entry) => entry.scheduledDate === "2026-03-08")?.assignedTo === "c",
+    "when the latest assignee leaves, the next surviving person in the stored roster takes the next occurrence");
+  assert(removedMember.slice(1).every((entry) => entry.assignedTo !== "b" && entry.roundRobinParticipantIds?.join(",") === "a,c"),
+    "departed roommates must never receive new recurring occurrences");
+  const addedMember = materializeRecurringOccurrences(zoned.slice(0, 2), new Date("2026-03-09T23:30:00.000Z"),
+    "2026-03-09T23:30:00.000Z", "America/New_York", ["a", "b", "c", "d"]);
+  assert(addedMember.find((entry) => entry.scheduledDate === "2026-03-09")?.assignedTo === "d",
+    "new roommates must join after the most recent actual assignee without shifting previous turns");
+  const neverB = { ...zonedAnchor, excludedParticipantIds: ["b"] };
+  const excluded = materializeRecurringOccurrences([neverB], new Date("2026-03-10T23:30:00.000Z"),
+    "2026-03-10T23:30:00.000Z", "America/New_York", ["a", "b", "c", "d"]);
+  assert(excluded.slice(1).every((entry) => entry.assignedTo !== "b"),
+    "Never-me exclusions must survive roster expansion and every future occurrence");
+  const fixedRoster = materializeRecurringOccurrences([{ ...zonedAnchor, roundRobinAllMembers: false }],
+    new Date("2026-03-11T23:30:00.000Z"), "2026-03-11T23:30:00.000Z", "America/New_York", ["a", "b", "c", "d"]);
+  assert(fixedRoster.every((entry) => entry.assignedTo !== "d"), "a deliberately fixed rotation must not add new roommates");
+  const departedPin = materializeRecurringOccurrences([{ ...zonedAnchor, assignmentMode: "specific-person", assignmentLocked: true }],
+    new Date("2026-03-11T23:30:00.000Z"), "2026-03-11T23:30:00.000Z", "America/New_York", ["a", "c"]);
+  assert(departedPin.length === 1, "a removed pinned owner must require review before new chores are assigned to them");
+  const nobodyEligible = materializeRecurringOccurrences([{ ...zonedAnchor, excludedParticipantIds: ["a", "b", "c"] }],
+    new Date("2026-03-11T23:30:00.000Z"), "2026-03-11T23:30:00.000Z", "America/New_York", ["a", "b", "c"]);
+  assert(nobodyEligible.length === 1, "an empty eligible rotation must not create chores assigned to an excluded person");
+
+  const monthAnchor: Chore = { ...zonedAnchor, id: "month-31", recurrenceSeriesId: "month-31", recurring: "monthly",
+    dueDate: "2026-01-31T14:15:32.125Z", initialDueDate: "2026-01-31T14:15:32.125Z",
+    scheduledDate: "2026-01-31", initialScheduledDate: "2026-01-31", monthlyAnchorDay: 31,
+  };
+  const throughFebruary = materializeRecurringOccurrences([monthAnchor], new Date("2026-02-28T23:30:00.000Z"),
+    "2026-02-28T23:30:00.000Z", "America/New_York", ["a", "b", "c"]);
+  const throughMarch = materializeRecurringOccurrences(throughFebruary, new Date("2026-03-31T23:30:00.000Z"),
+    "2026-03-31T23:30:00.000Z", "America/New_York", ["a", "b", "c"]);
+  assert(throughMarch.find((entry) => entry.scheduledDate === "2026-03-31")?.dueDate === "2026-03-31T13:15:32.125Z",
+    "monthly recurrence must restore the 31st and keep household wall time after a clamped February and DST");
+  const threeDay = materializeRecurringOccurrences([{ ...zonedAnchor, recurring: "everyThreeDays",
+    dueDate: "2026-07-30T13:00:00.000Z", initialDueDate: "2026-07-30T13:00:00.000Z",
+    scheduledDate: "2026-07-30", initialScheduledDate: "2026-07-30",
+  }], new Date("2026-08-05T23:00:00.000Z"), "2026-08-05T23:00:00.000Z", "America/New_York", ["a", "b", "c"]);
+  assert(threeDay.map((entry) => entry.scheduledDate).join(",") === "2026-07-30,2026-08-02,2026-08-05",
+    "real recurring occurrences must keep the exact three-day cadence across month boundaries");
+  const localMidnight = materializeRecurringOccurrences([{ ...zonedAnchor,
+    dueDate: "2026-07-27T16:00:00.000Z", initialDueDate: "2026-07-27T16:00:00.000Z",
+    scheduledDate: "2026-07-27", initialScheduledDate: "2026-07-27",
+  }], new Date("2026-07-28T00:30:00.000Z"), "2026-07-28T00:30:00.000Z", "America/Los_Angeles", ["a", "b", "c"]);
+  assert(localMidnight.length === 1, "a device's UTC date rollover must not materialize tomorrow early in the household");
+  assert(recurringMaterializationFloor(new Date("2026-07-28T00:30:00.000Z"), "America/Los_Angeles") === "2026-07-13",
+    "the archived-history cutoff must use the household calendar day");
+  assert(materializeRecurringOccurrences([zonedAnchor], new Date("invalid"), "now", "America/New_York").length === 1,
+    "invalid through dates must not throw during background reconciliation");
+} finally {
+  if (priorDeviceTimezone === undefined) delete process.env.TZ;
+  else process.env.TZ = priorDeviceTimezone;
+}
+
+const skippedTurn: Chore = {
+  ...recurring, id: "skipped-turn", recurrenceSeriesId: "skipped-turn",
+  dueDate: "2026-11-09T14:00:00.000Z", initialDueDate: "2026-11-09T14:00:00.000Z",
+  scheduledDate: "2026-11-09", initialScheduledDate: "2026-11-09",
+  assignmentMode: "round-robin", assignedTo: "a", roundRobinParticipantIds: ["a", "b", "c"], roundRobinAllMembers: true,
+  excludedOccurrenceDates: ["2026-11-10"],
+};
+const afterSkippedTurn = materializeRecurringOccurrences([skippedTurn], new Date("2026-11-11T20:00:00.000Z"),
+  "2026-11-11T20:00:00.000Z", "America/New_York", ["a", "b", "c"]);
+assert(afterSkippedTurn.length === 2 && afterSkippedTurn.find((entry) => entry.scheduledDate === "2026-11-11")?.assignedTo === "c",
+  "a deleted occurrence must still consume its scheduled rotation position consistently with completion and Group");
+const legacyWrongIndex = { ...skippedTurn, scheduledDate: "2026-11-11", dueDate: "2026-11-11T14:00:00.000Z", assignedTo: "c", occurrenceIndex: undefined };
+const afterLegacyIndex = materializeRecurringOccurrences([skippedTurn, legacyWrongIndex], new Date("2026-11-12T20:00:00.000Z"),
+  "2026-11-12T20:00:00.000Z", "America/New_York", ["a", "b", "c"]);
+assert(afterLegacyIndex.find((entry) => entry.scheduledDate === "2026-11-12")?.assignedTo === "a",
+  "a legacy row with no occurrenceIndex must seed the next turn from its actual loop date and assignee");

@@ -16,11 +16,12 @@ import { reportSupabaseError, reportRuntimeError } from "@/lib/runtimeDiagnostic
 import { error as hapticError } from "@/lib/haptics";
 import { useSupabaseSession } from "@/hooks/useSupabaseSession";
 import {
-  buildFeatureChorePlan,
-  normalizeFeatureId,
   type PersistedRecurrence,
 } from "@/constants/featureChoreRegistry";
 import type { ChoreCategory } from "@/context/AppContext";
+import { CHORE_RECURRENCE_LABELS } from "@/lib/choreSchedule";
+import { buildHouseholdChart, materializeApprovedChart, pointsForDifficulty } from "@/lib/choreChart";
+import { buildHouseholdSetupChores } from "@/lib/householdSetupChores";
 import {
   householdSetupStepNumber,
   type HouseholdSetupStep,
@@ -78,6 +79,15 @@ export function HouseholdSetupScreen({
     joinHousehold,
     setHomeProfile,
     addChores,
+    addCustomTask,
+    deleteCustomTask,
+    customTasks: existingCustomTasks,
+    setLiveChart,
+    chores: existingChores,
+    roommates,
+    memberPreferences,
+    itemDifficulties,
+    householdTimezone,
     householdId,
     householdSetupStep,
     setHouseholdSetupStep,
@@ -128,25 +138,27 @@ export function HouseholdSetupScreen({
     additionalHousehold && householdSetupStep ? householdId : null,
   );
 
-  const generatedPlan = useMemo(
-    () =>
-      buildFeatureChorePlan(
-        items.flatMap((value) => {
-          const [category, ...itemParts] = value.split(":");
-          const count = category === "bathroom" ? bathroomCount : category === "bedroom" ? bedroomCount : 1;
-          return Array.from({ length: count }, (_, index) => ({
-            roomInstanceId: `${category}-${index + 1}`,
-            featureId: normalizeFeatureId(category, itemParts.join(":")),
-          }));
-        }),
-      )
-        .filter((chore) => !removedGeneratedKeys.has(chore.sourceKey))
-        .map((chore) => ({
-          ...chore,
-          persistedRecurrence: recurrenceOverrides[chore.sourceKey] ?? chore.persistedRecurrence,
-        })),
-    [bathroomCount, bedroomCount, items, recurrenceOverrides, removedGeneratedKeys],
+  const setupChores = useMemo(
+    () => buildHouseholdSetupChores({
+      householdId: householdId ?? "draft",
+      housingType: housingType ?? "traditional",
+      items,
+      roomCounts: { bathroom: bathroomCount, bedroom: bedroomCount },
+      itemDifficulties: itemDifficulties.filter((entry) => entry.householdId === householdId),
+      customChores: chores,
+      customChoreSettings,
+      removedGeneratedKeys: [...removedGeneratedKeys],
+      recurrenceOverrides,
+    }),
+    [householdId, housingType, items, bathroomCount, bedroomCount, itemDifficulties, chores, customChoreSettings, removedGeneratedKeys, recurrenceOverrides],
   );
+  const generatedPlan = useMemo(() => setupChores.generatedTasks.map((task) => ({
+    ...task,
+    sourceKey: task.id,
+    persistedRecurrence: task.frequency,
+    points: pointsForDifficulty(task.difficulty),
+    category: task.itemCategory === "living" || task.itemCategory === "bedroom" ? "cleaning" : task.itemCategory,
+  })), [setupChores.generatedTasks]);
 
   useEffect(() => {
     if (!setupDraftKey || hydratedDraftRef.current) return;
@@ -326,40 +338,41 @@ export function HouseholdSetupScreen({
     setLoading(true);
     setError(null);
     try {
-      setHomeProfile({ housingType, items, additionalChores: chores, roomCounts: { bathroom: bathroomCount, bedroom: bedroomCount } });
-      const assigneeId = session?.user.id;
-      if (!assigneeId) throw new Error("Your session expired before chores could be created.");
-      const now = Date.now();
-      addChores([
-        ...generatedPlan.map((chore) => ({
-          title: chore.title,
-          householdId,
-          assignedTo: assigneeId,
-          dueDate: new Date(now + (chore.persistedRecurrence === "daily" ? 1 : chore.persistedRecurrence === "weekly" ? 7 : 30) * 86_400_000).toISOString(),
-          completed: false,
-          points: chore.points,
-          category: chore.category,
-          recurring: chore.persistedRecurrence,
-          sourceKey: chore.sourceKey,
-        })),
-        ...chores.map((title) => {
-          const settings = customChoreSettings[title] ?? {
-            category: "other" as ChoreCategory,
-            recurrence: "weekly" as PersistedRecurrence,
-            points: 15,
-          };
-          return {
-            title,
-            householdId,
-            assignedTo: assigneeId,
-            dueDate: new Date(now + (settings.recurrence === "daily" ? 1 : settings.recurrence === "weekly" ? 7 : 30) * 86_400_000).toISOString(),
-            completed: false,
-            points: settings.points,
-            category: settings.category,
-            recurring: settings.recurrence,
-          };
-        }),
-      ]);
+      const creatorId = session?.user.id;
+      if (!creatorId) throw new Error("Your session expired before chores could be created.");
+      const members = roommates.length ? roommates : [{ id: creatorId }];
+      const now = new Date();
+      const plan = setupChores.tasks.length ? buildHouseholdChart({
+        tasks: setupChores.tasks,
+        householdId,
+        members,
+        preferences: memberPreferences.filter((preference) => preference.householdId === householdId),
+        chores: existingChores,
+        now,
+        timezone: householdTimezone,
+      }) : null;
+      const initialChores = plan ? materializeApprovedChart({
+        payload: plan,
+        chores: existingChores,
+        members,
+        householdId,
+        chartId: `setup:${householdId}`,
+        creatorId,
+        now,
+        timezone: householdTimezone,
+      }) : [];
+      setHomeProfile({
+        housingType, items, additionalChores: chores,
+        roomCounts: { bathroom: bathroomCount, bedroom: bedroomCount },
+        removedGeneratedKeys: [...removedGeneratedKeys], recurrenceOverrides,
+      });
+      const selectedCustomIds = new Set(setupChores.customTasks.map((task) => task.id));
+      existingCustomTasks.forEach((task) => {
+        if (task.id.startsWith(`setup-custom:${householdId}:`) && !selectedCustomIds.has(task.id)) deleteCustomTask(task.id);
+      });
+      setupChores.customTasks.forEach((task) => addCustomTask(task));
+      if (initialChores.length) addChores(initialChores);
+      if (plan) setLiveChart(plan.assignments);
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       await completeHouseholdSetup();
       if (setupDraftKey) await AsyncStorage.removeItem(setupDraftKey);
@@ -567,6 +580,11 @@ export function HouseholdSetupScreen({
             </View>
           ) : (
             <>
+              {setupChores.unsupportedItems.length ? (
+                <Text style={[styles.reviewMeta, { color: colors.mutedForeground }]}>
+                  Add a custom chore below for: {setupChores.unsupportedItems.join(", ")}.
+                </Text>
+              ) : null}
               <View style={styles.reviewList}>
                 {generatedPlan.length ? generatedPlan.map((chore) => (
                   <View key={chore.sourceKey} style={[styles.reviewRow, { borderColor: colors.border }]}>
@@ -576,13 +594,13 @@ export function HouseholdSetupScreen({
                         accessibilityRole="button"
                         accessibilityLabel={`Change recurrence for ${chore.title}`}
                         onPress={() => {
-                          const recurrences: PersistedRecurrence[] = ["daily", "weekly", "monthly"];
+                          const recurrences = Object.keys(CHORE_RECURRENCE_LABELS) as PersistedRecurrence[];
                           const next = recurrences[(recurrences.indexOf(chore.persistedRecurrence) + 1) % recurrences.length];
                           setRecurrenceOverrides((current) => ({ ...current, [chore.sourceKey]: next }));
                         }}
                       >
                         <Text style={[styles.reviewMeta, { color: colors.primary }]}>
-                          {chore.persistedRecurrence} · {chore.points} points · {chore.category} · tap to change
+                          {CHORE_RECURRENCE_LABELS[chore.persistedRecurrence]} · {chore.points} points · {chore.category} · tap to change
                         </Text>
                       </Pressable>
                     </View>
@@ -604,8 +622,8 @@ export function HouseholdSetupScreen({
               </View>
               <Text style={[styles.optionSectionTitle, { color: colors.foreground }]}>Frequency</Text>
               <View style={styles.chips}>
-                {(["daily", "weekly", "monthly"] as PersistedRecurrence[]).map((recurrence) => (
-                  <Chip key={recurrence} label={`${recurrence.charAt(0).toUpperCase()}${recurrence.slice(1)}`} selected={customRecurrence === recurrence} onPress={() => setCustomRecurrence(recurrence)} colors={colors} />
+                {(Object.keys(CHORE_RECURRENCE_LABELS) as PersistedRecurrence[]).map((recurrence) => (
+                  <Chip key={recurrence} label={CHORE_RECURRENCE_LABELS[recurrence]} selected={customRecurrence === recurrence} onPress={() => setCustomRecurrence(recurrence)} colors={colors} />
                 ))}
               </View>
               <View style={styles.optionSectionHeader}>
@@ -613,7 +631,7 @@ export function HouseholdSetupScreen({
                 <Text style={[styles.optionSectionNote, { color: colors.mutedForeground }]}>This will be used to auto-allocate chores evenly among Sweetmates.</Text>
               </View>
               <View style={styles.chips}>
-                {[10, 15, 25, 30].map((points) => (
+                {[5, 10, 15, 25, 30].map((points) => (
                   <Chip key={points} label={`${points} pts`} selected={customPoints === points} onPress={() => setCustomPoints(points)} colors={colors} />
                 ))}
               </View>
@@ -627,7 +645,7 @@ export function HouseholdSetupScreen({
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.customChoreText, { color: colors.foreground }]}>{chore}</Text>
                     <Text style={[styles.reviewMeta, { color: colors.mutedForeground }]}>
-                      {customChoreSettings[chore]?.recurrence ?? "weekly"} · {customChoreSettings[chore]?.points ?? 15} points · {customChoreSettings[chore]?.category ?? "other"}
+                      {CHORE_RECURRENCE_LABELS[customChoreSettings[chore]?.recurrence ?? "weekly"]} · {customChoreSettings[chore]?.points ?? 15} points · {customChoreSettings[chore]?.category ?? "other"}
                     </Text>
                   </View>
                   <Feather name="x" size={16} color={colors.mutedForeground} />

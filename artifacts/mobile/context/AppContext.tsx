@@ -37,6 +37,7 @@ import {
   advanceChoreDueDate,
   advanceScheduledDate,
   resolveRoundRobinParticipants,
+  roundRobinAssigneeAfter,
 } from "@/lib/choreSchedule";
 import {
   choreLocalDateKey,
@@ -61,10 +62,13 @@ import {
 } from "@/lib/shoppingRow";
 import { rowToSharedBorrow, sharedBorrowToRow, type SharedBorrowRow } from "@/lib/sharedBorrowRow";
 import { withoutNormalizedCollections } from "@/lib/householdStatePayload";
-import { rowToChore, type ChoreRow } from "@/lib/choreRow";
+import { choreToRow, rowToChore, type ChoreRow } from "@/lib/choreRow";
 import { applyChoreRowEvent, planChoreSync } from "@/lib/choreSync";
 import { carryMappedReminderToNextOccurrence } from "@/lib/externalTasks";
 import { choreNow } from "@/lib/choreClock";
+import { householdDateKey, householdDueDate } from "@/lib/choreTimezone";
+import { dueDateForScheduledDate } from "@/lib/choreOccurrences";
+import { materializeApprovedChart } from "@/lib/choreChart";
 import { recurringChoreClaims } from "@/lib/recurringChoreClaims";
 import type {
   ExpenseSplitMode,
@@ -118,7 +122,7 @@ export type AssignmentMode =
   | "specific-person"
   | "round-robin"
   | "unassigned";
-export type ChoreRecurrence = "daily" | "everyOtherDay" | "weekly" | "biweekly" | "monthly";
+export type ChoreRecurrence = "daily" | "everyOtherDay" | "everyThreeDays" | "weekly" | "biweekly" | "monthly";
 export type RecurringChoreDeleteScope = "occurrence" | "future" | "series";
 
 export interface Roommate {
@@ -177,6 +181,8 @@ export interface Chore {
   occurrenceIndex?: number;
   nextOccurrenceId?: string;
   sourceKey?: string;
+  timeOfDay?: "morning" | "night" | "any";
+  assignmentLocked?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -364,7 +370,9 @@ export interface HomeProfile {
   housingType: HousingType;
   items: string[];
   additionalChores: string[];
-  roomCounts?: Partial<Record<"kitchen" | "bathroom" | "living" | "bedroom" | "other", number>>;
+  roomCounts?: Partial<Record<ItemCategory, number>>;
+  removedGeneratedKeys?: string[];
+  recurrenceOverrides?: Record<string, ChoreRecurrence>;
 }
 
 export interface GeneratedTask {
@@ -372,7 +380,7 @@ export interface GeneratedTask {
   itemCategory: ItemCategory;
   item: string;
   title: string;
-  frequency: "daily" | "everyOtherDay" | "weekly" | "biweekly" | "monthly";
+  frequency: "daily" | "everyOtherDay" | "everyThreeDays" | "weekly" | "biweekly" | "monthly";
   timeOfDay: "morning" | "night" | "any";
   keepTogetherGroup?: string;
   difficulty: Difficulty;
@@ -380,6 +388,7 @@ export interface GeneratedTask {
 
 export interface CustomTask {
   id: string;
+  itemCategory?: ItemCategory;
   item: string;
   title: string;
   frequency: GeneratedTask["frequency"];
@@ -417,8 +426,15 @@ export interface ProposedChart {
     memberLoads?: MemberLoad[];
     generatedTasks?: GeneratedTask[];
     customTasks?: CustomTask[];
+    version?: 2;
+    existingLoads?: Record<string, number>;
+    pinnedAssignments?: Record<string, string>;
+    manualAssignmentTaskIds?: string[];
+    excludedAssignments?: Record<string, string[]>;
+    rotation?: "round-robin";
   };
   createdAt: string;
+  appliedAt?: string | null;
 }
 
 export interface ChartApproval {
@@ -452,6 +468,9 @@ export interface ItemDifficulty {
 }
 
 interface AppContextType {
+  choreChartApplying: boolean;
+  choreChartConfigurationReady: boolean;
+  retryChoreChartConfiguration: () => Promise<void>;
   itemDifficulties: ItemDifficulty[];
   setItemDifficulty: (category: ItemCategory, item: string, difficulty: Difficulty) => Promise<void>;
   resetItemDifficulties: () => Promise<void>;
@@ -462,10 +481,10 @@ interface AppContextType {
   liveChart: Assignment[] | null;
   setLiveChart: (assignments: Assignment[] | null) => void;
   customTasks: CustomTask[];
-  addCustomTask: (task: Omit<CustomTask, "id">) => void;
+  addCustomTask: (task: Omit<CustomTask, "id"> & { id?: string }) => string;
   deleteCustomTask: (id: string) => void;
   chartApprovals: ChartApproval[];
-  proposeChart: (payload: ProposedChart["payload"]) => Promise<void>;
+  proposeChart: (payload: ProposedChart["payload"]) => Promise<string>;
   approveProposedChart: () => Promise<void>;
   forceApproveProposedChart: () => Promise<void>;
   restartChartProcess: () => Promise<void>;
@@ -530,9 +549,9 @@ interface AppContextType {
   borrowItems: BorrowItem[];
   nudges: Nudge[];
   nudgesReady: boolean;
-  addChore: (chore: Omit<Chore, "id">) => string | null;
+  addChore: (chore: Omit<Chore, "id"> & { id?: string }) => string | null;
   updateChore: (id: string, updates: Partial<Omit<Chore, "id">>) => boolean;
-  addChores: (chores: Omit<Chore, "id">[]) => number;
+  addChores: (chores: (Omit<Chore, "id"> & { id?: string })[]) => number;
   setChoreCompleted: (id: string, completed: boolean) => void;
   completeChore: (id: string) => void;
   pickUpChore: (choreId: string, completedById: string) => void;
@@ -929,6 +948,15 @@ export function AppProvider({
   const [itemDifficulties, setItemDifficulties] = useState<ItemDifficulty[]>([]);
   const [memberPreferences, setMemberPreferences] = useState<MemberPreference[]>([]);
   const [currentProposedChart, setCurrentProposedChartState] = useState<ProposedChart | null>(null);
+  const [chartConfigurationHouseholdId, setChartConfigurationHouseholdId] = useState<string | null>(null);
+  const choreChartConfigurationReady = Boolean(householdId && chartConfigurationHouseholdId === householdId);
+  const refreshChartStateRef = useRef<(() => Promise<void>) | null>(null);
+  const retryChoreChartConfiguration = useCallback(async () => { await refreshChartStateRef.current?.(); }, []);
+  const applyingChartRef = useRef(false);
+  const [choreChartApplying, setChoreChartApplying] = useState(false);
+  const timezoneRef = useRef("UTC");
+  const resolvedHouseholdTimezone = memberships.find((membership) => membership.sweetId === householdId)?.timezone ?? "UTC";
+  timezoneRef.current = resolvedHouseholdTimezone;
   const [chartApprovals, setChartApprovals] = useState<ChartApproval[]>([]);
   const [currentMemberRole, setCurrentMemberRole] = useState<"owner" | "member">("member");
   const isHost = currentMemberRole === "owner";
@@ -1025,20 +1053,14 @@ export function AppProvider({
 
   useEffect(() => {
     const refreshDay = () => {
-      setActiveCalendarDay(choreLocalDateKey(choreNow()));
+      setActiveCalendarDay(householdDateKey(choreNow(), resolvedHouseholdTimezone));
       setRecurrenceRefreshTick((current) => current + 1);
     };
     const now = choreNow();
-    const nextMidnight = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate() + 1,
-      0,
-      0,
-      0,
-      25,
-    );
-    const timer = setTimeout(refreshDay, nextMidnight.getTime() - now.getTime());
+    const today = householdDateKey(now, resolvedHouseholdTimezone);
+    setActiveCalendarDay(today);
+    const nextMidnight = new Date(householdDueDate(advanceScheduledDate(today, "daily"), 0, resolvedHouseholdTimezone));
+    const timer = setTimeout(refreshDay, Math.max(25, nextMidnight.getTime() - now.getTime() + 25));
     const subscription = AppState.addEventListener("change", (state) => {
       if (state === "active") refreshDay();
     });
@@ -1046,14 +1068,16 @@ export function AppProvider({
       clearTimeout(timer);
       subscription.remove();
     };
-  }, [activeCalendarDay]);
+  }, [activeCalendarDay, resolvedHouseholdTimezone]);
 
   useEffect(() => {
-    if (!loaded || !householdId || !activeCalendarDay) return;
+    if (!loaded || !householdId || !activeCalendarDay || applyingChartRef.current) return;
     const reconciled = materializeRecurringOccurrences(
       choresRef.current,
-      new Date(`${activeCalendarDay}T12:00:00`),
+      choreNow(),
       choreNow().toISOString(),
+      resolvedHouseholdTimezone,
+      roommates.map((member) => member.id),
     );
     if (reconciled !== choresRef.current) {
       choresRef.current = reconciled;
@@ -1076,7 +1100,7 @@ export function AppProvider({
           }
         });
     }
-  }, [activeCalendarDay, householdId, loaded, recurrenceRefreshTick]);
+  }, [activeCalendarDay, choreChartApplying, choresTableReady, householdId, loaded, recurrenceRefreshTick, resolvedHouseholdTimezone, roommates]);
 
   const preferenceUserId = session?.user.id;
 
@@ -1848,6 +1872,7 @@ export function AppProvider({
           name: name.trim(),
           role: "owner",
           status: "active",
+          timezone: options?.timezone?.trim() || "UTC",
           joinedAt: new Date().toISOString(),
           memberCount: 1,
           inviteCode: code,
@@ -2294,6 +2319,7 @@ export function AppProvider({
       findAssignedLoadDeviations(
         approvedChart!.payload.assignments,
         approvedChart!.payload.generatedTasks ?? [],
+        undefined, undefined, approvedChart!.payload.existingLoads,
       ).filter((deviation) => deviation.direction === "above").forEach((deviation) => {
         const member = memberMetadataRef.current.get(deviation.memberId);
         incoming.push({
@@ -3032,7 +3058,7 @@ export function AppProvider({
   // This covers generated recurrence rows and occurrence/future/series scopes
   // without relying on a later one-time orphan cleanup.
   useEffect(() => {
-    if (!choresTableReady || !householdId || !session?.user.id) return;
+    if (!choresTableReady || !householdId || !session?.user.id || applyingChartRef.current) return;
     chorePersistenceQueueRef.current = chorePersistenceQueueRef.current.then(async () => {
       // Calculate after earlier queued mutations finish so a rapid create then
       // delete still observes (and removes) the row created by the first job.
@@ -3171,15 +3197,18 @@ export function AppProvider({
       return;
     }
     let active = true;
+    let requestVersion = 0;
+    let deferredApply = false;
     const channel = supabase.channel(`chore-foundation:${householdId}`);
 
     const refresh = async () => {
+      const version = ++requestVersion;
       const [difficultyResult, preferenceResult, chartResult] = await Promise.all([
         supabase.from("item_difficulty").select("id, household_id, category, item, difficulty").eq("household_id", householdId),
         supabase.from("member_task_preferences").select("id, household_id, member_id, key, value").eq("household_id", householdId),
-        supabase.from("proposed_charts").select("id, household_id, created_by, status, payload, created_at").eq("household_id", householdId).order("created_at", { ascending: false }).limit(1).maybeSingle(),
+        supabase.from("proposed_charts").select("id, household_id, created_by, status, payload, created_at, applied_at").eq("household_id", householdId).in("status", ["pending", "approved"]).order("created_at", { ascending: false }).limit(1).maybeSingle(),
       ]);
-      if (!active) return;
+      if (!active || version !== requestVersion) return;
       if (difficultyResult.error) {
         reportSupabaseError("load item difficulties", difficultyResult.error, { householdId });
       }
@@ -3189,6 +3218,11 @@ export function AppProvider({
       if (chartResult.error) {
         reportSupabaseError("load proposed chart", chartResult.error, { householdId });
       }
+      if (difficultyResult.error || preferenceResult.error || chartResult.error) {
+        setChartConfigurationHouseholdId(null);
+        throw new Error("Unable to load chore settings. Check your connection and try again.");
+      }
+      setChartConfigurationHouseholdId(householdId);
       setItemDifficulties((difficultyResult.data ?? []).map((row) => ({
         id: row.id,
         householdId: row.household_id,
@@ -3211,6 +3245,7 @@ export function AppProvider({
         status: row.status as ProposedChart["status"],
         payload: row.payload as ProposedChart["payload"],
         createdAt: row.created_at,
+        appliedAt: row.applied_at,
       } as ProposedChart : null;
       setCurrentProposedChartState(chart);
       if (chart) {
@@ -3224,7 +3259,7 @@ export function AppProvider({
             chartId: chart.id,
           });
         }
-        if (!active) return;
+        if (!active || version !== requestVersion) return;
         setChartApprovals((approvalRows ?? []).map((approval) => ({
           id: approval.id,
           proposedChartId: approval.proposed_chart_id,
@@ -3238,33 +3273,66 @@ export function AppProvider({
 
       if (chart?.status === "approved") {
         setLiveChartState(chart.payload.assignments);
-        const generated = chart.payload.generatedTasks ?? [];
-        const ownerByTask = new Map<string, string>();
-        chart.payload.assignments.forEach((assignment) => {
-          assignment.taskIds.forEach((taskId) => ownerByTask.set(taskId, assignment.memberId));
-        });
-        setChores((current) => {
-          const existingIds = new Set(current.map((chore) => chore.id));
-          const additions: Chore[] = generated.flatMap((task) => {
-            const id = `chart:${chart.id}:${task.id}`;
-            const assignedTo = ownerByTask.get(task.id);
-            if (!assignedTo || existingIds.has(id)) return [];
-            return [{
-              id,
-              title: task.title,
-              assignedTo,
-              dueDate: daysFromNow(7),
-              completed: false,
-              points: task.difficulty * 5,
-              category: task.itemCategory === "living" ? "cleaning" : task.itemCategory === "other" ? "other" : task.itemCategory,
-              recurring: task.frequency === "daily" ? "daily" : task.frequency === "monthly" ? "monthly" : "weekly",
-            }];
+        if (chart.appliedAt || !choresTableReadyRef.current || !roommatesRef.current.length) return;
+        if (applyingChartRef.current) { deferredApply = true; return; }
+        if (chart.payload.version !== 2) return; // Legacy charts require an explicit rebuild.
+        applyingChartRef.current = true;
+        setChoreChartApplying(true);
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 20_000);
+        try {
+          await Promise.race([
+            chorePersistenceQueueRef.current,
+            new Promise<never>((_, reject) => controller.signal.addEventListener("abort", () => reject(new Error("Saving the chart timed out. Check your connection and try again.")), { once: true })),
+          ]);
+          if (!active) return;
+          const anchors = materializeApprovedChart({
+            payload: chart.payload, chores: choresRef.current, members: roommatesRef.current,
+            householdId, chartId: chart.id, creatorId: chart.createdBy,
+            now: choreNow(), timezone: timezoneRef.current,
           });
-          return additions.length ? [...current, ...additions] : current;
-        });
+          const { error } = await supabase.rpc("apply_approved_chore_chart", {
+            target_chart_id: chart.id,
+            chore_rows: anchors.map(choreToRow),
+          }).abortSignal(controller.signal);
+          if (error) throw error;
+          const { data, error: loadError } = await supabase.from("chores").select("*").eq("household_id", householdId).abortSignal(controller.signal);
+          if (loadError) throw loadError;
+          if (!active) return;
+          const rows = (data ?? []) as ChoreRow[];
+          persistedChoreRowsRef.current = new Map(rows.map((record) => [record.id, record]));
+          choresRef.current = rows.map(rowToChore);
+          setChores(choresRef.current);
+          setAppAlerts((alerts) => alerts.filter((alert) => alert.id !== `chart-apply:${chart.id}`));
+          if (version === requestVersion) setCurrentProposedChartState({ ...chart, appliedAt: new Date().toISOString() });
+        } catch (error) {
+          reportRuntimeError("apply approved chore chart", error, { householdId, chartId: chart.id });
+          upsertInformationalAlerts([{
+            id: `chart-apply:${chart.id}`, type: "planner", title: "Chore chart needs attention",
+            message: error && typeof error === "object" && "message" in error ? String(error.message) : "Reopen the planner to review and rebuild this chart.",
+            createdAt: new Date().toISOString(), relatedEntityId: chart.id,
+            relatedEntityType: "chore-chart", deduplicationKey: `chart-apply:${chart.id}`, severity: "attention",
+          }]);
+          throw error;
+        } finally {
+          clearTimeout(timeout);
+          applyingChartRef.current = false;
+          setChoreChartApplying(false);
+          // An effect/household change may have deferred its own application.
+          if (!active || deferredApply) {
+            deferredApply = false;
+            void refreshChartStateRef.current?.().catch((error) => {
+              reportRuntimeError("refresh deferred chore chart", error);
+            });
+          }
+        }
       }
     };
 
+    refreshChartStateRef.current = refresh;
+    const chartAppStateSubscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") void refresh().catch((error) => reportRuntimeError("refresh chore settings", error, { householdId }));
+    });
     refresh().catch((error) => {
       reportRuntimeError("refresh deterministic chart state", error, { householdId });
     });
@@ -3292,11 +3360,14 @@ export function AppProvider({
     });
     return () => {
       active = false;
+      chartAppStateSubscription.remove();
+      if (refreshChartStateRef.current === refresh) refreshChartStateRef.current = null;
       supabase.removeChannel(channel);
     };
-  }, [householdId, session?.user.id]);
+  }, [choresTableReady, householdId, memberRosterKey, session?.user.id, upsertInformationalAlerts]);
 
-  const addChore = useCallback((chore: Omit<Chore, "id">) => {
+  const addChore = useCallback((chore: Omit<Chore, "id"> & { id?: string }) => {
+    if (applyingChartRef.current) return null;
     const activeMemberIds = new Set(roommates.map((roommate) => roommate.id));
     if (
       !chore.title.trim() ||
@@ -3319,7 +3390,7 @@ export function AppProvider({
       return null;
     }
 
-    const id = makeId();
+    const id = chore.id ?? makeId();
     const now = new Date().toISOString();
     const next: Chore = {
       ...chore,
@@ -3373,6 +3444,7 @@ export function AppProvider({
     id: string,
     updates: Partial<Omit<Chore, "id">>,
   ): boolean => {
+    if (applyingChartRef.current) return false;
     const current = choresRef.current.find((chore) => chore.id === id);
     if (!current || current.completed || !canManageChore(current)) return false;
     const candidate: Chore = {
@@ -3383,6 +3455,7 @@ export function AppProvider({
       creatorId: current.creatorId,
       createdAt: current.createdAt,
       updatedAt: new Date().toISOString(),
+      assignmentLocked: current.assignmentLocked || ["assignedTo", "assignmentMode", "roundRobinParticipantIds", "excludedParticipantIds", "dueDate", "recurring"].some((key) => Object.prototype.hasOwnProperty.call(updates, key)),
     };
     if (updates.dueDate && updates.dueDate !== current.dueDate) {
       const previousScheduledDate = choreScheduledDate(current);
@@ -3418,7 +3491,8 @@ export function AppProvider({
     return true;
   }, [canManageChore, householdId, roommates]);
 
-  const addChores = useCallback((newChores: Omit<Chore, "id">[]): number => {
+  const addChores = useCallback((newChores: (Omit<Chore, "id"> & { id?: string })[]): number => {
+    if (applyingChartRef.current) return 0;
     const current = choresRef.current;
     const sourceKeys = new Set(current.flatMap((chore) => chore.sourceKey ? [chore.sourceKey] : []));
     const manualTitles = new Set(current.filter((chore) => !chore.sourceKey).map((chore) => chore.title.trim().toLowerCase()));
@@ -3428,7 +3502,7 @@ export function AppProvider({
       if ((chore.sourceKey && sourceKeys.has(chore.sourceKey)) || (!chore.sourceKey && manualTitles.has(titleKey))) continue;
       if (chore.sourceKey) sourceKeys.add(chore.sourceKey);
       else manualTitles.add(titleKey);
-      const id = makeId();
+      const id = chore.id ?? makeId();
       const now = new Date().toISOString();
       accepted.push({
         ...chore,
@@ -3466,6 +3540,7 @@ export function AppProvider({
   // preventing delayed presses/realtime rerenders from reversing the result or
   // awarding points twice.
   const setChoreCompleted = useCallback((id: string, completed: boolean) => {
+    if (applyingChartRef.current) return;
     const chore = choresRef.current.find((c) => c.id === id);
     const allowed = Boolean(chore) && permissionsForChore(chore!).canComplete;
     logChorePermissionCheck("complete", {
@@ -3528,9 +3603,10 @@ export function AppProvider({
         chore.dueDate,
         chore.recurring,
         monthlyAnchorDay,
+        resolvedHouseholdTimezone,
       );
       let recurrenceSteps = 1;
-      const todayKey = choreLocalDateKey(choreNow());
+      const todayKey = householdDateKey(choreNow(), resolvedHouseholdTimezone);
       while (nextScheduledDate <= todayKey) {
         nextScheduledDate = advanceScheduledDate(
           nextScheduledDate,
@@ -3541,11 +3617,31 @@ export function AppProvider({
           nextDueDate,
           chore.recurring,
           monthlyAnchorDay,
+          resolvedHouseholdTimezone,
         );
         recurrenceSteps += 1;
       }
 
+      nextDueDate = dueDateForScheduledDate(nextScheduledDate, chore.initialDueDate ?? chore.dueDate, resolvedHouseholdTimezone);
+      const seriesId = chore.recurrenceSeriesId ?? chore.id;
+      const rotationSeed = [...choresRef.current].filter((candidate) =>
+        candidate.householdId === chore.householdId &&
+        (candidate.recurrenceSeriesId ?? candidate.id) === seriesId &&
+        choreScheduledDate(candidate) < nextScheduledDate,
+      ).sort((left, right) => choreScheduledDate(right).localeCompare(choreScheduledDate(left)))[0] ?? chore;
+      const activeMemberIds = roommates.map((roommate) => roommate.id);
+      const participants = resolveRoundRobinParticipants(rotationSeed, activeMemberIds);
+      let rotationSteps = 1;
+      let rotationDate = advanceScheduledDate(choreScheduledDate(rotationSeed), chore.recurring, monthlyAnchorDay);
+      while (rotationDate && rotationDate < nextScheduledDate && rotationSteps < 10_000) {
+        rotationDate = advanceScheduledDate(rotationDate, chore.recurring, monthlyAnchorDay);
+        rotationSteps += 1;
+      }
+      const nextAssignee = rotationSeed.assignmentMode === "round-robin"
+        ? roundRobinAssigneeAfter(rotationSeed, activeMemberIds, rotationSteps)
+        : !rotationSeed.assignedTo || activeMemberIds.includes(rotationSeed.assignedTo) ? rotationSeed.assignedTo : undefined;
       const recurrenceStopped =
+        nextAssignee === undefined ||
         Boolean(chore.recurrenceEndsOn && nextScheduledDate >= chore.recurrenceEndsOn) ||
         (chore.excludedOccurrenceDates ?? []).includes(nextScheduledDate);
       if (recurrenceStopped) {
@@ -3562,22 +3658,13 @@ export function AppProvider({
             : candidate,
         );
       } else {
-        const activeMemberIds = roommates.map((roommate) => roommate.id);
-        const participants = resolveRoundRobinParticipants(chore, activeMemberIds);
-        const currentCursor = chore.roundRobinCursor ?? Math.max(
-          participants.indexOf(chore.assignedTo),
-          0,
-        );
-        const nextCursor = participants.length
-          ? (currentCursor + recurrenceSteps) % participants.length
-          : 0;
+        const nextCursor = Math.max(0, participants.indexOf(nextAssignee!));
         const existingNextOccurrence = choresRef.current.find((candidate) =>
           candidate.id !== chore.id &&
           (candidate.recurrenceSeriesId ?? candidate.id) ===
             (chore.recurrenceSeriesId ?? chore.id) &&
           choreScheduledDate(candidate) === nextScheduledDate
         );
-        const seriesId = chore.recurrenceSeriesId ?? chore.id;
         const nextId = existingNextOccurrence?.id ?? recurringOccurrenceId(
           chore.householdId,
           seriesId,
@@ -3586,10 +3673,10 @@ export function AppProvider({
         const nextOccurrence: Chore = {
           ...chore,
           id: nextId,
-          assignedTo:
-            chore.assignmentMode === "round-robin"
-              ? participants[nextCursor] ?? chore.assignedTo
-              : chore.assignedTo,
+          assignedTo: nextAssignee!,
+          assignmentMode: rotationSeed.assignmentMode,
+          roundRobinAllMembers: rotationSeed.roundRobinAllMembers,
+          excludedParticipantIds: rotationSeed.excludedParticipantIds,
           roundRobinParticipantIds: participants.length
             ? participants
             : chore.roundRobinParticipantIds,
@@ -3700,9 +3787,10 @@ export function AppProvider({
         },
       );
     }
-  }, [activeSweet, cloudReady, currentUserId, householdId, isHost, normalizedCollectionsReady, permissionsForChore, roommates, session?.user.id]);
+  }, [activeSweet, cloudReady, currentUserId, householdId, isHost, normalizedCollectionsReady, permissionsForChore, roommates, resolvedHouseholdTimezone, session?.user.id]);
 
   const completeChore = useCallback((id: string) => {
+    if (applyingChartRef.current) return;
     const chore = choresRef.current.find((candidate) => candidate.id === id);
     if (chore) setChoreCompleted(id, !chore.completed);
   }, [setChoreCompleted]);
@@ -3710,6 +3798,7 @@ export function AppProvider({
   const PICKUP_BONUS = 25;
 
   const pickUpChore = useCallback((choreId: string, completedById: string) => {
+    if (applyingChartRef.current) return;
     const chore = choresRef.current.find((candidate) => candidate.id === choreId);
     if (!chore || chore.completed) return;
     completeChore(choreId);
@@ -3740,6 +3829,7 @@ export function AppProvider({
     id: string,
     scope: RecurringChoreDeleteScope = "occurrence",
   ): boolean => {
+    if (applyingChartRef.current) return false;
     const target = choresRef.current.find((chore) => chore.id === id);
     if (!target || !permissionsForChore(target).canDelete) return false;
     const changedAt = choreNow().toISOString();
@@ -4469,8 +4559,10 @@ export function AppProvider({
     setLiveChartState(assignments);
   }, []);
 
-  const addCustomTask = useCallback((task: Omit<CustomTask, "id">) => {
-    setCustomTasks((current) => [...current, { ...task, id: makeId() }]);
+  const addCustomTask = useCallback((task: Omit<CustomTask, "id"> & { id?: string }) => {
+    const id = task.id ?? makeId();
+    setCustomTasks((current) => [...current.filter((entry) => entry.id !== id), { ...task, id }]);
+    return id;
   }, []);
 
   const deleteCustomTask = useCallback((id: string) => {
@@ -4565,44 +4657,17 @@ export function AppProvider({
 
   const setCurrentProposedChart = useCallback(async (chart: ProposedChart | null) => {
     if (!householdId) throw new Error("No household is selected.");
-    if (!chart) {
-      if (currentProposedChart) {
-        const { error } = await supabase
-          .from("proposed_charts")
-          .update({ status: "cancelled" })
-          .eq("id", currentProposedChart.id);
-        if (error) {
-          reportSupabaseError("cancel proposed chart", error, {
-            householdId,
-            chartId: currentProposedChart.id,
-          });
-          throw error;
-        }
-      }
-      setCurrentProposedChartState(null);
-      return;
-    }
-    const { error } = await supabase.from("proposed_charts").upsert({
-      id: chart.id,
-      household_id: householdId,
-      created_by: chart.createdBy,
-      status: chart.status,
-      payload: chart.payload,
-      created_at: chart.createdAt,
-    });
-    if (error) {
-      reportSupabaseError("save proposed chart", error, {
-        householdId,
-        chartId: chart.id,
-      });
-      throw error;
-    }
-    setCurrentProposedChartState(chart);
-  }, [currentProposedChart, householdId]);
+    if (chart && chart.status !== "pending") throw new Error("Approve charts through the approval controls.");
+    const { error } = chart
+      ? await supabase.rpc("replace_proposed_chart", { target_household_id: householdId, chart_payload: chart.payload })
+      : await supabase.rpc("cancel_proposed_charts", { target_household_id: householdId });
+    if (error) throw error;
+    await refreshChartStateRef.current?.();
+  }, [householdId]);
 
   const proposeChart = useCallback(async (payload: ProposedChart["payload"]) => {
     if (!householdId) throw new Error("No household is selected.");
-    const { error } = await supabase.rpc("replace_proposed_chart", {
+    const { data, error } = await supabase.rpc("replace_proposed_chart", {
       target_household_id: householdId,
       chart_payload: payload,
     });
@@ -4610,6 +4675,8 @@ export function AppProvider({
       reportSupabaseError("replace proposed chart", error, { householdId });
       throw error;
     }
+    await refreshChartStateRef.current?.();
+    return String(data);
   }, [householdId]);
 
   const approveProposedChart = useCallback(async () => {
@@ -4623,6 +4690,7 @@ export function AppProvider({
       });
       throw error;
     }
+    await refreshChartStateRef.current?.();
   }, [currentProposedChart]);
 
   const forceApproveProposedChart = useCallback(async () => {
@@ -4636,6 +4704,7 @@ export function AppProvider({
       });
       throw error;
     }
+    await refreshChartStateRef.current?.();
   }, [currentProposedChart]);
 
   const restartChartProcess = useCallback(async () => {
@@ -4649,6 +4718,7 @@ export function AppProvider({
     }
     setCurrentProposedChartState(null);
     setChartApprovals([]);
+    await refreshChartStateRef.current?.();
   }, [householdId]);
 
   const setCurrentUser = useCallback((id: string) => {
@@ -4811,6 +4881,7 @@ export function AppProvider({
   }), [chores]);
 
   const contextValue = useMemo<AppContextType>(() => ({
+    choreChartApplying, choreChartConfigurationReady, retryChoreChartConfiguration,
     itemDifficulties,
     setItemDifficulty,
     resetItemDifficulties,
@@ -4950,7 +5021,7 @@ export function AppProvider({
   }), [
     itemDifficulties, setItemDifficulty, resetItemDifficulties,
     memberPreferences, setMemberPreference, currentProposedChart,
-    setCurrentProposedChart, liveChart, setLiveChart, customTasks,
+    choreChartApplying, choreChartConfigurationReady, retryChoreChartConfiguration, setCurrentProposedChart, liveChart, setLiveChart, customTasks,
     addCustomTask, deleteCustomTask, chartApprovals, proposeChart,
     approveProposedChart, forceApproveProposedChart, restartChartProcess,
     isHost, preferencesLoaded, preferencesOnboardingPending,

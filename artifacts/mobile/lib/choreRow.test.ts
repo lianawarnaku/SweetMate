@@ -36,6 +36,8 @@ const chore: Chore = {
   occurrenceIndex: 2,
   nextOccurrenceId: "occurrence:home-a:series-1:2026-08-17",
   sourceKey: "src-1",
+  timeOfDay: "night",
+  assignmentLocked: true,
   createdAt: "2026-08-03T00:00:00.000Z",
   updatedAt: "2026-08-10T12:00:00.000Z",
 };

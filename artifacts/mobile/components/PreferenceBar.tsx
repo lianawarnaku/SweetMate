@@ -94,7 +94,16 @@ export function PreferenceBar({
       <Text style={[styles.helper, { color: colors.mutedForeground }]}>{helperText}</Text>
 
       <GestureDetector gesture={pan}>
-        <View style={styles.gestureArea} onLayout={handleLayout}>
+        <View style={styles.gestureArea} onLayout={handleLayout}
+          accessible accessibilityRole="adjustable" accessibilityLabel={questionText}
+          accessibilityHint="Adjust your preference. This influences starting assignments; use Never me during chart approval to exclude yourself."
+          accessibilityValue={{ min: 0, max: 100, now: value, text: value < 25 ? "Not preferred" : value > 75 ? "Preferred" : "Impartial" }}
+          accessibilityActions={[{ name: "increment", label: "Prefer more" }, { name: "decrement", label: "Prefer less" }]}
+          onAccessibilityAction={({ nativeEvent }) => {
+            if (nativeEvent.actionName === "increment") onChange(clamp(value + 50, 0, 100));
+            if (nativeEvent.actionName === "decrement") onChange(clamp(value - 50, 0, 100));
+          }}
+        >
           <View style={[styles.track, { backgroundColor: colors.border }]} />
           <View style={styles.dots}>
             {Array.from({ length: DOT_COUNT }, (_, index) => (
@@ -139,7 +148,7 @@ const styles = StyleSheet.create({
   },
   dimension: {
     fontFamily: "Inter_700Bold", includeFontPadding: false,
-    fontSize: 10,
+    fontSize: 11,
     letterSpacing: 1.8,
   },
   question: {
@@ -153,7 +162,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   gestureArea: {
-    height: 42,
+    height: 44,
     marginTop: 15,
     justifyContent: "center",
   },
@@ -188,7 +197,7 @@ const styles = StyleSheet.create({
   checkpointLabel: {
     width: "33.333%",
     fontFamily: "Inter_600SemiBold", includeFontPadding: false,
-    fontSize: 8,
+    fontSize: 11,
     letterSpacing: 0.8,
     textAlign: "center",
   },

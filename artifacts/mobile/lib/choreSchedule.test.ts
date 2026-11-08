@@ -5,6 +5,7 @@ import {
   CHORE_RECURRENCE_LABELS,
   initialIntervalDaysFor,
   resolveRoundRobinParticipants,
+  roundRobinAssigneeAfter,
 } from "./choreSchedule.ts";
 
 function assert(condition: boolean, message: string) {
@@ -50,13 +51,14 @@ assert(
 assert(
   initialIntervalDaysFor("daily") === 1 &&
     initialIntervalDaysFor("everyOtherDay") === 2 &&
+    initialIntervalDaysFor("everyThreeDays") === 3 &&
     initialIntervalDaysFor("weekly") === 7 &&
     initialIntervalDaysFor("biweekly") === 14 &&
     initialIntervalDaysFor("monthly") === 30,
   "each recurrence must have a distinct, correct initial interval",
 );
 assert(
-  Object.keys(CHORE_RECURRENCE_LABELS).length === 5 &&
+  Object.keys(CHORE_RECURRENCE_LABELS).length === 6 &&
     CHORE_RECURRENCE_LABELS.everyOtherDay === "Every other day",
   "every recurrence value must have a human-readable display label",
 );
@@ -86,3 +88,35 @@ const fixed = resolveRoundRobinParticipants(
   ["a", "b", "c", "d"],
 );
 assert(fixed.join(",") === "b,a", "fixed rotations must not add new household members");
+
+assert(
+  advanceScheduledDate("2026-07-30", "everyThreeDays") === "2026-08-02" &&
+    advanceChoreDueDate("2026-07-30T12:00:00.000Z", "everyThreeDays") === "2026-08-02T12:00:00.000Z" &&
+    CHORE_RECURRENCE_LABELS.everyThreeDays === "Every 3 days",
+  "every-three-days cadence must stay exact in date-only schedules, persisted due dates and labels",
+);
+
+assert(
+  advanceChoreDueDate("2026-03-07T14:15:32.125Z", "daily", undefined, "America/New_York") === "2026-03-08T13:15:32.125Z",
+  "completion-created next occurrences must preserve the household clock across spring DST",
+);
+assert(
+  advanceChoreDueDate("2026-10-31T13:15:32.125Z", "daily", undefined, "America/New_York") === "2026-11-01T14:15:32.125Z",
+  "completion-created next occurrences must preserve the household clock across fall DST",
+);
+assert(
+  advanceChoreDueDate(advanceChoreDueDate("2026-01-31T14:00:00.000Z", "monthly", 31, "America/New_York"), "monthly", 31, "America/New_York") === "2026-03-31T13:00:00.000Z",
+  "timezone-aware monthly completion must retain its anchor through February and DST",
+);
+
+const rotationSeed: Chore = { ...chore, assignedTo: "b", roundRobinParticipantIds: ["a", "b", "c"], excludedParticipantIds: [], roundRobinCursor: 1 };
+assert(roundRobinAssigneeAfter(rotationSeed, ["a", "b", "c"]) === "c", "shared rotation must advance from the actual current assignee");
+assert(roundRobinAssigneeAfter(rotationSeed, ["a", "b", "c"], 2) === "a", "multiple scheduled turns must retain their positions");
+assert(roundRobinAssigneeAfter(rotationSeed, ["a", "c"]) === "c", "a departing owner must hand off to the next surviving old successor");
+assert(roundRobinAssigneeAfter(rotationSeed, ["a", "c"], 2) === "a", "deleted scheduled positions must still count after a departure");
+assert(roundRobinAssigneeAfter({ ...rotationSeed, assignedTo: "c" }, ["a", "b", "c", "d"]) === "d", "new members must join an all-members rotation");
+assert(roundRobinAssigneeAfter({ ...rotationSeed, assignedTo: "c", roundRobinAllMembers: false }, ["a", "b", "c", "d"]) === "a", "new members must not enter a fixed cohort");
+assert(roundRobinAssigneeAfter({ ...rotationSeed, assignedTo: "a", excludedParticipantIds: ["b"] }, ["a", "b", "c"]) === "c", "Never-me exclusions must apply to shared rotation");
+assert(roundRobinAssigneeAfter({ ...rotationSeed, assignmentMode: "specific-person" }, ["a", "b", "c"], 3) === "b", "an active specific-person pin must stay fixed");
+assert(roundRobinAssigneeAfter({ ...rotationSeed, assignmentMode: "specific-person" }, ["a", "c"]) === undefined, "a departed pinned owner must need review");
+assert(roundRobinAssigneeAfter(rotationSeed, []) === undefined, "empty active rosters must not invent an eligible assignee");
