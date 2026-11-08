@@ -38,7 +38,7 @@ import { ManualChoreForm } from "@/components/ManualChoreForm";
 import { RoommateAvatar } from "@/components/RoommateAvatar";
 import { Surface } from "@/components/Surface";
 import { GlassCheckCircle } from "@/components/GlassCheckCircle";
-import { PinchListViewCoach, usePinchListView } from "@/components/PinchListView";
+import { usePinchListView } from "@/components/PinchListView";
 import {
   useAppContextSelector,
   type Chore,
@@ -168,7 +168,7 @@ export default function GroupChoresScreen() {
     }));
   const monitorCompletionTokens = useMemo(() => houseMonitorCompletionTokens(chores), [chores]);
   const lifecycleNow = useChoreLifecycleNow(chores);
-  const { listView, pinchGesture, showCoach, dismissCoach } =
+  const { listView, pinchGesture } =
     usePinchListView(currentUserId, "group");
 
   const { confirm, info } = useConfirm();
@@ -611,8 +611,6 @@ export default function GroupChoresScreen() {
         subtitle="Your household’s shared responsibilities"
         topPadding={topPad + 16}
       />
-
-      <PinchListViewCoach visible={showCoach} onDismiss={dismissCoach} />
 
       <View style={styles.choreFilterRow} accessibilityRole="tablist">
         {(["activity", "calendar"] as const).map((option) => (

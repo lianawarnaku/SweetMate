@@ -1,52 +1,25 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import React, { useEffect, useMemo, useState } from "react";
-import {
-  LayoutAnimation,
-  Platform,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  UIManager,
-  View,
-} from "react-native";
+import { useEffect, useMemo, useState } from "react";
 import { Gesture } from "react-native-gesture-handler";
 
-if (
-  Platform.OS === "android" &&
-  UIManager.setLayoutAnimationEnabledExperimental
-) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
-
-import { useTheme } from "@/constants/colors";
-import { Surface } from "@/components/Surface";
 import { resolvePinchView } from "@/lib/pinchListView";
 
 const preferenceKey = (userId: string, screen: string) =>
   `sweetmate:pinch-list-view:v1:${userId}:${screen}`;
-const coachKey = (userId: string, screen: string) =>
-  `sweetmate:pinch-list-coach:v1:${userId}:${screen}`;
 
 export function usePinchListView(userId: string, screen: "home" | "group") {
   const [listView, setListView] = useState(false);
-  const [showCoach, setShowCoach] = useState(false);
 
   useEffect(() => {
     if (!userId) return;
     let active = true;
-    Promise.all([
-      AsyncStorage.getItem(preferenceKey(userId, screen)),
-      AsyncStorage.getItem(coachKey(userId, screen)),
-    ])
-      .then(([storedView, coachSeen]) => {
-        if (!active) return;
-        setListView(storedView === "list");
-        setShowCoach(coachSeen !== "seen");
+    AsyncStorage.getItem(preferenceKey(userId, screen))
+      .then((storedView) => {
+        if (active) setListView(storedView === "list");
       })
       .catch(() => {
-        if (active) setShowCoach(true);
+        // Keep the current view if the saved preference is unavailable.
       });
     return () => {
       active = false;
@@ -75,88 +48,5 @@ export function usePinchListView(userId: string, screen: "home" | "group") {
     [listView, screen, userId],
   );
 
-  const dismissCoach = () => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setShowCoach(false);
-    void AsyncStorage.setItem(coachKey(userId, screen), "seen");
-  };
-
-  return { listView, pinchGesture, showCoach, dismissCoach };
+  return { listView, pinchGesture };
 }
-
-export function PinchListViewCoach({
-  visible,
-  onDismiss,
-}: {
-  visible: boolean;
-  onDismiss: () => void;
-}) {
-  const colors = useTheme();
-  if (!visible) return null;
-
-  return (
-    <Surface style={[styles.coach, { borderColor: colors.border }]}>
-      <View style={[styles.gestureIcon, { borderColor: colors.border }]}>
-        <Feather name="minimize-2" size={24} color={colors.foreground} />
-      </View>
-      <View style={styles.copy}>
-        <Text style={[styles.title, { color: colors.foreground }]}>Pinch for list view</Text>
-        <Text style={[styles.message, { color: colors.mutedForeground }]}>
-          Pinch with two fingers to switch between dashboard and list views.
-        </Text>
-      </View>
-      <TouchableOpacity
-        onPress={onDismiss}
-        style={[styles.close, { backgroundColor: colors.muted, borderColor: colors.border }]}
-        accessibilityRole="button"
-        accessibilityLabel="Dismiss pinch gesture tip"
-        hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
-      >
-        <Feather name="x" size={19} color={colors.foreground} />
-      </TouchableOpacity>
-    </Surface>
-  );
-}
-
-const styles = StyleSheet.create({
-  coach: {
-    marginHorizontal: 18,
-    marginBottom: 14,
-    minHeight: 112,
-    borderRadius: 24,
-    borderWidth: 1,
-    padding: 16,
-    paddingRight: 50,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 14,
-    overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.18,
-    shadowRadius: 24,
-    elevation: 10,
-  },
-  gestureIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  copy: { flex: 1, gap: 3 },
-  title: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 16 },
-  message: { fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 13, lineHeight: 18 },
-  close: {
-    position: "absolute",
-    top: 12,
-    right: 12,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-});

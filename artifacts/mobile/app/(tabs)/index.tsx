@@ -39,7 +39,7 @@ import { FloatingActionButton, useFloatingActionMetrics } from "@/components/Flo
 import { HeaderActions } from "@/components/HeaderActions";
 import { ManualChoreForm } from "@/components/ManualChoreForm";
 import { GlassCheckCircle } from "@/components/GlassCheckCircle";
-import { PinchListViewCoach, usePinchListView } from "@/components/PinchListView";
+import { usePinchListView } from "@/components/PinchListView";
 import {
   type ChoreCategory,
   type Chore,
@@ -572,7 +572,7 @@ export default function MyChoresScreen() {
 
   const currentUser = roommates.find((r) => r.id === currentUserId);
   const { reduceMotion } = useAccessibilityPreferences();
-  const { listView, pinchGesture, showCoach, dismissCoach } =
+  const { listView, pinchGesture } =
     usePinchListView(currentUserId, "home");
   const lifecycleNow = useChoreLifecycleNow(chores);
   const [filter, setFilter] = useState<Filter>("today");
@@ -1145,8 +1145,6 @@ export default function MyChoresScreen() {
                 {currentUser?.name ?? "You"}
               </Text>
             </View>
-
-            <PinchListViewCoach visible={showCoach} onDismiss={dismissCoach} />
 
             {!listView && (
               <TodayFocusCard
