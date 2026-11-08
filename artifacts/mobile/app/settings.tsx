@@ -1311,135 +1311,148 @@ export default function SettingsScreen() {
           >
             HOUSEHOLD TOOLS
           </Text>
-          <HouseholdCompletionControl />
-          <TouchableOpacity
-            style={[
-              styles.linkRow,
-              { backgroundColor: colors.card, borderColor: colors.border },
-            ]}
-            onPress={() => router.push("/task-difficulty")}
+          <CollapsibleSettingsSection
+            title="HOUSEHOLD PREFERENCES"
+            subtitle="Setup, task difficulty, and household planning"
+            icon="home"
           >
-            <View
-              style={[
-                styles.linkIcon,
-                { backgroundColor: colors.accent + "18" },
-              ]}
-            >
-              <Feather name="bar-chart-2" size={19} color={colors.accent} />
+            <View>
+              <HouseholdCompletionControl />
+              <TouchableOpacity
+                style={[
+                  styles.linkRow,
+                  { backgroundColor: colors.card, borderColor: colors.border },
+                ]}
+                onPress={() => router.push("/task-difficulty")}
+              >
+                <View
+                  style={[
+                    styles.linkIcon,
+                    { backgroundColor: colors.accent + "18" },
+                  ]}
+                >
+                  <Feather name="bar-chart-2" size={19} color={colors.accent} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.linkTitle, { color: colors.foreground }]}>
+                    TASK DIFFICULTY
+                  </Text>
+                  <Text style={[styles.linkSub, { color: colors.mutedForeground }]}>
+                    Review and edit shared difficulty levels
+                  </Text>
+                </View>
+                <Feather
+                  name="chevron-right"
+                  size={18}
+                  color={colors.mutedForeground}
+                />
+              </TouchableOpacity>
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel="Open Chore Chart planning"
+                style={[
+                  styles.linkRow,
+                  { backgroundColor: colors.card, borderColor: colors.border },
+                ]}
+                onPress={() => router.push("/planning?type=chore-chart" as never)}
+              >
+                <View
+                  style={[
+                    styles.linkIcon,
+                    { backgroundColor: colors.primary + "18" },
+                  ]}
+                >
+                  <Feather name="calendar" size={20} color={colors.primary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.linkTitle, { color: colors.foreground }]}>
+                    CHORE CHART
+                  </Text>
+                  <Text style={[styles.linkSub, { color: colors.mutedForeground }]}>
+                    Build a fair shared schedule for household chores
+                  </Text>
+                </View>
+                <Feather
+                  name="chevron-right"
+                  size={18}
+                  color={colors.mutedForeground}
+                />
+              </TouchableOpacity>
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel="Open Sweet Essentials"
+                style={[
+                  styles.linkRow,
+                  { backgroundColor: colors.card, borderColor: colors.border },
+                ]}
+                onPress={() => router.push("/planning?type=home-checklist" as never)}
+              >
+                <View
+                  style={[
+                    styles.linkIcon,
+                    { backgroundColor: colors.accent + "18" },
+                  ]}
+                >
+                  <Feather name="shopping-bag" size={20} color={colors.accent} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.linkTitle, { color: colors.foreground }]}>
+                    SWEET ESSENTIALS
+                  </Text>
+                  <Text style={[styles.linkSub, { color: colors.mutedForeground }]}>
+                    Browse the optional checklist for setting up your Sweet
+                  </Text>
+                </View>
+                <Feather
+                  name="chevron-right"
+                  size={18}
+                  color={colors.mutedForeground}
+                />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.linkRow,
+                  {
+                    backgroundColor: colors.card,
+                    borderColor: colors.border,
+                    opacity: restartingChart ? 0.6 : 1,
+                  },
+                ]}
+                onPress={confirmRestartChart}
+                disabled={restartingChart}
+              >
+                <View
+                  style={[
+                    styles.linkIcon,
+                    { backgroundColor: colors.warning + "18" },
+                  ]}
+                >
+                  <Feather name="rotate-ccw" size={18} color={colors.warning} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.linkTitle, { color: colors.foreground }]}>
+                    RESTART CHART PROCESS
+                  </Text>
+                  <Text style={[styles.linkSub, { color: colors.mutedForeground }]}>
+                    {currentProposedChart?.status === "pending"
+                      ? "Cancel the pending proposal and generate a new one"
+                      : "Return to planning and generate a fresh proposal"}
+                  </Text>
+                </View>
+                <Feather
+                  name="chevron-right"
+                  size={18}
+                  color={colors.mutedForeground}
+                />
+              </TouchableOpacity>
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.linkTitle, { color: colors.foreground }]}>
-                TASK DIFFICULTY
-              </Text>
-              <Text style={[styles.linkSub, { color: colors.mutedForeground }]}>
-                Review and edit shared difficulty levels
-              </Text>
-            </View>
-            <Feather
-              name="chevron-right"
-              size={18}
-              color={colors.mutedForeground}
-            />
-          </TouchableOpacity>
-          <TouchableOpacity
-            accessibilityRole="button"
-            accessibilityLabel="Open Chore Chart planning"
-            style={[
-              styles.linkRow,
-              { backgroundColor: colors.card, borderColor: colors.border },
-            ]}
-            onPress={() => router.push("/planning?type=chore-chart" as never)}
-          >
-            <View
-              style={[
-                styles.linkIcon,
-                { backgroundColor: colors.primary + "18" },
-              ]}
-            >
-              <Feather name="calendar" size={20} color={colors.primary} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.linkTitle, { color: colors.foreground }]}>
-                CHORE CHART
-              </Text>
-              <Text style={[styles.linkSub, { color: colors.mutedForeground }]}>
-                Build a fair shared schedule for household chores
-              </Text>
-            </View>
-            <Feather
-              name="chevron-right"
-              size={18}
-              color={colors.mutedForeground}
-            />
-          </TouchableOpacity>
-          <TouchableOpacity
-            accessibilityRole="button"
-            accessibilityLabel="Open Sweet Essentials"
-            style={[
-              styles.linkRow,
-              { backgroundColor: colors.card, borderColor: colors.border },
-            ]}
-            onPress={() => router.push("/planning?type=home-checklist" as never)}
-          >
-            <View
-              style={[
-                styles.linkIcon,
-                { backgroundColor: colors.accent + "18" },
-              ]}
-            >
-              <Feather name="shopping-bag" size={20} color={colors.accent} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.linkTitle, { color: colors.foreground }]}>
-                SWEET ESSENTIALS
-              </Text>
-              <Text style={[styles.linkSub, { color: colors.mutedForeground }]}>
-                Browse the optional checklist for setting up your Sweet
-              </Text>
-            </View>
-            <Feather
-              name="chevron-right"
-              size={18}
-              color={colors.mutedForeground}
-            />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.linkRow,
-              {
-                backgroundColor: colors.card,
-                borderColor: colors.border,
-                opacity: restartingChart ? 0.6 : 1,
-              },
-            ]}
-            onPress={confirmRestartChart}
-            disabled={restartingChart}
-          >
-            <View
-              style={[
-                styles.linkIcon,
-                { backgroundColor: colors.warning + "18" },
-              ]}
-            >
-              <Feather name="rotate-ccw" size={18} color={colors.warning} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.linkTitle, { color: colors.foreground }]}>
-                RESTART CHART PROCESS
-              </Text>
-              <Text style={[styles.linkSub, { color: colors.mutedForeground }]}>
-                {currentProposedChart?.status === "pending"
-                  ? "Cancel the pending proposal and generate a new one"
-                  : "Return to planning and generate a fresh proposal"}
-              </Text>
-            </View>
-            <Feather
-              name="chevron-right"
-              size={18}
-              color={colors.mutedForeground}
-            />
-          </TouchableOpacity>
+          </CollapsibleSettingsSection>
 
+          <Text
+            style={[styles.sectionLabel, { color: colors.mutedForeground }]}
+          >
+            PERSONAL
+          </Text>
           <CollapsibleSettingsSection
             title="APP PREFERENCES"
             subtitle="Appearance, features, and behavior"
