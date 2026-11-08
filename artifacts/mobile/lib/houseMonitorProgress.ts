@@ -70,15 +70,3 @@ export function getHouseMonitorProgress(
           : 0,
   };
 }
-
-/**
- * Bottom-up fill height for an upright triangle. Its filled area is 2h - h²,
- * so a linear height would overstate progress (half height fills 75% of area).
- */
-export function roofFillHeightFraction(areaFraction: number): number {
-  "worklet";
-  const fraction = Number.isFinite(areaFraction)
-    ? Math.min(1, Math.max(0, areaFraction))
-    : 0;
-  return 1 - Math.sqrt(1 - fraction);
-}

@@ -2,7 +2,6 @@ import { strict as assert } from "node:assert";
 import {
   getHouseMonitorProgress,
   houseMonitorGridSquares,
-  roofFillHeightFraction,
 } from "./houseMonitorProgress.ts";
 
 function approximately(actual: number, expected: number, message: string) {
@@ -232,22 +231,5 @@ approximately(
   475 / 975,
   "any chores above the cap stay represented in the roof",
 );
-
-for (const area of [0, 0.1, 0.25, 0.5, 0.75, 0.9, 1]) {
-  const height = roofFillHeightFraction(area);
-  approximately(
-    2 * height - height * height,
-    area,
-    "roof geometry must show proportional filled area",
-  );
-}
-assert.ok(
-  roofFillHeightFraction(0.5) < 0.3,
-  "half of roof area must not be drawn as half of its height",
-);
-assert.equal(roofFillHeightFraction(-1), 0);
-assert.equal(roofFillHeightFraction(2), 1);
-for (const invalid of [NaN, Infinity, -Infinity])
-  assert.equal(roofFillHeightFraction(invalid), 0);
 
 console.log("House Monitor progress tests passed");

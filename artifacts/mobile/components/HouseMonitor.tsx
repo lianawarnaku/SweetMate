@@ -1,7 +1,7 @@
 import { useFocusEffect } from "expo-router";
 import React, { useCallback, useEffect, useId, useRef } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import Svg, { ClipPath, Defs, Polygon, Rect } from "react-native-svg";
+import Svg, { ClipPath, Defs, Path, Rect } from "react-native-svg";
 import Animated, {
   Easing,
   cancelAnimation,
@@ -17,16 +17,20 @@ import Animated, {
 
 import { useTheme } from "@/constants/colors";
 import { useAccessibilityPreferences } from "@/hooks/useAccessibilityPreferences";
+import { getHouseMonitorProgress } from "@/lib/houseMonitorProgress";
 import {
-  getHouseMonitorProgress,
-  roofFillHeightFraction,
-} from "@/lib/houseMonitorProgress";
+  HOUSE_MONITOR_ROOF_HEIGHT,
+  HOUSE_MONITOR_ROOF_PATH,
+  HOUSE_MONITOR_ROOF_WIDTH,
+  houseMonitorRoofFillHeightFraction,
+} from "@/lib/houseMonitorRoof";
 
 export { houseMonitorGridSquares } from "@/lib/houseMonitorProgress";
 
-const BODY_SIZE = 112;
-const ROOF_HEIGHT = 52;
+const BODY_SIZE = HOUSE_MONITOR_ROOF_WIDTH;
+const ROOF_HEIGHT = HOUSE_MONITOR_ROOF_HEIGHT;
 const GRID_GAP = 3;
+const TILE_CORNER_RADIUS = 5;
 const AnimatedRect = Animated.createAnimatedComponent(Rect);
 
 export type HouseMonitorLocalEvent = {
@@ -93,10 +97,11 @@ function GridSquare({
   const fillOpacity = useSharedValue(completed ? 1 : 0);
   const bubbleProgress = useSharedValue(1);
   const previousCompleted = useRef(completed);
-  // Jointly budget the bloom and rotation to stay inside half of the 3px gap,
-  // even when two neighboring chores complete in the same update.
+  // Keep outward motion inside the gap; deeper inward squash makes the
+  // alternating rebounds feel watery without colliding with adjacent tiles.
   const overshoot = Math.min(0.16, 1.8 / size);
   const jiggleDegrees = Math.min(3, 50 / size);
+  const squash = Math.min(0.24, 9 / size);
 
   useEffect(() => {
     const newlyCompleted = completed && !previousCompleted.current;
@@ -114,7 +119,7 @@ function GridSquare({
     fillOpacity.value = withTiming(1, { duration: 100 });
     bubbleProgress.value = withSequence(
       withTiming(0.34, { duration: 210, easing: Easing.out(Easing.cubic) }),
-      withTiming(0.5, { duration: 110, easing: Easing.inOut(Easing.quad) }),
+      withTiming(0.5, { duration: 140, easing: Easing.inOut(Easing.quad) }),
       withTiming(0.67, { duration: 100, easing: Easing.inOut(Easing.quad) }),
       withTiming(0.83, { duration: 90, easing: Easing.inOut(Easing.quad) }),
       withTiming(1, { duration: 100, easing: Easing.out(Easing.cubic) }),
@@ -142,7 +147,12 @@ function GridSquare({
       borderRadius: interpolate(
         bubbleProgress.value,
         [0, 0.34, 0.6, 1],
-        [size / 2, Math.max(3, size * 0.22), Math.max(3, size * 0.1), 3],
+        [
+          size / 2,
+          Math.max(TILE_CORNER_RADIUS, size * 0.28),
+          Math.max(TILE_CORNER_RADIUS, size * 0.16),
+          TILE_CORNER_RADIUS,
+        ],
       ),
       transform: [
         {
@@ -152,9 +162,9 @@ function GridSquare({
             [
               0.18,
               1 + overshoot,
-              1 - overshoot * 0.5,
-              1 + overshoot * 0.22,
-              1 - overshoot * 0.1,
+              1 - squash * 0.8,
+              1 + overshoot * 0.5,
+              1 - squash * 0.12,
               1,
             ],
           ),
@@ -165,10 +175,10 @@ function GridSquare({
             [0, 0.34, 0.5, 0.67, 0.83, 1],
             [
               0.18,
-              1 - overshoot * 0.8,
+              1 - squash,
               1 + overshoot,
-              1 - overshoot * 0.28,
-              1 + overshoot * 0.12,
+              1 - squash * 0.35,
+              1 + overshoot * 0.16,
               1,
             ],
           ),
@@ -178,7 +188,7 @@ function GridSquare({
         },
       ],
     }),
-    [bubbleProgress, fillOpacity, jiggleDegrees, overshoot, size],
+    [bubbleProgress, fillOpacity, jiggleDegrees, overshoot, size, squash],
   );
   const haloStyle = useAnimatedStyle(
     () => ({
@@ -190,7 +200,11 @@ function GridSquare({
               [0, 0.16, 0.48, 0.72, 1],
               [0, 0.28, 0.15, 0, 0],
             ),
-      borderRadius: interpolate(bubbleProgress.value, [0, 1], [size / 2, 3]),
+      borderRadius: interpolate(
+        bubbleProgress.value,
+        [0, 1],
+        [size / 2, TILE_CORNER_RADIUS],
+      ),
       transform: [
         {
           scale: interpolate(
@@ -333,12 +347,12 @@ export function HouseMonitor({
     [focusProgress, monitorScale],
   );
   const roofFillProps = useAnimatedProps(() => {
-    // A triangle narrows toward its peak: use area, rather than raw height.
-    const fillHeight = ROOF_HEIGHT * roofFillHeightFraction(roofProgress.value);
+    // Use the rounded roof's area so soft corners cannot distort progress.
+    const fillHeight =
+      ROOF_HEIGHT * houseMonitorRoofFillHeightFraction(roofProgress.value);
     return { y: ROOF_HEIGHT - fillHeight, height: fillHeight };
   }, [roofProgress]);
   const squareSize = (BODY_SIZE - GRID_GAP * (gridSide - 1)) / gridSide;
-  const roofPoints = `0,${ROOF_HEIGHT} ${BODY_SIZE / 2},0 ${BODY_SIZE},${ROOF_HEIGHT}`;
 
   return (
     <View
@@ -367,11 +381,11 @@ export function HouseMonitor({
         >
           <Defs>
             <ClipPath id={roofClipId}>
-              <Polygon points={roofPoints} />
+              <Path d={HOUSE_MONITOR_ROOF_PATH} />
             </ClipPath>
           </Defs>
-          <Polygon
-            points={roofPoints}
+          <Path
+            d={HOUSE_MONITOR_ROOF_PATH}
             fill={faintThemeColor(
               colors.primary,
               colors.background,
@@ -386,8 +400,8 @@ export function HouseMonitor({
             clipPath={`url(#${roofClipId})`}
             animatedProps={roofFillProps}
           />
-          <Polygon
-            points={roofPoints}
+          <Path
+            d={HOUSE_MONITOR_ROOF_PATH}
             fill="none"
             stroke={faintThemeColor(
               colors.primary,
@@ -464,7 +478,7 @@ const styles = StyleSheet.create({
   squareContainer: { flex: 1, position: "relative", overflow: "visible" },
   squareOutline: {
     ...StyleSheet.absoluteFillObject,
-    borderRadius: 3,
+    borderRadius: TILE_CORNER_RADIUS,
     borderWidth: 1,
   },
   squareFill: { ...StyleSheet.absoluteFillObject, borderWidth: 1 },
