@@ -1,4 +1,5 @@
 import type { Expense } from "../context/AppContext.ts";
+import { normalizeExpenseDate } from "./expenseDate.ts";
 
 export type ExpenseRow = {
   id: string;
@@ -11,21 +12,25 @@ export type ExpenseRow = {
   entry: Expense;
   created_at: string;
   updated_at: string;
+  version?: number;
 };
 
 export function expenseToRow(expense: Expense, householdId: string): ExpenseRow {
   const now = expense.updatedAt ?? expense.createdAt ?? new Date().toISOString();
+  const date = normalizeExpenseDate(expense.date);
+  if (date === null) throw new Error("Choose a valid expense date.");
   return {
     id: expense.id,
     household_id: householdId,
     paid_by: expense.paidBy,
     creator_id: expense.creatorId ?? null,
     amount_cents: expense.amountCents ?? Math.round(expense.amount * 100),
-    expense_date: expense.date,
+    expense_date: date,
     settled: expense.settled,
-    entry: expense,
+    entry: expense.date === date ? expense : { ...expense, date },
     created_at: expense.createdAt ?? now,
     updated_at: now,
+    ...(expense.version === undefined ? {} : { version: expense.version }),
   };
 }
 
@@ -37,9 +42,10 @@ export function rowToExpense(row: ExpenseRow): Expense {
     creatorId: row.creator_id ?? undefined,
     amountCents: row.amount_cents,
     amount: row.amount_cents / 100,
-    date: row.expense_date,
+    date: normalizeExpenseDate(row.expense_date) ?? normalizeExpenseDate(row.entry.date) ?? row.expense_date,
     settled: row.settled,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    ...(row.version === undefined ? {} : { version: row.version }),
   };
 }

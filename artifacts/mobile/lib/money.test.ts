@@ -102,6 +102,6 @@ assert(
 );
 assert(
   expenseScreen.includes("submittingIouRef.current") &&
-    expenseScreen.includes("if (!updateExpense(editingExpenseId, payload))"),
+    expenseScreen.includes("if (!await updateExpense(editingExpenseId, payload))"),
   "repeated saves and failed edits must not create parallel IOUs",
 );

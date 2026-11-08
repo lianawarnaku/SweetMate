@@ -173,16 +173,16 @@ export function deriveCalendarItems(
 
   for (const expense of sources.expenses) {
     // The shared expense source has already applied household access rules.
-    const recurrence = expense.recurring === "custom" ? undefined : expense.recurring;
-    for (const date of occurrencesInRange(expense.date, recurrence, rangeStart, rangeEnd)) {
+    // A legacy recurrence label is metadata, not a separate repayable IOU.
+    // Show only the actual saved record until expense series are implemented.
+    for (const date of occurrencesInRange(expense.date, undefined, rangeStart, rangeEnd)) {
       const key = occurrenceKey("expense", expense.id, date);
       const isStoredOccurrence = localDateKey(localCalendarDate(expense.date) ?? date) === localDateKey(date);
       result.set(key, {
         id: key, sourceId: expense.id, occurrenceId: key, type: "expense",
         title: expense.title,
         description: `${expense.settled ? "Settled" : "Unsettled"} · paid by ${roommateName.get(expense.paidBy) ?? "a Sweetmate"}`,
-        date: localDateKey(date), isRecurring: Boolean(expense.recurring),
-        recurrenceLabel: expense.recurring === "custom" ? expense.recurringCustom ?? "Custom" : expense.recurring,
+        date: localDateKey(date), isRecurring: false,
         completed: isStoredOccurrence ? expense.settled : false,
         amountCents: Math.round(expense.amount * 100), payerId: expense.paidBy,
       });

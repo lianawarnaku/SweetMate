@@ -83,3 +83,13 @@ const otherHousehold = deriveCalendarItems(
 );
 assert(otherHousehold.length === 0, "calendar derivation must isolate households");
 assert(localDateKey(localCalendarDate("2028-02-29")!) === "2028-02-29", "date-only leap days must remain stable");
+
+// Legacy expense labels must not invent unpaid future IOUs in the calendar.
+const expenses = deriveCalendarItems({
+  chores: [], shoppingItems: [], shoppingLists: [], roommates: members,
+  currentUserId: "a", householdId: "home-a",
+  expenses: [{ id: "rent", title: "Rent", date: "2026-07-27", category: "rent", amount: 100, amountCents: 10000,
+    paidBy: "a", sharedWith: ["b"], splits: { b: 100 }, settled: true, recurring: "daily" }],
+}, new Date(2026, 6, 27), new Date(2026, 7, 5));
+assert(expenses.length === 1 && expenses[0].completed === true && expenses[0].isRecurring === false,
+  "only the saved expense may appear; legacy recurrence must not fabricate unpaid occurrences");

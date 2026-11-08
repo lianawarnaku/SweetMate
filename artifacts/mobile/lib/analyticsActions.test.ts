@@ -26,52 +26,61 @@ function callback(name: string, bindings: Record<string, unknown>): (...args: an
 const events: { event: string; properties?: Record<string, unknown> }[] = [];
 const track = new Proxy({}, { get: (_target, event: string) => (properties?: Record<string, unknown>) => events.push({ event, properties }) });
 const names = () => events.map((event) => event.event);
-const expense = { id: "expense", paidBy: "payer", settled: false, splits: { payer: 2, a: 2, b: 2 } };
+// Run the actual acknowledgement callback: failed network requests never
+// count as completed financial actions.
+const hookSource = readFileSync(resolve(process.cwd(), "hooks/useExpenseSync.ts"), "utf8");
+const hookParsed = ts.createSourceFile("useExpenseSync.ts", hookSource, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+let acknowledgement: ts.Expression | undefined;
+function findAcknowledgement(node: ts.Node) {
+  if (ts.isPropertyAssignment(node) && node.name.getText(hookParsed) === "onAcknowledged") acknowledgement = node.initializer;
+  ts.forEachChild(node, findAcknowledgement);
+}
+findAcknowledgement(hookParsed);
+assert(acknowledgement);
+const ackExports: { ack?: (...args: any[]) => void } = {};
+runInNewContext(ts.transpileModule(`exports.ack = ${acknowledgement.getText(hookParsed)}`, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, { exports: ackExports, track, scopeRef: { current: "test" }, scope: "test" });
+const expense = { id: "expense", paidBy: "payer", settled: false, splits: { payer: 2, a: 2, b: 2 }, version: 1 };
 const expensesRef: { current: any[] } = { current: [expense] };
-const setExpenses = (next: any[] | ((previous: any[]) => any[])) => {
-  expensesRef.current = typeof next === "function" ? next(expensesRef.current) : next;
+let rejectWrite = false;
+let mutationCount = 0;
+const mutateExpense = async (action: string, id: string) => {
+  if (rejectWrite) throw new Error("network failure");
+  mutationCount++;
+  const old = expensesRef.current.find(value => value.id === id);
+  const next = { ...old, settled: action === "settle" || !!old.paidBack?.a, paidBack: action === "repay" ? { ...old.paidBack, [old.paidBack?.a ? "b" : "a"]: true } : old.paidBack };
+  expensesRef.current = [next];
+  const result = { id, deleted: false, expense: { settled: next.settled } };
+  ackExports.ack!({ action }, result);
+  return result;
 };
-const markPaid = callback("markPersonPaid", { expensesRef, setExpenses, track });
-markPaid("expense", "payer");
-markPaid("expense", "unknown");
-assert.equal(events.length, 0, "payer/nonexistent shares are not repayments");
-markPaid("expense", "a");
-markPaid("expense", "a");
-assert.deepEqual(names(), ["expenseRepaymentRecorded"], "duplicate repayment counts once");
+const markA = callback("markPersonPaid", { expensesRef, currentUserId: "a", mutateExpense });
+await assert.rejects(() => markA("expense", "payer"), /own repayment/);
+assert.equal(await markA("missing", "a").catch(() => false), false);
+rejectWrite = true;
+await assert.rejects(() => markA("expense", "a"), /network failure/);
+assert.equal(events.length, 0, "failed writes do not count as completed repayments");
+rejectWrite = false;
+assert.equal(await markA("expense", "a"), true);
+assert.equal(await markA("expense", "a"), false);
+assert.deepEqual(names(), ["expenseRepaymentRecorded"]);
 assert.equal(events[0].properties?.settles_expense, false);
-assert.equal(expensesRef.current[0].settled, false);
-markPaid("expense", "b");
+const markB = callback("markPersonPaid", { expensesRef, currentUserId: "b", mutateExpense });
+assert.equal(await markB("expense", "b"), true);
 assert.deepEqual(names(), ["expenseRepaymentRecorded", "expenseRepaymentRecorded", "iouSettled"]);
-assert.equal(events[1].properties?.settles_expense, true);
 assert.equal(events[2].properties?.source, "repayment");
-assert.equal(expensesRef.current[0].settled, true);
-assert(expensesRef.current[0].updatedAt, "repayment changes need a sync timestamp");
-markPaid("expense", "b");
-assert.equal(events.length, 3, "settled repeats do not count again");
-const settle = callback("settleExpense", { expensesRef, setExpenses, track, canManageExpense: () => true });
-assert.equal(settle("expense"), false);
-expensesRef.current = [{ ...expense }];
-events.length = 0;
-assert.equal(settle("expense"), true);
-assert.equal(settle("expense"), false);
-assert.deepEqual(names(), ["iouSettled"], "manual settlement only counts the first transition");
-assert.equal(events[0].properties?.source, "manual");
-const queuedRef = { current: [{ ...expense }] };
-let queuedState: any[] = [{ ...expense, notes: "pending edit" }, { id: "pending-new-expense" }];
-const queuedSettle = callback("settleExpense", {
-  expensesRef: queuedRef, track, canManageExpense: () => true,
-  setExpenses: (update: (previous: any[]) => any[]) => { queuedState = update(queuedState); },
-});
-assert.equal(queuedSettle("expense"), true);
-assert.equal(queuedState[0].notes, "pending edit", "settlement preserves an already queued edit");
-assert.equal(queuedState[1].id, "pending-new-expense", "settlement preserves another queued expense creation");
-const forbiddenSettle = callback("settleExpense", {
-  expensesRef: { current: [{ ...expense }] }, setExpenses: () => assert.fail("unauthorized mutation"),
-  track, canManageExpense: () => false,
-});
-const beforeForbidden = events.length;
-assert.equal(forbiddenSettle("expense"), false);
-assert.equal(events.length, beforeForbidden, "existing settlement permissions remain enforced");
+assert.equal(mutationCount, 2, "duplicate presses never create a second repayment");
+const settle = callback("settleExpense", { expensesRef, mutateExpense, canManageExpense: () => true });
+assert.equal(await settle("expense"), false);
+expensesRef.current = [{ ...expense }]; events.length = 0;
+rejectWrite = true;
+await assert.rejects(() => settle("expense"), /network failure/);
+assert.equal(events.length, 0);
+rejectWrite = false;
+assert.equal(await settle("expense"), true);
+assert.equal(await settle("expense"), false);
+assert.deepEqual(names(), ["iouSettled"]);
+const forbiddenSettle = callback("settleExpense", { expensesRef: { current: [{ ...expense }] }, mutateExpense: () => assert.fail("unauthorized mutation"), canManageExpense: () => false });
+await assert.rejects(() => forbiddenSettle("expense"), /can’t settle/);
 const shoppingItemsRef = { current: [{ id: "item", completed: false }] };
 const completeShopping = callback("setShoppingItemCompleted", { shoppingItemsRef, setShoppingCompletion, recordShoppingVersions: () => {}, setShoppingItems: () => {}, track });
 events.length = 0;

@@ -2,6 +2,7 @@
 export interface SummaryExpense {
   paidBy: string;
   splits?: Record<string, number> | null;
+  allocations?: readonly { participantId: string; amountCents: number }[] | null;
   paidBack?: Record<string, boolean> | null;
   settled?: boolean;
 }
@@ -11,10 +12,15 @@ export function summarizeMemberIous(expenses: readonly SummaryExpense[], memberI
   let owingCents = 0;
   for (const expense of expenses) {
     if (expense.settled) continue;
-    for (const [debtor, share] of Object.entries(expense.splits ?? {})) {
+    const shares = expense.allocations != null
+      ? expense.allocations.map(({ participantId, amountCents }) => [participantId, amountCents] as const)
+      : Object.entries(expense.splits ?? {}).map(([id, dollars]) => [id, Math.round(dollars * 100)] as const);
+    const counted = new Set<string>();
+    for (const [debtor, cents] of shares) {
+      if (counted.has(debtor)) continue;
+      counted.add(debtor);
       if (debtor === expense.paidBy || expense.paidBack?.[debtor]) continue;
-      if (!Number.isFinite(share) || share <= 0) continue;
-      const cents = Math.round(share * 100);
+      if (!Number.isSafeInteger(cents) || cents <= 0) continue;
       if (expense.paidBy === memberId) owedCents += cents;
       if (debtor === memberId) owingCents += cents;
     }

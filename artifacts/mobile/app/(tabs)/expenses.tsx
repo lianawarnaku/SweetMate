@@ -2,9 +2,13 @@ import { summarizeMemberIous } from "@/lib/iouSummary";
 import { KEYBOARD_BEHAVIOR } from "@/lib/keyboard";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import * as Crypto from "expo-crypto";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
+  ActivityIndicator,
+  AppState,
+  useWindowDimensions,
   Dimensions,
   FlatList,
   KeyboardAvoidingView,
@@ -32,14 +36,16 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { EmptyState } from "@/components/EmptyState";
 import { CompletionMotion, CompletionText } from "@/components/CompletionMotion";
 import { Surface } from "@/components/Surface";
-import { ActionMenuModal } from "@/components/ActionMenuModal";
 import { HistoryDisclosure } from "@/components/HistoryDisclosure";
 import { FloatingActionButton, useFloatingActionMetrics } from "@/components/FloatingActionButton";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { InlineFeedback } from "@/components/InlineFeedback";
+import { GlassButton } from "@/components/GlassButton";
+import { ExpensePendingError } from "@/lib/expenseSync";
+import { hasExpensePayments } from "@/lib/expensePolicy";
+import { formatExpenseDate, normalizeExpenseDate, expenseDateInputValue } from "@/lib/expenseDate";
 import { RoommateAvatar } from "@/components/RoommateAvatar";
 import { useTheme } from "@/constants/colors";
-import { useConfirm } from "@/hooks/useConfirm";
 import { useDraggableSheet } from "@/hooks/useDraggableSheet";
 import { success as hapticSuccess } from "@/lib/haptics";
 import { tapLight } from "@/lib/haptics";
@@ -53,12 +59,11 @@ import {
   validateExpenseAllocation,
   type ExpenseSplitMode,
 } from "@/lib/money";
-import { historyPage, isHistoricalResolution } from "@/lib/resolutionHistory";
+import { becomesHistoricalAt, historyPage, isHistoricalResolution } from "@/lib/resolutionHistory";
 import {
   type ExpenseCategory,
   type Expense,
   type PendingIouDraft,
-  type RecurringInterval,
   useAppContextSelector,
 } from "@/context/AppContext";
 
@@ -76,30 +81,23 @@ const EXPENSE_CATEGORIES: {
 
 const AnimatedFlatList = Reanimated.createAnimatedComponent(FlatList<Expense>);
 
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-  });
+const formatDate = formatExpenseDate;
+const todayInputValue = expenseDateInputValue;
+
+function expenseShares(expense: Expense): Record<string, number> {
+  return expense.allocations?.length
+    ? allocationsToDollarSplits(expense.allocations)
+    : expense.splits ?? {};
 }
 
-function todayInputValue() {
-  const now = new Date();
-  const pad = (value: number) => String(value).padStart(2, "0");
-  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-}
-
-function expenseDateIso(value: string): string | null {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
-  const [year, month, day] = value.split("-").map(Number);
-  const parsed = new Date(`${value}T12:00:00`);
-  return Number.isNaN(parsed.getTime()) ||
-    parsed.getFullYear() !== year ||
-    parsed.getMonth() !== month - 1 ||
-    parsed.getDate() !== day
-    ? null
-    : parsed.toISOString();
-}
+type ExpenseAction = "repay" | "undo" | "settle" | "reopen" | "delete";
+type ExpenseConfirmation = {
+  expenseId: string;
+  action: ExpenseAction;
+  title: string;
+  message: string;
+  label: string;
+};
 
 function buildEvenSplits(
   totalCents: number,
@@ -116,6 +114,7 @@ function buildEvenSplits(
 export default function ExpensesScreen() {
   const colors = useTheme();
   const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
   const { scrollBottomPadding } = useFloatingActionMetrics();
   const {
     roommates,
@@ -125,6 +124,10 @@ export default function ExpensesScreen() {
     settleExpense,
     deleteExpense,
     markPersonPaid,
+    undoPersonPaid,
+    reopenExpense,
+    expenseSync,
+    pendingExpenseIds,
     currentUserId,
     pendingIouDraft,
     setPendingIouDraft,
@@ -139,6 +142,10 @@ export default function ExpensesScreen() {
     settleExpense: context.settleExpense,
     deleteExpense: context.deleteExpense,
     markPersonPaid: context.markPersonPaid,
+    undoPersonPaid: context.undoPersonPaid,
+    reopenExpense: context.reopenExpense,
+    expenseSync: context.expenseSync,
+    pendingExpenseIds: context.pendingExpenseIds,
     currentUserId: context.currentUserId,
     pendingIouDraft: context.pendingIouDraft,
     setPendingIouDraft: context.setPendingIouDraft,
@@ -147,17 +154,26 @@ export default function ExpensesScreen() {
     canManageExpense: context.canManageExpense,
   }));
 
-  const { confirm } = useConfirm();
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null);
   const [detailExpenseId, setDetailExpenseId] = useState<string | null>(null);
-  const [actionExpenseId, setActionExpenseId] = useState<string | null>(null);
+  const [detailVisible, setDetailVisible] = useState(false);
+  const [detailConfirmation, setDetailConfirmation] = useState<ExpenseConfirmation | null>(null);
+  const pendingEditRef = useRef<Expense | null>(null);
+  const detailScrollRef = useRef<ScrollView>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [runningExpenseIds, setRunningExpenseIds] = useState<Set<string>>(new Set());
+  const runningExpenseIdsRef = useRef(new Set<string>());
+  const [retryingExpenses, setRetryingExpenses] = useState(false);
+  const [queuedIou, setQueuedIou] = useState(false);
+  const [historyNow, setHistoryNow] = useState(() => new Date());
   const [historyExpanded, setHistoryExpanded] = useState(false);
   const [historyPages, setHistoryPages] = useState(1);
-  const longPressedExpenseRef = useRef<string | null>(null);
   const [submittingIou, setSubmittingIou] = useState(false);
   const [iouSubmitError, setIouSubmitError] = useState<string | null>(null);
   const submittingIouRef = useRef(false);
+  const [expenseDraftId, setExpenseDraftId] = useState(() => Crypto.randomUUID());
+  const draftSavedRef = useRef(false);
 
   // ── IOU builder state ──────────────────────────────────────────────────────
   const [expTitle, setExpTitle] = useState("");
@@ -171,8 +187,6 @@ export default function ExpensesScreen() {
   // splits: person id → dollar string they owe
   const [expSplits, setExpSplits] = useState<Record<string, string>>({});
   const [allocationMode, setAllocationMode] = useState<ExpenseSplitMode>("equal");
-  const [expRecurring, setExpRecurring] = useState<RecurringInterval | null>(null);
-  const [expRecurringCustom, setExpRecurringCustom] = useState("");
   const [expenseSource, setExpenseSource] = useState<PendingIouDraft["source"]>();
   const [expNotes, setExpNotes] = useState("");
   const [expDate, setExpDate] = useState(todayInputValue);
@@ -183,6 +197,10 @@ export default function ExpensesScreen() {
   useEffect(() => {
     if (!pendingIouDraft) return;
     setEditingExpenseId(null);
+    setExpenseDraftId(Crypto.randomUUID());
+    draftSavedRef.current = false;
+    setQueuedIou(false);
+    setIouSubmitError(null);
     setExpTitle(pendingIouDraft.title);
     setExpCategory(pendingIouDraft.category);
     setExpPaidBy(pendingIouDraft.paidBy);
@@ -192,9 +210,7 @@ export default function ExpensesScreen() {
     setAllocationMode("exact");
     setExpenseSource(pendingIouDraft.source);
     setExpNotes(pendingIouDraft.notes ?? "");
-    setExpDate(pendingIouDraft.date);
-    setExpRecurring(null);
-    setExpRecurringCustom("");
+    setExpDate(normalizeExpenseDate(pendingIouDraft.date) ?? todayInputValue());
     setShowExpenseModal(true);
     setPendingIouDraft(null);
   }, [pendingIouDraft, setPendingIouDraft]);
@@ -271,12 +287,12 @@ export default function ExpensesScreen() {
     const historical = expenses.filter(
       (expense) =>
         expense.settled &&
-        isHistoricalResolution(expense.resolvedAt),
+        isHistoricalResolution(expense.resolvedAt, historyNow),
     );
     const active = expenses.filter(
       (expense) =>
         !expense.settled ||
-        !isHistoricalResolution(expense.resolvedAt),
+        !isHistoricalResolution(expense.resolvedAt, historyNow),
     );
     const unresolved = active.filter((expense) => !expense.settled);
 
@@ -285,13 +301,13 @@ export default function ExpensesScreen() {
     let nextIOwe = 0;
     unresolved.forEach((expense) => {
       if (expense.paidBy === currentUserId) {
-        Object.entries(expense.splits ?? {}).forEach(([id, amount]) => {
+        Object.entries(expenseShares(expense)).forEach(([id, amount]) => {
           if (id !== expense.paidBy && !(expense.paidBack ?? {})[id]) {
             nextOwedToMe += amount as number;
           }
         });
       } else if (!(expense.paidBack ?? {})[currentUserId]) {
-        nextIOwe += (expense.splits ?? {})[currentUserId] as number || 0;
+        nextIOwe += expenseShares(expense)[currentUserId] as number || 0;
       }
     });
 
@@ -302,15 +318,18 @@ export default function ExpensesScreen() {
         (expense) =>
           !expense.settled &&
           expense.paidBy !== currentUserId &&
-          ((expense.splits ?? {})[currentUserId] as number || 0) > 0,
+          !expense.paidBack?.[currentUserId] &&
+          (expenseShares(expense)[currentUserId] as number || 0) > 0,
       ),
       firstOwedToMeIndex: active.findIndex(
-        (expense) => !expense.settled && expense.paidBy === currentUserId,
+        (expense) => !expense.settled && expense.paidBy === currentUserId &&
+          Object.entries(expenseShares(expense)).some(([personId, amount]) =>
+            personId !== expense.paidBy && amount > 0 && !expense.paidBack?.[personId]),
       ),
       iOwe: nextIOwe,
       owedToMe: nextOwedToMe,
     };
-  }, [currentUserId, expenses]);
+  }, [currentUserId, expenses, historyNow]);
   const iouSummary = useMemo(
     () => summarizeMemberIous(expenses, currentUserId),
     [expenses, currentUserId],
@@ -326,9 +345,93 @@ export default function ExpensesScreen() {
         : [],
     [historicalExpenses, historyExpanded, historyPages],
   );
-  const actionExpense = actionExpenseId
-    ? expenses.find((expense) => expense.id === actionExpenseId)
-    : undefined;
+  const pendingExpenseSet = useMemo(() => new Set(pendingExpenseIds), [pendingExpenseIds]);
+  const editingExpense = editingExpenseId ? expenses.find((expense) => expense.id === editingExpenseId) : undefined;
+  const financialFieldsLocked = Boolean(editingExpense && hasExpensePayments(editingExpense));
+  const purchaseTotalLocked = financialFieldsLocked || Boolean(editingExpense?.shoppingSource);
+  const formBusy = submittingIou || queuedIou || pendingExpenseSet.has(editingExpenseId ?? expenseDraftId);
+
+  useEffect(() => {
+    const refresh = () => setHistoryNow(new Date());
+    const subscription = AppState.addEventListener("change", (state) => { if (state === "active") refresh(); });
+    const boundaries = expenses.map((expense) => becomesHistoricalAt(expense.resolvedAt)).filter((time): time is number => time !== null && time > historyNow.getTime());
+    const nextBoundary = boundaries.length ? Math.min(...boundaries) : Number.POSITIVE_INFINITY;
+    const timer = setTimeout(refresh, Math.max(1, Math.min(60_000, nextBoundary - historyNow.getTime() + 1)));
+    return () => { subscription.remove(); clearTimeout(timer); };
+  }, [expenses, historyNow]);
+
+  const openDetails = (expenseId: string, confirmation: ExpenseConfirmation | null = null) => {
+    setActionError(null);
+    setDetailConfirmation(confirmation);
+    setDetailExpenseId(expenseId);
+    setDetailVisible(true);
+  };
+  const closeDetails = () => {
+    setDetailVisible(false);
+    setDetailConfirmation(null);
+  };
+  const finishDetailDismiss = () => {
+    const editing = pendingEditRef.current;
+    pendingEditRef.current = null;
+    setDetailExpenseId(null);
+    if (editing) {
+      const fresh = expenses.find((expense) => expense.id === editing.id);
+      if (fresh) openEditModal(fresh);
+      else setActionError("This expense is no longer available.");
+    }
+  };
+  useEffect(() => {
+    // Android/web remove the non-animated modal in this commit. iOS hands off
+    // only after its native slide dismissal reports completion.
+    if (!detailVisible && Platform.OS !== "ios") finishDetailDismiss();
+  }, [detailVisible]);
+
+  const requestExpenseAction = (expense: Expense, action: ExpenseAction) => {
+    const copy = {
+      repay: ["Record your repayment?", "Confirm that you have paid your outstanding share back to the payer.", "Yes, I paid"],
+      undo: ["Undo your repayment?", "Your share will become outstanding again. Other people's recorded repayments stay unchanged.", "Undo my repayment"],
+      settle: ["Settle this IOU?", "This marks the entire IOU as settled. Only confirm when no further repayment is needed.", "Settle IOU"],
+      reopen: ["Reopen this IOU?", "The manual settlement will be removed. All recorded repayments are kept.", "Reopen IOU"],
+      delete: ["Delete this expense?", "This permanently removes the expense and its repayment history.", "Delete expense"],
+    }[action];
+    openDetails(expense.id, { expenseId: expense.id, action, title: copy[0], message: copy[1], label: copy[2] });
+  };
+  useEffect(() => {
+    if (detailVisible && detailConfirmation) detailScrollRef.current?.scrollTo({ y: 0, animated: true });
+  }, [detailVisible, detailConfirmation]);
+  const performExpenseAction = async (directAction?: ExpenseConfirmation) => {
+    const confirmation = directAction ?? detailConfirmation;
+    if (!confirmation || runningExpenseIdsRef.current.has(confirmation.expenseId) || pendingExpenseSet.has(confirmation.expenseId)) return;
+    if (!expenseSync.ready) { setActionError("Expenses are still loading. Please try again shortly."); return; }
+    const { expenseId, action } = confirmation;
+    runningExpenseIdsRef.current.add(expenseId);
+    setRunningExpenseIds(new Set(runningExpenseIdsRef.current));
+    setActionError(null);
+    try {
+      const changed = action === "repay" ? await markPersonPaid(expenseId, currentUserId)
+        : action === "undo" ? await undoPersonPaid(expenseId)
+        : action === "settle" ? await settleExpense(expenseId)
+        : action === "reopen" ? await reopenExpense(expenseId)
+        : await deleteExpense(expenseId);
+      if (!changed) throw new Error("This expense changed or the action is no longer available. Review its details and try again.");
+      setDetailConfirmation(null);
+      hapticSuccess();
+      if (action === "delete") closeDetails();
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : "Could not save this change. Please try again.");
+    } finally {
+      runningExpenseIdsRef.current.delete(expenseId);
+      setRunningExpenseIds(new Set(runningExpenseIdsRef.current));
+    }
+  };
+  const retryExpenseSync = async () => {
+    if (retryingExpenses) return;
+    setRetryingExpenses(true);
+    setActionError(null);
+    try { await expenseSync.retry(); }
+    catch (error) { setActionError(error instanceof Error ? error.message : "Could not sync. Please try again."); }
+    finally { setRetryingExpenses(false); }
+  };
 
   const scrollToExpense = (index: number) => {
     if (index < 0) return;
@@ -357,6 +460,10 @@ export default function ExpensesScreen() {
     setAllocationMode("equal");
   }, [allocatableTotalCents, expParticipants]);
 
+  // Equal shares derive from the current total and participants immediately,
+  // including while the amount field still has keyboard focus.
+  const displayedSplits = allocationMode === "equal" && allocatableTotalCents !== null
+    ? buildEvenSplits(allocatableTotalCents, expParticipants) : expSplits;
   // ── Derived: sum of splits, remainder ─────────────────────────────────────
   const totalCents = allocatableTotalCents;
   const activeMemberIds = new Set(roommates.map((member) => member.id));
@@ -364,7 +471,7 @@ export default function ExpensesScreen() {
     total: totalCents === null ? "" : centsToDollars(totalCents).toFixed(2),
     payerId: expPaidBy,
     participantIds: expParticipants,
-    allocations: expSplits,
+    allocations: displayedSplits,
     activeMemberIds,
   });
   const allocationValidation =
@@ -378,9 +485,15 @@ export default function ExpensesScreen() {
   const totalParsed = totalCents === null ? 0 : centsToDollars(totalCents);
   const remainingCents = allocationValidation.valid ? 0 : allocationValidation.remainingCents;
   const splitsValid = allocationValidation.valid;
-  const validExpenseDate = expenseDateIso(expDate);
-  const canSubmit =
-    !submittingIou && allocationValidation.valid && validExpenseDate !== null;
+  const validExpenseDate = normalizeExpenseDate(expDate);
+  const formValidationMessage = !expenseSync.ready ? "Expenses are still loading. You can fill in the details while you wait."
+    : editingExpenseId && !editingExpense ? "This expense is no longer available."
+    : editingExpense && !canEditExpense(editingExpense) ? "You no longer have permission to edit this IOU."
+    : financialFieldsLocked ? null
+    : !validExpenseDate ? "Enter a valid date as YYYY-MM-DD."
+    : !allocationValidation.valid ? allocationValidation.reason : null;
+  const canSubmit = !formBusy && !formValidationMessage;
+
 
   // ── Toggle participant ─────────────────────────────────────────────────────
   const toggleParticipant = (id: string) => {
@@ -407,7 +520,7 @@ export default function ExpensesScreen() {
 
   const assignRemainder = (id: string) => {
     if (remainingCents <= 0) return;
-    const currentCents = parseAllocationToCents(expSplits[id] ?? "") ?? 0;
+    const currentCents = parseAllocationToCents(displayedSplits[id] ?? "") ?? 0;
     setAllocationMode("exact");
     setExpSplits((current) => ({
       ...current,
@@ -417,6 +530,8 @@ export default function ExpensesScreen() {
 
   // ── Reset modal ────────────────────────────────────────────────────────────
   const resetModal = () => {
+    setExpenseDraftId(Crypto.randomUUID());
+    draftSavedRef.current = false;
     setExpTitle("");
     setExpCategory("groceries");
     setExpPaidBy(currentUserId);
@@ -426,13 +541,12 @@ export default function ExpensesScreen() {
     );
     setExpSplits({});
     setAllocationMode("equal");
-    setExpRecurring(null);
-    setExpRecurringCustom("");
     setEditingExpenseId(null);
     setExpenseSource(undefined);
     setExpNotes("");
     setExpDate(todayInputValue());
     setIouSubmitError(null);
+    setQueuedIou(false);
   };
 
   // ── Open / close animation for the New IOU sheet ───────────────────────────
@@ -456,6 +570,7 @@ export default function ExpensesScreen() {
   }, [showExpenseModal, iouTranslateY]);
 
   const closeIou = useCallback(() => {
+    if (submittingIouRef.current) return;
     Animated.timing(iouTranslateY, {
       toValue: SCREEN_HEIGHT,
       duration: 260,
@@ -470,6 +585,7 @@ export default function ExpensesScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [iouTranslateY]);
   const iouDragHandlers = useDraggableSheet(iouTranslateY, () => {
+    if (submittingIouRef.current) { Animated.spring(iouTranslateY, { toValue: 0, useNativeDriver: true }).start(); return; }
     setShowExpenseModal(false);
     resetModal();
     submittingIouRef.current = false;
@@ -478,112 +594,97 @@ export default function ExpensesScreen() {
 
   const openEditModal = (item: (typeof expenses)[number]) => {
     if (!canEditExpense(item)) {
-      throw new Error("Only the IOU creator can edit the expense");
+      setActionError("Only the IOU creator can edit this expense.");
+      return;
     }
     setEditingExpenseId(item.id);
     setExpTitle(item.title);
     setExpCategory(item.category);
     setExpPaidBy(item.paidBy);
     setExpTotalAmount(
-      item.shoppingSource?.type === "shopping-list" &&
-        item.shoppingSource.listTotalCents !== undefined
-        ? centsToDollars(item.shoppingSource.listTotalCents).toFixed(2)
+      item.shoppingSource?.type === "shopping-list"
+        ? centsToDollars(item.shoppingSource.listTotalCents ?? ((item.amountCents ?? Math.round(item.amount * 100)) + (item.shoppingSource.individuallyAllocatedCents ?? 0))).toFixed(2)
         : item.amount.toFixed(2),
     );
     setExpParticipants(item.sharedWith);
     setExpSplits(
       Object.fromEntries(
-        Object.entries(item.splits ?? {}).map(([id, amt]) => [id, (amt as number).toFixed(2)])
+        Object.entries(expenseShares(item)).map(([id, amt]) => [id, (amt as number).toFixed(2)])
       )
     );
     setAllocationMode(item.splitMode ?? "exact");
-    setExpRecurring(item.recurring ?? null);
-    setExpRecurringCustom(item.recurringCustom ?? "");
     setExpNotes(item.notes ?? "");
-    setExpDate(item.date.slice(0, 10));
+    setExpDate(normalizeExpenseDate(item.date) ?? todayInputValue());
     setExpenseSource(item.shoppingSource);
+    setIouSubmitError(null);
+    setQueuedIou(false);
     setShowExpenseModal(true);
   };
 
   // ── Submit IOU ─────────────────────────────────────────────────────────────
-  const doSendIOU = () => {
-    if (
-      submittingIouRef.current ||
-      !canSubmit ||
-      !allocationValidation.valid ||
-      !validExpenseDate
-    ) return;
-    if (
-      !editingExpenseId &&
-      expenseSource?.type === "shopping-item" &&
-      expenses.some(
-        (expense) =>
-          !expense.settled &&
-          expense.shoppingSource?.type === "shopping-item" &&
-          expense.shoppingSource.householdId === expenseSource.householdId &&
-          expense.shoppingSource.shoppingItemIds.some((itemId) =>
-            expenseSource.shoppingItemIds.includes(itemId),
-          ),
-      )
-    ) {
-      setIouSubmitError("An active IOU already exists for this Shopping item.");
-      return;
-    }
+  const doSendIOU = async () => {
+    if (submittingIouRef.current || !canSubmit) return;
+    if (!financialFieldsLocked && (!allocationValidation.valid || !validExpenseDate)) return;
     submittingIouRef.current = true;
     setSubmittingIou(true);
     setIouSubmitError(null);
-    const allocations = buildStoredExpenseAllocations(
-      expParticipants,
-      allocationValidation.allocationCents,
-    );
-    const payload = {
-      title: expTitle.trim() || "IOU",
-      amount: centsToDollars(allocationValidation.totalCents),
-      amountCents: allocationValidation.totalCents,
-      paidBy: expPaidBy,
-      sharedWith: expParticipants,
-      splits: allocationsToDollarSplits(allocations),
-      splitMode: allocationMode,
-      allocations,
-      category: expCategory,
-      recurring: expRecurring ?? undefined,
-      recurringCustom: expRecurring === "custom" ? expRecurringCustom.trim() || undefined : undefined,
-      notes: expNotes.trim() || undefined,
-      shoppingSource: expenseSource
-        ? {
-            ...expenseSource,
-            listTotalCents:
-              expenseSource.type === "shopping-list"
-                ? enteredTotalCents ?? expenseSource.listTotalCents
-                : undefined,
-          }
-        : undefined,
-      date: validExpenseDate,
-    };
     try {
-      if (editingExpenseId) {
-        if (!updateExpense(editingExpenseId, payload)) {
-          throw new Error("This IOU could not be updated.");
-        }
+      const description = { title: expTitle.trim() || "IOU", category: expCategory, notes: expNotes.trim() || undefined };
+      if (editingExpenseId && financialFieldsLocked) {
+        // Do not reconstruct financial data from a form or the current roster:
+        // former participants and recorded payments must be preserved exactly.
+        if (!await updateExpense(editingExpenseId, description)) throw new Error("This IOU could not be updated. Review its current details.");
       } else {
-        const expenseId = addExpense({ ...payload, date: validExpenseDate, settled: false });
-        if (expenseSource?.type === "shopping-item") {
-          linkShoppingItemsToExpense(expenseSource.shoppingItemIds, expenseId);
+        if (!allocationValidation.valid || !validExpenseDate) return;
+        const allocations = buildStoredExpenseAllocations(expParticipants, allocationValidation.allocationCents);
+        const payload = {
+          ...description,
+          amount: centsToDollars(allocationValidation.totalCents), amountCents: allocationValidation.totalCents,
+          paidBy: expPaidBy, sharedWith: expParticipants, splits: allocationsToDollarSplits(allocations), splitMode: allocationMode, allocations,
+          // New recurring IOUs are unavailable until independent occurrences are
+          // supported. Editing an older IOU preserves its existing label.
+          recurring: editingExpense?.recurring, recurringCustom: editingExpense?.recurringCustom,
+          shoppingSource: editingExpense?.shoppingSource ?? (expenseSource ? { ...expenseSource, listTotalCents: expenseSource.type === "shopping-list" ? enteredTotalCents ?? expenseSource.listTotalCents : undefined } : undefined),
+          date: validExpenseDate,
+        };
+        if (editingExpenseId) {
+          if (!await updateExpense(editingExpenseId, payload)) throw new Error("This IOU could not be updated. Review its current details.");
+        } else {
+          const expenseId = await addExpense({ ...payload, settled: false }, expenseDraftId);
+          if (expenseSource?.type === "shopping-item") linkShoppingItemsToExpense(expenseSource.shoppingItemIds, expenseId);
         }
       }
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      closeIou();
-    } catch {
       submittingIouRef.current = false;
       setSubmittingIou(false);
-      setIouSubmitError("Couldn’t save this IOU. Check the participants and try again.");
+      draftSavedRef.current = true;
+      hapticSuccess();
+      closeIou();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Could not save this IOU. Please try again.";
+      setIouSubmitError(message);
+      if (error instanceof ExpensePendingError) setQueuedIou(true);
+    } finally {
+      submittingIouRef.current = false;
+      setSubmittingIou(false);
     }
   };
-
-  const handleSendIOU = () => {
-    if (!canSubmit) return;
-    doSendIOU();
-  };
+  useEffect(() => {
+    const savedDraft = !editingExpenseId && expenses.some((expense) => expense.id === expenseDraftId) && !pendingExpenseSet.has(expenseDraftId);
+    const savedEdit = editingExpenseId && queuedIou && !pendingExpenseSet.has(editingExpenseId) && expenseSync.pending === 0 && !expenseSync.error;
+    if (showExpenseModal && !submittingIou && !draftSavedRef.current && expenseSync.ready && (savedDraft || savedEdit)) {
+      draftSavedRef.current = true;
+      setQueuedIou(false);
+      hapticSuccess();
+      closeIou();
+    }
+  }, [editingExpenseId, expenseDraftId, expenses, pendingExpenseSet, showExpenseModal, submittingIou, queuedIou, expenseSync.ready, expenseSync.pending, expenseSync.error, closeIou]);
+  useEffect(() => {
+    if (queuedIou && expenseSync.ready && !pendingExpenseSet.has(editingExpenseId ?? expenseDraftId) && expenseSync.error) {
+      setQueuedIou(false);
+      setIouSubmitError(expenseSync.error);
+    }
+  }, [queuedIou, expenseSync.ready, expenseSync.error, pendingExpenseSet, editingExpenseId, expenseDraftId]);
+  const handleSendIOU = () => { void doSendIOU(); };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -594,6 +695,23 @@ export default function ExpensesScreen() {
       />
 
       <>
+          {(!expenseSync.ready || expenseSync.pending > 0 || expenseSync.error || actionError) ? (
+            <View style={styles.syncBanner}>
+              <InlineFeedback
+                message={actionError ?? expenseSync.error ?? (!expenseSync.ready
+                  ? "Loading your expenses…"
+                  : `${expenseSync.pending} expense ${expenseSync.pending === 1 ? "change is" : "changes are"} saved on this device and waiting to sync.`)}
+                tone={actionError || expenseSync.error ? "error" : "info"}
+              />
+              {(expenseSync.error || expenseSync.pending > 0) ? (
+                <TouchableOpacity accessibilityRole="button" accessibilityLabel="Retry saving expense changes"
+                  style={[styles.retryButton, { borderColor: colors.border }]} disabled={retryingExpenses}
+                  onPress={() => void retryExpenseSync()}>
+                  <Text style={[styles.retryText, { color: colors.primary }]}>{retryingExpenses ? "Retrying…" : "Retry sync"}</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          ) : null}
           {/* Balance cards — You owe on top, Owed to you below */}
           <View style={styles.balanceRow}>
             {iOwe > 0 && (
@@ -713,7 +831,7 @@ export default function ExpensesScreen() {
               const cat =
                 EXPENSE_CATEGORIES.find((c) => c.key === item.category) ??
                 EXPENSE_CATEGORIES[4];
-              const myShare = (item.splits ?? {})[currentUserId] ?? 0;
+              const myShare = expenseShares(item)[currentUserId] ?? 0;
               const mySharePaid = item.paidBy !== currentUserId && myShare > 0 &&
                 !!(item.paidBack ?? {})[currentUserId];
               const relevantToMe = item.paidBy === currentUserId || myShare > 0;
@@ -723,22 +841,9 @@ export default function ExpensesScreen() {
                 <TouchableOpacity
                   activeOpacity={0.8}
                   delayLongPress={450}
-                  onLongPress={
-                    !item.settled
-                      ? () => {
-                          longPressedExpenseRef.current = item.id;
-                          setActionExpenseId(item.id);
-                          tapLight();
-                        }
-                      : undefined
-                  }
-                  onPress={() => {
-                    if (longPressedExpenseRef.current === item.id) {
-                      longPressedExpenseRef.current = null;
-                      return;
-                    }
-                    setDetailExpenseId(item.id);
-                  }}
+                  onLongPress={() => { openDetails(item.id); tapLight(); }}
+                  onPress={() => openDetails(item.id)}
+                  accessibilityRole="button"
                   accessibilityHint={
                     !item.settled
                       ? "Tap for details. Press and hold for expense actions."
@@ -782,16 +887,7 @@ export default function ExpensesScreen() {
                         >
                           Paid by {payer?.name ?? "Former Sweetmate"} · {formatDate(item.date)}
                         </Text>
-                        {item.recurring ? (
-                          <View style={[styles.recurringBadge, { backgroundColor: colors.primary + "14" }]}>
-                            <Feather name="repeat" size={9} color={colors.primary} />
-                            <Text style={[styles.recurringBadgeText, { color: colors.primary }]}>
-                              {item.recurring === "custom" && item.recurringCustom
-                                ? item.recurringCustom
-                                : item.recurring}
-                            </Text>
-                          </View>
-                        ) : null}
+
                       </View>
                     </View>
                     <View style={styles.expRight}>
@@ -805,22 +901,20 @@ export default function ExpensesScreen() {
                       >
                         ${item.amount.toFixed(2)}
                       </CompletionText>
-                      {item.paidBy === currentUserId && !item.settled ? (
+                      {canManageExpense(item) && !item.settled ? (
                         <View style={styles.expActions}>
                           <TouchableOpacity
-                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                            onPress={() =>
-                              confirm("settle_expense", "Settle Up", "Mark this IOU as settled?", () => {
-                                settleExpense(item.id);
-                                hapticSuccess();
-                              }, { confirmText: "Settle" })
-                            }
+                            accessibilityRole="button"
+                            accessibilityLabel={`Settle ${item.title}`}
+                            accessibilityState={{ disabled: !expenseSync.ready || pendingExpenseSet.has(item.id) || runningExpenseIds.has(item.id) }}
+                            style={styles.expenseSettleButton}
+                            disabled={!expenseSync.ready || pendingExpenseSet.has(item.id) || runningExpenseIds.has(item.id)}
+                            onPress={(event) => { event.stopPropagation(); void performExpenseAction({ expenseId: item.id, action: "settle", title: "Settle IOU", message: "", label: "Settle" }); }}
                           >
-                            <Feather
-                              name="check-circle"
-                              size={15}
-                              color={colors.success}
-                            />
+                            {runningExpenseIds.has(item.id) || pendingExpenseSet.has(item.id)
+                              ? <ActivityIndicator size="small" color={colors.success} />
+                              : <Feather name="check-circle" size={15} color={colors.success} />}
+
                           </TouchableOpacity>
                         </View>
                       ) : (
@@ -829,9 +923,12 @@ export default function ExpensesScreen() {
                     </View>
                   </View>
 
+                  {pendingExpenseSet.has(item.id) || runningExpenseIds.has(item.id) ? (
+                    <Text style={[styles.pendingText, { color: colors.mutedForeground }]}>Saving this change…</Text>
+                  ) : null}
                   {/* IOU breakdown chips */}
                   <View style={styles.iouChips}>
-                    {Object.entries(item.splits ?? {}).map(([personId, amount]) => {
+                    {Object.entries(expenseShares(item)).map(([personId, amount]) => {
                       const person = roommates.find((r) => r.id === personId) ?? {
                         id: personId,
                         name: "Former Sweetmate",
@@ -892,7 +989,7 @@ export default function ExpensesScreen() {
                               },
                             ]}
                           >
-                            {isMe ? "You" : person.name}{hasPaidBack ? " paid" : item.settled ? " settled" : ` ${isMe ? "owe" : "owes"} $${(amount as number).toFixed(2)}`}
+                            {isMe ? "You" : person.name}{!isOwer ? ` covered $${amount.toFixed(2)}` : amount <= 0 ? " · no repayment due" : hasPaidBack ? " paid" : item.settled ? " settled" : ` ${isMe ? "owe" : "owes"} $${amount.toFixed(2)}`}
                           </CompletionText>
                         </View>
                       );
@@ -923,7 +1020,7 @@ export default function ExpensesScreen() {
                     visibleHistory.map((expense) => (
                       <TouchableOpacity
                         key={expense.id}
-                        onPress={() => setDetailExpenseId(expense.id)}
+                        onPress={() => openDetails(expense.id)}
                       >
                         <Surface
                           style={[
@@ -962,259 +1059,116 @@ export default function ExpensesScreen() {
               </HistoryDisclosure>
             }
           />
-          <ActionMenuModal
-            visible={!!actionExpense}
-            title={actionExpense?.title ?? "Expense"}
-            subtitle="Expense actions"
-            onClose={() => setActionExpenseId(null)}
-            actions={
-              actionExpense
-                ? [
-                    {
-                      key: "edit",
-                      label: "Edit expense",
-                      icon: "edit-2",
-                      onPress: () => openEditModal(actionExpense),
-                      runAfterDismiss: canEditExpense(actionExpense),
-                    },
-                    ...(canManageExpense(actionExpense) ? [{
-                      key: "delete",
-                      label: "Delete expense",
-                      icon: "trash-2",
-                      destructive: true,
-                      confirmation: {
-                        title: `Delete “${actionExpense.title}”?`,
-                        message: "This permanently removes the expense.",
-                        confirmLabel: "Delete expense",
-                      },
-                      onPress: () => void deleteExpense(actionExpense.id),
-                    } as const] : []),
-                  ]
-                : []
-            }
-          />
-          {/* ── IOU Detail Modal ── */}
+          {/* Details and confirmations share one native modal. */}
           {(() => {
-            const detailExp = expenses.find((e) => e.id === detailExpenseId);
+            const detailExp = expenses.find((expense) => expense.id === detailExpenseId);
             if (!detailExp) return null;
-            const payer = roommates.find((r) => r.id === detailExp.paidBy);
-            const cat = EXPENSE_CATEGORIES.find((c) => c.key === detailExp.category) ?? EXPENSE_CATEGORIES[4];
-            const iAmPayer = detailExp.paidBy === currentUserId;
-            const myShare = (detailExp.splits ?? {})[currentUserId] ?? 0;
-            const iAmOwer = !iAmPayer && myShare > 0;
-            const alreadyPaidBack = !!(detailExp.paidBack ?? {})[currentUserId];
+            const payer = roommates.find((roommate) => roommate.id === detailExp.paidBy);
+            const cat = EXPENSE_CATEGORIES.find((category) => category.key === detailExp.category) ?? EXPENSE_CATEGORIES[4];
+            const shares = expenseShares(detailExp);
+            const myShare = shares[currentUserId] ?? 0;
+            const iAmOwer = detailExp.paidBy !== currentUserId && myShare > 0;
+            const alreadyPaidBack = Boolean(detailExp.paidBack?.[currentUserId]);
+            const busy = runningExpenseIds.has(detailExp.id) || pendingExpenseSet.has(detailExp.id);
+            const disabled = !expenseSync.ready || busy;
             return (
-              <Modal
-                visible={!!detailExpenseId}
-                transparent
-                animationType="slide"
-                onRequestClose={() => setDetailExpenseId(null)}
-              >
-                <Pressable
-                  style={styles.detailOverlay}
-                  onPress={() => setDetailExpenseId(null)}
-                />
-                <Surface level="modal" style={[styles.detailSheet, { borderColor: colors.border, paddingBottom: insets.bottom + 20 }]}>
-                  {/* Handle */}
+              <Modal visible={detailVisible} transparent animationType={Platform.OS === "ios" ? "slide" : "none"}
+                onRequestClose={closeDetails} onDismiss={finishDetailDismiss}>
+                <Pressable style={styles.detailOverlay} onPress={closeDetails} accessibilityRole="button" accessibilityLabel="Close expense details" />
+                <Surface level="modal" style={[styles.detailSheet, { maxHeight: windowHeight * 0.88, borderColor: colors.border, paddingBottom: insets.bottom + 12 }]}>
                   <View style={[styles.detailHandle, { backgroundColor: colors.border }]} />
-
-                  {/* Header */}
-                  <View style={styles.detailHeader}>
-                    <View style={styles.expCatIcon}>
-                      <Feather name={cat.icon} size={18} color={colors.primary} />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <CompletionText completed={detailExp.settled} style={[styles.detailTitle, { color: detailExp.settled ? colors.mutedForeground : colors.foreground }]}>{detailExp.title}</CompletionText>
-                      <Text style={[styles.detailMeta, { color: colors.mutedForeground }]}>
-                        Paid by {payer?.name ?? "Former Sweetmate"} · {formatDate(detailExp.date)}
-                      </Text>
-                    </View>
-                    <CompletionText completed={detailExp.settled} containerStyle={{ alignSelf: "center" }} style={[styles.detailAmount, { color: detailExp.settled ? colors.mutedForeground : colors.foreground }]}>
-                      ${detailExp.amount.toFixed(2)}
-                    </CompletionText>
-                  </View>
-
-                  {/* Divider */}
-                  <View style={[styles.detailDivider, { backgroundColor: colors.border }]} />
-
-                  {detailExp.shoppingSource ? (
-                    <Surface style={[styles.detailPersonRow, { borderColor: colors.border }]}>
-                      <Feather name="shopping-cart" size={16} color={colors.primary} />
-                      <View style={{ flex: 1 }}>
-                        <Text style={[styles.detailPersonName, { color: colors.foreground }]}>
-                          From Shopping: {detailExp.shoppingSource.shoppingListName}
-                        </Text>
-                        {detailExp.shoppingSource.type === "shopping-list" ? (
-                          <Text style={[styles.detailPersonAmount, { color: colors.mutedForeground }]}>
-                            Individual items: ${centsToDollars(detailExp.shoppingSource.individuallyAllocatedCents ?? 0).toFixed(2)}
-                            {" · "}Group split: ${detailExp.amount.toFixed(2)}
-                          </Text>
-                        ) : (
-                          <Text style={[styles.detailPersonAmount, { color: colors.mutedForeground }]}>
-                            {detailExp.shoppingSource.shoppingItemName}
-                          </Text>
-                        )}
+                  <ScrollView ref={detailScrollRef} style={{ flexShrink: 1 }} contentContainerStyle={{ gap: 12, paddingBottom: 8 }} keyboardShouldPersistTaps="handled">
+                    <View style={styles.detailHeader}>
+                      <View style={styles.expCatIcon}><Feather name={cat.icon} size={18} color={colors.primary} /></View>
+                      <View style={{ flex: 1, minWidth: 0 }}>
+                        <CompletionText completed={detailExp.settled} style={[styles.detailTitle, { color: detailExp.settled ? colors.mutedForeground : colors.foreground }]}>{detailExp.title}</CompletionText>
+                        <Text style={[styles.detailMeta, { color: colors.mutedForeground }]}>Paid by {payer?.name ?? "Former Sweetmate"} · {formatDate(detailExp.date)}</Text>
                       </View>
-                    </Surface>
-                  ) : null}
-                  {detailExp.notes ? (
-                    <Text style={[styles.detailMeta, { color: colors.mutedForeground }]}>
-                      {detailExp.notes}
-                    </Text>
-                  ) : null}
-
-                  {/* Who owes what */}
-                  <Text style={[styles.detailSectionLabel, { color: colors.mutedForeground }]}>Who owes</Text>
-                  <View style={{ gap: 8 }}>
-                    {Object.entries(detailExp.splits ?? {}).map(([personId, amount]) => {
-                      const person = roommates.find((r) => r.id === personId) ?? {
-                        id: personId,
-                        name: "Former Sweetmate",
-                        color: colors.mutedForeground,
-                        points: 0,
-                        weeklyPoints: 0,
-                      };
-                      const isOwer = personId !== detailExp.paidBy;
-                      const hasPaid = !!(detailExp.paidBack ?? {})[personId];
-                      const shareResolved = detailExp.settled || hasPaid;
-                      const isMe = personId === currentUserId;
-                      return (
-                        <CompletionMotion
-                          key={personId}
-                          completed={isMe && isOwer && shareResolved}
-                          subtle
-                          style={[
-                            styles.detailPersonRow,
-                            {
-                              backgroundColor: shareResolved
-                                ? colors.success + "0C"
-                                : colors.card,
-                              borderColor: shareResolved
-                                ? colors.success + "40"
-                                : colors.border,
-                            },
-                          ]}
-                        >
+                      <CompletionText completed={detailExp.settled} style={[styles.detailAmount, { color: detailExp.settled ? colors.mutedForeground : colors.foreground }]}>${detailExp.amount.toFixed(2)}</CompletionText>
+                    </View>
+                    {!expenseSync.ready ? <InlineFeedback message="Expenses are still loading. Please wait before making changes." /> : null}
+                    {busy ? <InlineFeedback message="This change is waiting to finish saving. You can retry it below if needed." /> : null}
+                    {actionError ? <InlineFeedback message={actionError} tone="error" /> : null}
+                    {(pendingExpenseSet.has(detailExp.id) || expenseSync.error) ? (
+                      <TouchableOpacity style={[styles.retryButton, { borderColor: colors.border }]} disabled={retryingExpenses} onPress={() => void retryExpenseSync()} accessibilityRole="button">
+                        <Text style={[styles.retryText, { color: colors.primary }]}>{retryingExpenses ? "Retrying…" : "Retry saving"}</Text>
+                      </TouchableOpacity>
+                    ) : null}
+                    {detailConfirmation?.expenseId === detailExp.id ? (
+                      <View accessibilityLiveRegion="polite" style={[styles.confirmationPanel, { borderColor: colors.border, backgroundColor: colors.card }]}>
+                        <Text accessibilityRole="header" style={[styles.detailTitle, { color: colors.foreground }]}>{detailConfirmation.title}</Text>
+                        <Text style={[styles.detailMeta, { color: colors.mutedForeground }]}>{detailConfirmation.message}</Text>
+                        <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
+                          <GlassButton tone="neutral" style={{ flex: 1, minWidth: 100 }} disabled={busy} onPress={() => setDetailConfirmation(null)}><Text style={{ color: colors.foreground }}>Cancel</Text></GlassButton>
+                          <GlassButton tone={detailConfirmation.action === "delete" ? "destructive" : "primary"} style={{ flex: 1, minWidth: 130 }} disabled={disabled} onPress={() => void performExpenseAction()}>
+                            <Text style={{ color: "#fff" }}>{busy ? "Saving…" : detailConfirmation.label}</Text>
+                          </GlassButton>
+                        </View>
+                      </View>
+                    ) : (
+                      <View style={styles.detailPayerActions}>
+                        {canEditExpense(detailExp) ? (
+                          <TouchableOpacity disabled={disabled} accessibilityRole="button" style={[styles.detailActionBtn, { backgroundColor: colors.primary + "14", borderColor: colors.primary + "30", opacity: disabled ? 0.45 : 1 }]}
+                            onPress={() => { pendingEditRef.current = detailExp; closeDetails(); }}>
+                            <Feather name="edit-2" size={14} color={colors.primary} /><Text style={[styles.detailActionBtnText, { color: colors.primary }]}>Edit</Text>
+                          </TouchableOpacity>
+                        ) : null}
+                        {iAmOwer && alreadyPaidBack && !detailExp.manuallySettled ? (
+                          <TouchableOpacity disabled={disabled} accessibilityRole="button" style={[styles.detailActionBtn, { borderColor: colors.border, opacity: disabled ? 0.45 : 1 }]} onPress={() => requestExpenseAction(detailExp, "undo")}>
+                            <Feather name="rotate-ccw" size={14} color={colors.primary} /><Text style={[styles.detailActionBtnText, { color: colors.primary }]}>Undo my repayment</Text>
+                          </TouchableOpacity>
+                        ) : null}
+                        {canManageExpense(detailExp) ? <>
+                          {!detailExp.settled ? (
+                            <TouchableOpacity disabled={disabled} accessibilityRole="button" style={[styles.detailActionBtn, { backgroundColor: colors.success + "14", borderColor: colors.success + "30", opacity: disabled ? 0.45 : 1 }]} onPress={() => requestExpenseAction(detailExp, "settle")}>
+                              <Feather name="check-circle" size={14} color={colors.success} /><Text style={[styles.detailActionBtnText, { color: colors.success }]}>Settle all</Text>
+                            </TouchableOpacity>
+                          ) : detailExp.manuallySettled ? (
+                            <TouchableOpacity disabled={disabled} accessibilityRole="button" style={[styles.detailActionBtn, { borderColor: colors.border, opacity: disabled ? 0.45 : 1 }]} onPress={() => requestExpenseAction(detailExp, "reopen")}>
+                              <Feather name="rotate-ccw" size={14} color={colors.primary} /><Text style={[styles.detailActionBtnText, { color: colors.primary }]}>Reopen IOU</Text>
+                            </TouchableOpacity>
+                          ) : null}
+                          <TouchableOpacity disabled={disabled} accessibilityRole="button" style={[styles.detailActionBtn, { backgroundColor: colors.destructive + "10", borderColor: colors.destructive + "20", opacity: disabled ? 0.45 : 1 }]} onPress={() => requestExpenseAction(detailExp, "delete")}>
+                            <Feather name="trash-2" size={14} color={colors.destructive} /><Text style={[styles.detailActionBtnText, { color: colors.destructive }]}>Delete</Text>
+                          </TouchableOpacity>
+                        </> : null}
+                      </View>
+                    )}
+                    <View style={[styles.detailDivider, { backgroundColor: colors.border }]} />
+                    {detailExp.shoppingSource ? <Surface style={[styles.detailPersonRow, { borderColor: colors.border }]}>
+                      <Feather name="shopping-cart" size={16} color={colors.primary} /><View style={{ flex: 1 }}>
+                        <Text style={[styles.detailPersonName, { color: colors.foreground }]}>From Shopping: {detailExp.shoppingSource.shoppingListName}</Text>
+                        <Text style={[styles.detailPersonAmount, { color: colors.mutedForeground }]}>{detailExp.shoppingSource.type === "shopping-list" ? `Group split: $${detailExp.amount.toFixed(2)}` : detailExp.shoppingSource.shoppingItemName}</Text>
+                      </View>
+                    </Surface> : null}
+                    {detailExp.notes ? <Text style={[styles.detailMeta, { color: colors.mutedForeground }]}>{detailExp.notes}</Text> : null}
+                    <Text style={[styles.detailSectionLabel, { color: colors.mutedForeground }]}>Shares and repayments</Text>
+                    <View style={{ gap: 8 }}>
+                      {Object.entries(shares).map(([personId, amount]) => {
+                        const person = roommates.find((roommate) => roommate.id === personId) ?? { id: personId, name: "Former Sweetmate", color: colors.mutedForeground, avatarUri: undefined };
+                        const isOwer = personId !== detailExp.paidBy && amount > 0;
+                        const hasPaid = Boolean(detailExp.paidBack?.[personId]);
+                        const resolved = detailExp.settled || hasPaid;
+                        const isMe = personId === currentUserId;
+                        return <CompletionMotion key={personId} completed={isMe && isOwer && resolved} subtle style={[styles.detailPersonRow, { backgroundColor: resolved ? colors.success + "0C" : colors.card, borderColor: resolved ? colors.success + "40" : colors.border }]}>
                           <RoommateAvatar name={person.name} color={person.color} size={32} imageUri={person.avatarUri} />
-                          <View style={{ flex: 1 }}>
-                            <Text style={[styles.detailPersonName, { color: colors.foreground }]}>
-                              {isMe ? "You" : person.name}
-                              {!isOwer ? " (paid)" : ""}
-                            </Text>
-                            <CompletionText completed={isOwer && shareResolved} style={[
-                              styles.detailPersonAmount,
-                              {
-                                color: shareResolved
-                                  ? colors.success
-                                  : isOwer
-                                  ? isMe ? colors.destructive : colors.mutedForeground
-                                  : colors.success,
-                              },
-                            ]}>
-                              {isOwer
-                                ? hasPaid
-                                  ? `Paid back $${(amount as number).toFixed(2)}`
-                                  : detailExp.settled
-                                    ? `Settled $${(amount as number).toFixed(2)}`
-                                    : `Owes $${(amount as number).toFixed(2)}`
-                                : `Covered $${(amount as number).toFixed(2)}`}
+                          <View style={{ flex: 1, minWidth: 0 }}>
+                            <Text style={[styles.detailPersonName, { color: colors.foreground }]}>{isMe ? "You" : person.name}</Text>
+                            <CompletionText completed={isOwer && resolved} style={[styles.detailPersonAmount, { color: resolved || !isOwer ? colors.success : isMe ? colors.destructive : colors.mutedForeground }]}>
+                              {personId === detailExp.paidBy ? `Covered $${amount.toFixed(2)}` : amount <= 0 ? "No repayment due" : hasPaid ? `Paid back $${amount.toFixed(2)}` : detailExp.settled ? `Settled $${amount.toFixed(2)}` : `Owes $${amount.toFixed(2)}`}
                             </CompletionText>
                           </View>
-                          {isOwer && (
-                            shareResolved ? (
-                              <View style={[styles.detailPaidBadge, { backgroundColor: colors.success + "20" }]}>
-                                <Feather name="check-circle" size={14} color={colors.success} />
-                                <Text style={[styles.detailPaidBadgeText, { color: colors.success }]}>{hasPaid ? "Paid" : "Settled"}</Text>
-                              </View>
-                            ) : isMe ? (
-                              <TouchableOpacity
-                                style={[styles.detailMarkPaidBtn, { backgroundColor: colors.action }]}
-                                onPress={() => {
-                                  confirm(
-                                    "mark_paid",
-                                    "Mark as paid back?",
-                                    `Confirm that you've paid ${payer?.name ?? "them"} back $${(amount as number).toFixed(2)}?`,
-                                    () => {
-                                      markPersonPaid(detailExp.id, currentUserId);
-                                      hapticSuccess();
-                                    },
-                                    { confirmText: "Yes, I paid" }
-                                  );
-                                }}
-                              >
-                                <Feather name="check" size={13} color="#fff" />
-                                <Text style={styles.detailMarkPaidText}>I paid</Text>
-                              </TouchableOpacity>
-                            ) : (
-                              <View style={[styles.detailPendingBadge, { borderColor: colors.border }]}>
-                                <Text style={[styles.detailPendingText, { color: colors.mutedForeground }]}>Pending</Text>
-                              </View>
-                            )
-                          )}
-                        </CompletionMotion>
-                      );
-                    })}
-                  </View>
-
-                  {/* My action summary */}
-                  {iAmOwer && !alreadyPaidBack && !detailExp.settled && (
-                    <View style={[styles.detailMyOweBanner, { backgroundColor: colors.destructive + "10", borderColor: colors.destructive + "30" }]}>
-                      <Feather name="alert-circle" size={14} color={colors.destructive} />
-                      <Text style={[styles.detailMyOweText, { color: colors.destructive }]}>
-                        You owe {payer?.name ?? "them"} ${myShare.toFixed(2)} — tap "I paid" to mark it done
-                      </Text>
+                          {isOwer && !resolved && isMe ? (
+                            <TouchableOpacity disabled={disabled} accessibilityRole="button" accessibilityLabel={`Record your repayment of $${amount.toFixed(2)}`} style={[styles.detailMarkPaidBtn, { backgroundColor: colors.action, opacity: disabled ? 0.45 : 1 }]} onPress={() => requestExpenseAction(detailExp, "repay")}>
+                              <Feather name="check" size={13} color="#fff" /><Text style={styles.detailMarkPaidText}>I paid</Text>
+                            </TouchableOpacity>
+                          ) : isOwer ? <Text style={[styles.detailPendingText, { color: resolved ? colors.success : colors.mutedForeground }]}>{resolved ? hasPaid ? "Paid" : "Settled" : "Pending"}</Text> : null}
+                        </CompletionMotion>;
+                      })}
                     </View>
-                  )}
-                  {iAmOwer && (alreadyPaidBack || detailExp.settled) && (
-                    <View style={[styles.detailMyOweBanner, { backgroundColor: colors.success + "10", borderColor: colors.success + "30" }]}>
-                      <Feather name="check-circle" size={14} color={colors.success} />
-                      <Text style={[styles.detailMyOweText, { color: colors.success }]}>
-                        {alreadyPaidBack ? "You've marked your share as paid back" : "Your share is settled"}
-                      </Text>
-                    </View>
-                  )}
-
-                  {/* Creator/manager actions */}
-                  {(canEditExpense(detailExp) || canManageExpense(detailExp)) && (
-                    <View style={styles.detailPayerActions}>
-                      {canEditExpense(detailExp) ? (
-                        <TouchableOpacity
-                          style={[styles.detailActionBtn, { backgroundColor: colors.primary + "14", borderColor: colors.primary + "30" }]}
-                          onPress={() => { setDetailExpenseId(null); setTimeout(() => openEditModal(detailExp), 0); }}
-                        >
-                          <Feather name="edit-2" size={14} color={colors.primary} />
-                          <Text style={[styles.detailActionBtnText, { color: colors.primary }]}>Edit</Text>
-                        </TouchableOpacity>
-                      ) : null}
-                      {canManageExpense(detailExp) ? (
-                        <>
-                          <TouchableOpacity
-                            style={[styles.detailActionBtn, { backgroundColor: colors.success + "14", borderColor: colors.success + "30" }]}
-                            onPress={() => confirm("settle_expense", "Settle Up", "Mark this entire IOU as settled?", () => {
-                              settleExpense(detailExp.id);
-                              setDetailExpenseId(null);
-                              hapticSuccess();
-                            }, { confirmText: "Settle" })}
-                          >
-                            <Feather name="check-circle" size={14} color={colors.success} />
-                            <Text style={[styles.detailActionBtnText, { color: colors.success }]}>Settle all</Text>
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            style={[styles.detailActionBtn, { backgroundColor: colors.destructive + "10", borderColor: colors.destructive + "20" }]}
-                            onPress={() => confirm("delete_expense", "Delete IOU", "Remove this expense?", () => { deleteExpense(detailExp.id); setDetailExpenseId(null); }, { confirmText: "Delete", destructive: true })}
-                          >
-                            <Feather name="trash-2" size={14} color={colors.destructive} />
-                            <Text style={[styles.detailActionBtnText, { color: colors.destructive }]}>Delete</Text>
-                          </TouchableOpacity>
-                        </>
-                      ) : null}
-                    </View>
-                  )}
-
-                  <TouchableOpacity
-                    style={[styles.detailCloseBtn, { backgroundColor: colors.muted }]}
-                    onPress={() => setDetailExpenseId(null)}
-                  >
+                    {iAmOwer ? <InlineFeedback tone={alreadyPaidBack || detailExp.settled ? "success" : "info"} message={alreadyPaidBack ? "Your repayment is recorded." : detailExp.settled ? "This IOU is settled." : `You owe ${payer?.name ?? "the payer"} $${myShare.toFixed(2)}.`} /> : null}
+                  </ScrollView>
+                  <TouchableOpacity style={[styles.detailCloseBtn, { backgroundColor: colors.muted }]} onPress={closeDetails} accessibilityRole="button" accessibilityLabel="Close expense details">
                     <Text style={[styles.detailCloseBtnText, { color: colors.foreground }]}>Close</Text>
                   </TouchableOpacity>
                 </Surface>
@@ -1260,6 +1214,9 @@ export default function ExpensesScreen() {
               </Text>
             </View>
             <TouchableOpacity
+              disabled={submittingIou}
+              accessibilityRole="button"
+              accessibilityLabel="Close expense editor"
               onPress={closeIou}
               style={[styles.iouCloseBtn, { backgroundColor: colors.muted }]}
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
@@ -1278,6 +1235,8 @@ export default function ExpensesScreen() {
               keyboardShouldPersistTaps="handled"
               contentContainerStyle={styles.iouBody}
             >
+              {financialFieldsLocked ? <InlineFeedback message="A repayment or settlement has been recorded. Amounts, payer, participants, splits, and date are locked. You can still update the title, category, and notes." /> : null}
+              {!financialFieldsLocked && editingExpense?.shoppingSource ? <InlineFeedback message="The purchase total is linked to Shopping. The payer and shares can be edited until a repayment is recorded." /> : null}
               {/* Title */}
               <View>
                 <Text
@@ -1296,6 +1255,7 @@ export default function ExpensesScreen() {
                   ]}
                   placeholder="e.g. Groceries run"
                   placeholderTextColor={colors.mutedForeground}
+                  editable={!formBusy}
                   value={expTitle}
                   onChangeText={setExpTitle}
                 />
@@ -1327,6 +1287,7 @@ export default function ExpensesScreen() {
                             borderColor: selected ? colors.primary : colors.border,
                           },
                         ]}
+                        disabled={formBusy}
                         onPress={() => setExpCategory(cat.key)}
                       >
                         <Feather
@@ -1370,6 +1331,7 @@ export default function ExpensesScreen() {
                             expPaidBy === r.id ? r.color : colors.border,
                         },
                       ]}
+                      disabled={financialFieldsLocked || formBusy}
                       onPress={() => setExpPaidBy(r.id)}
                     >
                       <RoommateAvatar
@@ -1421,11 +1383,9 @@ export default function ExpensesScreen() {
                     style={[styles.amountInput, { color: colors.foreground }]}
                     placeholder="0.00"
                     placeholderTextColor={colors.mutedForeground}
+                    editable={!purchaseTotalLocked && !formBusy}
                     value={expTotalAmount}
                     onChangeText={(v) => setExpTotalAmount(v)}
-                    onBlur={() => {
-                      if (allocationMode === "equal") recalcEvenSplit();
-                    }}
                     keyboardType="decimal-pad"
                   />
                   {totalParsed > 0 && expParticipants.length > 0 && (
@@ -1434,6 +1394,7 @@ export default function ExpensesScreen() {
                         styles.evenSplitBtn,
                         { backgroundColor: colors.primary + "18" },
                       ]}
+                      disabled={financialFieldsLocked || formBusy}
                       onPress={recalcEvenSplit}
                     >
                       <Text
@@ -1495,6 +1456,7 @@ export default function ExpensesScreen() {
                   multiline
                   placeholder="Add a note"
                   placeholderTextColor={colors.mutedForeground}
+                  editable={!formBusy}
                   value={expNotes}
                   onChangeText={setExpNotes}
                 />
@@ -1518,6 +1480,7 @@ export default function ExpensesScreen() {
                   ]}
                   placeholder="YYYY-MM-DD"
                   placeholderTextColor={colors.mutedForeground}
+                  editable={!financialFieldsLocked && !formBusy}
                   value={expDate}
                   onChangeText={setExpDate}
                   autoCapitalize="none"
@@ -1551,6 +1514,7 @@ export default function ExpensesScreen() {
                               borderColor: selected ? r.color : colors.border,
                             },
                           ]}
+                          disabled={financialFieldsLocked || formBusy}
                           onPress={() => toggleParticipant(r.id)}
                         >
                           <RoommateAvatar
@@ -1575,95 +1539,7 @@ export default function ExpensesScreen() {
                 </View>
               </View>
 
-              {/* Recurring toggle */}
-              <View>
-                <TouchableOpacity
-                  style={[
-                    styles.recurringToggle,
-                    {
-                      backgroundColor: expRecurring ? colors.primary + "12" : colors.muted,
-                      borderColor: expRecurring ? colors.primary + "55" : colors.border,
-                    },
-                  ]}
-                  onPress={() => setExpRecurring(expRecurring ? null : "monthly")}
-                >
-                  <View
-                    style={[
-                      styles.recurringCheckbox,
-                      {
-                        backgroundColor: expRecurring ? colors.action : "transparent",
-                        borderColor: expRecurring ? colors.primary : colors.mutedForeground,
-                      },
-                    ]}
-                  >
-                    {expRecurring ? <Feather name="check" size={11} color="#fff" /> : null}
-                  </View>
-                  <Feather name="repeat" size={14} color={expRecurring ? colors.primary : colors.mutedForeground} />
-                  <Text
-                    style={{
-                      fontFamily: "Inter_500Medium", includeFontPadding: false,
-                      fontSize: 14,
-                      color: expRecurring ? colors.primary : colors.mutedForeground,
-                      flex: 1,
-                    }}
-                  >
-                    Recurring expense
-                  </Text>
-                </TouchableOpacity>
-
-                {expRecurring ? (
-                  <View style={{ marginTop: 8, gap: 8 }}>
-                    <View style={styles.recurringOptions}>
-                      {(["daily", "monthly", "custom"] as RecurringInterval[]).map((opt) => {
-                        const selected = expRecurring === opt;
-                        return (
-                          <TouchableOpacity
-                            key={opt}
-                            style={[
-                              styles.recurringChip,
-                              {
-                                backgroundColor: selected ? colors.primary + "22" : colors.muted,
-                                borderColor: selected ? colors.primary : colors.border,
-                                flex: 1,
-                              },
-                            ]}
-                            onPress={() => setExpRecurring(opt)}
-                          >
-                            <Text
-                              style={{
-                                fontFamily: "Inter_600SemiBold", includeFontPadding: false,
-                                fontSize: 13,
-                                color: selected ? colors.primary : colors.mutedForeground,
-                                textAlign: "center",
-                              }}
-                            >
-                              {opt === "custom"
-                                ? "Custom interval"
-                                : opt.charAt(0).toUpperCase() + opt.slice(1)}
-                            </Text>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
-                    {expRecurring === "custom" ? (
-                      <TextInput
-                        style={[
-                          styles.input,
-                          {
-                            backgroundColor: colors.muted,
-                            color: colors.foreground,
-                            borderColor: colors.border,
-                          },
-                        ]}
-                        placeholder="e.g. every 2 weeks"
-                        placeholderTextColor={colors.mutedForeground}
-                        value={expRecurringCustom}
-                        onChangeText={setExpRecurringCustom}
-                      />
-                    ) : null}
-                  </View>
-                ) : null}
-              </View>
+              {editingExpense?.recurring ? <InlineFeedback message="This older IOU keeps its recurring label. Automatic repeat expenses are currently unavailable." /> : null}
 
               {/* Allocation mode */}
               {expParticipants.length > 0 && totalCents !== null ? (
@@ -1690,9 +1566,10 @@ export default function ExpensesScreen() {
                               flex: 1,
                             },
                           ]}
+                          disabled={financialFieldsLocked || formBusy}
                           onPress={() => {
                             if (option.value === "equal") recalcEvenSplit();
-                            else setAllocationMode("exact");
+                            else { setExpSplits(displayedSplits); setAllocationMode("exact"); }
                           }}
                         >
                           <Text style={{
@@ -1749,8 +1626,7 @@ export default function ExpensesScreen() {
 
                   <View style={{ gap: 8, marginTop: 4 }}>
                     {expParticipants.map((id) => {
-                      const person = roommates.find((r) => r.id === id);
-                      if (!person) return null;
+                      const person = roommates.find((r) => r.id === id) ?? { id, name: "Former Sweetmate", color: colors.mutedForeground, avatarUri: undefined };
                       return (
                         <View
                           key={id}
@@ -1796,9 +1672,9 @@ export default function ExpensesScreen() {
                                 styles.splitInput,
                                 { color: colors.foreground },
                               ]}
-                              value={expSplits[id] ?? ""}
+                              value={displayedSplits[id] ?? ""}
                               onChangeText={(v) => updateSplit(id, v)}
-                              editable={allocationMode === "exact"}
+                              editable={allocationMode === "exact" && !financialFieldsLocked && !formBusy}
                               keyboardType="decimal-pad"
                               placeholder="0.00"
                               placeholderTextColor={colors.mutedForeground}
@@ -1806,6 +1682,8 @@ export default function ExpensesScreen() {
                           </View>
                           {allocationMode === "exact" && remainingCents > 0 ? (
                             <TouchableOpacity
+                              disabled={financialFieldsLocked || formBusy}
+                              style={{ minHeight: 44, justifyContent: "center" }}
                               onPress={() => assignRemainder(id)}
                               accessibilityRole="button"
                               accessibilityLabel={`Assign remaining amount to ${person.name}`}
@@ -1822,11 +1700,14 @@ export default function ExpensesScreen() {
                 </View>
               )}
 
-              {!allocationValidation.valid ? (
+              {!financialFieldsLocked && !allocationValidation.valid ? (
                 <InlineFeedback message={allocationValidation.reason ?? "Check the split amounts."} tone="warning" />
               ) : null}
-              {iouSubmitError ? (
-                <InlineFeedback message={iouSubmitError} tone="error" />
+              {iouSubmitError ? <InlineFeedback message={iouSubmitError} tone="error" /> : null}
+              {queuedIou || (editingExpenseId && pendingExpenseSet.has(editingExpenseId)) ? (
+                <TouchableOpacity accessibilityRole="button" style={[styles.retryButton, { borderColor: colors.border }]} disabled={retryingExpenses} onPress={() => void retryExpenseSync()}>
+                  <Text style={[styles.retryText, { color: colors.primary }]}>{retryingExpenses ? "Retrying…" : "Retry saving"}</Text>
+                </TouchableOpacity>
               ) : null}
 
             </ScrollView>
@@ -1842,7 +1723,10 @@ export default function ExpensesScreen() {
                 },
               ]}
             >
+              {formValidationMessage ? <Text accessibilityLiveRegion="polite" style={[styles.validationHint, { color: colors.mutedForeground }]}>{formValidationMessage}</Text> : null}
               <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityState={{ disabled: !canSubmit, busy: submittingIou }}
                 style={[
                   styles.iouSendBtn,
                   { backgroundColor: canSubmit ? colors.action : colors.muted },
@@ -1861,7 +1745,7 @@ export default function ExpensesScreen() {
                     { color: canSubmit ? "#fff" : colors.mutedForeground },
                   ]}
                 >
-                  {submittingIou ? "Saving…" : editingExpenseId ? "Save Changes" : "Send IOU"}
+                  {submittingIou ? "Saving…" : queuedIou || pendingExpenseSet.has(expenseDraftId) ? "Waiting to sync" : editingExpenseId ? "Save Changes" : "Send IOU"}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -1874,6 +1758,13 @@ export default function ExpensesScreen() {
 }
 
 const styles = StyleSheet.create({
+  syncBanner: { marginHorizontal: 16, gap: 8, marginBottom: 10 },
+  retryButton: { minHeight: 44, paddingHorizontal: 16, justifyContent: "center", alignItems: "center", borderWidth: 1, borderRadius: 12 },
+  retryText: { fontFamily: "Inter_600SemiBold", includeFontPadding: false, fontSize: 14 },
+  pendingText: { fontFamily: "Inter_500Medium", includeFontPadding: false, fontSize: 12, marginTop: 8 },
+  expenseSettleButton: { minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" },
+  confirmationPanel: { borderWidth: 1, borderRadius: 14, padding: 14, gap: 12 },
+  validationHint: { fontFamily: "Inter_500Medium", includeFontPadding: false, fontSize: 13, lineHeight: 18, marginBottom: 10 },
   netSummary: { marginHorizontal: 20, marginBottom: 12, paddingVertical: 10, borderTopWidth: StyleSheet.hairlineWidth, gap: 4 },
   netSummaryTitle: { fontFamily: "Inter_600SemiBold", includeFontPadding: false, fontSize: 17 },
   netSummaryHint: { fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 14, lineHeight: 18 },
@@ -2014,11 +1905,14 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   evenSplitBtn: {
+    minHeight: 44,
+    justifyContent: "center",
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
   },
   chip: {
+    minHeight: 44,
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 12,
@@ -2028,6 +1922,7 @@ const styles = StyleSheet.create({
   },
   roommateRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   roommateChip: {
+    minHeight: 44,
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 10,
@@ -2108,6 +2003,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   recurringChip: {
+    minHeight: 44,
+    justifyContent: "center",
     paddingVertical: 8,
     borderRadius: 10,
     borderWidth: 1,
@@ -2210,6 +2107,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   detailMarkPaidBtn: {
+    minHeight: 44,
+    minWidth: 66,
+    justifyContent: "center",
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
@@ -2248,10 +2148,13 @@ const styles = StyleSheet.create({
   },
   detailPayerActions: {
     flexDirection: "row",
+    flexWrap: "wrap",
     gap: 8,
   },
   detailActionBtn: {
     flex: 1,
+    minWidth: 96,
+    minHeight: 44,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -2291,6 +2194,8 @@ const styles = StyleSheet.create({
   iouHeaderTitle: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 26 },
   iouHeaderSub: { fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 13, marginTop: 2 },
   iouCloseBtn: {
+    minWidth: 44,
+    minHeight: 44,
     width: 40,
     height: 40,
     borderRadius: 20,

@@ -19,4 +19,16 @@ assert.equal(summarizeMemberIous([{ paidBy: "a", splits: { b: 10 }, settled: tru
 assert.equal(summarizeMemberIous([{ paidBy: "a", splits: { a: 10, b: 0.1, c: 0.2 } }], "a").netCents, 30);
 assert.equal(summarizeMemberIous([{ paidBy: "a", splits: { b: NaN, c: -10 } }], "a").hasOutstandingDebts, false);
 assert.equal(summarizeMemberIous(chain, "unrelated").hasOutstandingDebts, false);
+assert.deepEqual(summarizeMemberIous([{
+  paidBy: "a", splits: { b: 1000000 }, allocations: [{ participantId: "b", amountCents: 601 }],
+}], "b"), { owedCents: 0, owingCents: 601, netCents: -601, hasOutstandingDebts: true }, "canonical cent allocations override conflicting legacy dollar fields");
+assert.equal(summarizeMemberIous([{
+  paidBy: "a", splits: { b: 100 }, allocations: [{ participantId: "b", amountCents: 0 }],
+}], "b").hasOutstandingDebts, false, "zero-cent allocations do not create debt");
+assert.equal(summarizeMemberIous([{
+  paidBy: "a", allocations: [{ participantId: "b", amountCents: 601 }, { participantId: "b", amountCents: 601 }],
+}], "a").owedCents, 601, "a malformed duplicate participant cannot double a debt");
+assert.equal(summarizeMemberIous([{
+  paidBy: "a", allocations: [{ participantId: "b", amountCents: 1.5 }, { participantId: "c", amountCents: NaN }],
+}], "a").hasOutstandingDebts, false, "invalid cent allocations do not poison the summary");
 console.log("IOU summary tests passed");

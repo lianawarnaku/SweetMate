@@ -348,14 +348,11 @@ export default function ShoppingScreen() {
     if (!householdId) throw new Error("Your Sweet is still loading.");
     const item = shoppingItems.find((entry) => entry.id === itemId);
     if (!item) throw new Error("This Shopping item is no longer available.");
-    if (
-      item.convertedExpenseId &&
-      expenses.some(
-        (expense) =>
-          expense.id === item.convertedExpenseId && !expense.settled,
-      )
-    ) {
-      throw new Error("This item already has an expense.");
+    if (item.convertedExpenseId || expenses.some(expense =>
+      expense.shoppingSource?.shoppingListId === item.listId &&
+      (expense.shoppingSource.type === "shopping-list" || expense.shoppingSource.shoppingItemIds.includes(item.id))
+    )) {
+      throw new Error("This purchase already has an IOU. Use a new Shopping list for a new purchase.");
     }
     const list = shoppingLists.find((entry) => entry.id === item.listId);
     if (!list) throw new Error("This Shopping list is no longer available.");
@@ -398,6 +395,9 @@ export default function ShoppingScreen() {
     if (!householdId) throw new Error("Your Sweet is still loading.");
     const list = shoppingLists.find((entry) => entry.id === listId);
     if (!list) throw new Error("This Shopping list is no longer available.");
+    if (expenses.some(expense => expense.shoppingSource?.type === "shopping-list" && expense.shoppingSource.shoppingListId === listId)) {
+      throw new Error("This list already has an IOU. Create a new Shopping list for a new purchase.");
+    }
     const allocations = linkedItemAllocations(listId, shoppingItems, expenses);
     const allocatedCents = allocations.reduce(
       (total, allocation) => total + allocation.amountCents,

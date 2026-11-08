@@ -254,10 +254,10 @@ assert(
 assert(
   shopping.includes("paidBy: currentUserId") &&
     shopping.includes("householdId,") &&
-    expenses.includes("An active IOU already exists for this Shopping item.") &&
+    context.includes('mutateExpense("create", id, payload)') && expenses.includes("expenseDraftId") &&
     expenses.includes("value={expDate}") &&
     !context.includes("convertedExpenseId: expenseId, completed: true"),
-  "Shopping-item drafts must preserve household/date metadata, prevent active duplicates, and leave the item unchecked",
+  "Shopping-item drafts must preserve household/date metadata, use durable create commands, and leave the item unchecked",
 );
 assert(
   !shopping.includes("listDollarBtn") &&
@@ -267,10 +267,13 @@ assert(
   "Shopping expense actions must live only in the shared list/item long-press menu",
 );
 assert(
-  expenses.includes("<ActionMenuModal") &&
+  expenses.includes("onLongPress={() => { openDetails(item.id); tapLight(); }}") &&
+    expenses.includes("onDismiss={finishDetailDismiss}") &&
+    expenses.includes("detailConfirmation") &&
+    !expenses.includes("longPressedExpenseRef") &&
     !expenses.includes('<Feather name="edit-2" size={15}') &&
     !expenses.includes('name="trash-2"\n                              size={15}'),
-  "expense rows must use the shared long-press menu instead of edit and trash icons",
+  "expense rows must open details/actions without a swallowed tap and hand editing off after native dismissal",
 );
 assert(
   home.includes("<ActionMenuModal") &&
@@ -319,9 +322,10 @@ assert(
   "private borrow item cache hydration must not overwrite a fresher network fetch that already resolved",
 );
 assert(
-  context.includes("mergeByUpdatedAt(expensesRef.current, next.expenses)") &&
+  context.includes("useExpenseSync({") &&
+    !context.includes("mergeByUpdatedAt(expensesRef.current, next.expenses)") &&
     !context.includes("if (Array.isArray(next.expenses)) setExpenses(next.expenses);"),
-  "expense realtime sync must merge by updatedAt instead of blindly replacing the array",
+  "expense state must use explicit server commands and never replay shared household snapshots",
 );
 assert(
   group.includes("key={chore.id}") &&
