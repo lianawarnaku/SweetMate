@@ -52,8 +52,13 @@ if (!glassSurface.includes("GlassSheet") || !liquidGlass.includes("<BlurView")) 
 if (!liquidGlass.includes("isLiquidGlassAvailable()") || !liquidGlass.includes("isGlassEffectAPIAvailable()")) {
   violations.push("components/LiquidGlass.tsx: native glass must use both runtime availability guards");
 }
-if (!liquidGlass.includes("isReduceTransparencyEnabled()")) {
-  violations.push("components/LiquidGlass.tsx: glass must provide the reduce-transparency fallback");
+const accessibilityPreferences = readFileSync(join(root, "hooks", "useAccessibilityPreferences.ts"), "utf8");
+if (
+  !liquidGlass.includes("useAccessibilityPreferences()") ||
+  !accessibilityPreferences.includes("isReduceTransparencyEnabled()") ||
+  !liquidGlass.includes('reduceTransparency || Platform.OS === "android"')
+) {
+  violations.push("components/LiquidGlass.tsx: glass must use the shared reduce-transparency preference and fallback");
 }
 
 if (violations.length) throw new Error(`Prohibited app-controlled native popups:\n${violations.join("\n")}`);

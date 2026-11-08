@@ -1,12 +1,14 @@
 import { BlurView } from "expo-blur";
 import { GlassView, isGlassEffectAPIAvailable, isLiquidGlassAvailable } from "expo-glass-effect";
-import React, { type ReactNode, useEffect, useState } from "react";
-import { AccessibilityInfo, Platform, Pressable, StyleSheet, View, type PressableProps, type StyleProp, type ViewProps, type ViewStyle } from "react-native";
+import React, { type ReactNode } from "react";
+import { Platform, Pressable, StyleSheet, View, type PressableProps, type StyleProp, type ViewProps, type ViewStyle } from "react-native";
 
 import { androidRipple } from "@/lib/ripple";
+import { useAccessibilityPreferences } from "@/hooks/useAccessibilityPreferences";
 import { useTheme } from "@/constants/colors";
 import { elevation, glass, interaction, radii, spacing, type GlassLevel } from "@/constants/designTokens";
 
+export type SurfaceMaterial = "glass" | "solid";
 export type GlassVariant = "subtle" | "regular" | "elevated" | "modal" | "destructive";
 
 const variantLevel: Record<Exclude<GlassVariant, "destructive">, GlassLevel> = {
@@ -16,33 +18,13 @@ const variantLevel: Record<Exclude<GlassVariant, "destructive">, GlassLevel> = {
   modal: "modal",
 };
 
-function useReduceTransparency() {
-  const [reduced, setReduced] = useState(false);
-  useEffect(() => {
-    if (Platform.OS === "web" || typeof AccessibilityInfo.isReduceTransparencyEnabled !== "function") {
-      setReduced(false);
-      return;
-    }
-    let active = true;
-    void AccessibilityInfo.isReduceTransparencyEnabled().then((value) => {
-      if (active) setReduced(value);
-    });
-    const subscription = AccessibilityInfo.addEventListener("reduceTransparencyChanged", setReduced);
-    return () => {
-      active = false;
-      subscription.remove();
-    };
-  }, []);
-  return reduced;
-}
-
-export function GlassSurface({ children, style, variant = "regular", interactive = false, ...props }: ViewProps & { variant?: GlassVariant; interactive?: boolean }) {
+export function GlassSurface({ children, style, variant = "regular", material = "glass", interactive = false, ...props }: ViewProps & { variant?: GlassVariant; material?: SurfaceMaterial; interactive?: boolean }) {
   const colors = useTheme();
-  const reduceTransparency = useReduceTransparency();
+  const { reduceTransparency } = useAccessibilityPreferences();
   // Sheets need a stable frosted fill; native interactive glass adds a bright
   // specular highlight and does not honor our modal opacity.
   const isSheet = variant === "modal" || variant === "destructive";
-  const nativeGlass = Platform.OS === "ios" && !isSheet && !interactive && !reduceTransparency && isLiquidGlassAvailable() && isGlassEffectAPIAvailable();
+  const nativeGlass = material === "glass" && Platform.OS === "ios" && !isSheet && !interactive && !reduceTransparency && isLiquidGlassAvailable() && isGlassEffectAPIAvailable();
   const level = variant === "destructive" ? "modal" : variantLevel[variant];
   const treatment = glass[level];
   const baseColor = variant === "destructive"
@@ -54,6 +36,15 @@ export function GlassSurface({ children, style, variant = "regular", interactive
         : variant === "modal"
           ? colors.surfaceModal
           : colors.surface;
+  const opaqueFill = variant === "destructive"
+    ? colors.destructiveSurfaceOpaque
+    : variant === "subtle"
+      ? colors.cardSubtle
+      : variant === "elevated"
+        ? colors.cardElevated
+        : variant === "modal"
+          ? colors.surfaceModalOpaque
+          : colors.card;
   const shadow = level === "modal" ? elevation.modal : level === "elevated" ? elevation.floating : elevation.flat;
   const surfaceStyle = [
     styles.clip,
@@ -64,8 +55,15 @@ export function GlassSurface({ children, style, variant = "regular", interactive
       shadowRadius: shadow.shadowRadius,
       elevation: shadow.elevation,
     },
+    material === "solid" ? { backgroundColor: opaqueFill } : undefined,
     style,
   ];
+
+  if (material === "solid") {
+    // One fixed background, with caller styles last. No native glass, blur or
+    // second tint layer can change a list card during scrolling or fading.
+    return <View {...props} style={surfaceStyle}>{children}</View>;
+  }
 
   if (nativeGlass) {
     return (
@@ -77,9 +75,7 @@ export function GlassSurface({ children, style, variant = "regular", interactive
   // Blur only the background layer so labels and icons remain sharp.
   // A dense modal tint prevents the underlying page showing through the text.
   const opaqueFallback = reduceTransparency || Platform.OS === "android";
-  const fill = opaqueFallback
-    ? (colors.mode === "dark" ? "#202024" : "#F7F7FA")
-    : baseColor;
+  const fill = opaqueFallback ? opaqueFill : baseColor;
   return (
     <View {...props} style={surfaceStyle}>
       {!opaqueFallback && Platform.OS !== "web" && (
@@ -122,7 +118,7 @@ export function NeutralButton({ children, style, disabled, ...props }: GlassButt
 
 export function AccentChip({ children, style, ...props }: ViewProps) {
   const colors = useTheme();
-  return <GlassSurface {...props} style={[styles.chip, { borderColor: colors.divider }, style]}>{children}</GlassSurface>;
+  return <GlassSurface {...props} material="solid" style={[styles.chip, { borderColor: colors.divider }, style]}>{children}</GlassSurface>;
 }
 
 export function GlassSheet(props: ViewProps & { variant?: GlassVariant }) {
