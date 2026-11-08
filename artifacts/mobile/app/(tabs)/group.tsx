@@ -871,6 +871,7 @@ export default function GroupChoresScreen() {
             <ChoreFilterButton
               key={option}
               selected={choreView === option}
+              pill
               accessibilityLabel={option === "active" ? "Show active group chores" : `Show ${archivedHouseholdChores.length} archived group chores`}
               onPress={() => {
                 setChoreView(option);

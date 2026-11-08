@@ -1392,7 +1392,7 @@ export default function MyChoresScreen() {
                   key={f}
                   selected={filter === f}
                   onPress={() => selectFilter(f)}
-                  style={styles.filterBtn}
+                  pill
                   icon={f === "archived" ? "archive" : undefined}
                   iconOnly={f === "archived"}
                   accessibilityLabel={
@@ -1866,10 +1866,10 @@ const styles = StyleSheet.create({
   dayItemAmount: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 12 },
   filterRow: {
     flexDirection: "row",
+    flexWrap: "wrap",
     gap: 8,
     paddingBottom: 12,
   },
-  filterBtn: { flex: 1, paddingHorizontal: 6 },
   doneRetentionHint: {
     fontFamily: "Inter_400Regular", includeFontPadding: false,
     fontSize: 12,
