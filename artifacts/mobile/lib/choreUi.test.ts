@@ -198,12 +198,19 @@ assert(
     !home.includes("styles.categoryIcon"),
   "My Chores must keep category icons unboxed and render points in their compact badge",
 );
+const sectionDivider = readFileSync(resolve(process.cwd(), "components/SectionDivider.tsx"), "utf8");
 assert(
-  home.includes("styles.sectionCountBadge") &&
-    home.includes("accessibilityState={{ expanded }}") &&
-    home.includes("minHeight: 52") &&
-    !home.includes("styles.sectionDividerLine"),
-  "My Sweet section headings must use full-width accessible controls with count badges",
+  home.includes("SectionDivider as CollapsibleSectionHeader") &&
+    sectionDivider.includes("accessibilityState={{ expanded }}") &&
+    sectionDivider.includes("minHeight: 44") &&
+    sectionDivider.includes("styles.line"),
+  "My Sweet section headings must use accessible divider controls",
+);
+assert(
+  home.includes('title="Calendar"') &&
+    home.includes('{expandedHomeSections.schedule && <Surface') &&
+    !home.includes('!listView && expandedHomeSections.schedule'),
+  "calendar must remain available in saved list view as well as dashboard view",
 );
 assert(
   !group.includes("styles.activityHeaderIcon, { backgroundColor:"),

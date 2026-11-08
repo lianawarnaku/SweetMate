@@ -1106,17 +1106,15 @@ export default function MyChoresScreen() {
               />
             )}
 
-            {!listView && (
-              <CollapsibleSectionHeader
-                title="Schedule"
-                count={selectedCalendarItems.length}
-                icon="calendar"
-                expanded={expandedHomeSections.schedule}
-                onToggle={() => toggleHomeSection("schedule")}
-              />
-            )}
+            <CollapsibleSectionHeader
+              title="Calendar"
+              count={selectedCalendarItems.length}
+              icon="calendar"
+              expanded={expandedHomeSections.schedule}
+              onToggle={() => toggleHomeSection("schedule")}
+            />
 
-            {!listView && expandedHomeSections.schedule && <Surface style={[styles.calendarCard, { borderColor: colors.border }]}>
+            {expandedHomeSections.schedule && <Surface style={[styles.calendarCard, { borderColor: colors.border }]}>
               <View style={styles.calendarTopRow}>
                 <TouchableOpacity
                   style={[styles.calendarNavButton, { backgroundColor: colors.muted }]}
