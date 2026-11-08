@@ -146,7 +146,7 @@ assert(
 );
 
 assert(
-  home.includes('(["today", "done", "week", "archived"] as Filter[])') &&
+  home.includes('(["today", "done", "archived"] as Filter[])') &&
     home.includes("`Archived ${archivedPersonalChoreCount}`") &&
     group.includes("`Archived ${archivedHouseholdChores.length}`"),
   "My Home and Group must expose Archived filters with passive counts",

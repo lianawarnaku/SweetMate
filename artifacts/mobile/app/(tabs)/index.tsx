@@ -76,7 +76,6 @@ import {
 import {
   activeChores,
   isArchivedIncomplete,
-  isChoreInCurrentWeek,
   isRecentlyCompleted,
 } from "@/lib/choreLifecycle";
 
@@ -92,7 +91,7 @@ const CATEGORIES: { key: ChoreCategory; label: string; icon: keyof typeof Feathe
   { key: "other", label: "Other", icon: "package" },
 ];
 
-type Filter = "week" | "today" | "done" | "archived" | "day";
+type Filter = "today" | "done" | "archived" | "day";
 
 function TodayFocusCard({
   chore,
@@ -979,7 +978,6 @@ export default function MyChoresScreen() {
           if (filter === "archived") return isArchivedIncomplete(chore, now);
           if (filter === "today") return isChoreActiveOnDay(chore, now);
           if (filter === "done") return isRecentlyCompleted(chore, now);
-          if (filter === "week") return isChoreInCurrentWeek(chore, now);
           if (filter === "day") return isChoreActiveOnDay(chore, selectedDate);
           return false;
         })
@@ -1329,14 +1327,11 @@ export default function MyChoresScreen() {
               onToggle={() => toggleHomeSection("my-chores")}
             />
 
-            {expandedHomeSections["my-chores"] && <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.filterRow}
-              style={styles.filterScroller}
+            {expandedHomeSections["my-chores"] && <View
+              style={styles.filterRow}
               accessibilityRole="tablist"
             >
-              {(["today", "done", "week", "archived"] as Filter[]).map((f) => (
+              {(["today", "done", "archived"] as Filter[]).map((f) => (
                 <TouchableOpacity
                   key={f}
                   style={[
@@ -1355,20 +1350,16 @@ export default function MyChoresScreen() {
                       ? "Show today's chores"
                       : f === "done"
                         ? "Show chores completed in the last 7 days"
-                        : f === "archived"
-                          ? `Show ${archivedPersonalChoreCount} archived chores`
-                          : "Show this week's chores"
+                        : `Show ${archivedPersonalChoreCount} archived chores`
                   }
                 >
                   <Feather
                     name={
                       f === "archived"
                         ? "archive"
-                        : f === "week"
-                          ? "calendar"
-                          : f === "done"
-                            ? "check-circle"
-                            : "sun"
+                        : f === "done"
+                          ? "check-circle"
+                          : "sun"
                     }
                     size={13}
                     color={filter === f ? colors.foreground : colors.mutedForeground}
@@ -1385,13 +1376,11 @@ export default function MyChoresScreen() {
                       ? "Today"
                       : f === "done"
                         ? "Completed"
-                        : f === "archived"
-                          ? `Archived ${archivedPersonalChoreCount}`
-                          : "This Week"}
+                        : `Archived ${archivedPersonalChoreCount}`}
                   </Text>
                 </TouchableOpacity>
               ))}
-            </ScrollView>}
+            </View>}
             {expandedHomeSections["my-chores"] && filter === "done" ? (
               <Text style={[styles.doneRetentionHint, { color: colors.mutedForeground }]}>
                 Completed chores stay here for 7 days. Older activity is available in Calendar.
@@ -1422,24 +1411,20 @@ export default function MyChoresScreen() {
         ListEmptyComponent={expandedHomeSections["my-chores"] ? (
           <EmptyState
             compact
-            icon={filter === "archived" ? "archive" : filter === "week" ? "calendar" : "check-circle"}
+            icon={filter === "archived" ? "archive" : "check-circle"}
             title={
               filter === "done"
                 ? "No completed chores yet"
                 : filter === "archived"
                   ? "No archived chores"
-                  : filter === "week"
-                    ? "Your week is clear"
-                    : "Nothing left for today"
+                  : "Nothing left for today"
             }
             subtitle={
               filter === "done"
                 ? "Completed chores from the last seven days will appear here."
                 : filter === "archived"
                   ? "Older incomplete chores will appear here when they need review."
-                  : filter === "week"
-                    ? "You have no remaining chores scheduled this week."
-                    : "Enjoy the breathing room, or tap + to add something new."
+                  : "Enjoy the breathing room, or tap + to add something new."
             }
           />
         ) : null}
@@ -1799,22 +1784,24 @@ const styles = StyleSheet.create({
   dayItemDescription: { fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 11, lineHeight: 15, marginTop: 2 },
   dayItemAmount: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 12 },
   filterRow: {
-    paddingHorizontal: 16,
+    flexDirection: "row",
     gap: 8,
     paddingBottom: 12,
   },
-  filterScroller: { marginHorizontal: -16 },
   filterBtn: {
+    flex: 1,
+    minWidth: 0,
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     gap: 5,
-    minHeight: 40,
-    paddingHorizontal: 14,
+    minHeight: 44,
+    paddingHorizontal: 6,
     paddingVertical: 8,
-    borderRadius: radii.pill,
+    borderRadius: radii.small,
     borderWidth: 1,
   },
-  filterText: { fontFamily: "Inter_600SemiBold", includeFontPadding: false, fontSize: 13 },
+  filterText: { fontFamily: "Inter_600SemiBold", includeFontPadding: false, fontSize: 13, flexShrink: 1, textAlign: "center" },
   doneRetentionHint: {
     fontFamily: "Inter_400Regular", includeFontPadding: false,
     fontSize: 12,
