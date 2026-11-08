@@ -75,7 +75,7 @@ export function InviteCodeCard({
       style={[
         styles.card,
         compact && styles.compactCard,
-        { backgroundColor: colors.card, borderColor: colors.border },
+        { backgroundColor: compact ? "transparent" : colors.card, borderColor: colors.border },
       ]}
     >
       <View style={styles.headingRow}>

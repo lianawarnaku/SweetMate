@@ -1,3 +1,6 @@
+import React, { useContext, useRef } from "react";
+import { View } from "react-native";
+import { HouseTransitionContext } from "./HouseTransitionContext";
 import Svg, { Path, Rect } from "react-native-svg";
 
 export const HOMIE_MARK_DEFAULT = "#111111";
@@ -5,15 +8,24 @@ export const HOMIE_MARK_DEFAULT = "#111111";
 export function BrandMark({
   size = 180,
   color,
+  transition = false,
 }: {
   size?: number;
   color?: string;
+  transition?: boolean;
 }) {
   // A flat fill rather than a gradient: all three stops were the same color,
   // and one hardcoded gradient id is shared by every instance — two marks on
   // screen at once (sign-in behind the loader) collide, and Android resolves
   // the reference to whichever definition it saw last.
   const fill = color ?? HOMIE_MARK_DEFAULT;
+  const reportTarget = useContext(HouseTransitionContext);
+  const anchor = useRef<View>(null);
+  if (reportTarget && transition) {
+    return <View ref={anchor} collapsable={false} style={{ width: size, height: size }} onLayout={() => {
+      anchor.current?.measureInWindow((x, y) => reportTarget({ x, y, size }));
+    }} />;
+  }
 
   return (
     <Svg width={size} height={size} viewBox="0 0 256 256" fill="none">

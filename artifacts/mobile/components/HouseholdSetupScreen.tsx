@@ -86,13 +86,11 @@ export function HouseholdSetupScreen({
   } = useAppContext();
   const { session } = useSupabaseSession();
   const setupDraftKey = session?.user.id
-    ? additionalHousehold
-      ? `sweetmate:household-setup-draft:additional-v1:${session.user.id}`
-      : `sweetmate:household-setup-draft:v2:${session.user.id}`
+    ? `sweetmate:household-setup-draft:v2:${session.user.id}`
     : null;
   const [mode, setMode] = useState<"create" | "join">(initialMode);
   const [step, setStep] = useState(() =>
-    !additionalHousehold && householdSetupStep
+    householdSetupStep
       ? householdSetupStepNumber(householdSetupStep)
       : 1,
   );
@@ -126,7 +124,9 @@ export function HouseholdSetupScreen({
   const [draftHydrated, setDraftHydrated] = useState(false);
   const navigationPendingRef = useRef(false);
   const originalHouseholdIdRef = useRef(additionalHousehold ? householdId : null);
-  const [createdAdditionalHouseholdId, setCreatedAdditionalHouseholdId] = useState<string | null>(null);
+  const [createdAdditionalHouseholdId, setCreatedAdditionalHouseholdId] = useState<string | null>(
+    additionalHousehold && householdSetupStep ? householdId : null,
+  );
 
   const generatedPlan = useMemo(
     () =>
@@ -229,10 +229,10 @@ export function HouseholdSetupScreen({
   ]);
 
   useEffect(() => {
-    if (additionalHousehold || !householdSetupStep) return;
+    if (!householdSetupStep) return;
     const restoredStep = householdSetupStepNumber(householdSetupStep);
     setStep((current) => (current === restoredStep ? current : restoredStep));
-  }, [additionalHousehold, householdSetupStep]);
+  }, [householdSetupStep]);
 
   const changeMode = (next: "create" | "join") => {
     setMode(next);
@@ -247,14 +247,16 @@ export function HouseholdSetupScreen({
     navigationPendingRef.current = true;
     setStep(householdSetupStepNumber(nextStep));
     try {
-      if (!additionalHousehold) await setHouseholdSetupStep(nextStep);
+      await setHouseholdSetupStep(nextStep);
     } finally {
       navigationPendingRef.current = false;
     }
   };
 
-  const cancelAdditionalSetup = () => {
+  const cancelAdditionalSetup = async () => {
     if (loading || navigationPendingRef.current) return;
+    await setHouseholdSetupStep(null);
+    if (setupDraftKey) await AsyncStorage.removeItem(setupDraftKey);
     const originalHouseholdId = originalHouseholdIdRef.current;
     if (originalHouseholdId && householdId !== originalHouseholdId) {
       switchSweet(originalHouseholdId);
@@ -281,7 +283,10 @@ export function HouseholdSetupScreen({
             createInviteCode,
             { deferOnboarding: true, timezone },
           );
-          if (additionalHousehold) setCreatedAdditionalHouseholdId(createdHouseholdId);
+          if (additionalHousehold) {
+            setCreatedAdditionalHouseholdId(createdHouseholdId);
+            await setHouseholdSetupStep("home");
+          }
         }
         setStep(2);
       } catch (createError) {
@@ -356,7 +361,7 @@ export function HouseholdSetupScreen({
         }),
       ]);
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      if (!additionalHousehold) await completeHouseholdSetup();
+      await completeHouseholdSetup();
       if (setupDraftKey) await AsyncStorage.removeItem(setupDraftKey);
       onComplete?.();
     } catch (e) {
@@ -405,13 +410,13 @@ export function HouseholdSetupScreen({
           </View>
         ) : null}
         {mode === "create" && <Progress step={step} colors={colors} />}
-        <View style={styles.brand}><BrandMark size={58} color={colors.primary} /></View>
+        <View style={styles.brand}><BrandMark transition size={58} color={colors.primary} /></View>
         <Text style={[styles.eyebrow, { color: colors.primary }]}>{mode === "create" ? `CREATE YOUR SWEET · STEP ${step} OF 5` : "JOIN YOUR SWEET"}</Text>
         <Text style={[styles.title, { color: colors.foreground }]}>
           {mode === "join" ? "Join your roommates" : step === 1 ? "Start your household" : step === 2 ? "What kind of home is it?" : step === 3 ? "Buying for your Sweet?" : step === 4 ? "What's in your space?" : "Your chore plan"}
         </Text>
         <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-          {mode === "join" ? "Enter the invite code a roommate shared with you." : step === 1 ? "Set up your private household and invite your roommates." : step === 2 ? "This determines which fixed chore rules and Sweet Essentials suggestions apply." : step === 3 ? "Review a short list suggested for your home, or skip it for later." : step === 4 ? "Select everything your household shares. Your plan updates automatically." : "We created these chores from what is in your Sweet. Remove any you do not want or add your own."}
+          {mode === "join" ? "Enter the invite code a roommate shared with you." : step === 1 ? "Set up your private household and invite your roommates." : step === 2 ? "This determines which fixed chore rules and Sweet Essentials suggestions apply." : step === 3 ? "Review a short list suggested for your home, or skip it for later." : step === 4 ? "Select everything your household shares. Round robin chores will update to clean each item that is selected." : "We created these chores from what is in your Sweet. Remove any you do not want or add your own."}
         </Text>
 
         {step === 1 && !householdId && !additionalHousehold && (

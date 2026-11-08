@@ -30,7 +30,7 @@ export function PreferencesOnboardingScreen() {
           paddingBottom: insets.bottom + 28,
         }}
       >
-        <View style={styles.brand}><BrandMark size={58} color={colors.primary} /></View>
+        <View style={styles.brand}><BrandMark transition size={58} color={colors.primary} /></View>
         <Text style={[styles.eyebrow, { color: colors.primary }]}>YOUR SWEET IS READY</Text>
         <Text style={[styles.title, { color: colors.foreground }]}>{householdName ?? "Your Sweet"}</Text>
         <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>

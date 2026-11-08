@@ -9,7 +9,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useEffect } from "react";
 import { View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -18,7 +18,6 @@ import * as SystemUI from "expo-system-ui";
 import { NavigationThemeProvider } from "@/components/NavigationThemeProvider";
 
 import { AuthGate } from "@/components/AuthGate";
-import { HouseLoader } from "@/components/HouseLoader";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { QuickGuideModal } from "@/components/QuickGuideModal";
 import { NudgeToast } from "@/components/NudgeToast";
@@ -63,7 +62,6 @@ export default function RootLayout() {
   // Restore the auth session exactly once. The same result is shared by the
   // provider and gate, and the lookup can finish behind the launch screen.
   const { session, loading: sessionLoading } = useSupabaseSession();
-  const [launchAnimationComplete, setLaunchAnimationComplete] = useState(false);
   const [fontsLoaded, fontError] = useFonts({
     // Keep the established aliases so every existing screen adopts the new
     // condensed SweetMate type system without scattered one-off font changes.
@@ -77,20 +75,6 @@ export default function RootLayout() {
     return installGlobalRuntimeDiagnostics();
   }, []);
 
-  useEffect(() => {
-    if (fontsLoaded || fontError) {
-      const launchTimer = setTimeout(() => setLaunchAnimationComplete(true), 1200);
-      return () => clearTimeout(launchTimer);
-    }
-  }, [fontsLoaded, fontError]);
-
-  const splashHidden = useRef(false);
-  const onRootLayout = useCallback(() => {
-    if (splashHidden.current) return;
-    splashHidden.current = true;
-    void SplashScreen.hideAsync().catch(() => {});
-  }, []);
-
   if (!fontsLoaded && !fontError) return null;
 
   return (
@@ -101,7 +85,7 @@ export default function RootLayout() {
                 }
               >
         <QueryClientProvider client={queryClient}>
-          <GestureHandlerRootView style={{ flex: 1 }} onLayout={onRootLayout}>
+          <GestureHandlerRootView style={{ flex: 1 }}>
             <AppProvider session={session}>
               <ThemedAppSurface>
               <NavigationThemeProvider>
@@ -109,9 +93,6 @@ export default function RootLayout() {
                 <ThemedStatusBar />
                 <AppPopupProvider>
                   <AnalyticsConsentManager session={session} />
-                  {!launchAnimationComplete ? (
-                    <HouseLoader />
-                  ) : (
                     <AuthGate session={session} sessionLoading={sessionLoading}>
                       <>
                         <HouseholdSetupRouteGuard />
@@ -136,7 +117,6 @@ export default function RootLayout() {
                         <NudgeToast />
                       </>
                     </AuthGate>
-                  )}
                 </AppPopupProvider>
               </NavigationThemeProvider>
               </ThemedAppSurface>

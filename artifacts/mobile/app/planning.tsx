@@ -642,6 +642,7 @@ export default function PlanningScreen() {
     pointsEnabled, householdComplete, householdId, homeProfile, customTasks,
     addCustomTask, deleteCustomTask, memberPreferences, setMemberPreference,
     currentUserId, setHouseholdSetupStep,
+    shoppingLists, shoppingItems,
   } = useAppContext();
   const recommendations = essentialRecommendationsForHousingType(
     setupMode ? params.housingType : homeProfile?.housingType,
@@ -668,6 +669,7 @@ export default function PlanningScreen() {
   const [customEssentials, setCustomEssentials] = useState<Record<string, string[]>>({});
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   const [shortlistOpen, setShortlistOpen] = useState(false);
+  const [shoppingPreviewOpen, setShoppingPreviewOpen] = useState(false);
   const [shortlistDraft, setShortlistDraft] = useState<Record<string, Record<string, boolean>>>({});
   const [result, setResult] = useState<string | null>(null);
   const [choreChartData, setChoreChartData] = useState<ChoreChartData | null>(null);
@@ -704,6 +706,11 @@ export default function PlanningScreen() {
     (total, section) => total + Object.values(section).filter(Boolean).length,
     0,
   );
+  const allRecommendedSelected =
+    recommendations.length > 0 &&
+    recommendations.every(
+      ({ categoryId, itemId }) => shortlistDraft[categoryId]?.[itemId],
+    );
 
   function toggleSet(set: Set<string>, key: string): Set<string> {
     const next = new Set(set);
@@ -920,11 +927,17 @@ export default function PlanningScreen() {
         return;
       }
       await setHouseholdSetupStep("items");
+      // Dismiss the Essentials sheet before navigating. `router.replace` only
+      // swaps the screen *behind* a presented pageSheet, so leaving it open
+      // makes step 4 invisible and the button look dead.
+      setShoppingPreviewOpen(false);
+      setShortlistOpen(false);
       router.replace("/sweet-setup" as never);
     } catch (setupError) {
-      continuingSetupRef.current = false;
       reportRuntimeError("continue household setup", setupError);
       setError("We couldn't continue setup. Your selected items are still saved.");
+    } finally {
+      continuingSetupRef.current = false;
     }
   }
 
@@ -2037,7 +2050,7 @@ export default function PlanningScreen() {
           </TouchableOpacity>
         </View>
         <ScrollView style={styles.shortlistScroll} contentContainerStyle={styles.shortlistContent}>
-          {recommendations.length > 0 ? (
+          {recommendations.length > 0 && !allRecommendedSelected ? (
             <View style={[styles.recommendationBanner, { backgroundColor: colors.primary + "12", borderColor: colors.primary + "40" }]}>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.shortlistCount, { color: colors.foreground }]}>
@@ -2168,12 +2181,23 @@ export default function PlanningScreen() {
               </Text>
               {!shortlistTransferMessage.startsWith("Couldn’t") ? (
                 <TouchableOpacity
-                  onPress={() => router.push("/(tabs)/shopping")}
+                  onPress={() => {
+                    if (setupMode) {
+                      setShoppingPreviewOpen(true);
+                      return;
+                    }
+                    setShortlistOpen(false);
+                    router.push("/(tabs)/shopping" as never);
+                  }}
                   accessibilityRole="button"
-                  accessibilityLabel="View added essentials in Shopping"
+                  accessibilityLabel={
+                    setupMode
+                      ? "Preview added essentials in Shopping"
+                      : "View added essentials in Shopping"
+                  }
                 >
                   <Text style={[styles.shortlistAction, { color: colors.primary }]}>
-                    View in Shopping
+                    {setupMode ? "Preview in Shopping" : "View in Shopping"}
                   </Text>
                 </TouchableOpacity>
               ) : null}
@@ -2227,6 +2251,132 @@ export default function PlanningScreen() {
           </View>
         </View>
       </View>
+
+      {/* Read-only Shopping preview, layered over the shortlist during setup.
+          Nested inside the shortlist Modal so dismissing it reveals the
+          shortlist exactly as the user left it. */}
+      <Modal
+        visible={shoppingPreviewOpen}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShoppingPreviewOpen(false)}
+      >
+        <View style={[styles.shortlistScreen, { backgroundColor: colors.background }]}>
+          <View style={[styles.shortlistHeader, { borderBottomColor: colors.border }]}>
+            <TouchableOpacity
+              onPress={() => setShoppingPreviewOpen(false)}
+              style={styles.previewBackRow}
+              accessibilityRole="button"
+              accessibilityLabel="Back to Shortlist Items"
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Feather name="chevron-left" size={22} color={colors.primary} />
+              <Text style={[styles.shortlistAction, { color: colors.primary }]}>
+                Shortlist Items
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={[styles.shortlistHeader, { borderBottomColor: colors.border }]}>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.shortlistTitle, { color: colors.foreground }]}>Shopping</Text>
+              <Text style={[styles.shortlistHelper, { color: colors.mutedForeground }]}>
+                Preview only — a look at where your essentials landed. You can edit these lists
+                from the Shopping tab once setup is done.
+              </Text>
+            </View>
+          </View>
+
+          <ScrollView style={styles.shortlistScroll} contentContainerStyle={styles.shortlistContent}>
+            {shoppingLists.length === 0 ? (
+              <View style={[styles.previewEmpty, { borderColor: colors.border, backgroundColor: colors.card }]}>
+                <Feather name="shopping-cart" size={22} color={colors.mutedForeground} />
+                <Text style={[styles.shortlistCount, { color: colors.foreground }]}>
+                  No Shopping lists yet
+                </Text>
+                <Text style={[styles.shortlistHelper, { color: colors.mutedForeground, textAlign: "center" }]}>
+                  Add selected essentials to Shopping and they'll show up here.
+                </Text>
+              </View>
+            ) : (
+              <>
+                <View style={[styles.recommendationBanner, { backgroundColor: colors.primary + "12", borderColor: colors.primary + "40" }]}>
+                  <Feather name="shopping-cart" size={14} color={colors.primary} />
+                  <Text style={[styles.shortlistAction, { color: colors.primary, flex: 1 }]}>
+                    {shoppingItems.filter((entry) => !entry.completed).length} items left across{" "}
+                    {shoppingLists.length} {shoppingLists.length === 1 ? "list" : "lists"}
+                  </Text>
+                </View>
+
+                {shoppingLists.map((list) => {
+                  const items = shoppingItems.filter((entry) => entry.listId === list.id);
+                  const doneCount = items.filter((entry) => entry.completed).length;
+                  return (
+                    <View
+                      key={list.id}
+                      style={[styles.shortlistCategory, { backgroundColor: colors.card, borderColor: colors.border }]}
+                    >
+                      <View style={styles.previewListHeader}>
+                        <Text style={[styles.previewListName, { color: colors.foreground }]} numberOfLines={1}>
+                          {list.name}
+                        </Text>
+                        <Text style={[styles.previewListCount, { color: colors.mutedForeground }]}>
+                          {doneCount}/{items.length}
+                        </Text>
+                      </View>
+                      {items.length === 0 ? (
+                        <Text style={[styles.previewItemMeta, { color: colors.mutedForeground }]}>
+                          No items in this list yet.
+                        </Text>
+                      ) : (
+                        items.map((entry) => (
+                          <View key={entry.id} style={styles.previewItem}>
+                            <Feather
+                              name={entry.completed ? "check-circle" : "circle"}
+                              size={17}
+                              color={entry.completed ? colors.success : colors.border}
+                            />
+                            <View style={{ flex: 1 }}>
+                              <Text
+                                style={[
+                                  styles.previewItemName,
+                                  {
+                                    color: colors.foreground,
+                                    textDecorationLine: entry.completed ? "line-through" : "none",
+                                  },
+                                ]}
+                                numberOfLines={1}
+                              >
+                                {entry.name}
+                              </Text>
+                              {entry.quantity ? (
+                                <Text style={[styles.previewItemMeta, { color: colors.mutedForeground }]}>
+                                  {entry.quantity}
+                                </Text>
+                              ) : null}
+                            </View>
+                          </View>
+                        ))
+                      )}
+                    </View>
+                  );
+                })}
+              </>
+            )}
+          </ScrollView>
+
+          <View style={[styles.shortlistFooter, { borderTopColor: colors.border }]}>
+            <TouchableOpacity
+              onPress={() => setShoppingPreviewOpen(false)}
+              style={[styles.shortlistSave, { backgroundColor: colors.primary }]}
+              accessibilityRole="button"
+              accessibilityLabel="Back to Shortlist Items"
+            >
+              <Text style={styles.generateText}>Back to Shortlist Items</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </Modal>
 
     {/* ── Sticky bottom button area ── */}
@@ -2443,6 +2593,14 @@ const styles = StyleSheet.create({
   shortlistTransferFeedback: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
   shortlistTransferMessage: { flex: 1 },
   shortlistButtons: { flexDirection: "row", flexWrap: "wrap", alignItems: "stretch", gap: 10 },
+  previewBackRow: { flexDirection: "row", alignItems: "center", gap: 2 },
+  previewEmpty: { borderWidth: 1, borderRadius: 16, padding: 24, alignItems: "center", gap: 8 },
+  previewListHeader: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10 },
+  previewListName: { flex: 1, fontFamily: "Inter_600SemiBold", fontSize: 15 },
+  previewListCount: { fontFamily: "Inter_400Regular", fontSize: 12 },
+  previewItem: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 7 },
+  previewItemName: { fontFamily: "Inter_500Medium", fontSize: 14 },
+  previewItemMeta: { fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 1 },
   shortlistSave: { flex: 1, minWidth: 150, minHeight: 48, borderRadius: 12, paddingHorizontal: 14, alignItems: "center", justifyContent: "center" },
   shortlistSecondary: { borderWidth: 1, backgroundColor: "transparent" },
   shortlistSecondaryText: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 13, textAlign: "center" },

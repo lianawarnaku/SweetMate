@@ -232,7 +232,7 @@ export function SignInScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.logoWrap}>
-          <BrandMark size={86} color={colors.primary} />
+          <BrandMark transition size={86} color={colors.primary} />
         </View>
         <Text style={[styles.title, { color: colors.foreground }]}>SweetMate</Text>
         <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
