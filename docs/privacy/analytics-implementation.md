@@ -65,3 +65,30 @@ future association on the device. Deletion from vendor systems requires the
 owner procedure in the vendor checklist; aggregated/deidentified statistics may
 not be attributable or removable. Complete that procedure before promising
 vendor-side deletion to users.
+
+## Production connection
+
+Configured on 2026-11-07 in the EAS `production` environment for Expo project
+`66fa0c25-5e31-481a-ae0a-0a057806cf27`:
+
+- PostHog project: `719267` (US region).
+- Dashboard: https://us.posthog.com/project/719267/home
+- `EXPO_PUBLIC_POSTHOG_API_KEY`: saved as an EAS sensitive variable; do not commit its value.
+- `EXPO_PUBLIC_POSTHOG_HOST`: `https://us.i.posthog.com`.
+- `EXPO_PUBLIC_APP_ENV`: `production`.
+
+A synthetic `analytics_connection_test` event with environment `connection-test`
+was accepted and PostHog marked installation complete. Exclude that environment
+from product reporting. No user content was used for this check. Setup uses the
+free plan with frontend autocapture, heatmaps, web-vitals capture, and session
+replay disabled.
+
+Installed builds created before this configuration do not receive these values
+retroactively. A separately authorized production build and release is required
+before opted-in devices can send product events. Connecting the project does not
+authorize a TestFlight release.
+
+The consent boundary explicitly calls `optIn()` when a user enables product
+analytics, clearing the SDK's persisted opt-out state from an earlier disable.
+`pnpm --filter @workspace/mobile test:analytics` exercises consent and identity
+behavior with local SDK/storage stubs and no network requests.

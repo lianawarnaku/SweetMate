@@ -143,6 +143,9 @@ async function applyPreferences(userId: string) {
       captureAppLifecycleEvents: false,
       enableSessionReplay: false,
     });
+    // The SDK persists opt-out across client instances. Restore the user's
+    // explicit consent before identifying them or capturing further events.
+    await posthog.optIn();
     posthog.identify(id, baseProperties());
   } else if (posthog) {
     await posthog.reset();
