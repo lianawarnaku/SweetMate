@@ -60,12 +60,6 @@ export default function RootLayout() {
     return installGlobalRuntimeDiagnostics();
   }, []);
 
-  useEffect(() => {
-    if (fontsLoaded || fontError) {
-      SplashScreen.hideAsync().catch(() => {});
-    }
-  }, [fontsLoaded, fontError]);
-
   if (!fontsLoaded && !fontError) return null;
 
   return (

@@ -14,7 +14,9 @@ export default function SweetSetupRoute() {
         if (destination === "essentials") {
           router.replace("/planning?type=home-checklist" as never);
         } else {
-          additionalHousehold
+          initialMode === "create"
+            ? router.replace("/(tabs)" as never)
+            : additionalHousehold
             ? router.replace("/settings" as never)
             : router.back();
         }

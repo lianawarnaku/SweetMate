@@ -21,8 +21,9 @@ assert(settings.includes("Loading your households…"), "loading must not render
 assert(!settings.includes("Create or join a household"), "management must not reuse the ambiguous onboarding action");
 assert(settings.includes("/sweet-setup?mode=create&additional=1") && settings.includes("/sweet-setup?mode=join&additional=1"), "actions must preserve management intent");
 assert(setupRoute.includes("useLocalSearchParams") && setupRoute.includes("additionalHousehold={additionalHousehold}"), "setup route must preserve management intent");
-assert(setup.includes("if (!householdId || additionalHousehold)"), "an existing member must be able to create another household");
-assert(setup.includes("if (!additionalHousehold) await completeHouseholdSetup()"), "adding a household must not rerun onboarding");
+assert(setup.includes("if (!householdId || (additionalHousehold && !createdAdditionalHouseholdId))"), "an existing member must create one household per setup");
+assert(setup.includes("await completeHouseholdSetup();") && !setup.includes("if (!additionalHousehold) await completeHouseholdSetup()"), "every created household must finish with invite and preferences onboarding");
+assert(!setup.includes("if (!additionalHousehold) await setHouseholdSetupStep(nextStep)") && !setup.includes("additional-v1"), "additional households must share resumable setup progress and drafts when returning from Essentials");
 assert(context.includes('.eq("user_id", userId)') && context.includes('.eq("status", "active")'), "load all active memberships for the authenticated user");
 assert(context.includes("nextMemberships.find((membership) => membership.sweetId === storedActiveSweetId)"), "restore a valid active household ID");
 assert(context.includes("setCurrentMemberRole(membership.role)"), "switching must resolve the selected role");

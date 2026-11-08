@@ -8,7 +8,7 @@
 import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import type { Session } from "@supabase/supabase-js";
-import { HouseLoader } from "./HouseLoader";
+import { HouseTransition } from "./HouseTransition";
 import { HouseholdSetupScreen } from "./HouseholdSetupScreen";
 import { PreferencesOnboardingScreen } from "./PreferencesOnboardingScreen";
 import { SignInScreen } from "./SignInScreen";
@@ -34,28 +34,17 @@ export function AuthGate({
     householdSetupStep,
   } = useAppContext();
 
-  if (sessionLoading) {
-    return <HouseLoader />;
+  const loading = sessionLoading || (!!session && (householdLoading || !preferencesLoaded));
+  let content: React.ReactNode = null;
+  if (!loading) {
+    if (!session) content = <SignInScreen />;
+    else if (householdError) content = <HouseholdLoadError message={householdError} onRetry={refreshHousehold} />;
+    else if (!householdId) content = <HouseholdSetupScreen />;
+    else if (preferencesOnboardingPending && !householdSetupStep) content = <PreferencesOnboardingScreen />;
+    else content = children;
   }
-
-  if (!session) {
-    return <SignInScreen />;
-  }
-
-  if (householdLoading || !preferencesLoaded) {
-    return <HouseLoader />;
-  }
-
-  if (householdError) {
-    return <HouseholdLoadError message={householdError} onRetry={refreshHousehold} />;
-  }
-
-  if (!householdId) return <HouseholdSetupScreen />;
-  if (preferencesOnboardingPending && !householdSetupStep) {
-    return <PreferencesOnboardingScreen />;
-  }
-
-  return <>{children}</>;
+  const hasHouse = !session || (!householdError && (!householdId || (preferencesOnboardingPending && !householdSetupStep)));
+  return <HouseTransition loading={loading} hasHouse={hasHouse}>{content}</HouseTransition>;
 }
 
 function HouseholdLoadError({ message, onRetry }: { message: string; onRetry: () => void }) {

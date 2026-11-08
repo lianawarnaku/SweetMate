@@ -54,52 +54,77 @@ export const ESSENTIAL_CATALOG: EssentialCategoryDefinition[] = [
     icon: "coffee",
     color: "#A7744D",
     items: [
+      // these items are large because often require cleaning of some sort.
+      // Mini fridge, microwave, toaster, baking tray, cutting board, dish drying rack, food storage containers
+      // these items only reuqire one of each.
       item("kitchen-mini-fridge", "Mini fridge", "large", ["Mini-fridge"]),
       item("kitchen-microwave", "Microwave", "large"),
       item("kitchen-toaster", "Toaster", "large"),
-      item("kitchen-pots", "Pots", "large"),
-      item("kitchen-pans", "Pans", "large"),
-      item("kitchen-baking-tray", "Baking tray", "large", ["Oven / Baking Tray"]),
+      item("kitchen-baking-tray", "Baking tray", "large", ["Oven Baking Tray"]),
       item("kitchen-cutting-board", "Cutting board", "large", ["Cutting Board"]),
       item("kitchen-drying-rack", "Dish drying rack", "large", ["Dish Drying Rack", "Dish Drying Mat"]),
       item("kitchen-food-storage", "Food storage containers", "large", ["Food Storage Containers", "Tupperware"]),
+      item("kitchen-water-filter", "Water filter pitcher", "optional", ["Water Filter / Brita"]),
+      item("kitchen-air-fryer", "Air fryer", "optional", ["Air Fryer"]),
+
+      //small items
+      // tehse items definittely require multiple of each.
+      item("kitchen-pots", "Pots", "small"),
+      item("kitchen-pans", "Pans", "small"),
       item("kitchen-knives", "Knives", "small"),
+       item("kitchen-plates", "Plates", "small", ["Paper Plates (backup)"]),
+      item("kitchen-bowls", "Bowls", "small", ["Microwave-safe Bowls"]),
+      item("kitchen-glasses", "Glasses", "small", ["Tumbler"]),
+      item("kitchen-mugs", "Mugs", "small", ["Mug"]),
+      item("kitchen-cutlery", "Cutlery", "small", ["Silverware / Cutlery", "Silverware", "Reusable Utensil Kit", "Plastic Silverware (backup)"]),
+      item("kitchen-cutlery-organizer", "Cutlery organizer", "small", ["Silverware Organizer"]),
+      item("kitchen-spice-containers", "Spice containers", "small"),
+      item("kitchen-towels", "Kitchen towels", "small", ["Dish Towel", "kitchen towel"]),
+      
+
+      // small items
       item("kitchen-scissors", "Kitchen scissors", "small", ["Kitchen Scissors"]),
       item("kitchen-spatulas", "Spatulas", "small"),
       item("kitchen-mixing-spoons", "Mixing spoons", "small", ["Mixing Spoons"]),
       item("kitchen-tongs", "Tongs", "small"),
       item("kitchen-whisk", "Whisk", "small"),
       item("kitchen-peeler", "Peeler", "small"),
+      
+
+      // small items
+      // legit only need one of each.
       item("kitchen-can-opener", "Can opener", "small", ["Can Opener", "can operner"]),
       item("kitchen-bottle-opener", "Bottle opener", "small", ["Bottle Opener"]),
       item("kitchen-measuring-cups", "Measuring cups", "small", ["Measuring Cups"]),
       item("kitchen-strainer", "Strainer", "small", ["Strainer / Colander", "strainger"]),
       item("kitchen-colander", "Colander", "small"),
       item("kitchen-salt-pepper", "Salt and pepper dispensers", "small", ["salt/pepper dispensers"]),
-      item("kitchen-spice-containers", "Spice containers", "small"),
-      item("kitchen-plates", "Plates", "small", ["Paper Plates (backup)"]),
-      item("kitchen-bowls", "Bowls", "small", ["Microwave-safe Bowls"]),
-      item("kitchen-glasses", "Glasses", "small", ["Tumbler"]),
-      item("kitchen-mugs", "Mugs", "small", ["Mug"]),
-      item("kitchen-cutlery", "Cutlery", "small", ["Silverware / Cutlery", "Silverware", "Reusable Utensil Kit", "Plastic Silverware (backup)"]),
-      item("kitchen-cutlery-organizer", "Cutlery organizer", "small", ["Silverware Organizer"]),
+       item("kitchen-oil-dispenser", "Oil dispenser", "optional", ["Oil Dispenser"]),
+      
+     
+      // small items
+      // basically disposable items (will need to be repurchased throughout year)
       item("kitchen-dish-soap", "Dish soap", "small", ["Dish Soap"]),
       item("kitchen-sponges", "Sponges", "small", ["Sponge", "Bottle Brush"]),
-      item("kitchen-towels", "Kitchen towels", "small", ["Dish Towel", "kitchen towel"]),
+      item("kitchen-dishwasher-pods", "Dishwasher detergent/pods", "optional", ["Dishwasher Pods"]),
+      item("kitchen-paper-towels", "Paper towels", "small", ["Paper Towels"]),
+  
       item("kitchen-trash-can", "Trash can", "small", ["Trash Can"]),
       item("kitchen-trash-bags", "Trash bags", "small", ["Trash Bags", "Plastic Bags"]),
-      item("kitchen-air-fryer", "Air fryer", "optional", ["Air Fryer"]),
+      
+
+      // large items
+      // kind of optional I guess? but realistically people downloading the app would have these
       item("kitchen-coffee-maker", "Coffee maker", "optional", ["Coffee Maker"]),
       item("kitchen-electric-kettle", "Electric kettle", "optional", ["Hot Water Kettle", "hot water kettle"]),
       item("kitchen-blender", "Blender", "optional"),
       item("kitchen-rice-cooker", "Rice cooker", "optional", ["Rice Cooker"]),
-      item("kitchen-oil-dispenser", "Oil dispenser", "optional", ["Oil Dispenser"]),
-      item("kitchen-water-filter", "Water filter pitcher", "optional", ["Water Filter / Brita"]),
-      item("kitchen-reusable-bottle", "Reusable water bottle", "optional", ["Reusable Water Bottle"]),
+     
+      // Note: can potentially change this label to "extra" later?
+    
       item("kitchen-chip-clips", "Chip clips", "optional", ["Chip Clips"]),
       item("kitchen-food-wraps", "Food wraps and foil", "optional", ["Saran Wrap / Cling Film", "Parchment Paper", "Aluminium Foil"]),
-      item("kitchen-dishwasher-pods", "Dishwasher pods", "optional", ["Dishwasher Pods"]),
-      item("kitchen-paper-towels", "Paper towels", "optional", ["Paper Towels"]),
+
       item("kitchen-wine-glasses", "Wine glasses", "optional"),
       item("kitchen-shot-glasses", "Shot glasses", "optional"),
       item("kitchen-metal-straws", "Metal straws", "optional"),
