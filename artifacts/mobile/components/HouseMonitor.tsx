@@ -1,11 +1,11 @@
 import { useFocusEffect } from "expo-router";
-import React, { useCallback, useEffect, useId, useRef, useState } from "react";
+import React, { useCallback, useEffect, useId, useRef } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import Svg, { ClipPath, Defs, Polygon, Rect } from "react-native-svg";
 import Animated, {
   Easing,
+  cancelAnimation,
   interpolate,
-  interpolateColor,
   useAnimatedProps,
   useAnimatedStyle,
   useSharedValue,
@@ -73,8 +73,9 @@ function GridSquare({
   emptyColor,
   emptyBorderColor,
   completed,
+  size,
   reduceMotion,
-  focusEpoch,
+  reduceTransparency,
   delay,
   animateNew,
 }: {
@@ -82,50 +83,149 @@ function GridSquare({
   emptyColor: string;
   emptyBorderColor: string;
   completed: boolean;
+  size: number;
   reduceMotion: boolean;
-  focusEpoch: number;
+  reduceTransparency: boolean;
   delay: number;
   animateNew: boolean;
 }) {
-  const scale = useSharedValue(1);
-  const fillProgress = useSharedValue(completed ? 1 : 0);
-  const previousFocusEpoch = useRef(focusEpoch);
+  const entranceScale = useSharedValue(animateNew && !reduceMotion ? 0.8 : 1);
+  const fillOpacity = useSharedValue(completed ? 1 : 0);
+  const bubbleProgress = useSharedValue(1);
+  const previousCompleted = useRef(completed);
+  // Jointly budget the bloom and rotation to stay inside half of the 3px gap,
+  // even when two neighboring chores complete in the same update.
+  const overshoot = Math.min(0.16, 1.8 / size);
+  const jiggleDegrees = Math.min(3, 50 / size);
 
   useEffect(() => {
-    fillProgress.value = reduceMotion
-      ? Number(completed)
-      : withTiming(Number(completed), { duration: 240 });
-  }, [completed, fillProgress, reduceMotion]);
-
-  useEffect(() => {
-    const refocused = previousFocusEpoch.current !== focusEpoch;
-    previousFocusEpoch.current = focusEpoch;
-    if (reduceMotion) {
-      scale.value = 1;
-    } else if (animateNew || refocused) {
-      scale.value = 0.8;
-      scale.value = withDelay(
-        delay,
-        withSequence(withSpring(1.05), withSpring(1)),
-      );
+    const newlyCompleted = completed && !previousCompleted.current;
+    previousCompleted.current = completed;
+    cancelAnimation(fillOpacity);
+    cancelAnimation(bubbleProgress);
+    if (reduceMotion || !newlyCompleted) {
+      fillOpacity.value = Number(completed);
+      bubbleProgress.value = 1;
+      return;
     }
-  }, [animateNew, delay, focusEpoch, reduceMotion, scale]);
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    backgroundColor: interpolateColor(
-      fillProgress.value,
-      [0, 1],
-      [emptyColor, color],
-    ),
-    borderColor: interpolateColor(
-      fillProgress.value,
-      [0, 1],
-      [emptyBorderColor, color],
-    ),
-    transform: [{ scale: scale.value }],
-  }));
+    fillOpacity.value = 0;
+    bubbleProgress.value = 0;
+    fillOpacity.value = withTiming(1, { duration: 100 });
+    bubbleProgress.value = withSequence(
+      withTiming(0.34, { duration: 210, easing: Easing.out(Easing.cubic) }),
+      withTiming(0.5, { duration: 110, easing: Easing.inOut(Easing.quad) }),
+      withTiming(0.67, { duration: 100, easing: Easing.inOut(Easing.quad) }),
+      withTiming(0.83, { duration: 90, easing: Easing.inOut(Easing.quad) }),
+      withTiming(1, { duration: 100, easing: Easing.out(Easing.cubic) }),
+    );
+  }, [bubbleProgress, completed, fillOpacity, reduceMotion]);
 
-  return <Animated.View style={[styles.square, animatedStyle]} />;
+  useEffect(() => {
+    if (reduceMotion) {
+      cancelAnimation(entranceScale);
+      entranceScale.value = 1;
+    } else if (animateNew) {
+      entranceScale.value = withDelay(delay, withSpring(1));
+    }
+  }, [animateNew, delay, entranceScale, reduceMotion]);
+
+  const entranceStyle = useAnimatedStyle(
+    () => ({
+      transform: [{ scale: entranceScale.value }],
+    }),
+    [entranceScale],
+  );
+  const bubbleStyle = useAnimatedStyle(
+    () => ({
+      opacity: fillOpacity.value,
+      borderRadius: interpolate(
+        bubbleProgress.value,
+        [0, 0.34, 0.6, 1],
+        [size / 2, Math.max(3, size * 0.22), Math.max(3, size * 0.1), 3],
+      ),
+      transform: [
+        {
+          scaleX: interpolate(
+            bubbleProgress.value,
+            [0, 0.34, 0.5, 0.67, 0.83, 1],
+            [
+              0.18,
+              1 + overshoot,
+              1 - overshoot * 0.5,
+              1 + overshoot * 0.22,
+              1 - overshoot * 0.1,
+              1,
+            ],
+          ),
+        },
+        {
+          scaleY: interpolate(
+            bubbleProgress.value,
+            [0, 0.34, 0.5, 0.67, 0.83, 1],
+            [
+              0.18,
+              1 - overshoot * 0.8,
+              1 + overshoot,
+              1 - overshoot * 0.28,
+              1 + overshoot * 0.12,
+              1,
+            ],
+          ),
+        },
+        {
+          rotate: `${interpolate(bubbleProgress.value, [0, 0.34, 0.5, 0.67, 0.83, 1], [0, jiggleDegrees, -jiggleDegrees * 0.66, jiggleDegrees * 0.32, -jiggleDegrees * 0.12, 0])}deg`,
+        },
+      ],
+    }),
+    [bubbleProgress, fillOpacity, jiggleDegrees, overshoot, size],
+  );
+  const haloStyle = useAnimatedStyle(
+    () => ({
+      opacity:
+        reduceMotion || reduceTransparency
+          ? 0
+          : interpolate(
+              bubbleProgress.value,
+              [0, 0.16, 0.48, 0.72, 1],
+              [0, 0.28, 0.15, 0, 0],
+            ),
+      borderRadius: interpolate(bubbleProgress.value, [0, 1], [size / 2, 3]),
+      transform: [
+        {
+          scale: interpolate(
+            bubbleProgress.value,
+            [0, 0.72, 1],
+            [0.75, 1 + Math.min(0.22, 6 / size), 1],
+          ),
+        },
+      ],
+    }),
+    [bubbleProgress, reduceMotion, reduceTransparency, size],
+  );
+
+  return (
+    <Animated.View style={[styles.squareContainer, entranceStyle]}>
+      <View
+        style={[
+          styles.squareOutline,
+          { backgroundColor: emptyColor, borderColor: emptyBorderColor },
+        ]}
+      />
+      <Animated.View
+        pointerEvents="none"
+        style={[styles.squareHalo, { borderColor: color }, haloStyle]}
+      />
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          styles.squareFill,
+          { backgroundColor: color, borderColor: color },
+          bubbleStyle,
+        ]}
+      />
+    </Animated.View>
+  );
 }
 
 export function HouseMonitor({
@@ -155,7 +255,6 @@ export function HouseMonitor({
   const gridRows = Math.ceil(visibleSquares / gridSide);
   const roofClipId = `house-monitor-roof-${useId().replace(/:/g, "")}`;
   const restingFocus = totalChores > 0 ? 1 : 0.45;
-  const [focusEpoch, setFocusEpoch] = useState(0);
   const focusProgress = useSharedValue(1);
   const roofProgress = useSharedValue(roofCompletionRatio);
   const monitorScale = useSharedValue(1);
@@ -164,7 +263,6 @@ export function HouseMonitor({
   roofCompletionRatioRef.current = roofCompletionRatio;
   restingFocusRef.current = restingFocus;
   const previousGridRef = useRef(gridSquares);
-  const previousCompletedRef = useRef(completedChores);
   const processedEventRef = useRef(0);
   const isNewLocalEvent = Boolean(
     localEvent && localEvent.nonce !== processedEventRef.current,
@@ -187,7 +285,6 @@ export function HouseMonitor({
       }
       focusProgress.value = 0;
       monitorScale.value = 0.96;
-      setFocusEpoch((current) => current + 1);
       focusProgress.value = withTiming(restingFocusRef.current, {
         duration: 300,
         easing: Easing.out(Easing.cubic),
@@ -211,20 +308,13 @@ export function HouseMonitor({
         });
 
     if (isNewLocalEvent) {
-      if (
-        !reduceMotion &&
-        localEvent?.type === "completed" &&
-        completedChores > previousCompletedRef.current
-      ) {
-        monitorScale.value = withSequence(withSpring(1.055), withSpring(1));
-      } else if (!reduceMotion && localEvent?.type === "created") {
+      if (!reduceMotion && localEvent?.type === "created") {
         monitorScale.value = withSequence(withSpring(1.035), withSpring(1));
       }
       processedEventRef.current = localEvent?.nonce ?? 0;
     }
     if (reduceMotion) monitorScale.value = 1;
     previousGridRef.current = gridSquares;
-    previousCompletedRef.current = completedChores;
   }, [
     completedChores,
     gridSquares,
@@ -238,15 +328,18 @@ export function HouseMonitor({
     roofProgress,
   ]);
 
-  const monitorStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(focusProgress.value, [0, 1], [0.42, 1]),
-    transform: [{ scale: monitorScale.value }],
-  }));
+  const monitorStyle = useAnimatedStyle(
+    () => ({
+      opacity: interpolate(focusProgress.value, [0, 1], [0.42, 1]),
+      transform: [{ scale: monitorScale.value }],
+    }),
+    [focusProgress, monitorScale],
+  );
   const roofFillProps = useAnimatedProps(() => {
     // A triangle narrows toward its peak: use area, rather than raw height.
     const fillHeight = ROOF_HEIGHT * roofFillHeightFraction(roofProgress.value);
     return { y: ROOF_HEIGHT - fillHeight, height: fillHeight };
-  });
+  }, [roofProgress]);
   const squareSize = (BODY_SIZE - GRID_GAP * (gridSide - 1)) / gridSide;
   const roofPoints = `0,${ROOF_HEIGHT} ${BODY_SIZE / 2},0 ${BODY_SIZE},${ROOF_HEIGHT}`;
 
@@ -339,8 +432,9 @@ export function HouseMonitor({
                           reduceTransparency,
                         )}
                         completed={index < filledSquares}
+                        size={squareSize}
                         reduceMotion={reduceMotion}
-                        focusEpoch={focusEpoch}
+                        reduceTransparency={reduceTransparency}
                         delay={index * 24}
                         animateNew={isLocalGridGrowth && index >= previousGrid}
                       />
@@ -373,7 +467,14 @@ const styles = StyleSheet.create({
     marginTop: 3,
   },
   gridRow: { width: BODY_SIZE, flexDirection: "row", justifyContent: "center" },
-  square: { flex: 1, borderRadius: 3, borderWidth: 1 },
+  squareContainer: { flex: 1, position: "relative", overflow: "visible" },
+  squareOutline: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 3,
+    borderWidth: 1,
+  },
+  squareFill: { ...StyleSheet.absoluteFillObject, borderWidth: 1 },
+  squareHalo: { ...StyleSheet.absoluteFillObject, borderWidth: 1 },
   progress: {
     fontFamily: "Inter_700Bold",
     includeFontPadding: false,
