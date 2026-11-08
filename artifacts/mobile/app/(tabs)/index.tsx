@@ -1,3 +1,4 @@
+import { useHomeSections, type HomeSectionId } from "@/hooks/useHomeSections";
 import { SectionDivider as CollapsibleSectionHeader } from "@/components/SectionDivider";
 import { KEYBOARD_BEHAVIOR } from "@/lib/keyboard";
 import { Feather } from "@expo/vector-icons";
@@ -92,7 +93,6 @@ const CATEGORIES: { key: ChoreCategory; label: string; icon: keyof typeof Feathe
 ];
 
 type Filter = "week" | "today" | "done" | "archived" | "day";
-type HomeSectionId = "my-chores" | "schedule" | "shopping";
 
 function TodayFocusCard({
   chore,
@@ -572,9 +572,7 @@ export default function MyChoresScreen() {
   const [weekOffset, setWeekOffset] = useState(0);
   const [calendarExpanded, setCalendarExpanded] = useState(false);
   const [dayDetailsOpen, setDayDetailsOpen] = useState(false);
-  const [expandedHomeSections, setExpandedHomeSections] = useState<
-    Record<HomeSectionId, boolean>
-  >({ "my-chores": true, schedule: false, shopping: true });
+  const { expandedHomeSections, toggleSection } = useHomeSections(currentUserId);
   const [showModal, setShowModal] = useState(false);
   const [editingChoreId, setEditingChoreId] = useState<string | null>(null);
   const [actionChoreId, setActionChoreId] = useState<string | null>(null);
@@ -962,10 +960,7 @@ export default function MyChoresScreen() {
     if (sectionId === "schedule" && expandedHomeSections.schedule) {
       setDayDetailsOpen(false);
     }
-    setExpandedHomeSections((current) => ({
-      ...current,
-      [sectionId]: !current[sectionId],
-    }));
+    toggleSection(sectionId);
     Haptics.selectionAsync();
   };
   const selectFilter = (nextFilter: Filter) => {
