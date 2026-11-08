@@ -1,4 +1,5 @@
 import { getEffectiveAppearanceMode, LIGHT_MODE_ENABLED, resolveThemeTokens } from "../constants/themeTokens.ts";
+import { LEADERBOARD_ENABLED, isLeaderboardVisible } from "../constants/featureAvailability.ts";
 import { resolveDisplayPreferenceDefaults } from "./userPreferenceDefaults.ts";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -32,6 +33,9 @@ assert(
   "an existing light-mode user must see the dark version of their selected accent",
 );
 assert(existing.pointsEnabled, "an explicit enabled leaderboard must survive migration");
+assert(!LEADERBOARD_ENABLED, "leaderboard controls must remain hidden until the feature returns");
+assert(!isLeaderboardVisible(existing.pointsEnabled), "saved enabled preferences must not restore the hidden Ranks tab");
+assert(!isLeaderboardVisible(false), "new or opted-out users must not see Ranks");
 assert(existing.roommateActivityEnabled, "explicit enabled activity must survive migration");
 assert(!existing.plantEnabled, "an unrelated explicit preference must survive migration");
 

@@ -16,6 +16,7 @@ import { tapLight } from "@/lib/haptics";
 import { GlassModalBackdrop, GlassModalSurface } from "@/components/GlassModalSurface";
 import { GlassButton } from "@/components/GlassButton";
 import { track } from "@/lib/analytics";
+import { LEADERBOARD_ENABLED } from "@/constants/featureAvailability";
 import { useAnalyticsPreferences } from "@/components/AnalyticsConsentManager";
 
 const GUIDE_ITEMS = [
@@ -27,9 +28,10 @@ const GUIDE_ITEMS = [
   },
   {
     icon: "award" as const,
-    title: "Difficulty and points",
-    description:
-      "Difficulty reflects typical effort. Completing harder chores can earn more points, so ranks reflect effort as well as task count.",
+    title: LEADERBOARD_ENABLED ? "Difficulty and points" : "Task difficulty",
+    description: LEADERBOARD_ENABLED
+      ? "Difficulty reflects typical effort. Completing harder chores can earn more points, so ranks reflect effort as well as task count."
+      : "Difficulty reflects typical effort and helps balance the household chore chart fairly.",
   },
   {
     icon: "repeat" as const,

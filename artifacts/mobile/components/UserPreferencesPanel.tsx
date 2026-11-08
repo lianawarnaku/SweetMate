@@ -3,6 +3,7 @@ import React from "react";
 import { StyleSheet, Switch, Text, View } from "react-native";
 
 import { colorSchemes, resolveThemeTokens, type ColorScheme, useTheme } from "@/constants/colors";
+import { LEADERBOARD_ENABLED } from "@/constants/featureAvailability";
 import { useAppContext } from "@/context/AppContext";
 import { SmoothPressable } from "@/components/SmoothPressable";
 
@@ -76,16 +77,18 @@ export function UserPreferencesPanel() {
           trackColor={{ false: colors.border, true: colors.primary }}
         />
       </View>
-      <View style={[styles.preferenceRow, { borderTopColor: colors.border }]}>
-        <Text style={[styles.preferenceLabel, { color: colors.foreground }]}>
-          Show points & leaderboard
-        </Text>
-        <Switch
-          value={pointsEnabled}
-          onValueChange={setPointsEnabled}
-          trackColor={{ false: colors.border, true: colors.primary }}
-        />
-      </View>
+      {LEADERBOARD_ENABLED && (
+        <View style={[styles.preferenceRow, { borderTopColor: colors.border }]}>
+          <Text style={[styles.preferenceLabel, { color: colors.foreground }]}>
+            Show points & leaderboard
+          </Text>
+          <Switch
+            value={pointsEnabled}
+            onValueChange={setPointsEnabled}
+            trackColor={{ false: colors.border, true: colors.primary }}
+          />
+        </View>
+      )}
       <View style={[styles.preferenceRow, { borderTopColor: colors.border }]}>
         <Text style={[styles.preferenceLabel, { color: colors.foreground }]}>
           Show House Monitor

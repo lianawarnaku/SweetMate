@@ -15,6 +15,7 @@ import { useAccessibilityPreferences } from "@/hooks/useAccessibilityPreferences
 import { useTabBarLayout } from "@/hooks/useTabBarLayout";
 
 import { useTheme } from "@/constants/colors";
+import { isLeaderboardVisible } from "@/constants/featureAvailability";
 import { useAppContextSelector } from "@/context/AppContext";
 import { SmoothPressable } from "@/components/SmoothPressable";
 import { GlassSurface } from "@/components/LiquidGlass";
@@ -35,7 +36,7 @@ function ScrollableTabBar({ state, descriptors, navigation }: BottomTabBarProps)
   const visibleRoutes = useMemo(
     () =>
       state.routes.filter(
-        (route) => pointsEnabled || route.name !== "leaderboard",
+        (route) => isLeaderboardVisible(pointsEnabled) || route.name !== "leaderboard",
       ),
     [pointsEnabled, state.routes],
   );
@@ -425,17 +426,16 @@ export default function TabLayout() {
           ),
         }}
       />
-      {pointsEnabled && (
-        <Tabs.Screen
-          name="leaderboard"
-          options={{
-            title: "Ranks",
-            tabBarIcon: ({ color }) => (
-              <Feather name="award" size={21} color={color} />
-            ),
-          }}
-        />
-      )}
+      <Tabs.Screen
+        name="leaderboard"
+        options={{
+          title: "Ranks",
+          href: isLeaderboardVisible(pointsEnabled) ? undefined : null,
+          tabBarIcon: ({ color }) => (
+            <Feather name="award" size={21} color={color} />
+          ),
+        }}
+      />
     </Tabs>
   );
 }

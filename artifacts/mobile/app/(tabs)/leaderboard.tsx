@@ -18,6 +18,7 @@ import { Surface } from "@/components/Surface";
 import { useAppContextSelector } from "@/context/AppContext";
 import { useTabBarLayout } from "@/hooks/useTabBarLayout";
 import { useTheme } from "@/constants/colors";
+import { isLeaderboardVisible } from "@/constants/featureAvailability";
 
 const MEDAL_LABELS = ["1st", "2nd", "3rd"] as const;
 
@@ -88,7 +89,7 @@ export default function LeaderboardScreen() {
   const top3 = sorted.slice(0, 3);
   const rest = sorted.slice(3);
 
-  if (!pointsEnabled) return <Redirect href="/(tabs)" />;
+  if (!isLeaderboardVisible(pointsEnabled)) return <Redirect href="/(tabs)" />;
 
   return (
     <ScrollView
