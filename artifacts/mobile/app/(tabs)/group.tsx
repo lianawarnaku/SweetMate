@@ -839,7 +839,7 @@ export default function GroupChoresScreen() {
         onScroll={handleGroupScroll}
         scrollEventThrottle={32}
       >
-        {/* Household chore count forms the body; completion fills the roof. */}
+        {/* Each completed chore fills a body box, then overflow fills the roof. */}
         {!listView && plantEnabled && <View
           style={styles.plantSection}
         >
