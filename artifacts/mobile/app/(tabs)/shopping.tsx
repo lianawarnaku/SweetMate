@@ -488,31 +488,16 @@ export default function ShoppingScreen() {
                   <Text style={[styles.listCount, { color: colors.mutedForeground }]}>
                     {items.length - doneCount}/{items.length}
                   </Text>
-                  <TouchableOpacity
-                    onPress={() => setAssignPickerListId(list.id)}
-                    hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                    style={styles.assignBtn}
-                    accessibilityRole="button"
-                    accessibilityLabel={listAssignee ? `Assigned to ${listAssignee.id === currentUserId ? "you" : listAssignee.name}` : `Assign ${list.name}`}
-                    accessibilityHint="Choose who is responsible for this list"
-                  >
-                    {listAssignee ? (
-                      listAssignee.id === currentUserId ? (
-                        <Text style={[styles.inlineYou, { color: colors.foreground }]}>You</Text>
-                      ) : (
-                        <View style={[styles.assignedPill, { backgroundColor: listAssignee.color + "22", borderColor: listAssignee.color + "55" }]}>
-                          <View style={[styles.pillDot, { backgroundColor: listAssignee.color }]} />
-                          <Text style={[styles.pillText, { color: listAssignee.color }]}>
-                            {listAssignee.name}
-                          </Text>
-                        </View>
-                      )
+                  {listAssignee ? (
+                    listAssignee.id === currentUserId ? (
+                      <Text style={[styles.inlineYou, { color: colors.foreground }]}>You</Text>
                     ) : (
-                      <View style={[styles.assignGhost, { borderColor: colors.border }]}>
-                        <Feather name="user-plus" size={12} color={colors.mutedForeground} />
+                      <View style={[styles.assignedPill, { backgroundColor: listAssignee.color + "22", borderColor: listAssignee.color + "55" }]}>
+                        <View style={[styles.pillDot, { backgroundColor: listAssignee.color }]} />
+                        <Text style={[styles.pillText, { color: listAssignee.color }]}>{listAssignee.name}</Text>
                       </View>
-                    )}
-                  </TouchableOpacity>
+                    )
+                  ) : null}
                   <TouchableOpacity
                     style={[styles.listAddBtn, { backgroundColor: colors.primary + "18" }]}
                     onPress={() => {
@@ -533,7 +518,7 @@ export default function ShoppingScreen() {
                     hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                     accessibilityRole="button"
                     accessibilityLabel={`More actions for ${list.name}`}
-                    accessibilityHint="Opens pin, expense, and delete options"
+                    accessibilityHint="Opens assignment, pin, expense, and delete options"
                     style={styles.listActionsBtn}
                   >
                     <Feather name="more-horizontal" size={18} color={colors.mutedForeground} />
@@ -684,6 +669,13 @@ export default function ShoppingScreen() {
         actions={
           actionList
             ? [
+                {
+                  key: "assign",
+                  label: actionList.assignedTo ? "Change person" : "Add person",
+                  icon: "user-plus",
+                  runAfterDismiss: true,
+                  onPress: () => setAssignPickerListId(actionList.id),
+                },
                 {
                   key: "expense",
                   label: "Create expense from list",
@@ -1069,7 +1061,6 @@ const styles = StyleSheet.create({
   },
   shopName: { fontFamily: "Inter_500Medium", includeFontPadding: false, fontSize: 14 },
   shopMeta: { fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 12, marginTop: 1 },
-  assignBtn: { minHeight: 32, alignItems: "center", justifyContent: "center" },
   inlineYou: { fontFamily: "Inter_600SemiBold", includeFontPadding: false, fontSize: 12 },
   assignedPill: {
     flexDirection: "row",
@@ -1082,15 +1073,6 @@ const styles = StyleSheet.create({
   },
   pillDot: { width: 7, height: 7, borderRadius: 4 },
   pillText: { fontFamily: "Inter_500Medium", includeFontPadding: false, fontSize: 12 },
-  assignGhost: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderStyle: "dashed",
-    alignItems: "center",
-    justifyContent: "center",
-  },
   overlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.35)",
