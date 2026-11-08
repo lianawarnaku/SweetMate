@@ -1,4 +1,5 @@
 import { HistoryDisclosure } from "@/components/HistoryDisclosure";
+import { CompletionMotion, CompletionText } from "@/components/CompletionMotion";
 import { KEYBOARD_BEHAVIOR } from "@/lib/keyboard";
 // grabbing a specific named export from a package
 import { Feather } from "@expo/vector-icons";
@@ -454,6 +455,7 @@ export default function BorrowScreen() {
                   onToggle={() => setShowAllReturned(false)}
                 />
               ) : null}
+              <CompletionMotion completed={borrow.returned}>
               <Surface
                 style={[
                   styles.borrowCard,
@@ -495,22 +497,20 @@ export default function BorrowScreen() {
                       : undefined
                   }
                 >
-                  <Text
+                  <CompletionText
+                    completed={borrow.returned}
                     style={[
                       styles.borrowItemName,
                       {
                         color: borrow.returned
                           ? colors.mutedForeground
                           : colors.foreground,
-                        textDecorationLine: borrow.returned
-                          ? "line-through"
-                          : "none",
                       },
                     ]}
                     numberOfLines={2}
                   >
                     {borrow.item}
-                  </Text>
+                  </CompletionText>
                   {isPrivate ? (
                     <View
                       style={[styles.privateBadge, { backgroundColor: colors.primary + "12" }]}
@@ -607,6 +607,7 @@ export default function BorrowScreen() {
                 </View>
                 ) : null}
               </Surface>
+              </CompletionMotion>
             </>
           );
         }}

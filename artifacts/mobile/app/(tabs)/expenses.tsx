@@ -30,6 +30,7 @@ const SCREEN_HEIGHT = Dimensions.get("window").height;
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { EmptyState } from "@/components/EmptyState";
+import { CompletionMotion, CompletionText } from "@/components/CompletionMotion";
 import { Surface } from "@/components/Surface";
 import { ActionMenuModal } from "@/components/ActionMenuModal";
 import { HistoryDisclosure } from "@/components/HistoryDisclosure";
@@ -712,7 +713,13 @@ export default function ExpensesScreen() {
               const cat =
                 EXPENSE_CATEGORIES.find((c) => c.key === item.category) ??
                 EXPENSE_CATEGORIES[4];
+              const myShare = (item.splits ?? {})[currentUserId] ?? 0;
+              const mySharePaid = item.paidBy !== currentUserId && myShare > 0 &&
+                !!(item.paidBack ?? {})[currentUserId];
+              const relevantToMe = item.paidBy === currentUserId || myShare > 0;
+              const completeForMe = relevantToMe && (item.settled || mySharePaid);
               return (
+                <CompletionMotion completed={completeForMe} subtle>
                 <TouchableOpacity
                   activeOpacity={0.8}
                   delayLongPress={450}
@@ -756,15 +763,16 @@ export default function ExpensesScreen() {
                       />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text
+                      <CompletionText
+                        completed={item.settled}
                         style={[
                           styles.expTitle,
-                          { color: colors.foreground },
+                          { color: item.settled ? colors.mutedForeground : colors.foreground },
                         ]}
                         numberOfLines={2}
                       >
                         {item.title}
-                      </Text>
+                      </CompletionText>
                       <View style={styles.expMetaRow}>
                         <Text
                           style={[
@@ -787,14 +795,16 @@ export default function ExpensesScreen() {
                       </View>
                     </View>
                     <View style={styles.expRight}>
-                      <Text
+                      <CompletionText
+                        completed={item.settled}
+                        containerStyle={{ alignSelf: "flex-end" }}
                         style={[
                           styles.expAmount,
-                          { color: colors.foreground },
+                          { color: item.settled ? colors.mutedForeground : colors.foreground },
                         ]}
                       >
                         ${item.amount.toFixed(2)}
-                      </Text>
+                      </CompletionText>
                       {item.paidBy === currentUserId && !item.settled ? (
                         <View style={styles.expActions}>
                           <TouchableOpacity
@@ -832,20 +842,21 @@ export default function ExpensesScreen() {
                       const isMe = personId === currentUserId;
                       const isOwer = personId !== item.paidBy;
                       const hasPaidBack = !!(item.paidBack ?? {})[personId];
+                      const shareResolved = item.settled || hasPaidBack;
                       return (
                         <View
                           key={personId}
                           style={[
                             styles.iouChip,
                             {
-                              backgroundColor: hasPaidBack
+                              backgroundColor: shareResolved
                                 ? colors.success + "14"
                                 : isOwer
                                 ? isMe
                                   ? colors.destructive + "14"
                                   : colors.muted
                                 : colors.success + "14",
-                              borderColor: hasPaidBack
+                              borderColor: shareResolved
                                 ? colors.success + "50"
                                 : isOwer
                                 ? isMe
@@ -855,7 +866,7 @@ export default function ExpensesScreen() {
                             },
                           ]}
                         >
-                          {hasPaidBack ? (
+                          {shareResolved ? (
                             <Feather name="check" size={10} color={colors.success} style={{ marginRight: 3 }} />
                           ) : (
                             <View
@@ -865,29 +876,31 @@ export default function ExpensesScreen() {
                               ]}
                             />
                           )}
-                          <Text
+                          <CompletionText
+                            completed={isOwer && shareResolved}
+                            containerStyle={{ alignSelf: "center" }}
                             style={[
                               styles.iouChipText,
                               {
-                                color: hasPaidBack
+                                color: shareResolved
                                   ? colors.success
                                   : isOwer
                                   ? isMe
                                     ? colors.destructive
                                     : colors.foreground
                                   : colors.success,
-                                textDecorationLine: hasPaidBack ? "line-through" : "none",
                               },
                             ]}
                           >
-                            {isMe ? "You" : person.name}{hasPaidBack ? " paid" : ` ${isMe ? "owe" : "owes"} $${(amount as number).toFixed(2)}`}
-                          </Text>
+                            {isMe ? "You" : person.name}{hasPaidBack ? " paid" : item.settled ? " settled" : ` ${isMe ? "owe" : "owes"} $${(amount as number).toFixed(2)}`}
+                          </CompletionText>
                         </View>
                       );
                     })}
                   </View>
                   </Surface>
                 </TouchableOpacity>
+                </CompletionMotion>
               );
             }}
             ListFooterComponent={
@@ -1011,14 +1024,14 @@ export default function ExpensesScreen() {
                       <Feather name={cat.icon} size={18} color={colors.primary} />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={[styles.detailTitle, { color: colors.foreground }]}>{detailExp.title}</Text>
+                      <CompletionText completed={detailExp.settled} style={[styles.detailTitle, { color: detailExp.settled ? colors.mutedForeground : colors.foreground }]}>{detailExp.title}</CompletionText>
                       <Text style={[styles.detailMeta, { color: colors.mutedForeground }]}>
                         Paid by {payer?.name ?? "Former Sweetmate"} · {formatDate(detailExp.date)}
                       </Text>
                     </View>
-                    <Text style={[styles.detailAmount, { color: colors.foreground }]}>
+                    <CompletionText completed={detailExp.settled} containerStyle={{ alignSelf: "center" }} style={[styles.detailAmount, { color: detailExp.settled ? colors.mutedForeground : colors.foreground }]}>
                       ${detailExp.amount.toFixed(2)}
-                    </Text>
+                    </CompletionText>
                   </View>
 
                   {/* Divider */}
@@ -1063,17 +1076,20 @@ export default function ExpensesScreen() {
                       };
                       const isOwer = personId !== detailExp.paidBy;
                       const hasPaid = !!(detailExp.paidBack ?? {})[personId];
+                      const shareResolved = detailExp.settled || hasPaid;
                       const isMe = personId === currentUserId;
                       return (
-                        <View
+                        <CompletionMotion
                           key={personId}
+                          completed={isMe && isOwer && shareResolved}
+                          subtle
                           style={[
                             styles.detailPersonRow,
                             {
-                              backgroundColor: hasPaid
+                              backgroundColor: shareResolved
                                 ? colors.success + "0C"
                                 : colors.card,
-                              borderColor: hasPaid
+                              borderColor: shareResolved
                                 ? colors.success + "40"
                                 : colors.border,
                             },
@@ -1085,29 +1101,30 @@ export default function ExpensesScreen() {
                               {isMe ? "You" : person.name}
                               {!isOwer ? " (paid)" : ""}
                             </Text>
-                            <Text style={[
+                            <CompletionText completed={isOwer && shareResolved} style={[
                               styles.detailPersonAmount,
                               {
-                                color: hasPaid
+                                color: shareResolved
                                   ? colors.success
                                   : isOwer
                                   ? isMe ? colors.destructive : colors.mutedForeground
                                   : colors.success,
-                                textDecorationLine: hasPaid ? "line-through" : "none",
                               },
                             ]}>
                               {isOwer
                                 ? hasPaid
                                   ? `Paid back $${(amount as number).toFixed(2)}`
-                                  : `Owes $${(amount as number).toFixed(2)}`
+                                  : detailExp.settled
+                                    ? `Settled $${(amount as number).toFixed(2)}`
+                                    : `Owes $${(amount as number).toFixed(2)}`
                                 : `Covered $${(amount as number).toFixed(2)}`}
-                            </Text>
+                            </CompletionText>
                           </View>
                           {isOwer && (
-                            hasPaid ? (
+                            shareResolved ? (
                               <View style={[styles.detailPaidBadge, { backgroundColor: colors.success + "20" }]}>
                                 <Feather name="check-circle" size={14} color={colors.success} />
-                                <Text style={[styles.detailPaidBadgeText, { color: colors.success }]}>Paid</Text>
+                                <Text style={[styles.detailPaidBadgeText, { color: colors.success }]}>{hasPaid ? "Paid" : "Settled"}</Text>
                               </View>
                             ) : isMe ? (
                               <TouchableOpacity
@@ -1134,13 +1151,13 @@ export default function ExpensesScreen() {
                               </View>
                             )
                           )}
-                        </View>
+                        </CompletionMotion>
                       );
                     })}
                   </View>
 
                   {/* My action summary */}
-                  {iAmOwer && !alreadyPaidBack && (
+                  {iAmOwer && !alreadyPaidBack && !detailExp.settled && (
                     <View style={[styles.detailMyOweBanner, { backgroundColor: colors.destructive + "10", borderColor: colors.destructive + "30" }]}>
                       <Feather name="alert-circle" size={14} color={colors.destructive} />
                       <Text style={[styles.detailMyOweText, { color: colors.destructive }]}>
@@ -1148,11 +1165,11 @@ export default function ExpensesScreen() {
                       </Text>
                     </View>
                   )}
-                  {iAmOwer && alreadyPaidBack && (
+                  {iAmOwer && (alreadyPaidBack || detailExp.settled) && (
                     <View style={[styles.detailMyOweBanner, { backgroundColor: colors.success + "10", borderColor: colors.success + "30" }]}>
                       <Feather name="check-circle" size={14} color={colors.success} />
                       <Text style={[styles.detailMyOweText, { color: colors.success }]}>
-                        You've marked your share as paid back
+                        {alreadyPaidBack ? "You've marked your share as paid back" : "Your share is settled"}
                       </Text>
                     </View>
                   )}

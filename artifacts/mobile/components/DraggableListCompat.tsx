@@ -1,6 +1,5 @@
 import React from "react";
 import {
-  FlatList,
   type FlatListProps,
   Platform,
   ScrollView,
@@ -12,27 +11,34 @@ import {
   ScaleDecorator,
   type RenderItemParams,
 } from "react-native-draggable-flatlist";
+import Animated, { type ILayoutAnimationBuilder } from "react-native-reanimated";
 
-type DraggableListCompatProps<T> = Omit<FlatListProps<T>, "data" | "keyExtractor" | "renderItem"> & {
+type DraggableListCompatProps<T> = Omit<FlatListProps<T>, "data" | "keyExtractor" | "renderItem" | "CellRendererComponent"> & {
   data: T[];
   keyExtractor: (item: T, index: number) => string;
   renderItem: (params: RenderItemParams<T>) => React.ReactElement | null;
+  onDragBegin?: (index: number) => void;
   onDragEnd?: (params: { data: T[]; from: number; to: number }) => void;
   activationDistance?: number;
+  /** Web cell transitions; native dragging keeps its own position animation. */
+  itemLayoutAnimation?: ILayoutAnimationBuilder;
 };
 
 export function DraggableListCompat<T>({
   renderItem,
   data,
   keyExtractor,
+  onDragBegin,
   onDragEnd,
   activationDistance,
+  itemLayoutAnimation,
   ...props
 }: DraggableListCompatProps<T>) {
   if (Platform.OS === "web") {
     return (
-      <FlatList
+      <Animated.FlatList
         {...props}
+        itemLayoutAnimation={itemLayoutAnimation}
         data={data}
         keyExtractor={keyExtractor}
         scrollEnabled={false}
@@ -54,6 +60,7 @@ export function DraggableListCompat<T>({
       data={data}
       keyExtractor={keyExtractor}
       renderItem={renderItem}
+      onDragBegin={onDragBegin}
       onDragEnd={onDragEnd}
       activationDistance={activationDistance}
     />

@@ -1,3 +1,4 @@
+import { CompletionMotion, CompletionText } from "@/components/CompletionMotion";
 import { ChoreFilterButton } from "@/components/ChoreFilterButton";
 import { SectionDivider } from "@/components/SectionDivider";
 import { CompletionUndoMenu } from "@/components/CompletionUndoMenu";
@@ -27,7 +28,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GestureDetector } from "react-native-gesture-handler";
 
 import { EmptyState } from "@/components/EmptyState";
-import { ActionMenuModal, type ActionMenuItem } from "@/components/ActionMenuModal";
+import { ActionMenuModal } from "@/components/ActionMenuModal";
 import { useAppPopup } from "@/components/AppPopupProvider";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { HouseMonitor, type HouseMonitorLocalEvent } from "@/components/HouseMonitor";
@@ -256,7 +257,6 @@ export default function GroupChoresScreen() {
   const [showAddChoreModal, setShowAddChoreModal] = useState(false);
   const [editingChoreId, setEditingChoreId] = useState<string | null>(null);
   const [actionChoreId, setActionChoreId] = useState<string | null>(null);
-  const [completionChoreId, setCompletionChoreId] = useState<string | null>(null);
   const [calendarDestination, setCalendarDestinationState] =
     useState<ExternalTaskDestination | null | undefined>(undefined);
   const calendarExportsInFlight = useRef(new Set<string>());
@@ -493,85 +493,35 @@ export default function GroupChoresScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
-  const handleChorePress = (choreId: string, assignedTo: string, choreName: string, chorePoints: number) => {
-    const chore = chores.find((c) => c.id === choreId);
+  const handleChorePress = (choreId: string) => {
+    const chore = chores.find((entry) => entry.id === choreId);
     if (!chore) return;
+    const allowed = permissionsForChore(chore).canComplete;
     logChorePermissionCheck("checkbox-tap", {
       choreId,
       currentUserId,
       householdId,
       isActiveMember: isActiveSweetMember(activeSweet, householdId, currentUserId),
       isOwner: isHost,
-      allowed: permissionsForChore(chore).canComplete,
+      allowed,
     });
-
-    // If already completed, only allow the ORIGINAL ASSIGNEE (or the current
-    // user if it's their own chore) to un-complete it. Picked-up chores are
-    // left alone — undoing a pickup would need to track who picked it up to
-    // correctly refund the bonus points, which we don't store.
+    if (!allowed) return;
+    // Keep the existing assignee-only tap-to-undo rule for picked-up chores.
     if (chore.completed) {
-      if (assignedTo === currentUserId) {
-        setCompletionChoreId(choreId);
-      }
+      if (chore.assignedTo !== currentUserId) return;
+      setChoreCompleted(chore.id, false);
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       return;
     }
-
-    setCompletionChoreId(choreId);
+    if (chore.assignedTo === currentUserId) {
+      setChoreCompleted(chore.id, true);
+    } else {
+      pickUpChore(chore.id, currentUserId);
+      setPickedUpChores((previous) => new Set(previous).add(chore.id));
+    }
+    hapticSuccess();
+    setHouseMonitorEvent((event) => ({ nonce: event.nonce + 1, type: "completed" }));
   };
-
-  const completionChore = completionChoreId
-    ? chores.find((entry) => entry.id === completionChoreId)
-    : undefined;
-  const completionAction: ActionMenuItem | null = completionChore
-    ? {
-        key: completionChore.completed ? "uncomplete" : "complete",
-        label: completionChore.completed ? "Uncomplete" : "Done ✓",
-        icon: completionChore.completed ? "rotate-ccw" : "check-circle",
-        runAfterDismiss:
-          !completionChore.completed && completionChore.assignedTo !== currentUserId,
-        confirmation: {
-          title: completionChore.completed
-            ? "Uncomplete chore?"
-            : completionChore.assignedTo === currentUserId
-              ? "Complete chore?"
-              : "Pick up this chore? 🙌",
-          message: completionChore.completed
-            ? `Mark "${completionChore.title}" as not done?`
-            : completionChore.assignedTo === currentUserId
-              ? `Mark "${completionChore.title}" as done?`
-              : pointsEnabled
-                ? `Complete "${completionChore.title}" for them and earn ${completionChore.points + 25} pts (${completionChore.points} + 25 bonus)!`
-                : `Complete "${completionChore.title}" for them?`,
-          confirmLabel: completionChore.completed
-            ? "Uncomplete"
-            : completionChore.assignedTo === currentUserId
-              ? "Done ✓"
-              : "Pick it up!",
-        },
-        onPress: () => {
-          if (completionChore.completed) {
-            setChoreCompleted(completionChore.id, false);
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          } else if (completionChore.assignedTo === currentUserId) {
-            hapticSuccess();
-            setChoreCompleted(completionChore.id, true);
-            setHouseMonitorEvent((event) => ({ nonce: event.nonce + 1, type: "completed" }));
-          } else {
-            hapticSuccess();
-            pickUpChore(completionChore.id, currentUserId);
-            setHouseMonitorEvent((event) => ({ nonce: event.nonce + 1, type: "completed" }));
-            setPickedUpChores((prev) => new Set([...prev, completionChore.id]));
-            info(
-              "pickup_success",
-              "Nice one! 🌟",
-              pointsEnabled
-                ? `You earned ${completionChore.points + 25} pts — ${completionChore.points} for the chore + 25 bonus!`
-                : `You completed "${completionChore.title}" for them.`,
-            );
-          }
-        },
-      }
-    : null;
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const { contentBottomPadding } = useTabBarLayout();
@@ -1109,11 +1059,11 @@ export default function GroupChoresScreen() {
                         const overdue =
                           !chore.completed && isOverdue(chore.dueDate);
                         const isPickedUp = pickedUpChores.has(chore.id);
-                        const isSomeoneElse = chore.assignedTo !== currentUserId;
                         return (
-                          <View
+                          <CompletionMotion
                             key={chore.id}
-                            style={{ overflow: "hidden", position: "relative" }}
+                            completed={chore.completed}
+                            style={{ position: "relative" }}
                           >
                         <TouchableOpacity
                           activeOpacity={0.7}
@@ -1127,8 +1077,9 @@ export default function GroupChoresScreen() {
                               longPressedChoreRef.current = null;
                               return;
                             }
-                            handleChorePress(chore.id, chore.assignedTo, chore.title, chore.points);
+                            handleChorePress(chore.id);
                           }}
+                          accessibilityRole="checkbox"
                           accessibilityState={{ checked: chore.completed }}
                           accessibilityLabel={`${chore.title}. ${chore.completed ? "Completed." : "Not completed."} ${canManageChore(chore) ? "Double tap to update completion, or use the more actions button to manage." : "Double tap to update completion."}`}
                           style={[
@@ -1147,22 +1098,20 @@ export default function GroupChoresScreen() {
                           />
 
                           <View style={{ flex: 1 }}>
-                            <Text
+                            <CompletionText
+                              completed={chore.completed}
                               style={[
                                 styles.choreTitle,
                                 {
                                   color: chore.completed
                                     ? colors.mutedForeground
                                     : colors.foreground,
-                                  textDecorationLine: chore.completed
-                                    ? "line-through"
-                                    : "none",
                                 },
                               ]}
                               numberOfLines={1}
                             >
                               {chore.title}
-                            </Text>
+                            </CompletionText>
                             <Text
                               style={[
                                 styles.choreDate,
@@ -1192,7 +1141,7 @@ export default function GroupChoresScreen() {
                             <Feather name="more-vertical" size={15} color={colors.mutedForeground} />
                           </TouchableOpacity>
                         </TouchableOpacity>
-                          </View>
+                          </CompletionMotion>
                         );
                       })}
                       {visibleChores.length < overdueDisplay.visibleItems.length ? (
@@ -1240,14 +1189,6 @@ export default function GroupChoresScreen() {
       />
 
       {/* ── Add Chore Modal (full-screen, matches New IOU) ── */}
-      <ActionMenuModal
-        visible={!!completionAction}
-        title={completionChore?.title ?? "Chore"}
-        subtitle="Confirm this chore update"
-        actions={[]}
-        initialConfirmationAction={completionAction}
-        onClose={() => setCompletionChoreId(null)}
-      />
       <ActionMenuModal
         visible={!!actionChore}
         title={actionChore?.title ?? "Chore"}

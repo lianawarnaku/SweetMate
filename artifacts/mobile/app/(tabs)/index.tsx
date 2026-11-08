@@ -1,5 +1,7 @@
 import { ChoreFilterButton } from "@/components/ChoreFilterButton";
 import { CompletionUndoMenu } from "@/components/CompletionUndoMenu";
+import { CompletionMotion, CompletionText } from "@/components/CompletionMotion";
+import { useCompletionFeedback } from "@/hooks/useCompletionFeedback";
 import { useHomeSections, type HomeSectionId } from "@/hooks/useHomeSections";
 import { SectionDivider as CollapsibleSectionHeader } from "@/components/SectionDivider";
 import { KEYBOARD_BEHAVIOR } from "@/lib/keyboard";
@@ -11,7 +13,6 @@ import {
   AccessibilityInfo,
   Animated,
   Dimensions,
-  FlatList,
   KeyboardAvoidingView,
   LayoutAnimation,
   Modal,
@@ -27,6 +28,7 @@ import {
 const SCREEN_HEIGHT = Dimensions.get("window").height;
 const SCREEN_WIDTH = Dimensions.get("window").width;
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import Reanimated, { Easing as ReanimatedEasing, LinearTransition } from "react-native-reanimated";
 import { GestureDetector } from "react-native-gesture-handler";
 
 import { EmptyState } from "@/components/EmptyState";
@@ -83,6 +85,9 @@ import {
 
 const CALENDAR_GESTURE_HOLD_MS = 260;
 const CALENDAR_DAY_GAP = 4;
+const HOME_COMPLETION_LAYOUT = LinearTransition.duration(240).easing(
+  ReanimatedEasing.out(ReanimatedEasing.cubic),
+);
 
 const CATEGORIES: { key: ChoreCategory; label: string; icon: keyof typeof Feather.glyphMap }[] = [
   { key: "cleaning", label: "Cleaning", icon: "wind" },
@@ -265,25 +270,25 @@ interface ChoreRowProps {
   };
   onSetCompleted: (id: string, completed: boolean) => void;
   onManage: () => void;
+  departing?: boolean;
 }
 
 function ChoreRow({
   chore,
   onSetCompleted,
   onManage,
+  departing = false,
 }: ChoreRowProps) {
   const colors = useTheme();
-  const { reduceMotion } = useAccessibilityPreferences();
   const pointsEnabled = useAppContextSelector(
     (context) => context.pointsEnabled,
   );
   const cat = CATEGORIES.find((c) => c.key === chore.category) ?? CATEGORIES[5];
   const overdue = isOverdue(chore.dueDate, chore.completed);
   const handleCheckPress = () => {
-    if (!reduceMotion) LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     onSetCompleted(chore.id, !chore.completed);
-    if (!chore.completed) hapticSuccess();
+    if (chore.completed) tapLight();
+    else hapticSuccess();
   };
 
   const dueDateColor = chore.completed
@@ -302,7 +307,11 @@ function ChoreRow({
         : "calendar";
 
   return (
-    <View style={{ borderRadius: 12, overflow: "hidden", position: "relative" }}>
+    <CompletionMotion
+      completed={chore.completed}
+      departing={departing}
+      style={{ borderRadius: 12, overflow: "hidden", position: "relative" }}
+    >
       <Surface
         level="subtle"
         style={[
@@ -342,18 +351,16 @@ function ChoreRow({
       <View
         style={styles.choreInfo}
       >
-        <Text
+        <CompletionText
+          completed={chore.completed}
           style={[
             styles.choreTitle,
-            {
-              color: chore.completed ? colors.mutedForeground : colors.foreground,
-              textDecorationLine: chore.completed ? "line-through" : "none",
-            },
+            { color: chore.completed ? colors.mutedForeground : colors.foreground },
           ]}
           numberOfLines={1}
         >
           {chore.title}
-        </Text>
+        </CompletionText>
         <View style={styles.choreMeta}>
           <View
             style={[
@@ -392,7 +399,7 @@ function ChoreRow({
         </TouchableOpacity>
       </View>
       </Surface>
-    </View>
+    </CompletionMotion>
   );
 }
 
@@ -575,6 +582,12 @@ export default function MyChoresScreen() {
   const [calendarExpanded, setCalendarExpanded] = useState(false);
   const [dayDetailsOpen, setDayDetailsOpen] = useState(false);
   const { expandedHomeSections, toggleSection } = useHomeSections(currentUserId);
+  const choreFeedback = useCompletionFeedback(
+    `home-chores:${householdId ?? ""}:${currentUserId}:${filter}:${selectedDate.toDateString()}:${Boolean(expandedHomeSections["my-chores"])}`,
+  );
+  const shoppingFeedback = useCompletionFeedback(
+    `home-shopping:${householdId ?? ""}:${currentUserId}:${Boolean(expandedHomeSections.shopping)}`,
+  );
   const [showModal, setShowModal] = useState(false);
   const [editingChoreId, setEditingChoreId] = useState<string | null>(null);
   const [actionChoreId, setActionChoreId] = useState<string | null>(null);
@@ -656,6 +669,9 @@ export default function MyChoresScreen() {
   );
 
   const myShoppingItems = personalShoppingItems.filter((item) => !item.completed);
+  const displayedShoppingItems = personalShoppingItems.filter(
+    (item) => !item.completed || shoppingFeedback.completingIds.has(item.id),
+  );
 
   const myChores = useMemo(
     () => {
@@ -982,27 +998,40 @@ export default function MyChoresScreen() {
       const candidates = filter === "archived" ? myChores : activePersonalChores;
       return candidates
         .filter((chore) => {
-          if (filter === "archived") return isArchivedIncomplete(chore, now);
-          if (filter === "today") return isChoreActiveOnDay(chore, now);
+          if (filter === "archived") {
+            return isArchivedIncomplete(chore, now) || choreFeedback.completingIds.has(chore.id);
+          }
+          if (filter === "today") {
+            return isChoreActiveOnDay(chore, now) || choreFeedback.completingIds.has(chore.id);
+          }
           if (filter === "done") return isRecentlyCompleted(chore, now);
-          if (filter === "day") return isChoreActiveOnDay(chore, selectedDate);
+          if (filter === "day") {
+            return isChoreActiveOnDay(chore, selectedDate) || choreFeedback.completingIds.has(chore.id);
+          }
           return false;
         })
-        // Completed chores auto-move to the bottom of the visible list.
-        .sort((a, b) => (a.completed === b.completed ? 0 : a.completed ? 1 : -1));
+        // A just-completed row keeps its place while it crosses off and exits.
+        .sort((a, b) => {
+          const aCompleted = a.completed && !choreFeedback.completingIds.has(a.id);
+          const bCompleted = b.completed && !choreFeedback.completingIds.has(b.id);
+          return aCompleted === bCompleted ? 0 : aCompleted ? 1 : -1;
+        });
     },
-    [activePersonalChores, filter, lifecycleNow, myChores, selectedDate],
+    [activePersonalChores, choreFeedback.completingIds, filter, lifecycleNow, myChores, selectedDate],
   );
   const displayedChores = useMemo(() => {
     if (filter !== "today") return filtered;
     return compactOverdueItems(filtered, {
       expanded: showEarlierChores,
-      isOverdue: (chore) => isOverdue(chore.dueDate, chore.completed),
+      isOverdue: (chore) => isOverdue(
+        chore.dueDate,
+        chore.completed && !choreFeedback.completingIds.has(chore.id),
+      ),
       keyForRepeatedItem: (chore) => chore.recurring
         ? chore.title.trim().toLocaleLowerCase()
         : chore.id,
     }).visibleItems;
-  }, [filter, filtered, showEarlierChores]);
+  }, [choreFeedback.completingIds, filter, filtered, showEarlierChores]);
   const hiddenEarlierChoreCount = filter === "today" ? filtered.length - displayedChores.length : 0;
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
@@ -1020,6 +1049,16 @@ export default function MyChoresScreen() {
     chore,
   });
   const canManageChore = (chore: Chore) => permissionsForChore(chore).canEdit;
+  const updateHomeChoreCompletion = (id: string, completed: boolean) => {
+    const chore = myChores.find((entry) => entry.id === id);
+    if (!chore || !permissionsForChore(chore).canComplete) return;
+    if (completed && filter !== "done") {
+      choreFeedback.holdCompletion(id);
+    } else {
+      choreFeedback.cancelCompletion(id);
+    }
+    setChoreCompleted(id, completed);
+  };
   const undoShoppingItems = personalShoppingItems
     .filter((item) => item.completed)
     .sort((a, b) => (b.updatedAt ?? "").localeCompare(a.updatedAt ?? ""));
@@ -1068,7 +1107,8 @@ export default function MyChoresScreen() {
   return (
     <GestureDetector gesture={pinchGesture}>
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <FlatList
+      <Reanimated.FlatList
+        itemLayoutAnimation={reduceMotion ? undefined : HOME_COMPLETION_LAYOUT}
         data={expandedHomeSections["my-chores"] ? displayedChores : []}
         keyExtractor={(item) => item.id}
         contentContainerStyle={[
@@ -1417,7 +1457,8 @@ export default function MyChoresScreen() {
         renderItem={({ item }) => (
           <ChoreRow
             chore={item}
-            onSetCompleted={setChoreCompleted}
+            onSetCompleted={updateHomeChoreCompletion}
+            departing={choreFeedback.completingIds.has(item.id)}
             onManage={() => openChoreActions(item)}
           />
         )}
@@ -1433,7 +1474,7 @@ export default function MyChoresScreen() {
                   onLongPress={() => setUndoSection("shopping")}
                   longPressHint="Press and hold to undo a checked-off shopping item"
                 />
-                {expandedHomeSections.shopping && (myShoppingItems.length === 0 ? (
+                {expandedHomeSections.shopping && (displayedShoppingItems.length === 0 ? (
                   <EmptyState
                     compact
                     icon="shopping-bag"
@@ -1447,9 +1488,13 @@ export default function MyChoresScreen() {
                     { borderColor: colors.border, marginBottom: 12 },
                   ]}
                 >
-                  {myShoppingItems.map((item, idx) => (
-                    <TouchableOpacity
+                  {displayedShoppingItems.map((item, idx) => (
+                    <CompletionMotion
                       key={item.id}
+                      completed={item.completed}
+                      departing={shoppingFeedback.completingIds.has(item.id)}
+                    >
+                    <TouchableOpacity
                       style={[
                         styles.toBuyRow,
                         idx > 0 && { borderTopColor: colors.border, borderTopWidth: StyleSheet.hairlineWidth },
@@ -1462,26 +1507,39 @@ export default function MyChoresScreen() {
                       delayLongPress={450}
                       onPress={() => {
                         if (heldShoppingItem.current) return;
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        if (item.completed) {
+                          shoppingFeedback.cancelCompletion(item.id);
+                          tapLight();
+                        } else {
+                          shoppingFeedback.holdCompletion(item.id);
+                          hapticSuccess();
+                        }
                         toggleShoppingItem(item.id);
                       }}
                       accessibilityRole="checkbox"
                       accessibilityState={{ checked: item.completed }}
-                      accessibilityLabel={`Mark purchased: ${item.name}`}
+                      accessibilityLabel={`${item.completed ? "Mark needed" : "Mark purchased"}: ${item.name}`}
                       accessibilityHint="Press and hold to undo a checked-off shopping item"
                       activeOpacity={0.7}
                     >
-                      <GlassCheckCircle size={20} />
-                      <Text style={[styles.toBuyItem, { color: colors.foreground }]} numberOfLines={1}>
-                        {item.name}
-                        {item.quantity ? (
-                          <Text style={{ color: colors.mutedForeground }}> · {item.quantity}</Text>
-                        ) : null}
-                      </Text>
+                      <GlassCheckCircle size={20} state={item.completed ? "checked" : "idle"} />
+                      <View style={{ flex: 1, minWidth: 0 }}>
+                        <CompletionText
+                          completed={item.completed}
+                          style={[styles.toBuyItem, { flex: 0, color: item.completed ? colors.mutedForeground : colors.foreground }]}
+                          numberOfLines={1}
+                        >
+                          {item.name}
+                          {item.quantity ? (
+                            <Text style={{ color: colors.mutedForeground }}> · {item.quantity}</Text>
+                          ) : null}
+                        </CompletionText>
+                      </View>
                       <Text style={[styles.toBuySection, { color: colors.mutedForeground }]} numberOfLines={1}>
                         {item.listName}
                       </Text>
                     </TouchableOpacity>
+                    </CompletionMotion>
                   ))}
                 </Surface>
                 ))}
@@ -1505,9 +1563,12 @@ export default function MyChoresScreen() {
           const latest = undoSnapshot.current;
           if (latest.householdId !== householdId || latest.currentUserId !== currentUserId || latest.undoSection !== undoSection) return;
           if (undoSection === "shopping") {
-            if (latest.undoShoppingItems.some((item) => item.id === id)) setShoppingItemCompleted(id, false);
+            if (latest.undoShoppingItems.some((item) => item.id === id)) {
+              shoppingFeedback.cancelCompletion(id);
+              setShoppingItemCompleted(id, false);
+            }
           } else if (latest.undoChores.some((chore) => chore.id === id)) {
-            setChoreCompleted(id, false);
+            updateHomeChoreCompletion(id, false);
           }
         }}
       />
@@ -1530,7 +1591,7 @@ export default function MyChoresScreen() {
             key: actionChore.completed ? "uncomplete" : "complete",
             label: actionChore.completed ? "Mark incomplete" : "Mark as done",
             icon: actionChore.completed ? "rotate-ccw" as const : "check-circle" as const,
-            onPress: () => setChoreCompleted(actionChore.id, !actionChore.completed),
+            onPress: () => updateHomeChoreCompletion(actionChore.id, !actionChore.completed),
           }] : []),
           {
             key: "calendar",

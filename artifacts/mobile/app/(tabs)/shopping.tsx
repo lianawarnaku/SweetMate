@@ -5,6 +5,7 @@ import { router } from "expo-router";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   KeyboardAvoidingView,
+  LayoutAnimation,
   Modal,
   Platform,
   Pressable,
@@ -16,6 +17,7 @@ import {
   View,
 } from "react-native";
 import type { RenderItemParams } from "react-native-draggable-flatlist";
+import { Easing, LinearTransition } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { EmptyState } from "@/components/EmptyState";
@@ -23,6 +25,9 @@ import { Surface } from "@/components/Surface";
 import { GlassCheckCircle } from "@/components/GlassCheckCircle";
 import { ActionMenuModal } from "@/components/ActionMenuModal";
 import { CompletionUndoMenu } from "@/components/CompletionUndoMenu";
+import { CompletionMotion, CompletionText } from "@/components/CompletionMotion";
+import { useCompletionFeedback } from "@/hooks/useCompletionFeedback";
+import { useAccessibilityPreferences } from "@/hooks/useAccessibilityPreferences";
 import { FloatingActionButton, useFloatingActionMetrics } from "@/components/FloatingActionButton";
 import {
   DraggableListCompat,
@@ -55,6 +60,10 @@ import {
   pricedListTotalCents,
   remainingListExpenseCents,
 } from "@/lib/shoppingExpense";
+
+const SHOPPING_COMPLETION_LAYOUT = LinearTransition.duration(240).easing(
+  Easing.out(Easing.cubic),
+);
 
 export default function ShoppingScreen() {
   const colors = useTheme();
@@ -98,6 +107,27 @@ export default function ShoppingScreen() {
     householdId: context.householdId,
   }));
 
+  const { reduceMotion } = useAccessibilityPreferences();
+  const { completingIds, holdCompletion, cancelCompletion } =
+    useCompletionFeedback(`shopping:${householdId ?? "none"}:${currentUserId}`);
+  const completionOrderRef = useRef(new Map<string, string[]>());
+  const [layoutHoldIds, setLayoutHoldIds] = useState<Set<string>>(new Set());
+  const [dragActive, setDragActive] = useState(false);
+
+  // Keep the purchased row in place for its check-off, then animate the move
+  // to the checked partition. Never reorder under an active drag gesture.
+  useEffect(() => {
+    if (dragActive) return;
+    const unchanged = completingIds.size === layoutHoldIds.size &&
+      [...completingIds].every((id) => layoutHoldIds.has(id));
+    if (unchanged) return;
+    const releasing = [...layoutHoldIds].some((id) => !completingIds.has(id));
+    if (releasing && !reduceMotion && Platform.OS !== "web") {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    }
+    setLayoutHoldIds(new Set(completingIds));
+  }, [completingIds, dragActive, layoutHoldIds, reduceMotion]);
+
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const botPad = Platform.OS === "web" ? 34 : 0;
 
@@ -131,6 +161,9 @@ export default function ShoppingScreen() {
     setUndoList(null);
     setAssignPickerListId(null);
     completedLongPressRef.current = null;
+    completionOrderRef.current.clear();
+    setLayoutHoldIds(new Set());
+    setDragActive(false);
   }, [householdId]);
 
   const showFeedback = (message: string) => {
@@ -219,6 +252,7 @@ export default function ShoppingScreen() {
     if (!current.shoppingLists.some((list) => list.id === undoList.id)) return;
     const item = current.shoppingItems.find((entry) => entry.id === itemId);
     if (!item?.completed || item.listId !== undoList.id) return;
+    cancelCompletion(itemId);
     setShoppingItemCompleted(itemId, false);
   };
 
@@ -253,11 +287,14 @@ export default function ShoppingScreen() {
   // user actions.
 
   const handleDragEnd = ({ data }: { data: ShoppingList[] }) => {
+    setDragActive(false);
     reorderShoppingLists(data.map((l) => l.id));
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
   };
 
   const handleItemDragEnd = (listId: string, data: ShoppingItem[]) => {
+    setDragActive(false);
+    completionOrderRef.current.set(listId, data.map((item) => item.id));
     reorderShoppingItems(listId, data.map((i) => i.id));
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
   };
@@ -269,6 +306,17 @@ export default function ShoppingScreen() {
     const unchecked: ShoppingItem[] = [];
     const checked: ShoppingItem[] = [];
     items.forEach((s) => (s.completed ? checked.push(s) : unchecked.push(s)));
+    if (items.some((item) => completingIds.has(item.id) || layoutHoldIds.has(item.id))) {
+      const order = completionOrderRef.current.get(items[0].listId);
+      if (order) {
+        const ranks = new Map(order.map((id, index) => [id, index]));
+        const sourceRanks = new Map(items.map((item, index) => [item.id, index]));
+        return [...items].sort((a, b) =>
+          (ranks.get(a.id) ?? order.length + sourceRanks.get(a.id)!) -
+          (ranks.get(b.id) ?? order.length + sourceRanks.get(b.id)!),
+        );
+      }
+    }
     return [...unchecked, ...checked];
   };
 
@@ -465,6 +513,7 @@ export default function ShoppingScreen() {
         <DraggableListCompat
           data={shoppingLists}
           keyExtractor={(l) => l.id}
+          onDragBegin={() => setDragActive(true)}
           onDragEnd={handleDragEnd}
           activationDistance={14}
           renderItem={({ item: list, drag, isActive }: RenderItemParams<ShoppingList>) => {
@@ -578,7 +627,9 @@ export default function ShoppingScreen() {
                     ) : (
                       <DraggableListCompat
                         data={items}
+                        itemLayoutAnimation={reduceMotion ? undefined : SHOPPING_COMPLETION_LAYOUT}
                         keyExtractor={(item) => item.id}
+                        onDragBegin={() => setDragActive(true)}
                         onDragEnd={({ data }) => handleItemDragEnd(list.id, data)}
                         activationDistance={14}
                         renderItem={({ item, drag, isActive }: RenderItemParams<ShoppingItem>) => {
@@ -597,6 +648,7 @@ export default function ShoppingScreen() {
                               : `${itemAssignees.length} people`;
                           return (
                             <ScaleDecoratorCompat>
+                              <CompletionMotion completed={item.completed}>
                               <TouchableOpacity
                                 activeOpacity={1}
                                 onLongPress={() => openItemActions(item.id)}
@@ -627,6 +679,12 @@ export default function ShoppingScreen() {
                                 <TouchableOpacity
                                   style={styles.shopCheck}
                                   onPress={() => {
+                                    if (item.completed) {
+                                      cancelCompletion(item.id);
+                                    } else {
+                                      completionOrderRef.current.set(list.id, items.map((entry) => entry.id));
+                                      holdCompletion(item.id);
+                                    }
                                     toggleShoppingItem(item.id);
                                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                                   }}
@@ -638,18 +696,18 @@ export default function ShoppingScreen() {
                                 </TouchableOpacity>
 
                                 <View style={{ flex: 1 }}>
-                                  <Text
+                                  <CompletionText
+                                    completed={item.completed}
                                     style={[
                                       styles.shopName,
                                       {
                                         color: colors.foreground,
-                                        textDecorationLine: item.completed ? "line-through" : "none",
                                       },
                                     ]}
                                     numberOfLines={1}
                                   >
                                     {item.name}
-                                  </Text>
+                                  </CompletionText>
                                   <Text style={[styles.shopMeta, { color: colors.mutedForeground }]}>
                                     {item.quantity}
                                     {assigneeLabel ? ` · ${assigneeLabel}` : ""}
@@ -667,6 +725,7 @@ export default function ShoppingScreen() {
                                   <Feather name="x" size={15} color={colors.mutedForeground} />
                                 </TouchableOpacity>
                               </TouchableOpacity>
+                              </CompletionMotion>
                             </ScaleDecoratorCompat>
                           );
                         }}
@@ -764,6 +823,7 @@ export default function ShoppingScreen() {
                       if (current.householdId !== householdId) return;
                       const item = current.shoppingItems.find((entry) => entry.id === actionItem.id);
                       if (!item?.completed || !current.shoppingLists.some((list) => list.id === item.listId)) return;
+                      cancelCompletion(item.id);
                       setShoppingItemCompleted(item.id, false);
                     },
                   }] : []),

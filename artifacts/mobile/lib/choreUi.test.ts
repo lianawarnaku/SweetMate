@@ -120,7 +120,7 @@ assert(
   home.includes("? colors.primary\n    : isToday(chore.dueDate)") &&
     home.includes("borderColor: colors.border") &&
     home.includes("overdue ? colors.primary + \"16\" : colors.muted") &&
-    home.includes("textDecorationLine: chore.completed ? \"line-through\" : \"none\"") &&
+    home.includes("<CompletionText") && home.includes("completed={chore.completed}") &&
     group.includes('return `Overdue · originally due ${d.toLocaleDateString("en-US", {') &&
     group.includes("state={chore.completed ? \"checked\" : overdue ? \"overdue\" : \"idle\"}") &&
     borrowing.includes("backgroundColor: colors.primary + \"12\"") &&
@@ -284,9 +284,12 @@ assert(
   "chore row secondary actions must live in the shared action menu",
 );
 assert(
-  group.includes("initialConfirmationAction={completionAction}") &&
-    !group.includes('"complete_chore",\\n        "Complete chore?"'),
-  "chore completion must use the shared app-styled confirmation shell",
+  !group.includes("initialConfirmationAction={completionAction}") &&
+    !group.includes("completionChoreId") &&
+    group.includes("if (!allowed) return;") &&
+    group.includes("setChoreCompleted(chore.id, true)") &&
+    group.includes("pickUpChore(chore.id, currentUserId)"),
+  "Group checkbox completion must update directly without a confirmation popup while preserving authorization and pickup behavior",
 );
 assert(
   group.includes('onClose={() => setActionChoreId(null)}') &&
@@ -321,6 +324,6 @@ assert(
   group.includes("key={chore.id}") &&
     group.includes("a.dueDate.localeCompare(b.dueDate) || a.id.localeCompare(b.id)") &&
     group.includes("accessibilityState={{ checked: chore.completed }}") &&
-    group.includes('textDecorationLine: chore.completed'),
+    group.includes("<CompletionText") && group.includes("completed={chore.completed}"),
   "Group rows must retain stable identity and visibly expose canonical completion state",
 );
