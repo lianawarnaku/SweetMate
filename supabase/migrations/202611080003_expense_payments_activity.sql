@@ -3,6 +3,10 @@
 -- Apply through the normal transactional migration runner: prevent a legacy
 -- write/insert from falling between balance backfill and trigger cutover.
 lock table public.expenses in access exclusive mode;
+-- The controlled backfill may run through a Management API login role whose
+-- session identity differs from the trigger definer. No client may enter while
+-- the exclusive lock is held; rollback restores this trigger state on failure.
+alter table public.expenses disable trigger expenses_safe_writes;
 create table public.expense_payments (
   id uuid primary key default gen_random_uuid(),
   household_id uuid not null references public.households(id) on delete cascade,
@@ -85,6 +89,24 @@ begin
   return entry;
 end $$;
 revoke all on function public.expense_payment_projection(uuid,text,jsonb) from public,anon,authenticated;
+
+-- Older payer-only personal expenses omitted allocations and stored no dollar
+-- split. The only possible allocation is the payer's own covered total; this
+-- creates no roommate obligation. Never infer missing amounts for a debtor or
+-- replace an existing allocation/split/payment fact.
+update public.expenses e set entry=e.entry || jsonb_build_object(
+  'allocations',jsonb_build_array(jsonb_build_object('participantId',e.paid_by::text,'amountCents',e.amount_cents)),
+  'splits',jsonb_build_object(e.paid_by::text,e.amount_cents::numeric/100)
+)
+where e.amount_cents>0 and e.amount_cents<=9007199254740991
+  and jsonb_typeof(e.entry)='object'
+  and jsonb_typeof(e.entry->'sharedWith')='array'
+  and jsonb_array_length(e.entry->'sharedWith')=1
+  and e.entry #>> '{sharedWith,0}'=e.paid_by::text
+  and not e.entry ? 'allocations'
+  and (not e.entry ? 'splits' or e.entry->'splits'='{}'::jsonb)
+  and (not e.entry ? 'paidBack' or (jsonb_typeof(e.entry->'paidBack')='object' and not exists(
+    select 1 from jsonb_each(e.entry->'paidBack') p where p.value is distinct from 'false'::jsonb)));
 
 -- Import true legacy acknowledgements once as full-share payment facts. The
 -- original payment date was never recorded; use the old recorded update day,
@@ -332,3 +354,6 @@ begin
   else return public.guard_legacy_expense_write(tg_op,old,new); end if;
 end $$;
 revoke all on function public.expense_write_guard() from public,anon,authenticated;
+
+-- This remains inside the same transactional, exclusively locked migration.
+alter table public.expenses enable trigger expenses_safe_writes;

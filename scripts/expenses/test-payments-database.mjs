@@ -12,8 +12,32 @@ export async function runExpensePaymentsDatabaseTests(db) {
   await rpc('create','receipt-only-legacy',expensePayload());
   const oldCommittedOp=operationId();await rpc('repay','receipt-only-legacy',{},null,oldCommittedOp);
   await db.exec('reset role;');
+  const payerOnly=expensePayload({amountCents:8450,amount:84.5,paidBy:ids.bob,sharedWith:[ids.bob],splits:{},manuallySettled:false});delete payerOnly.allocations;
+  const noSplits=expensePayload({amountCents:3450,amount:34.5,paidBy:ids.bob,sharedWith:[ids.bob],manuallySettled:false});delete noSplits.allocations;delete noSplits.splits;
+  const actualDebtor=expensePayload({amountCents:300,amount:3,paidBy:ids.bob,sharedWith:[ids.alice],splits:{[ids.alice]:3},manuallySettled:false});delete actualDebtor.allocations;
+  for(const [id,payload] of [['legacy-payer-only',payerOnly],['legacy-payer-no-splits',noSplits],['legacy-actual-debtor',actualDebtor]]) await db.query(`insert into public.expenses(id,household_id,paid_by,creator_id,amount_cents,expense_date,settled,entry) values($1,$2,$3,$4,$5,'2026-11-08',false,$6)`,[id,ids.home,ids.bob,ids.alice,payload.amountCents,payload]);
+  const identity=async()=>JSON.stringify((await db.query(`select id,household_id,paid_by,creator_id,amount_cents,expense_date from public.expenses order by id`)).rows);
+  const identityBefore=await identity();
+  const migration003=await readFile(new URL('../../supabase/migrations/202611080003_expense_payments_activity.sql',import.meta.url),'utf8');
+  // Existing-but-empty allocations are not the legacy optional-metadata case.
+  // A bad record must roll back all DDL/backfill, including trigger disabling.
+  await db.exec('begin');
+  await db.query(`insert into public.expenses(id,household_id,paid_by,creator_id,amount_cents,expense_date,entry) values('bad-payer-array',$1,$2,$3,8450,'2026-11-08',$4)`,[ids.home,ids.bob,ids.alice,{...payerOnly,allocations:[]}]);
+  await assert.rejects(db.exec(migration003),/allocation/i);await db.exec('rollback');
+  assert.equal(await scalar(`select tgenabled from pg_trigger where tgrelid='public.expenses'::regclass and tgname='expenses_safe_writes'`),'O','failed migration restores compatibility trigger');
+  assert.equal(await scalar(`select to_regclass('public.expense_payments')::text`),null,'failed migration leaves no partial ledger schema');
   const oldBalances=(await db.query(`select id,amount_cents,settled,entry->'paidBack' paid,entry->'manuallySettled' manual,version from public.expenses order by id`)).rows;
-  await db.exec(await readFile(new URL('../../supabase/migrations/202611080003_expense_payments_activity.sql',import.meta.url),'utf8'));
+  await db.exec(migration003);
+  assert.equal(await identity(),identityBefore,'payer-only compatibility preserves financial identity/total/payer/date');
+  for(const id of ['legacy-payer-only','legacy-payer-no-splits']) {
+    const normalized=await scalar('select to_jsonb(e) from public.expenses e where id=$1',[id]);
+    assert.equal(normalized.settled,true,'zero-debtor legacy expense auto-resolves');
+    assert.deepEqual(normalized.entry.allocations,[{participantId:ids.bob,amountCents:normalized.amount_cents}]);
+    assert.equal(normalized.entry.splits[ids.bob],normalized.amount_cents/100);
+    assert.equal(normalized.entry.allocations.filter(a=>a.participantId!==normalized.paid_by).length,0,'normalization creates no nonpayer obligation');
+  }
+  const debtor=await scalar(`select entry from public.expenses where id='legacy-actual-debtor'`);
+  assert.deepEqual(debtor.allocations,[{participantId:ids.alice,amountCents:300}],'valid nonpayer dollar terms remain unchanged');
   for(const before of oldBalances) {
     const after=(await db.query('select amount_cents,settled,entry,version from public.expenses where id=$1',[before.id])).rows[0];
     assert.equal(String(after.amount_cents),String(before.amount_cents));assert.equal(after.version,before.version,'backfill preserves optimistic versions');
