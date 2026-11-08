@@ -1,3 +1,4 @@
+import { SectionDivider as CollapsibleSectionHeader } from "@/components/SectionDivider";
 import { KEYBOARD_BEHAVIOR } from "@/lib/keyboard";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -208,47 +209,6 @@ function TodayFocusCard({
   );
 }
 
-function CollapsibleSectionHeader({
-  title,
-  count,
-  icon,
-  expanded,
-  onToggle,
-}: {
-  title: string;
-  count: number;
-  icon: keyof typeof Feather.glyphMap;
-  expanded: boolean;
-  onToggle: () => void;
-}) {
-  const colors = useTheme();
-  return (
-    <TouchableOpacity
-      style={[
-        styles.sectionTitleRow,
-        { backgroundColor: colors.muted, borderColor: colors.border },
-      ]}
-      onPress={onToggle}
-      activeOpacity={0.7}
-      accessibilityRole="button"
-      accessibilityState={{ expanded }}
-      accessibilityLabel={`${expanded ? "Collapse" : "Expand"} ${title}, ${count} ${count === 1 ? "item" : "items"}`}
-    >
-      <View style={[styles.sectionIcon, { backgroundColor: colors.secondary }]}>
-        <Feather name={icon} size={16} color={colors.foreground} />
-      </View>
-      <View style={styles.sectionTitleCopy}>
-        <Text style={[styles.sectionTitleText, { color: colors.foreground }]}>{title}</Text>
-      </View>
-      <View style={[styles.sectionCountBadge, { backgroundColor: colors.secondary }]}>
-        <Text style={[styles.sectionTitleCount, { color: colors.mutedForeground }]}>
-          {count}
-        </Text>
-      </View>
-      <Feather name={expanded ? "chevron-up" : "chevron-down"} size={18} color={colors.mutedForeground} />
-    </TouchableOpacity>
-  );
-}
 
 function isToday(dateStr: string) {
   const d = new Date(dateStr);
@@ -1845,41 +1805,6 @@ const styles = StyleSheet.create({
   dayItemTitle: { fontFamily: "Inter_600SemiBold", includeFontPadding: false, fontSize: 13 },
   dayItemDescription: { fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 11, lineHeight: 15, marginTop: 2 },
   dayItemAmount: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 12 },
-  sectionTitleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-    minHeight: 52,
-    marginTop: spacing.lg,
-    marginBottom: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: radii.control,
-    borderWidth: 1,
-  },
-  sectionIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: radii.small,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  sectionTitleCopy: { flex: 1, minWidth: 0 },
-  sectionTitleText: {
-    fontFamily: "Inter_700Bold", includeFontPadding: false,
-    fontSize: 15,
-  },
-  sectionCountBadge: {
-    minWidth: 28,
-    height: 24,
-    paddingHorizontal: spacing.sm,
-    borderRadius: radii.pill,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  sectionTitleCount: {
-    fontFamily: "Inter_500Medium", includeFontPadding: false,
-    fontSize: 12,
-  },
   filterRow: {
     paddingHorizontal: 16,
     gap: 8,

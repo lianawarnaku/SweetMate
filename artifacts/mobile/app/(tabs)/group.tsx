@@ -1,3 +1,4 @@
+import { SectionDivider } from "@/components/SectionDivider";
 import { KEYBOARD_BEHAVIOR } from "@/lib/keyboard";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -801,12 +802,7 @@ export default function GroupChoresScreen() {
         {!listView && plantEnabled && <View
           style={styles.plantSection}
         >
-          <View style={styles.summaryHeader}>
-            <View style={styles.activityHeaderIcon}>
-              <Feather name="home" size={14} color={colors.primary} />
-            </View>
-            <Text style={[styles.activityTitle, { color: colors.foreground }]}>House Monitor</Text>
-          </View>
+          <SectionDivider title="House Monitor" icon="home" />
           <View style={styles.monitorContainer}>
             <HouseMonitor
               totalChores={householdChoreSummary.totalChores}
@@ -820,25 +816,13 @@ export default function GroupChoresScreen() {
             Tap a roommate's emoji to cycle through their vibe:
               😊 (chill / around)  →  😴 (sleeping)  →  🤫 (do not disturb)  →  😊
             Sleeping still auto-reverts after 9 hours via AppContext. */}
-        {!listView && roommateActivityEnabled ? <Surface style={[styles.activityCard, { borderColor: colors.border }]}>
-          <TouchableOpacity
-            style={styles.activityHeader}
-            onPress={toggleRoommates}
-            activeOpacity={0.7}
-            accessibilityRole="button"
-            accessibilityState={{ expanded: roommatesExpanded }}
-            accessibilityLabel={`${roommatesExpanded ? "Collapse" : "Expand"} Roommates`}
-          >
-            <View style={styles.activityHeaderIcon}>
-              <Feather name="users" size={14} color={colors.primary} />
-            </View>
-            <Text style={[styles.activityTitle, { color: colors.foreground }]}>Roommates</Text>
-            <Feather
-              name={roommatesExpanded ? "chevron-down" : "chevron-right"}
-              size={18}
-              color={colors.mutedForeground}
-            />
-          </TouchableOpacity>
+        {!listView && roommateActivityEnabled ? <View style={styles.activityCard}>
+          <SectionDivider
+            title="Roommates"
+            icon="users"
+            expanded={roommatesExpanded}
+            onToggle={toggleRoommates}
+          />
           {roommatesExpanded && <View style={styles.roommatesGrid}>
             {roommates.map((rm) => {
               const status = roommateStatuses[rm.id] ?? "home";
@@ -879,7 +863,7 @@ export default function GroupChoresScreen() {
               );
             })}
           </View>}
-        </Surface> : null}
+        </View> : null}
 
         <View style={styles.choreFilterRow}>
           {(["active", "archived"] as const).map((option) => (
@@ -1343,14 +1327,6 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginBottom: 18,
   },
-  summaryHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    paddingHorizontal: 14,
-    paddingTop: 12,
-    paddingBottom: 10,
-  },
   monitorContainer: { alignItems: "center", paddingVertical: 8 },
 
   // Roommate list
@@ -1447,24 +1423,7 @@ const styles = StyleSheet.create({
   activityCard: {
     marginHorizontal: 16,
     marginBottom: 14,
-    borderRadius: 22,
-    borderWidth: 1,
-    overflow: "hidden",
   },
-  activityHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    paddingHorizontal: 14,
-    paddingTop: 14,
-    paddingBottom: 12,
-  },
-  activityHeaderIcon: {
-    width: 18,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  activityTitle: { fontFamily: "Inter_600SemiBold", includeFontPadding: false, fontSize: 14, flex: 1 },
   distBadge: {
     flexDirection: "row",
     alignItems: "center",
