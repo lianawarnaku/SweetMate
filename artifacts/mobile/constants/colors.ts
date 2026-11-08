@@ -1,12 +1,14 @@
 import { useAppContextSelector } from "@/context/AppContext";
 import {
   colorSchemes,
+  getEffectiveAppearanceMode,
   resolveThemeTokens,
   type ThemeTokens,
 } from "@/constants/themeTokens";
 
 export {
   colorSchemes,
+  getEffectiveAppearanceMode,
   normalizeAppearanceMode,
   normalizeColorScheme,
   resolveThemeTokens,
@@ -20,5 +22,5 @@ export function useTheme(): ThemeTokens {
     colorScheme: context.colorScheme,
     appearanceMode: context.appearanceMode,
   }));
-  return resolveThemeTokens(appearanceMode, colorScheme);
+  return resolveThemeTokens(getEffectiveAppearanceMode(appearanceMode), colorScheme);
 }

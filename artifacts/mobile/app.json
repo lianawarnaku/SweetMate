@@ -7,7 +7,7 @@
     "orientation": "portrait",
     "icon": "./assets/images/sweetmate-icon.png",
     "scheme": "sweetmate",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "ios": {
       "usesAppleSignIn": true,
@@ -70,7 +70,7 @@
       }
     },
     "androidNavigationBar": {
-      "barStyle": "dark-content",
+      "barStyle": "light-content",
       "enforceContrast": true
     }
   }

@@ -14,11 +14,12 @@ export default function RootHtml({ children }: PropsWithChildren) {
           name="viewport"
           content="width=device-width, initial-scale=1, shrink-to-fit=no"
         />
+        <meta name="color-scheme" content="dark" />
         <meta name="theme-color" content={BRAND_BASE_DARK} />
         <ScrollViewStyleReset />
         <style
           dangerouslySetInnerHTML={{
-            __html: `html,body,#root{background-color:${BRAND_BASE_DARK};}body{margin:0;}`,
+            __html: `html{color-scheme:dark;}html,body,#root{background-color:${BRAND_BASE_DARK};}body{margin:0;}`,
           }}
         />
       </head>

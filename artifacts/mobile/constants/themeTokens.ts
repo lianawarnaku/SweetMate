@@ -1,5 +1,10 @@
 export type AppearanceMode = "light" | "dark";
 
+// Light appearance is temporarily unavailable. Keep the saved preference and
+// palette definitions so it can be restored later without losing user choices.
+export const LIGHT_MODE_ENABLED = false;
+
+
 type AccentPalette = {
   text: string;
   tint: string;
@@ -180,6 +185,10 @@ export function normalizeColorScheme(value: unknown): ColorScheme {
 
 export function normalizeAppearanceMode(value: unknown): AppearanceMode {
   return value === "light" ? "light" : "dark";
+}
+
+export function getEffectiveAppearanceMode(preference: unknown): AppearanceMode {
+  return LIGHT_MODE_ENABLED ? normalizeAppearanceMode(preference) : "dark";
 }
 
 export function resolveThemeTokens(mode: AppearanceMode, scheme: ColorScheme) {
