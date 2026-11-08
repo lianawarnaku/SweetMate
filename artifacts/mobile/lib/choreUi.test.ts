@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { runInNewContext } from "node:vm";
 
 function assert(condition: boolean, message: string) {
   if (!condition) throw new Error(message);
@@ -329,3 +330,17 @@ assert(
     group.includes("<CompletionText") && group.includes("completed={chore.completed}"),
   "Group rows must retain stable identity and visibly expose canonical completion state",
 );
+
+// Restoring a saved compact Group list must retain the enabled House Monitor.
+const monitorVisibility = group.match(/\{([^{}]*?)&&\s*<View\s+style=\{styles\.plantSection\}/)?.[1];
+assert(Boolean(monitorVisibility), "the Group House Monitor visibility condition must be available");
+for (const listView of [false, true]) {
+  assert(
+    runInNewContext(monitorVisibility!, { listView, plantEnabled: true }) === true,
+    "House Monitor must remain visible in either Group list layout when enabled",
+  );
+  assert(
+    !runInNewContext(monitorVisibility!, { listView, plantEnabled: false }),
+    "an explicit Show House Monitor opt-out must remain respected",
+  );
+}

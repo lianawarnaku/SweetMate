@@ -793,7 +793,8 @@ export default function GroupChoresScreen() {
         scrollEventThrottle={32}
       >
         {/* Each completed chore fills a body box, then overflow fills the roof. */}
-        {!listView && plantEnabled && <View
+        {/* Compact chores must not override the Show House Monitor preference. */}
+        {plantEnabled && <View
           style={styles.plantSection}
         >
           <SectionDivider title="House Monitor" icon="home" />
