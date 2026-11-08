@@ -3,6 +3,8 @@ import { ChoreFilterButton } from "@/components/ChoreFilterButton";
 import { SectionDivider } from "@/components/SectionDivider";
 import { CompletionUndoMenu } from "@/components/CompletionUndoMenu";
 import { KEYBOARD_BEHAVIOR } from "@/lib/keyboard";
+import { useIsFocused } from "@react-navigation/native";
+import { houseMonitorCompletionTokens } from "@/lib/houseMonitorSeen";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -139,12 +141,14 @@ function buildMonthGrid(monthAnchor: Date): { date: Date; inMonth: boolean }[][]
 export default function GroupChoresScreen() {
   const { showPopup } = useAppPopup();
   const colors = useTheme();
+  const isFocused = useIsFocused();
   const insets = useSafeAreaInsets();
-  const { roommates, chores, householdChoreSummary, currentUserId, householdId, householdTimezone, activeSweet, setChoreCompleted, pickUpChore, sendNudge, removeNudge, nudges, roommateStatuses, setRoommateStatus, pointsEnabled, plantEnabled, roommateActivityEnabled, isHost, deleteChore } =
+  const { roommates, chores, householdChoreSummary, householdLoading, currentUserId, householdId, householdTimezone, activeSweet, setChoreCompleted, pickUpChore, sendNudge, removeNudge, nudges, roommateStatuses, setRoommateStatus, pointsEnabled, plantEnabled, roommateActivityEnabled, isHost, deleteChore } =
     useAppContextSelector((context) => ({
       roommates: context.roommates,
       chores: context.chores,
       householdChoreSummary: context.householdChoreSummary,
+      householdLoading: context.householdLoading,
       currentUserId: context.currentUserId,
       householdId: context.householdId,
       householdTimezone: context.householdTimezone,
@@ -162,6 +166,7 @@ export default function GroupChoresScreen() {
       isHost: context.isHost,
       deleteChore: context.deleteChore,
     }));
+  const monitorCompletionTokens = useMemo(() => houseMonitorCompletionTokens(chores), [chores]);
   const lifecycleNow = useChoreLifecycleNow(chores);
   const { listView, pinchGesture, showCoach, dismissCoach } =
     usePinchListView(currentUserId, "group");
@@ -796,6 +801,12 @@ export default function GroupChoresScreen() {
           <SectionDivider title="House Monitor" icon="home" />
           <View style={styles.monitorContainer}>
             <HouseMonitor
+              key={currentUserId + ":" + (householdId ?? "")}
+              viewerId={currentUserId}
+              householdId={householdId ?? undefined}
+              completionTokens={monitorCompletionTokens}
+              isFocused={isFocused}
+              progressReady={!householdLoading}
               totalChores={householdChoreSummary.totalChores}
               completedChores={householdChoreSummary.completedChores}
               localEvent={houseMonitorEvent}

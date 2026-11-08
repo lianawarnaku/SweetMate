@@ -1,6 +1,5 @@
-import { useFocusEffect } from "expo-router";
-import React, { useCallback, useEffect, useId, useRef } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import React, { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { AppState, StyleSheet, Text, View } from "react-native";
 import Svg, { ClipPath, Defs, Path, Rect } from "react-native-svg";
 import Animated, {
   Easing,
@@ -16,6 +15,7 @@ import Animated, {
 } from "react-native-reanimated";
 
 import { useTheme } from "@/constants/colors";
+import { useHouseMonitorReplay } from "@/hooks/useHouseMonitorReplay";
 import { useAccessibilityPreferences } from "@/hooks/useAccessibilityPreferences";
 import { getHouseMonitorProgress } from "@/lib/houseMonitorProgress";
 import {
@@ -85,6 +85,10 @@ function GridSquare({
   reduceTransparency,
   delay,
   animateNew,
+  active,
+  replayNonce,
+  managedReplay,
+  pendingReplay,
 }: {
   color: string;
   emptyColor: string;
@@ -95,24 +99,35 @@ function GridSquare({
   reduceTransparency: boolean;
   delay: number;
   animateNew: boolean;
+  active: boolean;
+  replayNonce: number;
+  managedReplay: boolean;
+  pendingReplay: boolean;
 }) {
   const entranceScale = useSharedValue(animateNew && !reduceMotion ? 0.8 : 1);
-  const fillOpacity = useSharedValue(completed ? 1 : 0);
+  const fillOpacity = useSharedValue(completed && !pendingReplay ? 1 : 0);
   const bubbleProgress = useSharedValue(1);
   const previousCompleted = useRef(completed);
+  const previousActive = useRef(active);
+  const previousReplayNonce = useRef(0);
   // Keep outward motion inside the gap; deeper inward squash makes the
   // alternating rebounds feel watery without colliding with adjacent tiles.
   const overshoot = Math.min(0.16, 1.8 / size);
   const jiggleDegrees = Math.min(3, 50 / size);
   const squash = Math.min(0.24, 9 / size);
 
-  useEffect(() => {
-    const newlyCompleted = completed && !previousCompleted.current;
+  useLayoutEffect(() => {
+    const newlyCompleted = !managedReplay && active && previousActive.current &&
+      completed && !previousCompleted.current;
+    const unseenReplay = managedReplay && completed && replayNonce > 0 &&
+      replayNonce !== previousReplayNonce.current;
     previousCompleted.current = completed;
+    previousActive.current = active;
+    previousReplayNonce.current = replayNonce;
     cancelAnimation(fillOpacity);
     cancelAnimation(bubbleProgress);
-    if (reduceMotion || !newlyCompleted) {
-      fillOpacity.value = Number(completed);
+    if (pendingReplay || !active || reduceMotion || (!newlyCompleted && !unseenReplay)) {
+      fillOpacity.value = pendingReplay ? 0 : Number(completed);
       bubbleProgress.value = 1;
       return;
     }
@@ -127,7 +142,7 @@ function GridSquare({
       withTiming(0.83, { duration: 90, easing: Easing.inOut(Easing.quad) }),
       withTiming(1, { duration: 100, easing: Easing.out(Easing.cubic) }),
     );
-  }, [bubbleProgress, completed, fillOpacity, reduceMotion]);
+  }, [active, bubbleProgress, completed, fillOpacity, managedReplay, pendingReplay, reduceMotion, replayNonce]);
 
   useEffect(() => {
     if (reduceMotion) {
@@ -249,10 +264,20 @@ export function HouseMonitor({
   totalChores: rawTotalChores,
   completedChores: rawCompletedChores,
   localEvent,
+  viewerId,
+  householdId,
+  completionTokens,
+  isFocused = true,
+  progressReady = true,
 }: {
   totalChores: number;
   completedChores: number;
   localEvent?: HouseMonitorLocalEvent;
+  viewerId?: string;
+  householdId?: string;
+  completionTokens?: string[];
+  isFocused?: boolean;
+  progressReady?: boolean;
 }) {
   const colors = useTheme();
   const { reduceMotion, reduceTransparency } = useAccessibilityPreferences();
@@ -264,23 +289,44 @@ export function HouseMonitor({
     completionPercentage: percentage,
     roofCompletionRatio,
   } = getHouseMonitorProgress(rawTotalChores, rawCompletedChores);
+  const [appActive, setAppActive] = useState(
+    () => AppState.currentState === "active",
+  );
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (state) => setAppActive(state === "active"));
+    return () => subscription.remove();
+  }, []);
+  const managedReplay = Boolean(viewerId && householdId && completionTokens);
+  const { replay, loaded } = useHouseMonitorReplay({
+    userId: viewerId,
+    householdId,
+    completionTokens,
+    totalChores,
+    completedChores,
+    isFocused: isFocused && appActive,
+    ready: progressReady,
+  });
+  const pendingReplay = managedReplay && (!loaded || !progressReady);
+  const presentationActive = isFocused && appActive && progressReady && loaded;
+  const replayNonce = replay?.nonce ?? 0;
+  const replayFrom = replay
+    ? getHouseMonitorProgress(totalChores, replay.fromCompletedChores)
+    : null;
   // Keep every body a full square grid; remaining chores belong to the roof.
   const gridSide = Math.sqrt(gridSquares);
   const gridRows = gridSide;
   const roofClipId = `house-monitor-roof-${useId().replace(/:/g, "")}`;
   const restingFocus = totalChores > 0 ? 1 : 0.45;
   const focusProgress = useSharedValue(1);
-  const roofProgress = useSharedValue(roofCompletionRatio);
+  const roofProgress = useSharedValue(pendingReplay ? 0 : roofCompletionRatio);
   const roofScaleX = useSharedValue(1);
   const roofScaleY = useSharedValue(1);
   const previousRoofFill = useRef({ totalChores, completedChores, roofCompletionRatio });
+  const roofWasActive = useRef(presentationActive);
+  const previousRoofReplay = useRef(0);
   const monitorScale = useSharedValue(1);
-  const roofCompletionRatioRef = useRef(roofCompletionRatio);
-  const restingFocusRef = useRef(restingFocus);
-  roofCompletionRatioRef.current = roofCompletionRatio;
-  restingFocusRef.current = restingFocus;
   const previousGridRef = useRef(gridSquares);
-  const processedEventRef = useRef(0);
+  const processedEventRef = useRef(localEvent?.nonce ?? 0);
   const isNewLocalEvent = Boolean(
     localEvent && localEvent.nonce !== processedEventRef.current,
   );
@@ -291,29 +337,6 @@ export function HouseMonitor({
   );
   const previousGrid = previousGridRef.current;
 
-  useFocusEffect(
-    useCallback(() => {
-      // Entrance motion never changes which chores are represented as complete.
-      cancelAnimation(roofScaleX);
-      cancelAnimation(roofScaleY);
-      roofScaleX.value = 1;
-      roofScaleY.value = 1;
-      roofProgress.value = roofCompletionRatioRef.current;
-      if (reduceMotion) {
-        focusProgress.value = restingFocusRef.current;
-        monitorScale.value = 1;
-        return;
-      }
-      focusProgress.value = 0;
-      monitorScale.value = 0.96;
-      focusProgress.value = withTiming(restingFocusRef.current, {
-        duration: 300,
-        easing: Easing.out(Easing.cubic),
-      });
-      monitorScale.value = withSpring(1);
-    }, [focusProgress, monitorScale, reduceMotion, roofProgress, roofScaleX, roofScaleY]),
-  );
-
   useEffect(() => {
     focusProgress.value = reduceMotion
       ? restingFocus
@@ -321,26 +344,24 @@ export function HouseMonitor({
           duration: 300,
           easing: Easing.out(Easing.cubic),
         });
-    roofProgress.value = reduceMotion
-      ? roofCompletionRatio
-      : withTiming(roofCompletionRatio, {
-          duration: 400,
-          easing: Easing.out(Easing.cubic),
-        });
 
     if (isNewLocalEvent) {
-      if (!reduceMotion && localEvent?.type === "created") {
+      if (presentationActive && !reduceMotion && localEvent?.type === "created") {
         monitorScale.value = withSequence(withSpring(1.035), withSpring(1));
       }
       processedEventRef.current = localEvent?.nonce ?? 0;
     }
-    if (reduceMotion) monitorScale.value = 1;
+    if (reduceMotion || !presentationActive) {
+      cancelAnimation(monitorScale);
+      monitorScale.value = 1;
+    }
     previousGridRef.current = gridSquares;
   }, [
     completedChores,
     gridSquares,
     isNewLocalEvent,
     localEvent,
+    presentationActive,
     focusProgress,
     monitorScale,
     reduceMotion,
@@ -349,15 +370,30 @@ export function HouseMonitor({
     roofProgress,
   ]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const previous = previousRoofFill.current;
+    const wasActive = roofWasActive.current;
+    roofWasActive.current = presentationActive;
+    const unseenReplay = managedReplay && replayNonce > 0 && replayNonce !== previousRoofReplay.current;
+    previousRoofReplay.current = replayNonce;
     previousRoofFill.current = { totalChores, completedChores, roofCompletionRatio };
     cancelAnimation(roofScaleX);
     cancelAnimation(roofScaleY);
-    const gainedRoofFill =
-      totalChores === previous.totalChores &&
-      completedChores > previous.completedChores &&
-      roofCompletionRatio > previous.roofCompletionRatio;
+    const replayRoofStart = replayFrom?.roofCompletionRatio ?? roofCompletionRatio;
+    const gainedRoofFill = presentationActive && (managedReplay
+      ? unseenReplay && replayRoofStart < roofCompletionRatio
+      : wasActive && totalChores === previous.totalChores &&
+        completedChores > previous.completedChores && roofCompletionRatio > previous.roofCompletionRatio);
+    if (pendingReplay) {
+      roofProgress.value = 0;
+    } else if (!presentationActive || reduceMotion || (!wasActive && !gainedRoofFill)) {
+      roofProgress.value = roofCompletionRatio;
+    } else {
+      if (gainedRoofFill && managedReplay) roofProgress.value = replayRoofStart;
+      roofProgress.value = withTiming(roofCompletionRatio, {
+        duration: 400, easing: Easing.out(Easing.cubic),
+      });
+    }
 
     if (reduceMotion || !gainedRoofFill) {
       roofScaleX.value = 1;
@@ -381,7 +417,7 @@ export function HouseMonitor({
       withTiming(1.006, { duration: 90, easing: Easing.inOut(Easing.quad) }),
       withTiming(1, { duration: 100, easing: Easing.out(Easing.cubic) }),
     );
-  }, [completedChores, reduceMotion, roofCompletionRatio, roofScaleX, roofScaleY, totalChores]);
+  }, [completedChores, managedReplay, pendingReplay, presentationActive, reduceMotion, replayNonce, replayFrom?.roofCompletionRatio, roofCompletionRatio, roofProgress, roofScaleX, roofScaleY, totalChores]);
 
   useEffect(() => () => {
     cancelAnimation(roofScaleX);
@@ -503,11 +539,15 @@ export function HouseMonitor({
                         reduceTransparency,
                       )}
                       completed={index < filledSquares}
+                      active={presentationActive}
+                      managedReplay={managedReplay}
+                      pendingReplay={pendingReplay}
+                      replayNonce={replayFrom && index >= replayFrom.filledSquares && index < filledSquares ? replayNonce : 0}
                       size={squareSize}
                       reduceMotion={reduceMotion}
                       reduceTransparency={reduceTransparency}
                       delay={index * 24}
-                      animateNew={isLocalGridGrowth && index >= previousGrid}
+                      animateNew={isLocalGridGrowth && index >= previousGrid && (!managedReplay || index >= filledSquares)}
                     />
                   </View>
                 );
