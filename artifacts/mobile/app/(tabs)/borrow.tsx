@@ -1,3 +1,4 @@
+import { HistoryDisclosure } from "@/components/HistoryDisclosure";
 import { KEYBOARD_BEHAVIOR } from "@/lib/keyboard";
 // grabbing a specific named export from a package
 import { Feather } from "@expo/vector-icons";
@@ -307,9 +308,7 @@ export default function BorrowScreen() {
       ) : null}
 
       <FlatList
-        // When there are >3 returned items and the section is collapsed, hide
-        // the returned items from the list — the ListFooterComponent below
-        // renders a single "Returned (N)" tile instead.
+        // History rows stay virtualized with the active list when expanded.
         data={[
           ...activeBorrows,
           ...visibleReturnedBorrows,
@@ -343,41 +342,28 @@ export default function BorrowScreen() {
         }
         ListFooterComponent={
           !showAllReturned ? (
-            <TouchableOpacity
-              style={[
-                styles.returnedTile,
-                { backgroundColor: colors.card, borderColor: colors.border },
-              ]}
-              accessibilityRole="button"
-              accessibilityState={{ expanded: false }}
-              accessibilityLabel={`History, ${returnedBorrows.length} records`}
-              onPress={() => {
+            <HistoryDisclosure
+              count={returnedBorrows.length}
+              expanded={false}
+              onToggle={() => {
                 setHistoryPages(1);
                 setShowAllReturned(true);
               }}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.returnedTileIcon, { backgroundColor: colors.success + "18" }]}>
-                <Feather name="check-circle" size={16} color={colors.success} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.returnedTileTitle, { color: colors.foreground }]}>
-                  History ({returnedBorrows.length})
-                </Text>
-                <Text style={[styles.returnedTileSub, { color: colors.mutedForeground }]}>
-                  Tap to expand
-                </Text>
-              </View>
-              <Feather name="chevron-down" size={18} color={colors.mutedForeground} />
-            </TouchableOpacity>
+            />
           ) : (
             <View style={styles.historyFooter}>
               {returnedBorrows.length === 0 ? (
-                <EmptyState
-                  icon="archive"
-                  title="No borrowing history"
-                  subtitle="Returned items move here after seven days"
-                />
+                <HistoryDisclosure
+                  count={0}
+                  expanded
+                  onToggle={() => setShowAllReturned(false)}
+                >
+                  <EmptyState
+                    icon="archive"
+                    title="No borrowing history"
+                    subtitle="Returned items move here after seven days"
+                  />
+                </HistoryDisclosure>
               ) : null}
               {visibleReturnedBorrows.length < returnedBorrows.length ? (
                 <TouchableOpacity
@@ -462,17 +448,11 @@ export default function BorrowScreen() {
           return (
             <>
               {showReturnedHeader ? (
-                <Text
-                  style={[
-                    styles.sectionHeader,
-                    {
-                      color: colors.mutedForeground,
-                      marginTop: 16,
-                    },
-                  ]}
-                >
-                  History ({returnedBorrows.length})
-                </Text>
+                <HistoryDisclosure
+                  count={returnedBorrows.length}
+                  expanded={showAllReturned}
+                  onToggle={() => setShowAllReturned(false)}
+                />
               ) : null}
               <Surface
                 style={[
@@ -1050,26 +1030,6 @@ const styles = StyleSheet.create({
   saveBtn: { marginTop: 12, borderRadius: 12, paddingVertical: 14, alignItems: "center" },
   saveBtnText: { color: "#fff", fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 16 },
 
-  // ── Collapsed "Returned" section ──
-  returnedTile: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    borderRadius: 20,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-    marginTop: 16,
-  },
-  returnedTileIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  returnedTileTitle: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 15 },
-  returnedTileSub: { fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 12, marginTop: 2 },
   historyFooter: { gap: 8 },
   hideReturnedBtn: {
     flexDirection: "row",
