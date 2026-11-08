@@ -1319,7 +1319,7 @@ export default function PlanningScreen() {
         <View style={[styles.generatedTaskCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Text accessibilityRole="header" style={[styles.customTaskTitle, { color: colors.foreground }]}>Proposed starting assignments</Text>
           <Text style={[styles.preferenceIntro, { color: colors.mutedForeground, marginTop: 8 }]}>
-            Workload combines difficulty and how often chores recur, including retained unfinished work. Rotating chores change assignee each occurrence. Changes begin with upcoming chores after approval; completed history, overdue work and manual assignments are retained.
+            Workload combines difficulty and how often chores recur, including retained unfinished work. Rotating chores change assignee each occurrence. Changes begin with upcoming chores after approval; completed chores, overdue work and manual assignments are retained.
           </Text>
           {chartDraft.assignments.map((assignment) => (
             <View key={assignment.memberId} style={{ marginTop: 16 }}>

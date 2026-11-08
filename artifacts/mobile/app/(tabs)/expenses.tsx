@@ -916,7 +916,7 @@ export default function ExpensesScreen() {
                   {visibleHistory.length === 0 ? (
                     <EmptyState
                       icon="archive"
-                      title="No expense history"
+                      title="No past expenses"
                       subtitle="Resolved expenses will appear here after seven days"
                     />
                   ) : (

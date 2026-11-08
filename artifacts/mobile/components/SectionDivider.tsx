@@ -7,6 +7,7 @@ type Props = {
   title: string;
   icon: keyof typeof Feather.glyphMap;
   count?: number;
+  iconOnly?: boolean;
   expanded?: boolean;
   onToggle?: () => void;
   onLongPress?: () => void;
@@ -14,16 +15,16 @@ type Props = {
   style?: StyleProp<ViewStyle>;
 };
 
-export function SectionDivider({ title, icon, count, expanded, onToggle, onLongPress, longPressHint, style }: Props) {
+export function SectionDivider({ title, icon, count, iconOnly = false, expanded, onToggle, onLongPress, longPressHint, style }: Props) {
   const colors = useTheme();
   const held = useRef(false);
   const content = <>
     <View style={[styles.line, { backgroundColor: colors.mutedForeground }]} />
     <View style={styles.label}>
       <Feather name={icon} size={14} color={colors.mutedForeground} />
-      <Text accessibilityRole="header" style={[styles.title, { color: colors.foreground }]}>{title}</Text>
-      {count !== undefined && <Text style={[styles.count, { color: colors.mutedForeground }]}>{count}</Text>}
-      {onToggle && <Feather name={expanded ? "chevron-down" : "chevron-right"} size={16} color={colors.mutedForeground} />}
+      {!iconOnly && <Text accessibilityRole="header" style={[styles.title, { color: colors.foreground }]}>{title}</Text>}
+      {!iconOnly && count !== undefined && <Text style={[styles.count, { color: colors.mutedForeground }]}>{count}</Text>}
+      {!iconOnly && onToggle && <Feather name={expanded ? "chevron-down" : "chevron-right"} size={16} color={colors.mutedForeground} />}
     </View>
     <View style={[styles.line, { backgroundColor: colors.mutedForeground }]} />
   </>;

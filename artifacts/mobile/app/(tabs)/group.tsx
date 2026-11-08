@@ -383,7 +383,7 @@ export default function GroupChoresScreen() {
       }
     };
     if (chore.recurrenceSeriesId || chore.recurring) {
-      showPopup({ title: "Delete recurring chore?", message: "Completed history is preserved unless you delete the entire series.", actions: [
+      showPopup({ title: "Delete recurring chore?", message: "Completed chores are preserved unless you delete the entire series.", actions: [
         { label: "Cancel" }, { label: "This occurrence", onPress: () => remove("occurrence") },
         { label: "This and future", onPress: () => remove("future") }, { label: "Entire series", destructive: true, onPress: () => remove("series") },
       ] });
@@ -719,7 +719,7 @@ export default function GroupChoresScreen() {
               </Surface>
 
               <Text style={[styles.calendarNote, { color: colors.mutedForeground }]}>
-                Upcoming assignments follow your current rotation. Saved chores and completed history stay as assigned.
+                Upcoming assignments follow your current rotation. Saved chores and past completions stay as assigned.
               </Text>
 
               {/* Actual chores and read-only future occurrences, grouped by week. */}
@@ -876,7 +876,8 @@ export default function GroupChoresScreen() {
                 setExpandedOverdueSections(new Set());
               }}
               icon={option === "archived" ? "archive" : undefined}
-              label={option === "active" ? "Active" : `Archived ${archivedHouseholdChores.length}`}
+              iconOnly={option === "archived"}
+              label={option === "active" ? "Active" : ""}
             />
           ))}
         </View>
@@ -896,7 +897,7 @@ export default function GroupChoresScreen() {
           {roommatesWithChores.length === 0 ? (
             <EmptyState
               icon={choreView === "archived" ? "archive" : "users"}
-              title={choreView === "archived" ? "No archived chores" : "No roommates yet"}
+              title={choreView === "archived" ? "No past chores" : "No roommates yet"}
               subtitle={
                 choreView === "archived"
                   ? "Older incomplete household chores will appear here"

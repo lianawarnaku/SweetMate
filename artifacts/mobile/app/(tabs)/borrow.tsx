@@ -361,7 +361,7 @@ export default function BorrowScreen() {
                 >
                   <EmptyState
                     icon="archive"
-                    title="No borrowing history"
+                    title="No returned items"
                     subtitle="Returned items move here after seven days"
                   />
                 </HistoryDisclosure>
@@ -384,14 +384,12 @@ export default function BorrowScreen() {
                 style={[styles.hideReturnedBtn, { borderColor: colors.border }]}
                 accessibilityRole="button"
                 accessibilityState={{ expanded: true }}
-                accessibilityLabel={`History, ${returnedBorrows.length} records`}
+                accessibilityLabel={`Hide borrowing history, ${returnedBorrows.length} records`}
+                hitSlop={{ top: 6, bottom: 6 }}
                 onPress={() => setShowAllReturned(false)}
                 activeOpacity={0.7}
               >
                 <Feather name="chevron-up" size={14} color={colors.mutedForeground} />
-                <Text style={[styles.hideReturnedText, { color: colors.mutedForeground }]}>
-                  Hide history
-                </Text>
               </TouchableOpacity>
             </View>
           )

@@ -1081,7 +1081,7 @@ export default function MyChoresScreen() {
       }
     };
     if (chore.recurrenceSeriesId || chore.recurring) {
-      showPopup({ title: "Delete recurring chore?", message: "Choose how much to remove. Completed history is preserved unless you delete the entire series.", actions: [
+      showPopup({ title: "Delete recurring chore?", message: "Choose how much to remove. Completed chores are preserved unless you delete the entire series.", actions: [
         { label: "Cancel" }, { label: "This occurrence", onPress: () => remove("occurrence") },
         { label: "This and future", onPress: () => remove("future") }, { label: "Entire series", destructive: true, onPress: () => remove("series") },
       ] });
@@ -1394,6 +1394,7 @@ export default function MyChoresScreen() {
                   onPress={() => selectFilter(f)}
                   style={styles.filterBtn}
                   icon={f === "archived" ? "archive" : undefined}
+                  iconOnly={f === "archived"}
                   accessibilityLabel={
                     f === "today"
                       ? "Show today's chores"
@@ -1401,7 +1402,7 @@ export default function MyChoresScreen() {
                         ? "Show chores completed in the last 7 days"
                         : `Show ${archivedPersonalChoreCount} archived chores`
                   }
-                  label={f === "today" ? "Today" : f === "done" ? "Completed" : `Archived ${archivedPersonalChoreCount}`}
+                  label={f === "today" ? "Today" : f === "done" ? "Completed" : ""}
                 />
               ))}
             </View>}
@@ -1440,7 +1441,7 @@ export default function MyChoresScreen() {
               filter === "done"
                 ? "No completed chores yet"
                 : filter === "archived"
-                  ? "No archived chores"
+                  ? "No past chores"
                   : "Nothing left for today"
             }
             subtitle={

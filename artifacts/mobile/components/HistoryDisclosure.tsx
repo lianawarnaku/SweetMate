@@ -18,6 +18,7 @@ export function HistoryDisclosure({
     <View>
       <SectionDivider
         title="History"
+        iconOnly
         icon="archive"
         count={count}
         expanded={expanded}

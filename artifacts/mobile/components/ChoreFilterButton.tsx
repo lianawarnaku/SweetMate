@@ -9,10 +9,11 @@ type Props = {
   onPress: () => void;
   accessibilityLabel: string;
   icon?: keyof typeof Feather.glyphMap;
+  iconOnly?: boolean;
   style?: StyleProp<ViewStyle>;
 };
 
-export function ChoreFilterButton({ label, selected, onPress, accessibilityLabel, icon, style }: Props) {
+export function ChoreFilterButton({ label, selected, onPress, accessibilityLabel, icon, iconOnly = false, style }: Props) {
   const colors = useTheme();
   const foreground = selected ? colors.primaryForeground : colors.mutedForeground;
   return (
@@ -26,7 +27,7 @@ export function ChoreFilterButton({ label, selected, onPress, accessibilityLabel
       style={[styles.button, { backgroundColor: selected ? colors.primary : colors.secondary }, style]}
     >
       {icon ? <Feather name={icon} size={13} color={foreground} /> : null}
-      <Text style={[styles.text, { color: foreground }]}>{label}</Text>
+      {!iconOnly ? <Text style={[styles.text, { color: foreground }]}>{label}</Text> : null}
     </TouchableOpacity>
   );
 }
