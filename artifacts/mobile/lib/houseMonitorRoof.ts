@@ -11,7 +11,8 @@ const openingRoofRight =
   t ** 3 * 216.3;
 const openingScale = HOUSE_MONITOR_BODY_SIZE / 128;
 export const HOUSE_MONITOR_ROOF_WIDTH = (2 * openingRoofRight - 256) * openingScale;
-export const HOUSE_MONITOR_ROOF_HEIGHT = (134.8 - 35) * openingScale;
+// Keep the opening house's overhang with a slightly shorter monitor roof.
+export const HOUSE_MONITOR_ROOF_HEIGHT = (134.8 - 35) * openingScale * 0.9;
 export const HOUSE_MONITOR_ROOF_RADIUS = 4;
 
 // Keep the existing soft-corner geometry, then fit it to the opening envelope.

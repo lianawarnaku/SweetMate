@@ -112,7 +112,10 @@ assert.equal(bodySize, 112);
 assert.ok(
   Math.abs(width / bodySize - (2 * openingRight - 256) / openingBodyWidth) < 1e-7,
 );
-assert.ok(Math.abs(height / bodySize - (134.8 - 35) / openingBodyWidth) < 1e-10);
+assert.ok(
+  Math.abs(height / bodySize - ((134.8 - 35) / openingBodyWidth) * 0.9) < 1e-10,
+  "monitor roof keeps the opening width with 90% of its reference height",
+);
 for (const point of outline) {
   assert.ok(point.x >= 0 && point.x <= width);
   assert.ok(point.y >= 0 && point.y <= height + 1e-10);

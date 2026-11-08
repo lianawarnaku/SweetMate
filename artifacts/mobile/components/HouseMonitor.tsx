@@ -271,6 +271,9 @@ export function HouseMonitor({
   const restingFocus = totalChores > 0 ? 1 : 0.45;
   const focusProgress = useSharedValue(1);
   const roofProgress = useSharedValue(roofCompletionRatio);
+  const roofScaleX = useSharedValue(1);
+  const roofScaleY = useSharedValue(1);
+  const previousRoofFill = useRef({ totalChores, completedChores, roofCompletionRatio });
   const monitorScale = useSharedValue(1);
   const roofCompletionRatioRef = useRef(roofCompletionRatio);
   const restingFocusRef = useRef(restingFocus);
@@ -291,6 +294,10 @@ export function HouseMonitor({
   useFocusEffect(
     useCallback(() => {
       // Entrance motion never changes which chores are represented as complete.
+      cancelAnimation(roofScaleX);
+      cancelAnimation(roofScaleY);
+      roofScaleX.value = 1;
+      roofScaleY.value = 1;
       roofProgress.value = roofCompletionRatioRef.current;
       if (reduceMotion) {
         focusProgress.value = restingFocusRef.current;
@@ -304,7 +311,7 @@ export function HouseMonitor({
         easing: Easing.out(Easing.cubic),
       });
       monitorScale.value = withSpring(1);
-    }, [focusProgress, monitorScale, reduceMotion, roofProgress]),
+    }, [focusProgress, monitorScale, reduceMotion, roofProgress, roofScaleX, roofScaleY]),
   );
 
   useEffect(() => {
@@ -342,6 +349,49 @@ export function HouseMonitor({
     roofProgress,
   ]);
 
+  useEffect(() => {
+    const previous = previousRoofFill.current;
+    previousRoofFill.current = { totalChores, completedChores, roofCompletionRatio };
+    cancelAnimation(roofScaleX);
+    cancelAnimation(roofScaleY);
+    const gainedRoofFill =
+      totalChores === previous.totalChores &&
+      completedChores > previous.completedChores &&
+      roofCompletionRatio > previous.roofCompletionRatio;
+
+    if (reduceMotion || !gainedRoofFill) {
+      roofScaleX.value = 1;
+      roofScaleY.value = 1;
+      return;
+    }
+
+    // Restart from the current shape on rapid completions, without a visual jump.
+    // Squash inward more than outward so the centered roof stays clear of the grid.
+    roofScaleX.value = withSequence(
+      withTiming(1.012, { duration: 210, easing: Easing.out(Easing.cubic) }),
+      withTiming(0.975, { duration: 140, easing: Easing.inOut(Easing.quad) }),
+      withTiming(1.006, { duration: 100, easing: Easing.inOut(Easing.quad) }),
+      withTiming(0.992, { duration: 90, easing: Easing.inOut(Easing.quad) }),
+      withTiming(1, { duration: 100, easing: Easing.out(Easing.cubic) }),
+    );
+    roofScaleY.value = withSequence(
+      withTiming(0.92, { duration: 210, easing: Easing.out(Easing.cubic) }),
+      withTiming(1.018, { duration: 140, easing: Easing.inOut(Easing.quad) }),
+      withTiming(0.97, { duration: 100, easing: Easing.inOut(Easing.quad) }),
+      withTiming(1.006, { duration: 90, easing: Easing.inOut(Easing.quad) }),
+      withTiming(1, { duration: 100, easing: Easing.out(Easing.cubic) }),
+    );
+  }, [completedChores, reduceMotion, roofCompletionRatio, roofScaleX, roofScaleY, totalChores]);
+
+  useEffect(() => () => {
+    cancelAnimation(roofScaleX);
+    cancelAnimation(roofScaleY);
+  }, [roofScaleX, roofScaleY]);
+
+  const roofBubbleStyle = useAnimatedStyle(() => ({
+    transform: [{ scaleX: roofScaleX.value }, { scaleY: roofScaleY.value }],
+  }));
+
   const monitorStyle = useAnimatedStyle(
     () => ({
       opacity: interpolate(focusProgress.value, [0, 1], [0.42, 1]),
@@ -375,12 +425,14 @@ export function HouseMonitor({
         accessibilityElementsHidden
         importantForAccessibility="no-hide-descendants"
       >
+        <Animated.View
+          style={[styles.roof, { width: ROOF_WIDTH, height: ROOF_HEIGHT }, roofBubbleStyle]}
+        >
         <Svg
           width={ROOF_WIDTH}
           height={ROOF_HEIGHT}
           viewBox={`0 0 ${ROOF_WIDTH} ${ROOF_HEIGHT}`}
           preserveAspectRatio="xMidYMid meet"
-          style={styles.roof}
         >
           <Defs>
             <ClipPath id={roofClipId}>
@@ -421,6 +473,7 @@ export function HouseMonitor({
             strokeWidth={2}
           />
         </Svg>
+        </Animated.View>
         <View style={[styles.grid, { gap: GRID_GAP }]}>
           {Array.from({ length: gridRows }, (_, row) => (
             <View key={row} style={[styles.gridRow, { gap: GRID_GAP }]}>
