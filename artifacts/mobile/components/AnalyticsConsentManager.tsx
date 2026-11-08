@@ -1,4 +1,4 @@
-import React, { useEffect, useSyncExternalStore } from "react";
+import React, { useEffect, useState, useSyncExternalStore } from "react";
 import type { Session } from "@supabase/supabase-js";
 import {
   Linking,
@@ -18,7 +18,6 @@ import {
   analyticsSnapshot,
   loadAnalyticsPreferences,
   PRIVACY_NOTICE_VERSION,
-  resetAnalyticsIdentity,
   saveAnalyticsPreferences,
   subscribeAnalytics,
 } from "@/lib/analytics";
@@ -30,11 +29,12 @@ function openPrivacyPolicy(onError: () => void) {
 }
 
 export function useAnalyticsPreferences(userId: string | null) {
-  return useSyncExternalStore(
+  const snapshot = useSyncExternalStore(
     subscribeAnalytics,
     () => analyticsSnapshot(userId),
     () => analyticsSnapshot(userId),
   );
+  return { ...snapshot, ready: snapshot.loaded && snapshot.preferences.noticeVersion === PRIVACY_NOTICE_VERSION };
 }
 
 export function AnalyticsPreferencesPanel({ userId }: { userId: string }) {
@@ -47,7 +47,7 @@ export function AnalyticsPreferencesPanel({ userId }: { userId: string }) {
       key: "productAnalyticsEnabled" as const,
       title: "Product analytics",
       description:
-        "Share anonymous feature-use events with PostHog. SweetMate never sends chore titles, shopping items, expense notes, names, email addresses, or invite codes.",
+        "Share app opens, screens visited, active time, setup progress, and feature-use events with PostHog using a random identifier. SweetMate never sends chore titles, shopping items, expense notes, names, email addresses, or invite codes.",
     },
     {
       key: "crashReportingEnabled" as const,
@@ -75,7 +75,10 @@ export function AnalyticsPreferencesPanel({ userId }: { userId: string }) {
           <Switch
             value={preferences[row.key]}
             onValueChange={(value) =>
-              void saveAnalyticsPreferences(userId, { [row.key]: value })
+              void saveAnalyticsPreferences(userId, {
+                [row.key]: value,
+                ...(row.key === "productAnalyticsEnabled" ? { noticeVersion: PRIVACY_NOTICE_VERSION } : {}),
+              }).catch(() => showPopup({ title: "Choice couldn't be saved", message: "Please try again.", actions: [{ label: "Got it", primary: true }] }))
             }
             accessibilityLabel={`${row.title}: ${preferences[row.key] ? "on" : "off"}`}
           />
@@ -98,15 +101,30 @@ export function AnalyticsConsentManager({ session }: { session: Session | null }
   const openPolicy = () => openPrivacyPolicy(() => showPopup({ title: "Privacy Policy unavailable", message: "Check your connection and try again, or visit sweetmate.info/privacy in a browser.", actions: [{ label: "Got it", primary: true }] }));
   const userId = session?.user.id ?? null;
   const { loaded, preferences } = useAnalyticsPreferences(userId);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (userId) void loadAnalyticsPreferences(userId);
-    else void resetAnalyticsIdentity();
+    void loadAnalyticsPreferences(userId).catch(() => {
+      showPopup({ title: "Privacy choices unavailable", message: "Please reopen SweetMate to try loading your privacy choices again.", actions: [{ label: "Got it", primary: true }] });
+    });
   }, [userId]);
 
+  const choose = async (share: boolean) => {
+    if (saving) return;
+    setSaving(true);
+    try {
+      await saveAnalyticsPreferences(userId, {
+        productAnalyticsEnabled: share,
+        crashReportingEnabled: false,
+        noticeVersion: PRIVACY_NOTICE_VERSION,
+      }, userId ? "privacy_notice" : "before_auth");
+    } catch {
+      showPopup({ title: "Choice couldn't be saved", message: "Please try again. Optional analytics stays paused until your choice is saved.", actions: [{ label: "Got it", primary: true }] });
+    } finally { setSaving(false); }
+  };
+
   const visible =
-    Boolean(userId) && loaded && preferences.noticeVersion !== PRIVACY_NOTICE_VERSION;
-  if (!userId) return null;
+    loaded && preferences.noticeVersion !== PRIVACY_NOTICE_VERSION;
 
   return (
     <Modal visible={visible} transparent animationType="fade">
@@ -117,9 +135,11 @@ export function AnalyticsConsentManager({ session }: { session: Session | null }
             Your privacy choices
           </Text>
           <Text style={[styles.noticeBody, { color: colors.mutedForeground }]}>
-            SweetMate now offers optional product analytics and crash reporting.
-            Both are off unless you enable them, and household content is excluded.
-            You can change either choice anytime in Settings.
+            Help improve SweetMate by sharing app opens, screens visited, active
+            time, setup progress, and feature-use events with a random identifier.
+            Sharing is optional and starts only if you choose it. Household content
+            is excluded. Crash reporting stays off; you can change either choice
+            later in Settings.
           </Text>
           <TouchableOpacity
             accessibilityRole="link"
@@ -133,13 +153,8 @@ export function AnalyticsConsentManager({ session }: { session: Session | null }
               accessibilityLabel="Don't share optional analytics"
               tone="neutral"
               style={styles.consentButton}
-              onPress={() =>
-                void saveAnalyticsPreferences(userId, {
-                  productAnalyticsEnabled: false,
-                  crashReportingEnabled: false,
-                  noticeVersion: PRIVACY_NOTICE_VERSION,
-                })
-              }
+              disabled={saving}
+              onPress={() => void choose(false)}
             >
               <Text style={[styles.consentText, { color: "#fff" }]}>
                 {"Don't share"}
@@ -149,13 +164,8 @@ export function AnalyticsConsentManager({ session }: { session: Session | null }
               accessibilityRole="button"
               accessibilityLabel="Share optional product analytics"
               style={styles.consentButton}
-              onPress={() =>
-                void saveAnalyticsPreferences(userId, {
-                  productAnalyticsEnabled: true,
-                  crashReportingEnabled: false,
-                  noticeVersion: PRIVACY_NOTICE_VERSION,
-                })
-              }
+              disabled={saving}
+              onPress={() => void choose(true)}
             >
               <Text style={[styles.consentText, { color: "#fff" }]}>
                 Share analytics

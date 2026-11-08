@@ -14,6 +14,7 @@ import { SmoothPressable } from "@/components/SmoothPressable";
 import { useTheme } from "@/constants/colors";
 import { buildInviteMessage } from "@/lib/invite";
 import { reportRuntimeError } from "@/lib/runtimeDiagnostics";
+import { track } from "@/lib/analytics";
 
 type InviteCodeCardProps = {
   inviteCode: string | null;
@@ -50,6 +51,7 @@ export function InviteCodeCard({
     if (!inviteCode) return;
     try {
       await Clipboard.setStringAsync(inviteCode);
+      track.inviteCopied();
       showStatus("Code copied");
     } catch (error) {
       reportRuntimeError("copy household invite code", error);
@@ -60,10 +62,11 @@ export function InviteCodeCard({
   const shareInvite = async () => {
     if (!inviteCode) return;
     try {
-      await Share.share({
+      const result = await Share.share({
         title: "Join my Sweet on SweetMate",
         message: buildInviteMessage(inviteCode),
       });
+      if (result.action === Share.sharedAction) track.inviteShared();
     } catch (error) {
       reportRuntimeError("share household invite", error);
       showStatus("Couldn’t open sharing. Try again.");

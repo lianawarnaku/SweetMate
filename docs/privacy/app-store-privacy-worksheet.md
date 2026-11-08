@@ -8,6 +8,7 @@ configuration and Apple’s current definitions before submitting.
 | Email address / user ID | Yes | Yes | No | App functionality, account management |
 | User content (chores, shopping, expenses, borrowing) | Yes | Yes | No | App functionality |
 | Photos (optional profile image) | Optional | Yes | No | App functionality |
+| Product interaction (opens, screens, active time, setup, feature actions) | Optional | Opaque identifier | No | Analytics |
 | Coarse technical diagnostics | Optional | Opaque identifier | No | Analytics, app functionality |
 | Crash data / performance diagnostics | Optional | Opaque identifier | No | App functionality |
 | Advertising identifier | No | No | No | Not collected |

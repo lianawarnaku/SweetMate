@@ -6,7 +6,8 @@ type ErrorLike = {
   hint?: string;
   status?: number;
 };
-import { captureDiagnosticException } from "@/lib/analytics";
+import { captureDiagnosticException, track } from "@/lib/analytics";
+import { workflowFailureProperties } from "@/lib/workflowAnalytics";
 
 type RejectionEventLike = {
   reason?: unknown;
@@ -69,6 +70,13 @@ export function reportRuntimeError(
     contextKeys: Object.keys(context ?? {}),
   };
   logger("[SweetMate runtime error]", JSON.stringify(payload, null, 2));
+  // Product error counts follow product consent independently of crash consent.
+  // This counts reported runtime failures; it is not a backend failure ledger.
+  try {
+    track.workflowFailed(workflowFailureProperties(action, error));
+  } catch {
+    // Optional analytics must never interrupt the original error handling.
+  }
   captureDiagnosticException(error, action, context);
 }
 

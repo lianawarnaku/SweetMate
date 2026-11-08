@@ -15,6 +15,8 @@ import { supabase } from "@/lib/supabase";
 import { reportSupabaseError, reportRuntimeError } from "@/lib/runtimeDiagnostics";
 import { error as hapticError } from "@/lib/haptics";
 import { useSupabaseSession } from "@/hooks/useSupabaseSession";
+import { useOnboardingAnalytics } from "@/hooks/useOnboardingAnalytics";
+import { HOUSEHOLD_SETUP_STEPS } from "@/lib/householdSetup";
 import {
   type PersistedRecurrence,
 } from "@/constants/featureChoreRegistry";
@@ -104,6 +106,13 @@ export function HouseholdSetupScreen({
       ? householdSetupStepNumber(householdSetupStep)
       : 1,
   );
+  const onboarding = useOnboardingAnalytics({
+    userId: session?.user.id ?? null,
+    flow: mode,
+    context: additionalHousehold ? "additional_household" : "first_household",
+    step: mode === "join" ? "join" : HOUSEHOLD_SETUP_STEPS[step - 1] ?? "details",
+    resumed: Boolean(householdSetupStep),
+  });
   const [householdName, setHouseholdName] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [inviteCode, setInviteCode] = useState("");
@@ -254,12 +263,17 @@ export function HouseholdSetupScreen({
   const toggle = (value: string, values: string[], setter: (next: string[]) => void) =>
     setter(values.includes(value) ? values.filter((item) => item !== value) : [...values, value]);
 
-  const goToStep = async (nextStep: HouseholdSetupStep) => {
+  const goToStep = async (
+    nextStep: HouseholdSetupStep,
+    completedStep?: HouseholdSetupStep,
+    outcome: "continued" | "skipped" = "continued",
+  ) => {
     if (navigationPendingRef.current) return;
     navigationPendingRef.current = true;
-    setStep(householdSetupStepNumber(nextStep));
     try {
       await setHouseholdSetupStep(nextStep);
+      if (completedStep) onboarding.completeStep(completedStep, outcome);
+      setStep(householdSetupStepNumber(nextStep));
     } finally {
       navigationPendingRef.current = false;
     }
@@ -273,6 +287,7 @@ export function HouseholdSetupScreen({
     if (originalHouseholdId && householdId !== originalHouseholdId) {
       switchSweet(originalHouseholdId);
     }
+    onboarding.cancel();
     onCancel?.();
   };
 
@@ -300,6 +315,7 @@ export function HouseholdSetupScreen({
             await setHouseholdSetupStep("home");
           }
         }
+        onboarding.completeStep("details");
         setStep(2);
       } catch (createError) {
         if (!additionalHousehold) await setHouseholdSetupStep(null);
@@ -310,8 +326,8 @@ export function HouseholdSetupScreen({
       }
       return;
     }
-    if (step === 2) await goToStep("essentials");
-    else if (step === 4) await goToStep("review");
+    if (step === 2) await goToStep("essentials", "home");
+    else if (step === 4) await goToStep("review", "items");
   };
 
   const submitJoin = async () => {
@@ -322,6 +338,8 @@ export function HouseholdSetupScreen({
     setLoading(true);
     try {
       await joinHousehold(inviteCode, displayName, color);
+      onboarding.completeStep("join");
+      onboarding.complete();
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       onComplete?.();
     } catch (e) {
@@ -375,6 +393,8 @@ export function HouseholdSetupScreen({
       if (plan) setLiveChart(plan.assignments);
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       await completeHouseholdSetup();
+      onboarding.completeStep("review");
+      onboarding.complete();
       if (setupDraftKey) await AsyncStorage.removeItem(setupDraftKey);
       onComplete?.();
     } catch (e) {
@@ -511,7 +531,7 @@ export function HouseholdSetupScreen({
                 disabled={loading}
                 accessibilityRole="button"
                 accessibilityLabel="Skip Sweet Essentials for now"
-                onPress={() => void goToStep("items")}
+                onPress={() => void goToStep("items", "essentials", "skipped")}
                 style={[styles.decisionButton, { borderColor: colors.border, borderWidth: 1, opacity: loading ? 0.65 : 1 }]}
               >
                 <Feather name="arrow-right" size={18} color={colors.foreground} />

@@ -79,7 +79,7 @@ assert(
 );
 assert(
   setupScreen.includes('router.push(`/planning?type=home-checklist&setup=household&housingType=${housingType}`') &&
-    setupScreen.includes('onPress={() => void goToStep("items")}'),
+    setupScreen.includes('onPress={() => void goToStep("items", "essentials", "skipped")}'),
   "browse and skip must use explicit setup transitions",
 );
 assert(

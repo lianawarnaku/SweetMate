@@ -32,7 +32,8 @@ import { error as hapticError } from "@/lib/haptics";
 import { BrandMark } from "./BrandMark";
 import { supabase } from "@/lib/supabase";
 import { reportSupabaseError, reportRuntimeError } from "@/lib/runtimeDiagnostics";
-import { track } from "@/lib/analytics";
+import { beginAnalyticsAuth, recordAnalyticsAuthSucceeded } from "@/lib/analytics";
+import { useAnalyticsPreferences } from "@/components/AnalyticsConsentManager";
 import { authCallbackValue } from "@/lib/oauthCallback";
 
 type Mode = "signin" | "signup";
@@ -54,6 +55,7 @@ function isValidEmail(s: string): boolean {
 
 export function SignInScreen() {
   const colors = useTheme();
+  const { ready: privacyChoiceReady } = useAnalyticsPreferences(null);
   const insets = useSafeAreaInsets();
   const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState("");
@@ -65,6 +67,7 @@ export function SignInScreen() {
   const [confirmationEmail, setConfirmationEmail] = useState<string | null>(null);
 
   const submit = async () => {
+    if (!privacyChoiceReady) return;
     setError(null);
     setInfo(null);
     if (!isValidEmail(email)) {
@@ -76,9 +79,10 @@ export function SignInScreen() {
       return;
     }
     setLoading(true);
+    const analyticsAttempt = beginAnalyticsAuth({ method: "email", mode });
     try {
       if (mode === "signin") {
-        const { error: signInError } = await supabase.auth.signInWithPassword({
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
           email: email.trim(),
           password,
         });
@@ -95,8 +99,12 @@ export function SignInScreen() {
           hapticError();
           return;
         }
+        if (signInData.session) {
+          await recordAnalyticsAuthSucceeded(signInData.session.user.id, analyticsAttempt, { method: "email", mode: "signin" });
+        }
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         // AuthGate reacts to onAuthStateChange and swaps to the app.
+        // The session scope is restored by AnalyticsConsentManager.
       } else {
         const { data, error: signUpError } = await supabase.auth.signUp({
           email: email.trim(),
@@ -114,7 +122,7 @@ export function SignInScreen() {
         if (data.session) {
           // Auto-confirm is enabled — the new user is signed in immediately.
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          track.accountCreated();
+          await recordAnalyticsAuthSucceeded(data.session.user.id, analyticsAttempt, { method: "email", mode: "signup" }, true);
         } else {
           // Defensive fallback for a legacy/unconfirmed account or a remote
           // configuration mismatch.
@@ -164,8 +172,9 @@ export function SignInScreen() {
   };
 
   const signInWithSocialProvider = async (provider: SocialProvider) => {
-    if (loading || socialLoading) return;
+    if (!privacyChoiceReady || loading || socialLoading) return;
     setSocialLoading(provider);
+    const analyticsAttempt = beginAnalyticsAuth({ method: provider, mode });
     setError(null);
     setInfo(null);
 
@@ -187,23 +196,29 @@ export function SignInScreen() {
         ?? authCallbackValue(result.url, "error");
       if (oauthMessage) throw new Error(oauthMessage);
 
+      let authenticatedUserId: string | undefined;
       const code = authCallbackValue(result.url, "code");
       if (code) {
-        const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+        const { data: exchangeData, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
         if (exchangeError) throw exchangeError;
+        authenticatedUserId = exchangeData.session?.user.id;
       } else {
         const accessToken = authCallbackValue(result.url, "access_token");
         const refreshToken = authCallbackValue(result.url, "refresh_token");
         if (!accessToken || !refreshToken) {
           throw new Error(`${provider === "google" ? "Google" : "Apple"} did not return a login session.`);
         }
-        const { error: sessionError } = await supabase.auth.setSession({
+        const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
           access_token: accessToken,
           refresh_token: refreshToken,
         });
         if (sessionError) throw sessionError;
+        authenticatedUserId = sessionData.session?.user.id;
       }
 
+      if (authenticatedUserId) {
+        await recordAnalyticsAuthSucceeded(authenticatedUserId, analyticsAttempt, { method: provider, mode });
+      }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (e) {
       reportRuntimeError(`${provider} sign in`, e);
@@ -214,7 +229,7 @@ export function SignInScreen() {
     }
   };
 
-  const busy = loading || socialLoading !== null;
+  const busy = loading || socialLoading !== null || !privacyChoiceReady;
   const canSubmit = email.trim().length > 0 && password.length > 0 && !busy;
   const openPolicy = () => openPrivacyPolicy(() => setError("Privacy Policy unavailable. Check your connection, or visit sweetmate.info/privacy in a browser."));
 

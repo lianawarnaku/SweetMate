@@ -24,7 +24,7 @@ import type { Difficulty } from "@/lib/itemDifficulty";
 import { reportSupabaseError, reportRuntimeError } from "@/lib/runtimeDiagnostics";
 import { markVisibleAlertsRead } from "@/lib/alertReadState";
 import { findAssignedLoadDeviations } from "@/lib/chartLoadBalance";
-import { deleteLocalAnalyticsIdentity, track } from "@/lib/analytics";
+import { analyticsCountBucket, deleteLocalAnalyticsIdentity, track } from "@/lib/analytics";
 import {
   ESSENTIAL_CATALOG,
   migrateEssentialRecord,
@@ -496,6 +496,7 @@ interface AppContextType {
   setHouseholdSetupStep: (step: HouseholdSetupStep | null) => Promise<void>;
   completeHouseholdSetup: () => Promise<void>;
   quickGuideOpen: boolean;
+  quickGuideSource: "settings" | "onboarding";
   openQuickGuide: () => void;
   dismissQuickGuide: () => void;
   appAlerts: AppAlert[];
@@ -928,6 +929,8 @@ export function AppProvider({
     () => [...borrowItems, ...privateBorrowItems],
     [borrowItems, privateBorrowItems],
   );
+  const visibleBorrowItemsRef = useRef(visibleBorrowItems);
+  visibleBorrowItemsRef.current = visibleBorrowItems;
   const [nudges, setNudges] = useState<Nudge[]>([]);
   const [nudgesReady, setNudgesReady] = useState(false);
   const [essentialsAssignees, setEssentialsAssignees] =
@@ -953,6 +956,7 @@ export function AppProvider({
   const refreshChartStateRef = useRef<(() => Promise<void>) | null>(null);
   const retryChoreChartConfiguration = useCallback(async () => { await refreshChartStateRef.current?.(); }, []);
   const applyingChartRef = useRef(false);
+  const trackedChartApplicationsRef = useRef(new Set<string>());
   const [choreChartApplying, setChoreChartApplying] = useState(false);
   const timezoneRef = useRef("UTC");
   const resolvedHouseholdTimezone = memberships.find((membership) => membership.sweetId === householdId)?.timezone ?? "UTC";
@@ -976,6 +980,7 @@ export function AppProvider({
     useState<HouseholdSetupStep | null>(null);
   const [quickGuideVersions, setQuickGuideVersions] = useState<Record<string, number>>({});
   const [quickGuideOpen, setQuickGuideOpen] = useState(false);
+  const [quickGuideSource, setQuickGuideSource] = useState<"settings" | "onboarding">("onboarding");
   const [appAlerts, setAppAlerts] = useState<AppAlert[]>([]);
   const [householdComplete, setHouseholdCompleteState] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -1316,6 +1321,7 @@ export function AppProvider({
       !preferencesOnboardingPending &&
       currentGuideVersion < QUICK_GUIDE_VERSION
     ) {
+      setQuickGuideSource("onboarding");
       setQuickGuideOpen(true);
     }
   }, [
@@ -1327,6 +1333,7 @@ export function AppProvider({
   ]);
 
   const openQuickGuide = useCallback(() => {
+    setQuickGuideSource("settings");
     setQuickGuideOpen(true);
   }, []);
 
@@ -3303,6 +3310,15 @@ export function AppProvider({
           persistedChoreRowsRef.current = new Map(rows.map((record) => [record.id, record]));
           choresRef.current = rows.map(rowToChore);
           setChores(choresRef.current);
+          // This is a successful apply RPC on this device, rather than a
+          // unique household-wide chart count (the RPC is idempotent).
+          if (!trackedChartApplicationsRef.current.has(chart.id)) {
+            trackedChartApplicationsRef.current.add(chart.id);
+            track.chorePlanApplied({
+              source: "generated",
+              chore_count_bucket: analyticsCountBucket(anchors.length),
+            });
+          }
           setAppAlerts((alerts) => alerts.filter((alert) => alert.id !== `chart-apply:${chart.id}`));
           if (version === requestVersion) setCurrentProposedChartState({ ...chart, appliedAt: new Date().toISOString() });
         } catch (error) {
@@ -3532,6 +3548,10 @@ export function AppProvider({
       const next = [...current, ...accepted];
       choresRef.current = next;
       setChores(next);
+      track.choreBatchCreated({
+        source: "bulk",
+        chore_count_bucket: analyticsCountBucket(accepted.length),
+      });
     }
     return accepted.length;
   }, [currentUserId, householdId, session?.user.id]);
@@ -3560,6 +3580,8 @@ export function AppProvider({
     if (!transition.changed) return;
     if (completed) {
       track.choreCompleted({ recurring: Boolean(chore.recurring) });
+    } else {
+      track.choreUndone({ recurring: Boolean(chore.recurring) });
     }
     const wasCompleted = chore.completed;
     const delta = transition.pointsDelta;
@@ -3922,17 +3944,19 @@ export function AppProvider({
   );
 
   const settleExpense = useCallback((id: string) => {
-    const current = expenses.find((expense) => expense.id === id);
-    if (!current || !canManageExpense(current)) return false;
+    const current = expensesRef.current.find((expense) => expense.id === id);
+    if (!current || current.settled || !canManageExpense(current)) return false;
     const now = new Date().toISOString();
-    setExpenses((prev) => prev.map((expense) =>
+    const applySettlement = (items: Expense[]) => items.map((expense) =>
       expense.id === id
         ? { ...expense, settled: true, resolvedAt: expense.resolvedAt ?? now, updatedAt: now }
         : expense,
-    ));
-    track.iouSettled();
+    );
+    expensesRef.current = applySettlement(expensesRef.current);
+    setExpenses(applySettlement);
+    track.iouSettled({ source: "manual" });
     return true;
-  }, [canManageExpense, expenses]);
+  }, [canManageExpense]);
 
   const deleteExpense = useCallback((id: string) => {
     const current = expenses.find((expense) => expense.id === id);
@@ -3942,17 +3966,29 @@ export function AppProvider({
   }, [canManageExpense, expenses]);
 
   const markPersonPaid = useCallback((expenseId: string, personId: string) => {
-    setExpenses((prev) =>
-      prev.map((e) => {
-        if (e.id !== expenseId) return e;
-        const paidBack = { ...(e.paidBack ?? {}), [personId]: true };
-        const allPaid = Object.keys(e.splits ?? {}).every(
-          (id) => id === e.paidBy || paidBack[id]
-        );
-        const resolvedAt = allPaid ? e.resolvedAt ?? new Date().toISOString() : e.resolvedAt;
-        return { ...e, paidBack, settled: allPaid ? true : e.settled, resolvedAt };
-      })
+    const current = expensesRef.current.find((expense) => expense.id === expenseId);
+    if (
+      !current || current.settled || current.paidBack?.[personId] ||
+      personId === current.paidBy ||
+      !Object.prototype.hasOwnProperty.call(current.splits ?? {}, personId)
+    ) return;
+    const paidBack = { ...(current.paidBack ?? {}), [personId]: true };
+    const allPaid = Object.keys(current.splits ?? {}).every(
+      (id) => id === current.paidBy || paidBack[id],
     );
+    const now = new Date().toISOString();
+    const applyRepayment = (items: Expense[]) => items.map((expense) => expense.id === expenseId
+      ? {
+          ...expense, paidBack, settled: allPaid,
+          resolvedAt: allPaid ? expense.resolvedAt ?? now : expense.resolvedAt,
+          updatedAt: now,
+        }
+      : expense,
+    );
+    expensesRef.current = applyRepayment(expensesRef.current);
+    setExpenses(applyRepayment);
+    track.expenseRepaymentRecorded({ settles_expense: allPaid });
+    if (allPaid) track.iouSettled({ source: "repayment" });
   }, []);
 
   const recordShoppingVersions = useCallback((
@@ -4086,6 +4122,10 @@ export function AppProvider({
         shoppingItemsRef.current = transfer.items;
         setShoppingLists(transfer.lists);
         setShoppingItems(transfer.items);
+        track.shortlistSentToShopping({
+          item_count_bucket: analyticsCountBucket(transfer.createdItemIds.length),
+          list_count_bucket: analyticsCountBucket(transfer.createdListIds.length),
+        });
       }
       return transfer.result;
     },
@@ -4098,6 +4138,8 @@ export function AppProvider({
     recordShoppingVersions("item", [id]);
     shoppingItemsRef.current = next;
     setShoppingItems(next);
+    if (completed) track.shoppingItemCompleted();
+    else track.shoppingItemReopened();
   }, [recordShoppingVersions]);
 
   const toggleShoppingItem = useCallback((id: string) => {
@@ -4315,15 +4357,22 @@ export function AppProvider({
   );
 
   const returnBorrowItem = useCallback((id: string) => {
-    const current = visibleBorrowItems.find((item) => item.id === id);
-    if (!current) return false;
+    const rendered = visibleBorrowItems.find((item) => item.id === id);
+    const current = visibleBorrowItemsRef.current.find((item) => item.id === id);
+    if (!current || !rendered) return false;
+    // A second press on the same rendered action must not invert its first
+    // result. The updated Undo/Confirm action becomes available on rerender.
+    if (
+      Boolean(current.returned) !== Boolean(rendered.returned) ||
+      Boolean(current.returnRequestedAt) !== Boolean(rendered.returnRequestedAt)
+    ) return false;
     const isPrivate = current.visibility === "private";
     if (isPrivate && current.ownerId !== currentUserId) return false;
     const isOwner = current.borrowedFrom === currentUserId;
     const isBorrower = current.borrowedBy === currentUserId;
     if (!isPrivate && !isOwner && !isBorrower && !isHost) return false;
     if (current.returned && !isPrivate && !isOwner && !isHost) return false;
-    track.borrowingItemReturned();
+    if (!current.returned && current.returnRequestedAt && !isPrivate && !isOwner && !isHost) return false;
     const now = new Date().toISOString();
     const identity = {
       creatorId: current.creatorId ?? currentUserId,
@@ -4353,6 +4402,10 @@ export function AppProvider({
             updatedAt: now,
           }
         : { ...current, ...identity, returnRequestedAt: now, updatedAt: now };
+    visibleBorrowItemsRef.current = visibleBorrowItemsRef.current.map((item) => item.id === id ? updated : item);
+    if (current.returned) track.borrowingReturnUndone();
+    else if (updated.returned) track.borrowingItemReturned();
+    else track.borrowingReturnRequested();
     if (isPrivate) {
       setPrivateBorrowItems((prev) =>
         prev.map((entry) => entry.id === id ? updated : entry),
@@ -4662,6 +4715,10 @@ export function AppProvider({
       ? await supabase.rpc("replace_proposed_chart", { target_household_id: householdId, chart_payload: chart.payload })
       : await supabase.rpc("cancel_proposed_charts", { target_household_id: householdId });
     if (error) throw error;
+    if (chart) track.chorePlanCreated({
+      source: "generated",
+      chore_count_bucket: analyticsCountBucket(chart.payload.generatedTasks?.length ?? 0),
+    });
     await refreshChartStateRef.current?.();
   }, [householdId]);
 
@@ -4675,6 +4732,10 @@ export function AppProvider({
       reportSupabaseError("replace proposed chart", error, { householdId });
       throw error;
     }
+    track.chorePlanCreated({
+      source: "generated",
+      chore_count_bucket: analyticsCountBucket(payload.generatedTasks?.length ?? 0),
+    });
     await refreshChartStateRef.current?.();
     return String(data);
   }, [householdId]);
@@ -4907,6 +4968,7 @@ export function AppProvider({
     setHouseholdSetupStep,
     completeHouseholdSetup,
     quickGuideOpen,
+    quickGuideSource,
     openQuickGuide,
     dismissQuickGuide,
     appAlerts: visibleAppAlerts,
@@ -5026,7 +5088,7 @@ export function AppProvider({
     approveProposedChart, forceApproveProposedChart, restartChartProcess,
     isHost, preferencesLoaded, preferencesOnboardingPending,
     finishPreferencesOnboarding, householdSetupStep, setHouseholdSetupStep,
-    completeHouseholdSetup, quickGuideOpen, openQuickGuide,
+    completeHouseholdSetup, quickGuideOpen, quickGuideSource, openQuickGuide,
     dismissQuickGuide, visibleAppAlerts, markAlertRead, markAllAlertsRead,
     householdComplete, setHouseholdComplete,
     colorScheme, appearanceMode, pointsEnabled, plantEnabled, roommateActivityEnabled, leaderboardPeriod, householdId, memberships, activeSweet, householdName,

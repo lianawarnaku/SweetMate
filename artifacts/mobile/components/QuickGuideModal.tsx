@@ -1,5 +1,5 @@
 import { Feather } from "@expo/vector-icons";
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import {
   Modal,
   Pressable,
@@ -15,6 +15,8 @@ import { useAppContextSelector } from "@/context/AppContext";
 import { tapLight } from "@/lib/haptics";
 import { GlassModalBackdrop, GlassModalSurface } from "@/components/GlassModalSurface";
 import { GlassButton } from "@/components/GlassButton";
+import { track } from "@/lib/analytics";
+import { useAnalyticsPreferences } from "@/components/AnalyticsConsentManager";
 
 const GUIDE_ITEMS = [
   {
@@ -58,12 +60,39 @@ const GUIDE_ITEMS = [
 export function QuickGuideModal() {
   const colors = useTheme();
   const insets = useSafeAreaInsets();
-  const { quickGuideOpen, dismissQuickGuide } = useAppContextSelector(
+  const { currentUserId, quickGuideOpen, quickGuideSource, dismissQuickGuide } = useAppContextSelector(
     (context) => ({
+      currentUserId: context.currentUserId,
       quickGuideOpen: context.quickGuideOpen,
+      quickGuideSource: context.quickGuideSource,
       dismissQuickGuide: context.dismissQuickGuide,
     }),
   );
+
+  const { loaded, ready, preferences } = useAnalyticsPreferences(currentUserId);
+  const analyticsEnabled = loaded && ready && preferences.productAnalyticsEnabled;
+  const acknowledged = useRef(false);
+  const opened = useRef(false);
+  useEffect(() => {
+    if (!quickGuideOpen) {
+      acknowledged.current = false;
+      opened.current = false;
+      return;
+    }
+    // Settings already records its own explicit open action. Retry automatic
+    // opens once consent finishes loading if the guide was mounted behind it.
+    if (analyticsEnabled && !opened.current && quickGuideSource === "onboarding") {
+      opened.current = true;
+      track.quickGuideOpened({ source: "onboarding" });
+    }
+  }, [analyticsEnabled, quickGuideOpen, quickGuideSource]);
+
+  const acknowledge = () => {
+    if (!quickGuideOpen || acknowledged.current) return;
+    acknowledged.current = true;
+    track.quickGuideCompleted({ source: quickGuideSource });
+    close();
+  };
 
   const close = () => {
     tapLight();
@@ -147,7 +176,7 @@ export function QuickGuideModal() {
             <GlassButton
               accessibilityRole="button"
               accessibilityLabel="Got it, close Quick guide"
-              onPress={close}
+              onPress={acknowledge}
               style={styles.button}
             >
               <Text style={[styles.buttonText, { color: colors.actionForeground }]}>

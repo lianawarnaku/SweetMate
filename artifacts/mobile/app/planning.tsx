@@ -33,7 +33,8 @@ import {
   ESSENTIAL_SUBSECTION_LABELS,
   type EssentialSubsection,
 } from "@/constants/essentialCatalog";
-import { track } from "@/lib/analytics";
+import { analyticsCountBucket, track } from "@/lib/analytics";
+import { useOnboardingAnalytics } from "@/hooks/useOnboardingAnalytics";
 import { essentialRecommendationsForHousingType } from "@/lib/essentialRecommendations";
 
 type PlanType = "chore-chart" | "home-checklist" | null;
@@ -518,6 +519,13 @@ export default function PlanningScreen() {
     currentUserId, setHouseholdSetupStep, choreChartConfigurationReady, retryChoreChartConfiguration,
     shoppingLists, shoppingItems,
   } = useAppContext();
+  const onboarding = useOnboardingAnalytics({
+    userId: setupMode ? currentUserId : null,
+    flow: "create",
+    context: "first_household",
+    step: "essentials",
+    resumed: true,
+  });
   const recommendations = essentialRecommendationsForHousingType(
     setupMode ? params.housingType : homeProfile?.housingType,
   );
@@ -740,7 +748,7 @@ export default function PlanningScreen() {
       0,
     );
     track.shortlistSaved({
-      item_count_bucket: count <= 5 ? "1_5" : count <= 10 ? "6_10" : "11_plus",
+      item_count_bucket: analyticsCountBucket(count),
       category_count: Object.values(shortlistDraft).filter((section) =>
         Object.values(section).some(Boolean),
       ).length,
@@ -792,6 +800,7 @@ export default function PlanningScreen() {
         return;
       }
       await setHouseholdSetupStep("items");
+      onboarding.completeStep("essentials", "browsed");
       // Dismiss the Essentials sheet before navigating. `router.replace` only
       // swaps the screen *behind* a presented pageSheet, so leaving it open
       // makes step 4 invisible and the button look dead.

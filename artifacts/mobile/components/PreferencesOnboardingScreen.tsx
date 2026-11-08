@@ -10,17 +10,38 @@ import { useTheme } from "@/constants/colors";
 import { useAppContext } from "@/context/AppContext";
 import { SmoothPressable } from "@/components/SmoothPressable";
 import { InviteCodeCard } from "@/components/InviteCodeCard";
+import { useOnboardingAnalytics } from "@/hooks/useOnboardingAnalytics";
 
 export function PreferencesOnboardingScreen() {
   const colors = useTheme();
   const insets = useSafeAreaInsets();
   const {
     finishPreferencesOnboarding,
+    currentUserId,
     householdName,
     inviteCode,
     householdLoading,
     refreshHousehold,
   } = useAppContext();
+
+  const onboarding = useOnboardingAnalytics({
+    userId: currentUserId,
+    flow: "preferences",
+    context: "first_household",
+    step: "preferences",
+  });
+  const finishing = React.useRef(false);
+  const finish = async () => {
+    if (finishing.current) return;
+    finishing.current = true;
+    try {
+      await finishPreferencesOnboarding();
+      onboarding.completeStep();
+      onboarding.complete();
+    } finally {
+      finishing.current = false;
+    }
+  };
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
@@ -47,7 +68,7 @@ export function PreferencesOnboardingScreen() {
         </View>
         <SmoothPressable
           accessibilityRole="button"
-          onPress={finishPreferencesOnboarding}
+          onPress={() => void finish()}
           style={[styles.continueButton, { backgroundColor: colors.action }]}
         >
           <Text style={styles.continueText}>Continue</Text>

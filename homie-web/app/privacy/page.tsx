@@ -7,7 +7,7 @@ export default function PrivacyPage() {
       <article className="legal-card">
         <p className="eyebrow">Legal</p>
         <h1>Privacy Policy</h1>
-        <p className="updated">Effective and last updated July 26, 2026 · Version 2026-07-26</p>
+        <p className="updated">Effective and last updated November 8, 2026 · Version 2026-11-08</p>
 
         <p>
           This policy explains how [LEGAL ENTITY NAME] (“SweetMate,” “we,” or
@@ -29,9 +29,12 @@ export default function PrivacyPage() {
         <h2>Automatically collected technical information</h2>
         <p>
           If you separately enable Product analytics, SweetMate sends a limited
-          set of feature-use events to PostHog together with an opaque app
-          identifier, platform, app version, build number, app environment, and
-          update identifier. If you separately enable Crash reporting, SweetMate
+          set of app opens, screen visits, foreground active-time measurements,
+          signup and onboarding progress, feature-use actions, and coarse workflow
+          failure categories to PostHog together with an opaque app identifier,
+          platform, app version, build number, app environment, and update identifier.
+          We ask for this optional choice before signup. If you opt in, the random
+          identifier used before signup can continue with your account on that device. If you separately enable Crash reporting, SweetMate
           sends sanitized error diagnostics to Sentry, such as error type, stack
           trace, affected app action, platform, app version, build number, and
           app environment. These controls are off by default and can be changed
