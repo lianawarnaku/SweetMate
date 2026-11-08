@@ -1309,29 +1309,6 @@ export function AppProvider({
   }, [preferenceUserId]);
 
   const currentGuideUserId = session?.user.id;
-  const currentGuideVersion = currentGuideUserId
-    ? quickGuideVersions[currentGuideUserId] ?? 0
-    : QUICK_GUIDE_VERSION;
-
-  useEffect(() => {
-    if (
-      localPreferencesLoaded &&
-      householdId &&
-      !householdSetupStep &&
-      !preferencesOnboardingPending &&
-      currentGuideVersion < QUICK_GUIDE_VERSION
-    ) {
-      setQuickGuideSource("onboarding");
-      setQuickGuideOpen(true);
-    }
-  }, [
-    currentGuideVersion,
-    householdId,
-    householdSetupStep,
-    localPreferencesLoaded,
-    preferencesOnboardingPending,
-  ]);
-
   const openQuickGuide = useCallback(() => {
     setQuickGuideSource("settings");
     setQuickGuideOpen(true);
