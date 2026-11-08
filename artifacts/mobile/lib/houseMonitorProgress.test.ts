@@ -13,9 +13,10 @@ function approximately(actual: number, expected: number, message: string) {
 }
 
 for (const [total, expected] of [
-  [0, 4],
-  [1, 4],
-  [3, 4],
+  [0, 1],
+  [1, 1],
+  [2, 1],
+  [3, 1],
   [4, 4],
   [5, 4],
   [8, 4],
@@ -30,7 +31,7 @@ for (const [total, expected] of [
   assert.equal(
     houseMonitorGridSquares(total),
     expected,
-    `existing grid size must remain unchanged for ${total} chores`,
+    `grid must use the largest capped square for ${total} chores`,
   );
 }
 
@@ -54,6 +55,23 @@ assert.equal(
   oneOfFive.roofCompletionRatio,
   0,
   "the roof must wait until the body squares are filled",
+);
+
+const twoChores = getHouseMonitorProgress(2, 1);
+assert.equal(twoChores.gridSquares, 1);
+assert.equal(twoChores.filledSquares, 1);
+assert.equal(twoChores.overflowChores, 1);
+assert.equal(twoChores.roofCompletionRatio, 0);
+assert.equal(getHouseMonitorProgress(2, 2).roofCompletionRatio, 1);
+const threeChores = getHouseMonitorProgress(3, 2);
+assert.equal(threeChores.gridSquares, 1);
+assert.equal(threeChores.filledSquares, 1);
+assert.equal(threeChores.overflowChores, 2);
+assert.equal(threeChores.completedOverflowChores, 1);
+assert.equal(
+  threeChores.roofCompletionRatio,
+  0.5,
+  "one of two chores left after the single body box fills half the roof",
 );
 
 const bodyFull = getHouseMonitorProgress(8, 4);
@@ -94,7 +112,7 @@ assert.equal(
   "undoing the final chore must reduce roof progress",
 );
 
-for (const total of [1, 2, 3, 4, 9, 16, 25]) {
+for (const total of [1, 4, 9, 16, 25]) {
   const beforeDone = getHouseMonitorProgress(total, total - 1);
   assert.equal(
     beforeDone.roofCompletionRatio,
@@ -112,8 +130,8 @@ for (const total of [1, 2, 3, 4, 9, 16, 25]) {
 const padded = getHouseMonitorProgress(1, 1);
 assert.equal(
   padded.unusedSquares,
-  3,
-  "unused grid capacity is separate from unfinished task boxes",
+  0,
+  "one chore uses exactly one box without unused padding",
 );
 assert.equal(padded.incompleteSquares, 0);
 assert.equal(
@@ -177,6 +195,21 @@ for (let total = 0; total <= 150; total += 1) {
       total,
     );
     assert.ok(
+      Number.isInteger(Math.sqrt(progress.gridSquares)),
+      "every body must contain a square number of boxes",
+    );
+    if (total > 0) {
+      assert.ok(
+        progress.gridSquares <= total,
+        "the body cannot invent extra chore boxes",
+      );
+      if (progress.gridSquares < 25)
+        assert.ok(
+          (Math.sqrt(progress.gridSquares) + 1) ** 2 > total,
+          "body must use the largest complete square that fits",
+        );
+    }
+    assert.ok(
       progress.gridSquares <= 25,
       "chores must never expand the body beyond the existing cap",
     );
@@ -189,6 +222,16 @@ for (let total = 0; total <= 150; total += 1) {
     previousRoof = progress.roofCompletionRatio;
   }
 }
+
+const manyChores = getHouseMonitorProgress(1000, 500);
+assert.equal(manyChores.gridSquares, 25);
+assert.equal(manyChores.overflowChores, 975);
+assert.equal(manyChores.completedOverflowChores, 475);
+approximately(
+  manyChores.roofCompletionRatio,
+  475 / 975,
+  "any chores above the cap stay represented in the roof",
+);
 
 for (const area of [0, 0.1, 0.25, 0.5, 0.75, 0.9, 1]) {
   const height = roofFillHeightFraction(area);

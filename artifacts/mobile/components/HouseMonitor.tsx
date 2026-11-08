@@ -247,12 +247,9 @@ export function HouseMonitor({
     completionPercentage: percentage,
     roofCompletionRatio,
   } = getHouseMonitorProgress(rawTotalChores, rawCompletedChores);
-  // Small households have only real chore boxes, with no invisible padding
-  // that could make the roof look offset above a lone completed box.
-  const visibleSquares =
-    totalChores > 0 ? Math.min(totalChores, gridSquares) : gridSquares;
-  const gridSide = Math.ceil(Math.sqrt(visibleSquares));
-  const gridRows = Math.ceil(visibleSquares / gridSide);
+  // Keep every body a full square grid; remaining chores belong to the roof.
+  const gridSide = Math.sqrt(gridSquares);
+  const gridRows = gridSide;
   const roofClipId = `house-monitor-roof-${useId().replace(/:/g, "")}`;
   const restingFocus = totalChores > 0 ? 1 : 0.45;
   const focusProgress = useSharedValue(1);
@@ -404,44 +401,41 @@ export function HouseMonitor({
         <View style={[styles.grid, { gap: GRID_GAP }]}>
           {Array.from({ length: gridRows }, (_, row) => (
             <View key={row} style={[styles.gridRow, { gap: GRID_GAP }]}>
-              {Array.from(
-                { length: Math.min(gridSide, visibleSquares - row * gridSide) },
-                (_, column) => {
-                  const index = row * gridSide + column;
-                  return (
-                    <View
-                      key={index}
-                      style={{
-                        width: squareSize,
-                        height: squareSize,
-                        flexShrink: 0,
-                      }}
-                    >
-                      <GridSquare
-                        color={colors.primary}
-                        emptyColor={faintThemeColor(
-                          colors.primary,
-                          colors.background,
-                          totalChores === 0 ? 0.04 : 0.1,
-                          reduceTransparency,
-                        )}
-                        emptyBorderColor={faintThemeColor(
-                          colors.primary,
-                          colors.background,
-                          totalChores === 0 ? 0.12 : 0.3,
-                          reduceTransparency,
-                        )}
-                        completed={index < filledSquares}
-                        size={squareSize}
-                        reduceMotion={reduceMotion}
-                        reduceTransparency={reduceTransparency}
-                        delay={index * 24}
-                        animateNew={isLocalGridGrowth && index >= previousGrid}
-                      />
-                    </View>
-                  );
-                },
-              )}
+              {Array.from({ length: gridSide }, (_, column) => {
+                const index = row * gridSide + column;
+                return (
+                  <View
+                    key={index}
+                    style={{
+                      width: squareSize,
+                      height: squareSize,
+                      flexShrink: 0,
+                    }}
+                  >
+                    <GridSquare
+                      color={colors.primary}
+                      emptyColor={faintThemeColor(
+                        colors.primary,
+                        colors.background,
+                        totalChores === 0 ? 0.04 : 0.1,
+                        reduceTransparency,
+                      )}
+                      emptyBorderColor={faintThemeColor(
+                        colors.primary,
+                        colors.background,
+                        totalChores === 0 ? 0.12 : 0.3,
+                        reduceTransparency,
+                      )}
+                      completed={index < filledSquares}
+                      size={squareSize}
+                      reduceMotion={reduceMotion}
+                      reduceTransparency={reduceTransparency}
+                      delay={index * 24}
+                      animateNew={isLocalGridGrowth && index >= previousGrid}
+                    />
+                  </View>
+                );
+              })}
             </View>
           ))}
         </View>

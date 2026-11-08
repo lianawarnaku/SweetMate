@@ -18,13 +18,14 @@ function normalizedCount(value: number): number {
     : 0;
 }
 
-/** Preserve the existing square-grid sizes and 25-square cap. */
+/** Largest full square grid that fits the chores, capped at 25 boxes. */
 export function houseMonitorGridSquares(totalChores: number): number {
   const total = normalizedCount(totalChores);
   if (total >= 25) return 25;
   if (total >= 16) return 16;
   if (total >= 9) return 9;
-  return 4;
+  if (total >= 4) return 4;
+  return 1;
 }
 
 /**
