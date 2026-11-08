@@ -1118,77 +1118,6 @@ export default function SettingsScreen() {
           <Text
             style={[styles.sectionLabel, { color: colors.mutedForeground }]}
           >
-            GOOGLE CALENDAR
-          </Text>
-          <View
-            style={[
-              styles.card,
-              { backgroundColor: colors.card, borderColor: colors.border },
-            ]}
-          >
-            <View style={styles.activeHouseholdRow}>
-              <View
-                style={[
-                  styles.linkIcon,
-                  { backgroundColor: colors.primary + "18" },
-                ]}
-              >
-                <Feather name="calendar" size={18} color={colors.primary} />
-              </View>
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <Text
-                  style={[styles.fieldLabel, { color: colors.mutedForeground }]}
-                >
-                  ADD TO CALENDAR
-                </Text>
-                <Text
-                  style={[styles.accountName, { color: colors.foreground }]}
-                  numberOfLines={1}
-                >
-                  {googleCalendarConnected === null
-                    ? "Checking connection…"
-                    : googleCalendarConnected
-                      ? "Connected to your Google Calendar"
-                      : "Not connected"}
-                </Text>
-              </View>
-            </View>
-            <TouchableOpacity
-              disabled={googleCalendarBusy || googleCalendarConnected === null}
-              accessibilityRole="button"
-              accessibilityLabel={googleCalendarConnected ? "Disconnect Google Calendar" : "Connect Google Calendar"}
-              style={[
-                styles.householdSwitchButton,
-                { borderColor: colors.border, opacity: googleCalendarBusy ? 0.6 : 1 },
-              ]}
-              onPress={toggleGoogleCalendar}
-            >
-              <Feather
-                name={googleCalendarConnected ? "x-circle" : "link"}
-                size={17}
-                color={colors.primary}
-              />
-              <Text
-                style={[
-                  styles.householdSwitchButtonText,
-                  { color: colors.foreground },
-                ]}
-              >
-                {googleCalendarBusy
-                  ? "Working…"
-                  : googleCalendarConnected
-                    ? "Disconnect Google Calendar"
-                    : "Connect Google Calendar"}
-              </Text>
-              {!googleCalendarBusy && (
-                <Feather name="chevron-right" size={17} color={colors.mutedForeground} />
-              )}
-            </TouchableOpacity>
-          </View>
-
-          <Text
-            style={[styles.sectionLabel, { color: colors.mutedForeground }]}
-          >
             YOUR PROFILE
           </Text>
           <View
@@ -1470,6 +1399,72 @@ export default function SettingsScreen() {
               <AnalyticsPreferencesPanel userId={session.user.id} />
             </CollapsibleSettingsSection>
           ) : null}
+
+          <View
+            style={[
+              styles.card,
+              { backgroundColor: colors.card, borderColor: colors.border, marginTop: 20 },
+            ]}
+          >
+            <View style={styles.activeHouseholdRow}>
+              <View
+                style={[
+                  styles.linkIcon,
+                  { backgroundColor: colors.primary + "18" },
+                ]}
+              >
+                <Feather name="calendar" size={18} color={colors.primary} />
+              </View>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text
+                  style={[styles.fieldLabel, { color: colors.mutedForeground }]}
+                >
+                  GOOGLE CALENDAR
+                </Text>
+                <Text
+                  style={[styles.accountName, { color: colors.foreground }]}
+                  numberOfLines={1}
+                >
+                  {googleCalendarConnected === null
+                    ? "Checking connection…"
+                    : googleCalendarConnected
+                      ? "Connected to your Google Calendar"
+                      : "Not connected"}
+                </Text>
+              </View>
+            </View>
+            <TouchableOpacity
+              disabled={googleCalendarBusy || googleCalendarConnected === null}
+              accessibilityRole="button"
+              accessibilityLabel={googleCalendarConnected ? "Disconnect Google Calendar" : "Connect Google Calendar"}
+              style={[
+                styles.householdSwitchButton,
+                { borderColor: colors.border, opacity: googleCalendarBusy ? 0.6 : 1 },
+              ]}
+              onPress={toggleGoogleCalendar}
+            >
+              <Feather
+                name={googleCalendarConnected ? "x-circle" : "link"}
+                size={17}
+                color={colors.primary}
+              />
+              <Text
+                style={[
+                  styles.householdSwitchButtonText,
+                  { color: colors.foreground },
+                ]}
+              >
+                {googleCalendarBusy
+                  ? "Working…"
+                  : googleCalendarConnected
+                    ? "Disconnect Google Calendar"
+                    : "Connect Google Calendar"}
+              </Text>
+              {!googleCalendarBusy && (
+                <Feather name="chevron-right" size={17} color={colors.mutedForeground} />
+              )}
+            </TouchableOpacity>
+          </View>
 
           <Text
             style={[styles.sectionLabel, { color: colors.mutedForeground }]}
