@@ -1,6 +1,6 @@
 # Expense repair and staged database rollout
 
-Status: implemented and tested locally on November 8, 2026. **The database migration has not been applied to production. No TestFlight build or release is part of this change.** Deployed expense policies, constraints and Realtime configuration have not been independently queried: no authenticated database/management connection was available. Repository migrations establish the intended configuration only.
+Status: **migrations `202611080002` and `202611080003` are applied and verified in production as of November 8, 2026 (America/New_York). TestFlight 1.0.0 (43) is processed and available to internal testers.** The rollout used migration source commit `65f0d38`; build 43 uses app source commit `f64808e`, whose mobile source is unchanged by the SQL-only compatibility fix.
 
 The original approved findings are preserved in [the November 8 audit](expenses-audit-2026-11-08.md).
 
@@ -78,7 +78,7 @@ Build 42 submits whole expense rows and unversioned DELETEs. Its snapshot contai
 - rejects direct financial/descriptive edits and every direct DELETE, requiring the updated client;
 - blocks a legacy repayment flag after that actor explicitly used `undo_repay`, and blocks legacy manual settlement after `reopen`. These durable barriers are independent of client clocks. Explicit updated-client operations remain available.
 
-These restrictions intentionally mean **old-client Edit/Delete require an update**, and corrected repayment/settlement facts must subsequently use the updated app. Migration 003 retains safe legacy writes by translating an accepted full-paid acknowledgement into only the remaining ledger cents, without replacing prior partial records. Old snapshots cannot erase a partial history or act on a voided record. However, build 42 cannot display partial amounts or voided balances accurately: require the compatible ledger-aware client before making those features available. Existing data is preserved. The migration is staged rather than silently deployed: review its policies and schema against the actual database, have the compatible client and recovery/support plan ready, and coordinate a compatible-client upgrade before the ledger/void cutover. Apply each migration through the normal transactional migration runner. The updated client requires the RPC; do not ship it against a database missing this migration. No production schema or permissions were changed during local implementation.
+These restrictions intentionally mean **old-client Edit/Delete require an update**, and corrected repayment/settlement facts must subsequently use the updated app. Migration 003 retains safe legacy writes by translating an accepted full-paid acknowledgement into only the remaining ledger cents, without replacing prior partial records. Old snapshots cannot erase a partial history or act on a voided record. However, build 42 cannot display partial amounts or voided balances accurately: require the compatible ledger-aware client before making those features available. Existing data is preserved. The November 8 rollout completed a full rollback-only rehearsal against live data before applying both exact migration files in one guarded transaction and recording their history. The committed schema, function grants, row security, triggers, Realtime configuration and ledger projection were independently checked. Existing expense identities, totals, recorded paid cents and nonpayer obligations were preserved. PostgREST recognizes the new column and routes, with anonymous access denied on restricted tables. Existing installed clients must update to build 43 before using partial payments or void/restore. Subsequent migrations must continue using transactional rollout and a compatible-client plan.
 
 ## Verification
 
@@ -97,8 +97,15 @@ Validated using real migrations: active/former/outsider role matrix; legacy null
 
 Final validation of the expense repairs and six client improvements passed: repository `pnpm run typecheck`, the complete `@workspace/mobile` test suite (including partial/void balances, freshness, durable draft recovery, exact retry intents, captured editor versions and actual screen/mutation callback regressions), and Expo web export. Commands used `--config.verify-deps-before-run=false` for the local pnpm installation. Frontend tests cover operation/outbox/hydration/recovery and UI regressions separately; the UI callback tests establish state and wiring, not physical iPhone presentation.
 
+## Release verification
+
+- EAS build `7c218625-5156-46af-8e71-8c68b0d36b66`: FINISHED; version 1.0.0, build 43.
+- EAS submission `0f54e692-c421-490f-88e3-3c8bce89a2a0`: FINISHED.
+- Apple processing: VALID; internal state IN_BETA_TESTING; external state READY_FOR_BETA_SUBMISSION. External beta review was not submitted.
+- The uploaded archive matched all 247 tracked mobile files from the app source commit and contained no private environment files. Unrelated local work was restored and hash-verified.
+
 ## Remaining verification and follow-up
 
-Before rollout, confirm deployed policies/constraints/function grants and Realtime behavior with an authenticated management connection. Test two actual accounts/devices through online/offline/reconnect, lost-response retry, app restart, household switching, partial payments, activity, void/restore and simultaneous repayments. Verify native iOS Details → confirmation/edit dismissal, large text/long participants, saving/errors and touch targets on device; local SQL and UI source checks do not establish native presentation behavior.
+Deployed schema, constraints, function grants and Realtime publication metadata are verified. Use internal TestFlight build 43 to test two actual accounts/devices through online/offline/reconnect, lost-response retry, app restart, household switching, partial payments, activity, void/restore and simultaneous repayments. Verify native iOS Details → confirmation/edit dismissal, large text/long participants, saving/errors and touch targets on device before broader distribution; automated SQL and UI callback checks do not establish native presentation or device delivery.
 
 `expenses.paid_by` still has the existing `auth.users ON DELETE RESTRICT` foreign key. Account deletion therefore needs a separate deliberate policy for retained shared financial history/anonymization and a transaction-level integration test. This repair does not drop that protection or silently remove other household members' expense history.
