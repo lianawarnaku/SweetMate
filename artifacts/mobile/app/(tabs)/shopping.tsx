@@ -22,6 +22,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { Surface } from "@/components/Surface";
 import { GlassCheckCircle } from "@/components/GlassCheckCircle";
 import { ActionMenuModal } from "@/components/ActionMenuModal";
+import { CompletionUndoMenu } from "@/components/CompletionUndoMenu";
 import { FloatingActionButton, useFloatingActionMetrics } from "@/components/FloatingActionButton";
 import {
   DraggableListCompat,
@@ -69,6 +70,7 @@ export default function ShoppingScreen() {
     pinShoppingList,
     addShoppingItem,
     toggleShoppingItem,
+    setShoppingItemCompleted,
     deleteShoppingItem,
     reorderShoppingItems,
     assignShoppingList,
@@ -86,6 +88,7 @@ export default function ShoppingScreen() {
     pinShoppingList: context.pinShoppingList,
     addShoppingItem: context.addShoppingItem,
     toggleShoppingItem: context.toggleShoppingItem,
+    setShoppingItemCompleted: context.setShoppingItemCompleted,
     deleteShoppingItem: context.deleteShoppingItem,
     reorderShoppingItems: context.reorderShoppingItems,
     assignShoppingList: context.assignShoppingList,
@@ -110,6 +113,9 @@ export default function ShoppingScreen() {
   const [assignPickerListId, setAssignPickerListId] = useState<string | null>(null);
   const [actionListId, setActionListId] = useState<string | null>(null);
   const [actionItemId, setActionItemId] = useState<string | null>(null);
+  const [undoList, setUndoList] = useState<{ id: string; householdId: string | null } | null>(null);
+  const shoppingScopeRef = useRef({ householdId, shoppingLists, shoppingItems });
+  shoppingScopeRef.current = { householdId, shoppingLists, shoppingItems };
   const [focusedInput, setFocusedInput] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const completedLongPressRef = useRef<string | null>(null);
@@ -118,6 +124,14 @@ export default function ShoppingScreen() {
   useEffect(() => () => {
     if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
   }, []);
+
+  useEffect(() => {
+    setActionListId(null);
+    setActionItemId(null);
+    setUndoList(null);
+    setAssignPickerListId(null);
+    completedLongPressRef.current = null;
+  }, [householdId]);
 
   const showFeedback = (message: string) => {
     setFeedback(message);
@@ -188,6 +202,25 @@ export default function ShoppingScreen() {
   const actionItem = actionItemId
     ? shoppingItems.find((item) => item.id === actionItemId)
     : null;
+
+  const undoShoppingList = undoList?.householdId === householdId
+    ? shoppingLists.find((list) => list.id === undoList.id)
+    : null;
+  const undoShoppingItems = undoShoppingList
+    ? shoppingItems
+        .filter((item) => item.listId === undoShoppingList.id && item.completed)
+        .sort((a, b) => (b.updatedAt ?? "").localeCompare(a.updatedAt ?? ""))
+        .map((item) => ({ id: item.id, title: item.name }))
+    : [];
+
+  const undoCheckedShoppingItem = (itemId: string) => {
+    const current = shoppingScopeRef.current;
+    if (!undoList || undoList.householdId !== current.householdId) return;
+    if (!current.shoppingLists.some((list) => list.id === undoList.id)) return;
+    const item = current.shoppingItems.find((entry) => entry.id === itemId);
+    if (!item?.completed || item.listId !== undoList.id) return;
+    setShoppingItemCompleted(itemId, false);
+  };
 
   const openListActions = (listId: string) => {
     completedLongPressRef.current = listId;
@@ -518,7 +551,7 @@ export default function ShoppingScreen() {
                     hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                     accessibilityRole="button"
                     accessibilityLabel={`More actions for ${list.name}`}
-                    accessibilityHint="Opens assignment, pin, expense, and delete options"
+                    accessibilityHint="Opens undo, assignment, pin, expense, and delete options"
                     style={styles.listActionsBtn}
                   >
                     <Feather name="more-horizontal" size={18} color={colors.mutedForeground} />
@@ -670,6 +703,18 @@ export default function ShoppingScreen() {
           actionList
             ? [
                 {
+                  key: "undo-check-off",
+                  label: "Undo checked item",
+                  icon: "rotate-ccw",
+                  runAfterDismiss: true,
+                  onPress: () => {
+                    const current = shoppingScopeRef.current;
+                    if (current.householdId !== householdId ||
+                        !current.shoppingLists.some((list) => list.id === actionList.id)) return;
+                    setUndoList({ id: actionList.id, householdId });
+                  },
+                },
+                {
                   key: "assign",
                   label: actionList.assignedTo ? "Change person" : "Add person",
                   icon: "user-plus",
@@ -709,6 +754,19 @@ export default function ShoppingScreen() {
               ]
             : actionItem
               ? [
+                  ...(actionItem.completed ? [{
+                    key: "undo-check-off",
+                    label: "Undo check-off",
+                    icon: "rotate-ccw" as const,
+                    successMessage: "Marked as needed",
+                    onPress: () => {
+                      const current = shoppingScopeRef.current;
+                      if (current.householdId !== householdId) return;
+                      const item = current.shoppingItems.find((entry) => entry.id === actionItem.id);
+                      if (!item?.completed || !current.shoppingLists.some((list) => list.id === item.listId)) return;
+                      setShoppingItemCompleted(item.id, false);
+                    },
+                  }] : []),
                   {
                     key: "expense",
                     label: actionItem.convertedExpenseId
@@ -721,6 +779,15 @@ export default function ShoppingScreen() {
                 ]
             : []
         }
+      />
+
+      <CompletionUndoMenu
+        visible={Boolean(undoShoppingList)}
+        title={undoShoppingList ? `Undo in ${undoShoppingList.name}` : "Undo checked item"}
+        items={undoShoppingItems}
+        onUndo={undoCheckedShoppingItem}
+        onClose={() => setUndoList(null)}
+        successMessage="Marked as needed"
       />
 
       {/* ── Assignee Picker Modal ── */}

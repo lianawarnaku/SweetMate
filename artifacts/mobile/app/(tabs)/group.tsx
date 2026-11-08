@@ -1,4 +1,5 @@
 import { SectionDivider } from "@/components/SectionDivider";
+import { CompletionUndoMenu } from "@/components/CompletionUndoMenu";
 import { KEYBOARD_BEHAVIOR } from "@/lib/keyboard";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -301,6 +302,20 @@ export default function GroupChoresScreen() {
   const [expandedChoreSections, setExpandedChoreSections] = useState<Set<string>>(
     () => new Set([currentUserId])
   );
+  const [undoScope, setUndoScope] = useState<{
+    householdId: string | null;
+    userId: string;
+    roommateId: string;
+  } | null>(null);
+  const longPressedHeaderRef = useRef<string | null>(null);
+  useEffect(() => {
+    setUndoScope(null);
+    longPressedHeaderRef.current = null;
+  }, [householdId, currentUserId]);
+  const openCompletedChores = (roommateId: string) => {
+    setUndoScope({ householdId, userId: currentUserId, roommateId });
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
   const toggleChoreSection = (roommateId: string) => {
     setExpandedChoreSections((prev) => {
       const next = new Set(prev);
@@ -324,6 +339,25 @@ export default function GroupChoresScreen() {
     chore,
   });
   const canManageChore = (chore: Chore) => permissionsForChore(chore).canEdit;
+  const undoScopeIsCurrent = Boolean(
+    undoScope &&
+      undoScope.householdId === householdId &&
+      undoScope.userId === currentUserId &&
+      roommates.some((roommate) => roommate.id === undoScope.roommateId),
+  );
+  const completedChoresToUndo = undoScopeIsCurrent
+    ? chores
+        .filter((chore) =>
+          chore.completed &&
+          chore.assignedTo === undoScope?.roommateId &&
+          (!chore.householdId || chore.householdId === householdId) &&
+          permissionsForChore(chore).canComplete,
+        )
+        .sort((a, b) =>
+          (Date.parse(b.completedAt ?? b.updatedAt ?? "") || 0) -
+          (Date.parse(a.completedAt ?? a.updatedAt ?? "") || 0),
+        )
+    : [];
   const editingChore = editingChoreId
     ? chores.find((chore) => chore.id === editingChoreId)
     : undefined;
@@ -959,7 +993,24 @@ export default function GroupChoresScreen() {
                   {/* Roommate header — tap anywhere to expand/collapse */}
                   <TouchableOpacity
                     style={styles.sectionHeader}
-                    onPress={() => toggleChoreSection(roommate.id)}
+                    onPressIn={() => { longPressedHeaderRef.current = null; }}
+                    onPress={() => {
+                      if (longPressedHeaderRef.current === roommate.id) return;
+                      toggleChoreSection(roommate.id);
+                    }}
+                    onLongPress={() => {
+                      longPressedHeaderRef.current = roommate.id;
+                      openCompletedChores(roommate.id);
+                    }}
+                    delayLongPress={450}
+                    accessibilityRole="button"
+                    accessibilityState={{ expanded: isExpanded }}
+                    accessibilityLabel={`${roommate.name}'s chores`}
+                    accessibilityHint="Tap to expand or collapse. Press and hold to undo a completed chore."
+                    accessibilityActions={[{ name: "undo", label: "Undo a completed chore" }]}
+                    onAccessibilityAction={(event) => {
+                      if (event.nativeEvent.actionName === "undo") openCompletedChores(roommate.id);
+                    }}
                     activeOpacity={0.7}
                   >
                     <RoommateAvatar
@@ -1193,6 +1244,23 @@ export default function GroupChoresScreen() {
       </ScrollView>
       )}
 
+      <CompletionUndoMenu
+        visible={undoScopeIsCurrent}
+        title="Undo completed chore"
+        items={completedChoresToUndo.map((chore) => ({
+          id: chore.id,
+          title: `${chore.title}${chore.completedAt ? ` · ${new Date(chore.completedAt).toLocaleDateString()}` : ""}`,
+        }))}
+        onUndo={(id) => {
+          const chore = completedChoresToUndo.find((entry) => entry.id === id);
+          if (!chore || !permissionsForChore(chore).canComplete) return;
+          setChoreCompleted(chore.id, false);
+          void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        }}
+        onClose={() => setUndoScope(null)}
+        successMessage="Marked incomplete"
+      />
+
       {/* ── Add Chore Modal (full-screen, matches New IOU) ── */}
       <ActionMenuModal
         visible={!!completionAction}
@@ -1208,6 +1276,13 @@ export default function GroupChoresScreen() {
         subtitle="Manage this chore"
         onClose={() => setActionChoreId(null)}
         actions={actionChore ? [
+          ...(actionChore.completed && permissionsForChore(actionChore).canComplete ? [{
+            key: "undo-completion",
+            label: "Undo check-off",
+            icon: "rotate-ccw" as const,
+            successMessage: "Marked incomplete",
+            onPress: () => setChoreCompleted(actionChore.id, false),
+          }] : []),
           ...(permissionsForChore(actionChore).canNudge ? [{
             key: "nudge",
             label: nudgedChores.has(`${actionChore.assignedTo}-${actionChore.id}`)

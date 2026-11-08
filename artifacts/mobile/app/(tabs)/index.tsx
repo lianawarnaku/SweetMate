@@ -1,3 +1,4 @@
+import { CompletionUndoMenu } from "@/components/CompletionUndoMenu";
 import { useHomeSections, type HomeSectionId } from "@/hooks/useHomeSections";
 import { SectionDivider as CollapsibleSectionHeader } from "@/components/SectionDivider";
 import { KEYBOARD_BEHAVIOR } from "@/lib/keyboard";
@@ -543,7 +544,7 @@ export default function MyChoresScreen() {
   const { showPopup } = useAppPopup();
   const insets = useSafeAreaInsets();
   const { scrollBottomPadding } = useFloatingActionMetrics();
-  const { currentUserId, householdId, activeSweet, chores, roommates, expenses, setChoreCompleted, deleteChore, shoppingLists, shoppingItems, toggleShoppingItem, pointsEnabled, isHost } =
+  const { currentUserId, householdId, activeSweet, chores, roommates, expenses, setChoreCompleted, deleteChore, shoppingLists, shoppingItems, toggleShoppingItem, setShoppingItemCompleted, pointsEnabled, isHost } =
     useAppContextSelector((context) => ({
       currentUserId: context.currentUserId,
       householdId: context.householdId,
@@ -556,6 +557,7 @@ export default function MyChoresScreen() {
       shoppingLists: context.shoppingLists,
       shoppingItems: context.shoppingItems,
       toggleShoppingItem: context.toggleShoppingItem,
+      setShoppingItemCompleted: context.setShoppingItemCompleted,
       pointsEnabled: context.pointsEnabled,
       isHost: context.isHost,
     }));
@@ -575,6 +577,9 @@ export default function MyChoresScreen() {
   const [showModal, setShowModal] = useState(false);
   const [editingChoreId, setEditingChoreId] = useState<string | null>(null);
   const [actionChoreId, setActionChoreId] = useState<string | null>(null);
+  const [undoSection, setUndoSection] = useState<"chores" | "shopping" | null>(null);
+  const heldShoppingItem = useRef(false);
+  useEffect(() => { setUndoSection(null); }, [householdId, currentUserId]);
   const calendarExportsInFlight = useRef(new Set<string>());
 
   // Full-screen slide-up animation for the Add Chore modal (matches New IOU).
@@ -628,10 +633,9 @@ export default function MyChoresScreen() {
     () => new Map(shoppingLists.map((list) => [list.id, list])),
     [shoppingLists],
   );
-  const myShoppingItems = useMemo(
+  const personalShoppingItems = useMemo(
     () =>
       shoppingItems.flatMap((item) => {
-        if (item.completed) return [];
         const list = shoppingListsById.get(item.listId);
         const itemAssignees = Array.isArray(item.assignedTo)
           ? item.assignedTo
@@ -649,6 +653,8 @@ export default function MyChoresScreen() {
       }),
     [currentUserId, shoppingItems, shoppingListsById],
   );
+
+  const myShoppingItems = personalShoppingItems.filter((item) => !item.completed);
 
   const myChores = useMemo(
     () => {
@@ -1013,6 +1019,15 @@ export default function MyChoresScreen() {
     chore,
   });
   const canManageChore = (chore: Chore) => permissionsForChore(chore).canEdit;
+  const undoShoppingItems = personalShoppingItems
+    .filter((item) => item.completed)
+    .sort((a, b) => (b.updatedAt ?? "").localeCompare(a.updatedAt ?? ""));
+  const undoChores = myChores
+    .filter((chore) => chore.completed && permissionsForChore(chore).canComplete)
+    .sort((a, b) => (b.completedAt ?? "").localeCompare(a.completedAt ?? ""));
+  const undoSnapshot = useRef({ householdId, currentUserId, undoSection, undoShoppingItems, undoChores });
+  undoSnapshot.current = { householdId, currentUserId, undoSection, undoShoppingItems, undoChores };
+
   const confirmDeleteChore = (chore: Chore) => {
     const remove = (scope: "occurrence" | "future" | "series") => {
       if (deleteChore(chore.id, scope)) {
@@ -1325,6 +1340,8 @@ export default function MyChoresScreen() {
               icon="check-square"
               expanded={expandedHomeSections["my-chores"]}
               onToggle={() => toggleHomeSection("my-chores")}
+              onLongPress={() => setUndoSection("chores")}
+              longPressHint="Press and hold to undo a completed chore"
             />
 
             {expandedHomeSections["my-chores"] && <View
@@ -1444,6 +1461,8 @@ export default function MyChoresScreen() {
                   icon="shopping-cart"
                   expanded={expandedHomeSections.shopping}
                   onToggle={() => toggleHomeSection("shopping")}
+                  onLongPress={() => setUndoSection("shopping")}
+                  longPressHint="Press and hold to undo a checked-off shopping item"
                 />
                 {expandedHomeSections.shopping && (myShoppingItems.length === 0 ? (
                   <EmptyState
@@ -1466,10 +1485,21 @@ export default function MyChoresScreen() {
                         styles.toBuyRow,
                         idx > 0 && { borderTopColor: colors.border, borderTopWidth: StyleSheet.hairlineWidth },
                       ]}
+                      onPressIn={() => { heldShoppingItem.current = false; }}
+                      onLongPress={() => {
+                        heldShoppingItem.current = true;
+                        setUndoSection("shopping");
+                      }}
+                      delayLongPress={450}
                       onPress={() => {
+                        if (heldShoppingItem.current) return;
                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                         toggleShoppingItem(item.id);
                       }}
+                      accessibilityRole="checkbox"
+                      accessibilityState={{ checked: item.completed }}
+                      accessibilityLabel={`Mark purchased: ${item.name}`}
+                      accessibilityHint="Press and hold to undo a checked-off shopping item"
                       activeOpacity={0.7}
                     >
                       <GlassCheckCircle size={20} />
@@ -1489,6 +1519,28 @@ export default function MyChoresScreen() {
               </>
           </>
         }
+      />
+
+      <CompletionUndoMenu
+        visible={undoSection !== null}
+        title={undoSection === "shopping" ? "Undo shopping check-off" : "Undo completed chore"}
+        items={undoSection === "shopping"
+          ? undoShoppingItems.map((item) => ({ id: item.id, title: `${item.name}${item.listName ? ` · ${item.listName}` : ""}` }))
+          : undoChores.map((chore) => ({
+              id: chore.id,
+              title: `${chore.title}${chore.completedAt ? ` · ${new Date(chore.completedAt).toLocaleDateString()}` : ""}`,
+            }))}
+        successMessage={undoSection === "shopping" ? "Marked as needed" : "Chore marked incomplete"}
+        onClose={() => setUndoSection(null)}
+        onUndo={(id) => {
+          const latest = undoSnapshot.current;
+          if (latest.householdId !== householdId || latest.currentUserId !== currentUserId || latest.undoSection !== undoSection) return;
+          if (undoSection === "shopping") {
+            if (latest.undoShoppingItems.some((item) => item.id === id)) setShoppingItemCompleted(id, false);
+          } else if (latest.undoChores.some((chore) => chore.id === id)) {
+            setChoreCompleted(id, false);
+          }
+        }}
       />
 
       <FloatingActionButton

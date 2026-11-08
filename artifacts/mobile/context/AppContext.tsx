@@ -1,3 +1,4 @@
+import { setShoppingCompletion } from "@/lib/shoppingCompletion";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, {
   createContext,
@@ -552,6 +553,7 @@ interface AppContextType {
     selection: EssentialShortlist,
   ) => EssentialShoppingTransferResult;
   toggleShoppingItem: (id: string) => void;
+  setShoppingItemCompleted: (id: string, completed: boolean) => void;
   deleteShoppingItem: (id: string) => void;
   reorderShoppingItems: (listId: string, newIds: string[]) => void;
   assignShoppingList: (id: string, roommateId: string | null) => void;
@@ -4000,12 +4002,18 @@ export function AppProvider({
     [currentUserId, recordShoppingVersions],
   );
 
-  const toggleShoppingItem = useCallback((id: string) => {
+  const setShoppingItemCompleted = useCallback((id: string, completed: boolean) => {
+    const next = setShoppingCompletion(shoppingItemsRef.current, id, completed, new Date().toISOString());
+    if (next === shoppingItemsRef.current) return;
     recordShoppingVersions("item", [id]);
-    setShoppingItems((prev) =>
-      prev.map((s) => (s.id === id ? { ...s, completed: !s.completed } : s))
-    );
+    shoppingItemsRef.current = next;
+    setShoppingItems(next);
   }, [recordShoppingVersions]);
+
+  const toggleShoppingItem = useCallback((id: string) => {
+    const item = shoppingItemsRef.current.find((candidate) => candidate.id === id);
+    if (item) setShoppingItemCompleted(id, !item.completed);
+  }, [setShoppingItemCompleted]);
 
   const deleteShoppingItem = useCallback((id: string) => {
     recordShoppingVersions("item", [id], true);
@@ -4899,6 +4907,7 @@ export function AppProvider({
     addShoppingItem,
     addSelectedEssentialsToShopping,
     toggleShoppingItem,
+    setShoppingItemCompleted,
     deleteShoppingItem,
     reorderShoppingItems,
     assignShoppingList,
@@ -4957,7 +4966,7 @@ export function AppProvider({
     visibleBorrowItems, nudges, nudgesReady, addChore, updateChore, addChores, setChoreCompleted, completeChore, pickUpChore, deleteChore,
     addExpense, updateExpense, settleExpense, deleteExpense, canEditExpense, canManageExpense, markPersonPaid,
     addShoppingList, reorderShoppingLists, pinShoppingList, deleteShoppingList,
-    addShoppingItem, addSelectedEssentialsToShopping, toggleShoppingItem, deleteShoppingItem,
+    addShoppingItem, addSelectedEssentialsToShopping, toggleShoppingItem, setShoppingItemCompleted, deleteShoppingItem,
     reorderShoppingItems, assignShoppingList, assignShoppingItem,
     updateShoppingItemPrice, linkShoppingItemsToExpense, pendingIouDraft, setPendingIouDraft, addBorrowItem,
     updateBorrowItem, returnBorrowItem, deleteBorrowItem, sendNudge,
