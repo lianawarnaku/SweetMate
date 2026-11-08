@@ -1,9 +1,22 @@
-export const HOUSE_MONITOR_ROOF_WIDTH = 112;
-export const HOUSE_MONITOR_ROOF_HEIGHT = 52;
+export const HOUSE_MONITOR_BODY_SIZE = 112;
+
+// Match the opening house: its body spans x64…192, and its rounded roof's
+// shoulder cubic has its maximum X at this derivative root.
+const openingShoulderT = (18.2 - Math.sqrt(218.92)) / 10.4;
+const t = openingShoulderT;
+const openingRoofRight =
+  (1 - t) ** 3 * 222.2 +
+  3 * (1 - t) ** 2 * t * 227.6 +
+  3 * (1 - t) * t * t * 223.9 +
+  t ** 3 * 216.3;
+const openingScale = HOUSE_MONITOR_BODY_SIZE / 128;
+export const HOUSE_MONITOR_ROOF_WIDTH = (2 * openingRoofRight - 256) * openingScale;
+export const HOUSE_MONITOR_ROOF_HEIGHT = (134.8 - 35) * openingScale;
 export const HOUSE_MONITOR_ROOF_RADIUS = 4;
 
-const width = HOUSE_MONITOR_ROOF_WIDTH;
-const height = HOUSE_MONITOR_ROOF_HEIGHT;
+// Keep the existing soft-corner geometry, then fit it to the opening envelope.
+const width = HOUSE_MONITOR_BODY_SIZE;
+const height = 52;
 const radius = HOUSE_MONITOR_ROOF_RADIUS;
 const halfWidth = width / 2;
 const slopeLength = Math.hypot(halfWidth, height);
@@ -16,6 +29,18 @@ const topTangentY = topCenterY - radius * normalY;
 const bottomTangentY = bottomCenterY - radius * normalY;
 const topTangentX = halfWidth - radius * normalX;
 const bottomTangentX = bottomCenterX - radius * normalX;
+
+// Leave 1px around the visible geometry for the 2px, non-scaling border.
+const rawTop = topCenterY - radius;
+const horizontalScale =
+  (HOUSE_MONITOR_ROOF_WIDTH - 2) / (width - 2 * (bottomCenterX - radius));
+const verticalScale = (HOUSE_MONITOR_ROOF_HEIGHT - 2) / (height - rawTop);
+const horizontalOffset = HOUSE_MONITOR_ROOF_WIDTH / 2 - halfWidth * horizontalScale;
+const verticalOffset = 1 - rawTop * verticalScale;
+export const HOUSE_MONITOR_ROOF_TRANSFORM =
+  `matrix(${horizontalScale} 0 0 ${verticalScale} ${horizontalOffset} ${verticalOffset})`;
+const fillHeightOffset = 1 / HOUSE_MONITOR_ROOF_HEIGHT;
+const fillHeightScale = (height * verticalScale) / HOUSE_MONITOR_ROOF_HEIGHT;
 
 /** One symmetric outline shared by the roof tint, fill clip, and border. */
 export const HOUSE_MONITOR_ROOF_PATH = [
@@ -55,6 +80,8 @@ function bottomArea(y: number): number {
         circleIntegral(bottomTangentY - bottomCenterY))
   );
 }
+// Scaling multiplies every slice and the total by the same factor; only the
+// returned fill height needs converting into the larger roof canvas.
 const totalArea = topArcArea + straightSidesArea + bottomArea(height);
 
 function areaAbove(y: number): number {
@@ -91,5 +118,5 @@ export function houseMonitorRoofFillHeightFraction(areaFraction: number): number
   const fraction =
     (area - filledAreaLookup[low]) /
     (filledAreaLookup[high] - filledAreaLookup[low]);
-  return (low + fraction) / LOOKUP_STEPS;
+  return fillHeightOffset + (fillHeightScale * (low + fraction)) / LOOKUP_STEPS;
 }

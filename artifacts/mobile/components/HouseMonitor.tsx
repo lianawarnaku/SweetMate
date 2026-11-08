@@ -19,15 +19,18 @@ import { useTheme } from "@/constants/colors";
 import { useAccessibilityPreferences } from "@/hooks/useAccessibilityPreferences";
 import { getHouseMonitorProgress } from "@/lib/houseMonitorProgress";
 import {
+  HOUSE_MONITOR_BODY_SIZE,
   HOUSE_MONITOR_ROOF_HEIGHT,
   HOUSE_MONITOR_ROOF_PATH,
+  HOUSE_MONITOR_ROOF_TRANSFORM,
   HOUSE_MONITOR_ROOF_WIDTH,
   houseMonitorRoofFillHeightFraction,
 } from "@/lib/houseMonitorRoof";
 
 export { houseMonitorGridSquares } from "@/lib/houseMonitorProgress";
 
-const BODY_SIZE = HOUSE_MONITOR_ROOF_WIDTH;
+const BODY_SIZE = HOUSE_MONITOR_BODY_SIZE;
+const ROOF_WIDTH = HOUSE_MONITOR_ROOF_WIDTH;
 const ROOF_HEIGHT = HOUSE_MONITOR_ROOF_HEIGHT;
 const GRID_GAP = 3;
 const TILE_CORNER_RADIUS = 5;
@@ -373,19 +376,23 @@ export function HouseMonitor({
         importantForAccessibility="no-hide-descendants"
       >
         <Svg
-          width={BODY_SIZE}
+          width={ROOF_WIDTH}
           height={ROOF_HEIGHT}
-          viewBox={`0 0 ${BODY_SIZE} ${ROOF_HEIGHT}`}
+          viewBox={`0 0 ${ROOF_WIDTH} ${ROOF_HEIGHT}`}
           preserveAspectRatio="xMidYMid meet"
           style={styles.roof}
         >
           <Defs>
             <ClipPath id={roofClipId}>
-              <Path d={HOUSE_MONITOR_ROOF_PATH} />
+              <Path
+                d={HOUSE_MONITOR_ROOF_PATH}
+                transform={HOUSE_MONITOR_ROOF_TRANSFORM}
+              />
             </ClipPath>
           </Defs>
           <Path
             d={HOUSE_MONITOR_ROOF_PATH}
+            transform={HOUSE_MONITOR_ROOF_TRANSFORM}
             fill={faintThemeColor(
               colors.primary,
               colors.background,
@@ -395,14 +402,16 @@ export function HouseMonitor({
           />
           <AnimatedRect
             x={0}
-            width={BODY_SIZE}
+            width={ROOF_WIDTH}
             fill={colors.primary}
             clipPath={`url(#${roofClipId})`}
             animatedProps={roofFillProps}
           />
           <Path
             d={HOUSE_MONITOR_ROOF_PATH}
+            transform={HOUSE_MONITOR_ROOF_TRANSFORM}
             fill="none"
+            vectorEffect="non-scaling-stroke"
             stroke={faintThemeColor(
               colors.primary,
               colors.background,
@@ -465,8 +474,8 @@ export function HouseMonitor({
 }
 
 const styles = StyleSheet.create({
-  root: { alignItems: "center", minWidth: 140 },
-  monitor: { width: BODY_SIZE, flexDirection: "column", alignItems: "center" },
+  root: { alignItems: "center", minWidth: Math.max(140, ROOF_WIDTH) },
+  monitor: { width: ROOF_WIDTH, flexDirection: "column", alignItems: "center" },
   roof: { alignSelf: "center", flexShrink: 0 },
   grid: {
     width: BODY_SIZE,
