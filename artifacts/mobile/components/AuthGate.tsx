@@ -19,10 +19,12 @@ export function AuthGate({
   children,
   session,
   sessionLoading,
+  onLaunchStateChange,
 }: {
   children: React.ReactNode;
   session: Session | null;
   sessionLoading: boolean;
+  onLaunchStateChange?: (pending: boolean) => void;
 }) {
   const {
     householdId,
@@ -34,36 +36,95 @@ export function AuthGate({
     householdSetupStep,
   } = useAppContext();
 
-  const loading = sessionLoading || (!!session && (householdLoading || !preferencesLoaded));
+  const loading =
+    sessionLoading || (!!session && (householdLoading || !preferencesLoaded));
   let content: React.ReactNode = null;
   if (!loading) {
     if (!session) content = <SignInScreen />;
-    else if (householdError) content = <HouseholdLoadError message={householdError} onRetry={refreshHousehold} />;
+    else if (householdError)
+      content = (
+        <HouseholdLoadError
+          message={householdError}
+          onRetry={refreshHousehold}
+        />
+      );
     else if (!householdId) content = <HouseholdSetupScreen />;
-    else if (preferencesOnboardingPending && !householdSetupStep) content = <PreferencesOnboardingScreen />;
+    else if (preferencesOnboardingPending && !householdSetupStep)
+      content = <PreferencesOnboardingScreen />;
     else content = children;
   }
-  const hasHouse = !session || (!householdError && (!householdId || (preferencesOnboardingPending && !householdSetupStep)));
-  return <HouseTransition loading={loading} hasHouse={hasHouse}>{content}</HouseTransition>;
+  return (
+    <HouseTransition
+      loading={loading}
+      onLaunchStateChange={onLaunchStateChange}
+    >
+      {content}
+    </HouseTransition>
+  );
 }
 
-function HouseholdLoadError({ message, onRetry }: { message: string; onRetry: () => void }) {
+function HouseholdLoadError({
+  message,
+  onRetry,
+}: {
+  message: string;
+  onRetry: () => void;
+}) {
   const colors = useTheme();
   return (
     <View style={[styles.errorScreen, { backgroundColor: colors.background }]}>
-      <Text style={[styles.errorTitle, { color: colors.foreground }]}>Households unavailable</Text>
-      <Text style={[styles.errorMessage, { color: colors.mutedForeground }]}>{message}</Text>
-      <Pressable accessibilityRole="button" onPress={onRetry} style={[styles.retryButton, { backgroundColor: colors.action }]}>
-        <Text style={[styles.retryText, { color: colors.actionForeground }]}>Try again</Text>
+      <Text style={[styles.errorTitle, { color: colors.foreground }]}>
+        Households unavailable
+      </Text>
+      <Text style={[styles.errorMessage, { color: colors.mutedForeground }]}>
+        {message}
+      </Text>
+      <Pressable
+        accessibilityRole="button"
+        onPress={onRetry}
+        style={[styles.retryButton, { backgroundColor: colors.action }]}
+      >
+        <Text style={[styles.retryText, { color: colors.actionForeground }]}>
+          Try again
+        </Text>
       </Pressable>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  errorScreen: { flex: 1, alignItems: "center", justifyContent: "center", padding: 28 },
-  errorTitle: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 22, textAlign: "center" },
-  errorMessage: { fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 15, lineHeight: 21, textAlign: "center", marginTop: 8 },
-  retryButton: { minHeight: 48, minWidth: 140, borderRadius: 14, alignItems: "center", justifyContent: "center", marginTop: 20, paddingHorizontal: 20 },
-  retryText: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 15 },
+  errorScreen: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 28,
+  },
+  errorTitle: {
+    fontFamily: "Inter_700Bold",
+    includeFontPadding: false,
+    fontSize: 22,
+    textAlign: "center",
+  },
+  errorMessage: {
+    fontFamily: "Inter_400Regular",
+    includeFontPadding: false,
+    fontSize: 15,
+    lineHeight: 21,
+    textAlign: "center",
+    marginTop: 8,
+  },
+  retryButton: {
+    minHeight: 48,
+    minWidth: 140,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 20,
+    paddingHorizontal: 20,
+  },
+  retryText: {
+    fontFamily: "Inter_700Bold",
+    includeFontPadding: false,
+    fontSize: 15,
+  },
 });

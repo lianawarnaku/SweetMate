@@ -140,8 +140,7 @@ assert(
     !planning.includes("#72503A") &&
     planning.includes("errorColor={colors.destructive}") &&
     nudgeToast.includes("{ color: colors.destructive }") &&
-    rootLayout.includes("backgroundColor: colors.background") &&
-    !rootLayout.includes("BRAND_BASE_DARK"),
+    rootLayout.includes("launching ? BRAND_BASE_DARK : colors.background"),
   "selected filters, chore decorations, errors, and the mounted root must follow the active theme",
 );
 

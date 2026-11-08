@@ -44,7 +44,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/sweetmate-splash-on-dark.png",
+          "image": "./assets/images/sweetmate-launch-blank.png",
           "imageWidth": 224,
           "resizeMode": "contain"
         }

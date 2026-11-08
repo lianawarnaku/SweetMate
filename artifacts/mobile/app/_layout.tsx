@@ -9,7 +9,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -27,6 +27,7 @@ import { AppPopupProvider } from "@/components/AppPopupProvider";
 import { WebThemeFocusStyles } from "@/components/WebThemeFocusStyles";
 import { AppProvider } from "@/context/AppContext";
 import { useTheme } from "@/constants/colors";
+import { BRAND_BASE_DARK } from "@/constants/brand";
 import { useSupabaseSession } from "@/hooks/useSupabaseSession";
 import { setBaseUrl } from "@workspace/api-client-react";
 import {
@@ -43,25 +44,45 @@ SplashScreen.setOptions({ duration: 250, fade: true });
 
 const queryClient = new QueryClient();
 
-function ThemedStatusBar() {
+function ThemedStatusBar({ launching }: { launching: boolean }) {
   const colors = useTheme();
   useEffect(() => {
-    void SystemUI.setBackgroundColorAsync(colors.background).catch((error) =>
+    void SystemUI.setBackgroundColorAsync(
+      launching ? BRAND_BASE_DARK : colors.background,
+    ).catch((error) =>
       reportRuntimeError("set window background color", error),
     );
-  }, [colors.background]);
-  return <StatusBar style={colors.mode === "dark" ? "light" : "dark"} />;
+  }, [colors.background, launching]);
+  return (
+    <StatusBar style={launching || colors.mode === "dark" ? "light" : "dark"} />
+  );
 }
 
-function ThemedAppSurface({ children }: { children: React.ReactNode }) {
+function ThemedAppSurface({
+  children,
+  launching,
+}: {
+  children: React.ReactNode;
+  launching: boolean;
+}) {
   const colors = useTheme();
-  return <View style={{ flex: 1, backgroundColor: colors.background }}>{children}</View>;
+  return (
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: launching ? BRAND_BASE_DARK : colors.background,
+      }}
+    >
+      {children}
+    </View>
+  );
 }
 
 export default function RootLayout() {
   // Restore the auth session exactly once. The same result is shared by the
   // provider and gate, and the lookup can finish behind the launch screen.
   const { session, loading: sessionLoading } = useSupabaseSession();
+  const [launching, setLaunching] = useState(true);
   const [fontsLoaded, fontError] = useFonts({
     // Keep the established aliases so every existing screen adopts the new
     // condensed SweetMate type system without scattered one-off font changes.
@@ -75,25 +96,38 @@ export default function RootLayout() {
     return installGlobalRuntimeDiagnostics();
   }, []);
 
-  if (!fontsLoaded && !fontError) return null;
+  if (!fontsLoaded && !fontError)
+    return (
+      <View style={{ flex: 1, backgroundColor: BRAND_BASE_DARK }}>
+        <StatusBar style="light" />
+      </View>
+    );
 
   return (
     <SafeAreaProvider>
-              <ErrorBoundary
-                onError={(error, componentStack) =>
-                  reportRuntimeError("React render", error, { componentStack })
-                }
-              >
+      <ErrorBoundary
+        onError={(error, componentStack) =>
+          reportRuntimeError("React render", error, { componentStack })
+        }
+      >
         <QueryClientProvider client={queryClient}>
-          <GestureHandlerRootView style={{ flex: 1 }}>
+          <GestureHandlerRootView
+            style={{ flex: 1, backgroundColor: BRAND_BASE_DARK }}
+          >
             <AppProvider session={session}>
-              <ThemedAppSurface>
-              <NavigationThemeProvider>
-                <WebThemeFocusStyles />
-                <ThemedStatusBar />
-                <AppPopupProvider>
-                  <AnalyticsConsentManager session={session} />
-                    <AuthGate session={session} sessionLoading={sessionLoading}>
+              <ThemedAppSurface launching={launching}>
+                <NavigationThemeProvider>
+                  <WebThemeFocusStyles />
+                  <ThemedStatusBar launching={launching} />
+                  <AppPopupProvider>
+                    {!launching && (
+                      <AnalyticsConsentManager session={session} />
+                    )}
+                    <AuthGate
+                      session={session}
+                      sessionLoading={sessionLoading}
+                      onLaunchStateChange={setLaunching}
+                    >
                       <>
                         <HouseholdSetupRouteGuard />
                         <Stack
@@ -105,20 +139,50 @@ export default function RootLayout() {
                           }}
                           initialRouteName="(tabs)"
                         >
-                          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                          <Stack.Screen name="settings" options={{ headerShown: false, presentation: "card" }} />
-                          <Stack.Screen name="planning" options={{ headerShown: false, presentation: "card" }} />
-                          <Stack.Screen name="task-difficulty" options={{ headerShown: false, presentation: "card" }} />
-                          <Stack.Screen name="alerts" options={{ headerShown: false, presentation: "card" }} />
-                          <Stack.Screen name="auth/callback" options={{ headerShown: false }} />
+                          <Stack.Screen
+                            name="(tabs)"
+                            options={{ headerShown: false }}
+                          />
+                          <Stack.Screen
+                            name="settings"
+                            options={{
+                              headerShown: false,
+                              presentation: "card",
+                            }}
+                          />
+                          <Stack.Screen
+                            name="planning"
+                            options={{
+                              headerShown: false,
+                              presentation: "card",
+                            }}
+                          />
+                          <Stack.Screen
+                            name="task-difficulty"
+                            options={{
+                              headerShown: false,
+                              presentation: "card",
+                            }}
+                          />
+                          <Stack.Screen
+                            name="alerts"
+                            options={{
+                              headerShown: false,
+                              presentation: "card",
+                            }}
+                          />
+                          <Stack.Screen
+                            name="auth/callback"
+                            options={{ headerShown: false }}
+                          />
                           <Stack.Screen name="+not-found" />
                         </Stack>
-                        <QuickGuideModal />
-                        <NudgeToast />
+                        {!launching && <QuickGuideModal />}
+                        {!launching && <NudgeToast />}
                       </>
                     </AuthGate>
-                </AppPopupProvider>
-              </NavigationThemeProvider>
+                  </AppPopupProvider>
+                </NavigationThemeProvider>
               </ThemedAppSurface>
             </AppProvider>
           </GestureHandlerRootView>

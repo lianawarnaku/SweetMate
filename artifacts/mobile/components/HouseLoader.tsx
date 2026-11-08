@@ -6,10 +6,11 @@ import Animated, {
   useSharedValue,
   withDelay,
   withSpring,
+  runOnJS,
 } from "react-native-reanimated";
 import Svg, { Path, Rect } from "react-native-svg";
 
-import { useTheme } from "@/constants/colors";
+import { BRAND_BASE_DARK, BRAND_MARK_ON_DARK } from "@/constants/brand";
 import { useAccessibilityPreferences } from "@/hooks/useAccessibilityPreferences";
 
 const MARK_SIZE = 224;
@@ -20,25 +21,31 @@ function BouncyPiece({
   delay,
   reduceMotion,
   style,
+  onComplete,
 }: {
   children: ReactNode;
   delay: number;
   reduceMotion: boolean;
   style: StyleProp<ViewStyle>;
+  onComplete?: () => void;
 }) {
   const progress = useSharedValue(0);
 
   useEffect(() => {
     if (reduceMotion) {
       progress.value = 1;
+      onComplete?.();
       return () => cancelAnimation(progress);
     }
+    progress.value = 0;
     progress.value = withDelay(
       delay,
-      withSpring(1, { damping: 9, stiffness: 190, mass: 0.65 }),
+      withSpring(1, { damping: 9, stiffness: 190, mass: 0.65 }, (finished) => {
+        if (finished && onComplete) runOnJS(onComplete)();
+      }),
     );
     return () => cancelAnimation(progress);
-  }, [delay, progress, reduceMotion]);
+  }, [delay, progress, reduceMotion, onComplete]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     opacity: progress.value,
@@ -48,7 +55,11 @@ function BouncyPiece({
     ],
   }));
 
-  return <Animated.View style={[styles.piece, style, animatedStyle]}>{children}</Animated.View>;
+  return (
+    <Animated.View style={[styles.piece, style, animatedStyle]}>
+      {children}
+    </Animated.View>
+  );
 }
 
 function Tile({ color }: { color: string }) {
@@ -59,39 +70,66 @@ function Tile({ color }: { color: string }) {
   );
 }
 
-export function HouseLoader() {
-  const colors = useTheme();
+/** The UI/UX house assembly, reused by the launch overlay. */
+export function BubbleHouseMark({ onComplete }: { onComplete?: () => void }) {
   const { reduceMotion } = useAccessibilityPreferences();
+  const color = BRAND_MARK_ON_DARK;
   const tileStyle = { width: 58 * SCALE, height: 52 * SCALE };
+  return (
+    <View style={styles.mark}>
+      <BouncyPiece
+        delay={0}
+        reduceMotion={reduceMotion}
+        style={[tileStyle, { left: 64 * SCALE, top: 139 * SCALE }]}
+      >
+        <Tile color={color} />
+      </BouncyPiece>
+      <BouncyPiece
+        delay={70}
+        reduceMotion={reduceMotion}
+        style={[tileStyle, { left: 134 * SCALE, top: 139 * SCALE }]}
+      >
+        <Tile color={color} />
+      </BouncyPiece>
+      <BouncyPiece
+        delay={140}
+        reduceMotion={reduceMotion}
+        style={[tileStyle, { left: 64 * SCALE, top: 198 * SCALE }]}
+      >
+        <Tile color={color} />
+      </BouncyPiece>
+      <BouncyPiece
+        delay={210}
+        reduceMotion={reduceMotion}
+        style={[tileStyle, { left: 134 * SCALE, top: 198 * SCALE }]}
+      >
+        <Tile color={color} />
+      </BouncyPiece>
+      <BouncyPiece
+        delay={390}
+        reduceMotion={reduceMotion}
+        onComplete={onComplete}
+        style={styles.roof}
+      >
+        <Svg width="100%" height="100%" viewBox="0 0 256 139">
+          <Path
+            d="M128 35c4.3 0 8.3 1.7 11.4 4.7l82.8 80.6c5.4 5.3 1.7 14.5-5.9 14.5H39.7c-7.6 0-11.3-9.2-5.9-14.5l82.8-80.6c3.1-3 7.1-4.7 11.4-4.7Z"
+            fill={color}
+          />
+        </Svg>
+      </BouncyPiece>
+    </View>
+  );
+}
 
+export function HouseLoader() {
   return (
     <View
       accessibilityRole="progressbar"
       accessibilityLabel="Loading your household"
-      style={[styles.screen, { backgroundColor: colors.background }]}
+      style={styles.screen}
     >
-      <View style={styles.mark}>
-        <BouncyPiece delay={0} reduceMotion={reduceMotion} style={[tileStyle, { left: 64 * SCALE, top: 139 * SCALE }]}>
-          <Tile color={colors.primary} />
-        </BouncyPiece>
-        <BouncyPiece delay={70} reduceMotion={reduceMotion} style={[tileStyle, { left: 134 * SCALE, top: 139 * SCALE }]}>
-          <Tile color={colors.primary} />
-        </BouncyPiece>
-        <BouncyPiece delay={140} reduceMotion={reduceMotion} style={[tileStyle, { left: 64 * SCALE, top: 198 * SCALE }]}>
-          <Tile color={colors.primary} />
-        </BouncyPiece>
-        <BouncyPiece delay={210} reduceMotion={reduceMotion} style={[tileStyle, { left: 134 * SCALE, top: 198 * SCALE }]}>
-          <Tile color={colors.primary} />
-        </BouncyPiece>
-        <BouncyPiece delay={390} reduceMotion={reduceMotion} style={styles.roof}>
-          <Svg width="100%" height="100%" viewBox="0 0 256 139">
-            <Path
-              d="M128 35c4.3 0 8.3 1.7 11.4 4.7l82.8 80.6c5.4 5.3 1.7 14.5-5.9 14.5H39.7c-7.6 0-11.3-9.2-5.9-14.5l82.8-80.6c3.1-3 7.1-4.7 11.4-4.7Z"
-              fill={colors.primary}
-            />
-          </Svg>
-        </BouncyPiece>
-      </View>
+      <BubbleHouseMark />
     </View>
   );
 }
@@ -99,6 +137,7 @@ export function HouseLoader() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
+    backgroundColor: BRAND_BASE_DARK,
     alignItems: "center",
     justifyContent: "center",
   },

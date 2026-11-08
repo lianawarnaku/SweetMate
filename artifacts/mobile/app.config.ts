@@ -16,8 +16,10 @@ type SplashOptions = {
   [key: string]: unknown;
 };
 
-// The splash image/sizing stay configured in app.json; only the backgrounds are
-// rewritten here, for both the light and dark launch screens.
+// app.json supplies an explicitly transparent launch image to avoid the native
+// app-icon fallback. The black native frame then matches the first JS frame
+// before its white house pieces animate in. Both native appearance modes must
+// use this same image and background.
 function withBrandSplash(plugins: ExpoConfig["plugins"]): ExpoConfig["plugins"] {
   const brandBackgrounds = (existing: SplashOptions): SplashOptions => ({
     ...existing,
