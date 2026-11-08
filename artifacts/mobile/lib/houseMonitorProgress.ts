@@ -30,7 +30,7 @@ export function houseMonitorGridSquares(totalChores: number): number {
 /**
  * Each completed chore fills one body square until the grid is full. Extra
  * chores fill the roof. When there are no extra chores, the roof becomes solid
- * only when all real chores are complete; unused padding squares stay empty.
+ * only when all real chores are complete; unused capacity never implies work.
  */
 export function getHouseMonitorProgress(
   totalChores: number,

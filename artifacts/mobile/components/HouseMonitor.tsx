@@ -1,12 +1,5 @@
 import { useFocusEffect } from "expo-router";
-import React, {
-  useCallback,
-  useEffect,
-  useId,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import React, { useCallback, useEffect, useId, useRef, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import Svg, { ClipPath, Defs, Polygon, Rect } from "react-native-svg";
 import Animated, {
@@ -154,7 +147,12 @@ export function HouseMonitor({
     completionPercentage: percentage,
     roofCompletionRatio,
   } = getHouseMonitorProgress(rawTotalChores, rawCompletedChores);
-  const gridSide = Math.sqrt(gridSquares);
+  // Small households have only real chore boxes, with no invisible padding
+  // that could make the roof look offset above a lone completed box.
+  const visibleSquares =
+    totalChores > 0 ? Math.min(totalChores, gridSquares) : gridSquares;
+  const gridSide = Math.ceil(Math.sqrt(visibleSquares));
+  const gridRows = Math.ceil(visibleSquares / gridSide);
   const roofClipId = `house-monitor-roof-${useId().replace(/:/g, "")}`;
   const restingFocus = totalChores > 0 ? 1 : 0.45;
   const [focusEpoch, setFocusEpoch] = useState(0);
@@ -177,16 +175,6 @@ export function HouseMonitor({
     gridSquares > previousGridRef.current,
   );
   const previousGrid = previousGridRef.current;
-
-  const squareColors = useMemo(
-    () => [
-      colors.primary,
-      mixThemeColors(colors.primary, colors.background, 0.16),
-      mixThemeColors(colors.primary, colors.foreground, 0.18),
-      mixThemeColors(colors.primary, colors.background, 0.3),
-    ],
-    [colors.background, colors.foreground, colors.primary],
-  );
 
   useFocusEffect(
     useCallback(() => {
@@ -280,7 +268,13 @@ export function HouseMonitor({
         accessibilityElementsHidden
         importantForAccessibility="no-hide-descendants"
       >
-        <Svg width={BODY_SIZE} height={ROOF_HEIGHT}>
+        <Svg
+          width={BODY_SIZE}
+          height={ROOF_HEIGHT}
+          viewBox={`0 0 ${BODY_SIZE} ${ROOF_HEIGHT}`}
+          preserveAspectRatio="xMidYMid meet"
+          style={styles.roof}
+        >
           <Defs>
             <ClipPath id={roofClipId}>
               <Polygon points={roofPoints} />
@@ -315,37 +309,47 @@ export function HouseMonitor({
           />
         </Svg>
         <View style={[styles.grid, { gap: GRID_GAP }]}>
-          {Array.from({ length: gridSquares }, (_, index) => {
-            const color = squareColors[index % squareColors.length];
-            const unused = index >= totalChores;
-            return (
-              <View
-                key={index}
-                style={{ width: squareSize, height: squareSize }}
-              >
-                <GridSquare
-                  color={color}
-                  emptyColor={faintThemeColor(
-                    color,
-                    colors.background,
-                    unused ? 0.04 : 0.1,
-                    reduceTransparency,
-                  )}
-                  emptyBorderColor={faintThemeColor(
-                    color,
-                    colors.background,
-                    unused ? 0.12 : 0.3,
-                    reduceTransparency,
-                  )}
-                  completed={index < filledSquares}
-                  reduceMotion={reduceMotion}
-                  focusEpoch={focusEpoch}
-                  delay={index * 24}
-                  animateNew={isLocalGridGrowth && index >= previousGrid}
-                />
-              </View>
-            );
-          })}
+          {Array.from({ length: gridRows }, (_, row) => (
+            <View key={row} style={[styles.gridRow, { gap: GRID_GAP }]}>
+              {Array.from(
+                { length: Math.min(gridSide, visibleSquares - row * gridSide) },
+                (_, column) => {
+                  const index = row * gridSide + column;
+                  return (
+                    <View
+                      key={index}
+                      style={{
+                        width: squareSize,
+                        height: squareSize,
+                        flexShrink: 0,
+                      }}
+                    >
+                      <GridSquare
+                        color={colors.primary}
+                        emptyColor={faintThemeColor(
+                          colors.primary,
+                          colors.background,
+                          totalChores === 0 ? 0.04 : 0.1,
+                          reduceTransparency,
+                        )}
+                        emptyBorderColor={faintThemeColor(
+                          colors.primary,
+                          colors.background,
+                          totalChores === 0 ? 0.12 : 0.3,
+                          reduceTransparency,
+                        )}
+                        completed={index < filledSquares}
+                        reduceMotion={reduceMotion}
+                        focusEpoch={focusEpoch}
+                        delay={index * 24}
+                        animateNew={isLocalGridGrowth && index >= previousGrid}
+                      />
+                    </View>
+                  );
+                },
+              )}
+            </View>
+          ))}
         </View>
       </Animated.View>
       <Text style={[styles.progress, { color: colors.foreground }]}>
@@ -360,14 +364,15 @@ export function HouseMonitor({
 
 const styles = StyleSheet.create({
   root: { alignItems: "center", minWidth: 140 },
-  monitor: { alignItems: "center" },
+  monitor: { width: BODY_SIZE, flexDirection: "column", alignItems: "center" },
+  roof: { alignSelf: "center", flexShrink: 0 },
   grid: {
     width: BODY_SIZE,
-    height: BODY_SIZE,
-    flexDirection: "row",
-    flexWrap: "wrap",
+    alignItems: "center",
+    flexDirection: "column",
     marginTop: 3,
   },
+  gridRow: { width: BODY_SIZE, flexDirection: "row", justifyContent: "center" },
   square: { flex: 1, borderRadius: 3, borderWidth: 1 },
   progress: {
     fontFamily: "Inter_700Bold",

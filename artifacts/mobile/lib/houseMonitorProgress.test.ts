@@ -113,7 +113,7 @@ const padded = getHouseMonitorProgress(1, 1);
 assert.equal(
   padded.unusedSquares,
   3,
-  "minimum grid padding is separate from unfinished task boxes",
+  "unused grid capacity is separate from unfinished task boxes",
 );
 assert.equal(padded.incompleteSquares, 0);
 assert.equal(
