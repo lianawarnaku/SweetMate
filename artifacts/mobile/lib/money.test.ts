@@ -100,8 +100,5 @@ assert(
     expenseScreen.includes("amountCents: allocationValidation.totalCents"),
   "Custom IOU must expose and persist structured exact-cent allocations",
 );
-assert(
-  expenseScreen.includes("submittingIouRef.current") &&
-    expenseScreen.includes("if (!await updateExpense(editingExpenseId, payload))"),
-  "repeated saves and failed edits must not create parallel IOUs",
-);
+// Save deduplication, acknowledgement and captured edit versions are exercised
+// with the actual callbacks in expenseUi.test.ts and expenseMutations.test.ts.

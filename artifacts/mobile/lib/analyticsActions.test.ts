@@ -3,6 +3,8 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { runInNewContext } from "node:vm";
 import ts from "typescript";
+import { expenseRemainingCents } from "./expensePolicy.ts";
+import { normalizeExpenseDate } from "./expenseDate.ts";
 import { setShoppingCompletion } from "./shoppingCompletion.ts";
 
 // Run actual AppContext callbacks with local state/vendor substitutes.
@@ -38,7 +40,7 @@ function findAcknowledgement(node: ts.Node) {
 findAcknowledgement(hookParsed);
 assert(acknowledgement);
 const ackExports: { ack?: (...args: any[]) => void } = {};
-runInNewContext(ts.transpileModule(`exports.ack = ${acknowledgement.getText(hookParsed)}`, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, { exports: ackExports, track, scopeRef: { current: "test" }, scope: "test" });
+runInNewContext(ts.transpileModule(`exports.ack = ${acknowledgement.getText(hookParsed)}`, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, { exports: ackExports, track, scopeRef: { current: "test" }, scope: "test", effectActive: true, loadActivity: async () => {} });
 const expense = { id: "expense", paidBy: "payer", settled: false, splits: { payer: 2, a: 2, b: 2 }, version: 1 };
 const expensesRef: { current: any[] } = { current: [expense] };
 let rejectWrite = false;
@@ -53,7 +55,7 @@ const mutateExpense = async (action: string, id: string) => {
   ackExports.ack!({ action }, result);
   return result;
 };
-const markA = callback("markPersonPaid", { expensesRef, currentUserId: "a", mutateExpense });
+const markA = callback("markPersonPaid", { expensesRef, currentUserId: "a", mutateExpense, expenseRemainingCents, normalizeExpenseDate });
 await assert.rejects(() => markA("expense", "payer"), /own repayment/);
 assert.equal(await markA("missing", "a").catch(() => false), false);
 rejectWrite = true;
@@ -64,7 +66,7 @@ assert.equal(await markA("expense", "a"), true);
 assert.equal(await markA("expense", "a"), false);
 assert.deepEqual(names(), ["expenseRepaymentRecorded"]);
 assert.equal(events[0].properties?.settles_expense, false);
-const markB = callback("markPersonPaid", { expensesRef, currentUserId: "b", mutateExpense });
+const markB = callback("markPersonPaid", { expensesRef, currentUserId: "b", mutateExpense, expenseRemainingCents, normalizeExpenseDate });
 assert.equal(await markB("expense", "b"), true);
 assert.deepEqual(names(), ["expenseRepaymentRecorded", "expenseRepaymentRecorded", "iouSettled"]);
 assert.equal(events[2].properties?.source, "repayment");

@@ -3,7 +3,20 @@ import type { StoredExpenseAllocation } from "./money.ts";
 import { normalizeExpenseDate } from "./expenseDate.ts";
 
 type ExpenseActorFields = Pick<Expense, "paidBy" | "creatorId">;
-type ExpenseShares = Pick<Expense, "paidBy" | "splits" | "allocations" | "paidBack" | "settled">;
+/** Read-side compatibility accepts older records with only dollar/boolean shares. */
+export interface ExpenseBalanceFields {
+  paidBy: string;
+  splits?: Record<string, number> | null;
+  allocations?: readonly StoredExpenseAllocation[] | null;
+  paidBack?: Record<string, boolean> | null;
+  repaymentCents?: Record<string, number> | null;
+  repayments?: readonly unknown[] | null;
+  financialHistory?: boolean;
+  settled?: boolean;
+  manuallySettled?: boolean;
+  voidedAt?: string | null;
+}
+type ExpenseShares = Pick<ExpenseBalanceFields, "splits" | "allocations">;
 
 /** Legacy expenses without a creator belong to their recorded payer. */
 export function canEditExpense(expense: ExpenseActorFields, actorId: string): boolean {
@@ -18,9 +31,13 @@ export function canManageExpense(
   return Boolean(actorId) && (isHost || expense.paidBy === actorId || canEditExpense(expense, actorId));
 }
 
-/** Any recorded payment locks financial edits, including inconsistent legacy flags. */
-export function hasExpensePayments(expense: Pick<Expense, "settled" | "paidBack">): boolean {
-  return expense.settled === true || Object.values(expense.paidBack ?? {}).some((paid) => paid === true);
+/** Reversing repayments must not erase the fact that money was previously recorded. */
+export function hasExpensePayments(expense: Pick<ExpenseBalanceFields, "settled" | "manuallySettled" | "paidBack" | "repaymentCents" | "repayments" | "financialHistory" | "voidedAt">): boolean {
+  return expense.financialHistory === true || Boolean(expense.voidedAt) ||
+    expense.settled === true || expense.manuallySettled === true ||
+    (expense.repayments?.length ?? 0) > 0 ||
+    Object.values(expense.repaymentCents ?? {}).some((cents) => Number.isSafeInteger(cents) && cents > 0) ||
+    Object.values(expense.paidBack ?? {}).some((paid) => paid === true);
 }
 
 function dollarCents(value: number, label: string): number {
@@ -33,8 +50,8 @@ function dollarCents(value: number, label: string): number {
   return cents;
 }
 
-function allocationEntries(expense: Pick<Expense, "splits" | "allocations">): StoredExpenseAllocation[] {
-  if (expense.allocations !== undefined) return expense.allocations.map((allocation) => ({ ...allocation }));
+function allocationEntries(expense: ExpenseShares): StoredExpenseAllocation[] {
+  if (expense.allocations != null) return expense.allocations.map((allocation) => ({ ...allocation }));
   return Object.entries(expense.splits ?? {}).map(([participantId, amount]) => ({
     participantId,
     amountCents: dollarCents(amount, "A participant's share"),
@@ -43,10 +60,10 @@ function allocationEntries(expense: Pick<Expense, "splits" | "allocations">): St
 
 /** Use cent allocations whenever available; dollar splits are a legacy fallback. */
 export function expenseShareCents(
-  expense: Pick<Expense, "splits" | "allocations">,
+  expense: ExpenseShares,
   participantId: string,
 ): number {
-  if (expense.allocations !== undefined) {
+  if (expense.allocations != null) {
     const cents = expense.allocations.find((allocation) => allocation.participantId === participantId)?.amountCents ?? 0;
     return Number.isSafeInteger(cents) && cents > 0 ? cents : 0;
   }
@@ -56,13 +73,31 @@ export function expenseShareCents(
   return Number.isSafeInteger(cents) && cents > 0 ? cents : 0;
 }
 
-export function allExpenseSharesPaid(expense: ExpenseShares): boolean {
-  const participants = expense.allocations !== undefined
+/** Recorded amounts are not transfers. The server's cent totals supersede legacy flags. */
+export function expensePaidCents(expense: ExpenseBalanceFields, participantId: string): number {
+  if (participantId === expense.paidBy) return 0;
+  if (expense.repaymentCents != null) {
+    const cents = expense.repaymentCents[participantId] ?? 0;
+    return Number.isSafeInteger(cents) && cents > 0 ? cents : 0;
+  }
+  return expense.paidBack?.[participantId] === true ? expenseShareCents(expense, participantId) : 0;
+}
+
+/** Raw repayment remainder, retained after a manual settlement/void for corrections. */
+export function expenseRemainingCents(expense: ExpenseBalanceFields, participantId: string): number {
+  return participantId === expense.paidBy ? 0 : Math.max(0, expenseShareCents(expense, participantId) - expensePaidCents(expense, participantId));
+}
+
+/** Current debt excludes manually settled and voided expenses. */
+export function expenseOutstandingCents(expense: ExpenseBalanceFields, participantId: string): number {
+  return expense.settled || expense.voidedAt ? 0 : expenseRemainingCents(expense, participantId);
+}
+
+export function allExpenseSharesPaid(expense: ExpenseBalanceFields): boolean {
+  const participants = expense.allocations != null
     ? expense.allocations.map((allocation) => allocation.participantId)
     : Object.keys(expense.splits ?? {});
-  return participants.every((id) =>
-    id === expense.paidBy || expenseShareCents(expense, id) === 0 || expense.paidBack?.[id] === true,
-  );
+  return participants.every((id) => expenseRemainingCents(expense, id) === 0);
 }
 
 /** Validate once at the mutation boundary, with integer cents as the canonical money. */

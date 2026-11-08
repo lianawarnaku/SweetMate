@@ -32,3 +32,23 @@ assert.equal(summarizeMemberIous([{
   paidBy: "a", allocations: [{ participantId: "b", amountCents: 1.5 }, { participantId: "c", amountCents: NaN }],
 }], "a").hasOutstandingDebts, false, "invalid cent allocations do not poison the summary");
 console.log("IOU summary tests passed");
+
+const partlyRepaid: SummaryExpense[] = [
+  { paidBy: "a", allocations: [{ participantId: "a", amountCents: 400 }, { participantId: "b", amountCents: 601 }, { participantId: "c", amountCents: 0 }], repaymentCents: { b: 200 }, paidBack: { b: true } },
+  { paidBy: "b", allocations: [{ participantId: "a", amountCents: 501 }], repaymentCents: { a: 100 } },
+];
+assert.deepEqual(summarizeMemberIous(partlyRepaid, "a"), {
+  owedCents: 401, owingCents: 401, netCents: 0, hasOutstandingDebts: true,
+}, "partial debts can offset without being repaid or silently net-settled");
+assert.deepEqual(summarizeMemberIous(partlyRepaid, "b"), {
+  owedCents: 401, owingCents: 401, netCents: 0, hasOutstandingDebts: true,
+});
+const beforePartialSummary = JSON.stringify(partlyRepaid);
+summarizeMemberIous(partlyRepaid, "a");
+assert.equal(JSON.stringify(partlyRepaid), beforePartialSummary, "summaries never rewrite repayment history");
+assert.equal(summarizeMemberIous([{ ...partlyRepaid[0], voidedAt: "2026-11-09T12:00:00Z" }], "a").owedCents, 0);
+assert.equal(summarizeMemberIous([{ ...partlyRepaid[0], settled: true, manuallySettled: true }], "a").owedCents, 0);
+assert.equal(summarizeMemberIous([{ ...partlyRepaid[0], repaymentCents: {} }], "a").owedCents, 601, "an authoritative empty cent map supersedes old full-payment flags");
+assert.equal(summarizeMemberIous([{ ...partlyRepaid[0], repaymentCents: { b: 601 }, paidBack: {} }], "a").hasOutstandingDebts, false);
+assert.equal(summarizeMemberIous([{ ...partlyRepaid[0], repaymentCents: { b: 0 }, repayments: [{ reversedAt: "2026-11-09T12:00:00Z" }] }], "a").owedCents, 601, "reversed repayment cents restore the outstanding balance");
+console.log("IOU partial repayment and void summaries passed");

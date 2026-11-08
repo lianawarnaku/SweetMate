@@ -50,7 +50,10 @@ import { choreCompletionTransition } from "@/lib/choreCompletion";
 import { isActiveSweetMember, resolveChorePermissions } from "@/lib/chorePermissions";
 import { logChorePermissionCheck } from "@/lib/choreDiagnostics";
 import { useExpenseSync } from "@/hooks/useExpenseSync";
-import { allExpenseSharesPaid, canonicalExpense, canEditExpense as mayEditExpense, canManageExpense as mayManageExpense, expenseFinancialSignature, hasExpensePayments } from "@/lib/expensePolicy";
+import { normalizeExpenseDate } from "@/lib/expenseDate";
+import { summarizeMemberIous } from "@/lib/iouSummary";
+import type { ExpenseSyncStatus } from "@/hooks/useExpenseSync";
+import { allExpenseSharesPaid, expensePaidCents, expenseRemainingCents, expenseOutstandingCents, canonicalExpense, canEditExpense as mayEditExpense, canManageExpense as mayManageExpense, expenseFinancialSignature, hasExpensePayments } from "@/lib/expensePolicy";
 import { applyNormalizedEvent, planNormalizedSync, type NormalizedRow } from "@/lib/normalizedCollection";
 import {
   rowToShoppingItem,
@@ -195,6 +198,33 @@ export type ExpenseCategory =
 
 export type RecurringInterval = "daily" | "monthly" | "custom";
 
+export interface ExpenseRepayment {
+  id: string;
+  actorId: string;
+  amountCents: number;
+  date?: string;
+  recordedAt: string;
+  reversedAt?: string;
+  reversedBy?: string;
+  legacy?: boolean;
+}
+export interface ExpenseActivity {
+  id: string;
+  expenseId: string;
+  actorId: string | null;
+  action: string;
+  summary: string;
+  createdAt: string;
+  amountCents?: number;
+  paymentId?: string;
+}
+export interface RecoveredExpenseDraft {
+  operationId: string;
+  action: "create" | "update";
+  expenseId: string;
+  expense: Expense;
+  warning?: string;
+}
 export interface Expense {
   id: string;
   title: string;
@@ -219,6 +249,11 @@ export interface Expense {
   notes?: string;
   version?: number;
   manuallySettled?: boolean;
+  repaymentCents?: Record<string, number>;
+  repayments?: ExpenseRepayment[];
+  financialHistory?: boolean;
+  voidedAt?: string;
+  voidedBy?: string;
 }
 
 export interface ShoppingExpenseSource {
@@ -562,13 +597,18 @@ interface AppContextType {
   updateExpense: (id: string, updates: Partial<Omit<Expense, "id">>) => Promise<boolean>;
   settleExpense: (id: string) => Promise<boolean>;
   deleteExpense: (id: string) => Promise<boolean>;
+  restoreExpense: (id: string) => Promise<boolean>;
   reopenExpense: (id: string) => Promise<boolean>;
-  undoPersonPaid: (id: string) => Promise<boolean>;
-  expenseSync: { ready: boolean; pending: number; error: string | null; retry: () => Promise<void> };
+  undoPersonPaid: (id: string, paymentId?: string) => Promise<boolean>;
+  expenseSync: ExpenseSyncStatus;
+  expenseActivity: ExpenseActivity[];
+  expenseActivityLoading: boolean;
+  expenseActivityError: string | null;
+  loadExpenseActivity: (expenseId?: string) => Promise<void>;
   pendingExpenseIds: string[];
   canEditExpense: (expense: Expense) => boolean;
   canManageExpense: (expense: Expense) => boolean;
-  markPersonPaid: (expenseId: string, personId: string) => Promise<boolean>;
+  markPersonPaid: (expenseId: string, personId: string, amountCents?: number, date?: string) => Promise<boolean>;
   addShoppingList: (name: string, plannedDate?: string) => string;
   reorderShoppingLists: (newIds: string[]) => void;
   pinShoppingList: (id: string, pinned: boolean) => void;
@@ -996,7 +1036,7 @@ export function AppProvider({
     choreLocalDateKey(choreNow()),
   );
   const [recurrenceRefreshTick, setRecurrenceRefreshTick] = useState(0);
-  const { readyRef: expensesTableReadyRef, mutate: mutateExpense, expenseSync, pendingExpenseIds } = useExpenseSync({
+  const { readyRef: expensesTableReadyRef, mutate: mutateExpense, expenseSync, pendingExpenseIds, expenseActivity, expenseActivityLoading, expenseActivityError, loadExpenseActivity } = useExpenseSync({
     householdId,
     userId: session?.user.id,
     cloudReady,
@@ -2254,8 +2294,8 @@ export function AppProvider({
       }));
     expenses
       .filter((expense) =>
-        !expense.settled &&
-        (expense.paidBy === currentUserId || (expense.splits[currentUserId] ?? 0) > 0),
+        !expense.voidedAt && !expense.settled &&
+        (expenseOutstandingCents(expense, currentUserId) > 0 || (expense.paidBy === currentUserId && expense.sharedWith.some(id => expenseOutstandingCents(expense, id) > 0))),
       )
       .forEach((expense) => incoming.push({
         id: `expense:${expense.id}`,
@@ -3856,7 +3896,7 @@ export function AppProvider({
   const addExpense = useCallback(async (input: Omit<Expense, "id">, draftId?: string) => {
     if (!householdId || !session?.user.id) throw new Error("Your Sweet is still loading.");
     if (input.shoppingSource && input.shoppingSource.householdId !== householdId) throw new Error("This Shopping source belongs to a different Sweet.");
-    const expense = canonicalExpense({ ...input, id: draftId ?? makeId(), creatorId: currentUserId, paidBack: {}, settled: false }, new Set(roommates.map(member => member.id)));
+    const expense = canonicalExpense({ ...input, id: draftId ?? makeId(), creatorId: currentUserId, paidBack: {}, repaymentCents: {}, repayments: [], financialHistory: false, manuallySettled: false, voidedAt: undefined, voidedBy: undefined, settled: false }, new Set(roommates.map(member => member.id)));
     // Server owns identity metadata and timestamps. Keeping these out of the
     // payload also lets a repeated Send reuse a durable pending create command.
     const { id, creatorId: _creator, createdAt: _created, updatedAt: _updated, version: _version, resolvedAt: _resolved, ...payload } = expense;
@@ -3866,7 +3906,8 @@ export function AppProvider({
   }, [currentUserId, householdId, roommates, session?.user.id, mutateExpense]);
   const updateExpense = useCallback(async (id: string, updates: Partial<Omit<Expense, "id">>) => {
     const current = expensesRef.current.find(expense => expense.id === id);
-    if (!current || !canEditExpense(current)) throw new Error("You can’t edit this expense. It may have changed or been removed.");
+    if (!current || current.voidedAt || !canEditExpense(current)) throw new Error("You can’t edit this expense. It may have changed or been removed.");
+    if (updates.version !== undefined && updates.version !== current.version) throw new Error("This expense changed while you were editing. Close the form and reopen the latest details before saving.");
     const candidate = { ...current, ...updates };
     if (JSON.stringify(candidate.shoppingSource) !== JSON.stringify(current.shoppingSource)) throw new Error("The Shopping source cannot be changed after creating an IOU.");
     const financialChange = expenseFinancialSignature(current) !== expenseFinancialSignature(candidate);
@@ -3885,36 +3926,50 @@ export function AppProvider({
   }, [canEditExpense, householdId, roommates, mutateExpense]);
   const settleExpense = useCallback(async (id: string) => {
     const current = expensesRef.current.find(expense => expense.id === id);
-    if (!current || !canManageExpense(current)) throw new Error("You can’t settle this expense. It may have changed or been removed.");
+    if (!current || current.voidedAt || !canManageExpense(current)) throw new Error("You can’t settle this expense. It may have changed or been removed.");
     if (current.settled) return false;
     await mutateExpense("settle", id, {}, current.version ?? null);
     return true;
   }, [canManageExpense, mutateExpense]);
   const deleteExpense = useCallback(async (id: string) => {
     const current = expensesRef.current.find(expense => expense.id === id);
-    if (!current || !canManageExpense(current)) throw new Error("You can’t delete this expense. It may have changed or been removed.");
+    if (!current || !canManageExpense(current)) throw new Error("You can’t void this expense. It may have changed or been removed.");
+    if (current.voidedAt) return false;
     await mutateExpense("delete", id, {}, current.version ?? null);
     return true;
   }, [canManageExpense, mutateExpense]);
-  const markPersonPaid = useCallback(async (expenseId: string, personId: string) => {
+  const restoreExpense = useCallback(async (id: string) => {
+    const current = expensesRef.current.find(expense => expense.id === id);
+    if (!current || !canManageExpense(current)) throw new Error("You can’t restore this expense.");
+    if (!current.voidedAt) return false;
+    await mutateExpense("restore", id, {}, current.version ?? null);
+    return true;
+  }, [canManageExpense, mutateExpense]);
+  const markPersonPaid = useCallback(async (expenseId: string, personId: string, amountCents?: number, date?: string) => {
     const current = expensesRef.current.find(expense => expense.id === expenseId);
     if (!current || personId !== currentUserId) throw new Error("You can record only your own repayment.");
-    if (current.settled || current.paidBack?.[personId] || personId === current.paidBy || (current.splits[personId] ?? 0) <= 0) return false;
-    await mutateExpense("repay", expenseId);
+    if (current.voidedAt || current.settled || expenseRemainingCents(current, personId) <= 0) return false;
+    const amount = amountCents ?? expenseRemainingCents(current, personId);
+    if (!Number.isSafeInteger(amount) || amount <= 0 || amount > expenseRemainingCents(current, personId)) throw new Error("Enter a positive repayment no larger than your remaining share.");
+    if (date !== undefined && (normalizeExpenseDate(date) !== date)) throw new Error("Enter the repayment date as YYYY-MM-DD.");
+    await mutateExpense("repay", expenseId, { amountCents: amount, ...(date ? { date } : {}) });
     return true;
   }, [currentUserId, mutateExpense]);
   const reopenExpense = useCallback(async (id: string) => {
     const current = expensesRef.current.find(expense => expense.id === id);
-    if (!current || !canManageExpense(current)) throw new Error("You can’t reopen this expense.");
+    if (!current || current.voidedAt || !canManageExpense(current)) throw new Error("You can’t reopen this expense.");
     if (!current.manuallySettled) return false;
     await mutateExpense("reopen", id, {}, current.version ?? null);
     return true;
   }, [canManageExpense, mutateExpense]);
-  const undoPersonPaid = useCallback(async (id: string) => {
+  const undoPersonPaid = useCallback(async (id: string, paymentId?: string) => {
     const current = expensesRef.current.find(expense => expense.id === id);
-    if (!current || !current.paidBack?.[currentUserId]) return false;
+    if (!current || current.voidedAt || expensePaidCents(current, currentUserId) <= 0) return false;
     if (current.manuallySettled) throw new Error("This IOU was settled in full. Ask its payer, creator, or host to reopen it before correcting your repayment.");
-    await mutateExpense("undo_repay", id);
+    const selectedPaymentId = paymentId ?? current.repayments?.filter(payment => payment.actorId === currentUserId && !payment.reversedAt).sort((left, right) => right.recordedAt.localeCompare(left.recordedAt) || right.id.localeCompare(left.id))[0]?.id;
+    if (!selectedPaymentId) throw new Error("Refresh your repayment records before choosing one to reverse.");
+    if (!current.repayments?.some(payment => payment.id === selectedPaymentId && payment.actorId === currentUserId && !payment.reversedAt)) throw new Error("Only one of your own recorded repayments can be reversed.");
+    await mutateExpense("undo_repay", id, { paymentId: selectedPaymentId });
     return true;
   }, [currentUserId, mutateExpense]);
 
@@ -4832,22 +4887,9 @@ export function AppProvider({
   );
 
   const getBalances = useCallback((): Record<string, number> => {
-    const balanceCents: Record<string, number> = {};
-    roommates.forEach((r) => (balanceCents[r.id] = 0));
-    expenses
-      .filter((e) => !e.settled)
-      .forEach((e) => {
-        Object.entries(e.splits ?? {}).forEach(([personId, amount]) => {
-          if (personId !== e.paidBy && !(e.paidBack ?? {})[personId]) {
-            const cents = Math.round((amount as number) * 100);
-            balanceCents[personId] = (balanceCents[personId] ?? 0) - cents;
-            balanceCents[e.paidBy] = (balanceCents[e.paidBy] ?? 0) + cents;
-          }
-        });
-      });
-    return Object.fromEntries(
-      Object.entries(balanceCents).map(([memberId, cents]) => [memberId, cents / 100]),
-    );
+    const ids = new Set(roommates.map(member => member.id));
+    expenses.forEach(expense => { ids.add(expense.paidBy); expense.sharedWith.forEach(id => ids.add(id)); });
+    return Object.fromEntries([...ids].map(id => [id, summarizeMemberIous(expenses, id).netCents / 100]));
   }, [expenses, roommates]);
 
   // AppProvider also owns synchronization-only state (hydration flags,
@@ -4957,6 +4999,11 @@ export function AppProvider({
     updateExpense,
     settleExpense,
     deleteExpense,
+    restoreExpense,
+    expenseActivity,
+    expenseActivityLoading,
+    expenseActivityError,
+    loadExpenseActivity,
     canEditExpense,
     canManageExpense,
     markPersonPaid,
@@ -5028,7 +5075,7 @@ export function AppProvider({
     deleteHousehold, removeRoommate, deleteOwnAccount, currentUserId,
     setCurrentUser, roommates, chores, householdChoreSummary, expenses, shoppingLists, shoppingItems,
     visibleBorrowItems, nudges, nudgesReady, addChore, updateChore, addChores, setChoreCompleted, completeChore, pickUpChore, deleteChore,
-    addExpense, updateExpense, settleExpense, deleteExpense, canEditExpense, canManageExpense, markPersonPaid, reopenExpense, undoPersonPaid, expenseSync, pendingExpenseIds,
+    addExpense, updateExpense, settleExpense, deleteExpense, restoreExpense, expenseActivity, expenseActivityLoading, expenseActivityError, loadExpenseActivity, canEditExpense, canManageExpense, markPersonPaid, reopenExpense, undoPersonPaid, expenseSync, pendingExpenseIds,
     addShoppingList, reorderShoppingLists, pinShoppingList, deleteShoppingList,
     addShoppingItem, addSelectedEssentialsToShopping, toggleShoppingItem, setShoppingItemCompleted, deleteShoppingItem,
     reorderShoppingItems, assignShoppingList, assignShoppingItem,

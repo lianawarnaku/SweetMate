@@ -93,3 +93,19 @@ const expenses = deriveCalendarItems({
 }, new Date(2026, 6, 27), new Date(2026, 7, 5));
 assert(expenses.length === 1 && expenses[0].completed === true && expenses[0].isRecurring === false,
   "only the saved expense may appear; legacy recurrence must not fabricate unpaid occurrences");
+
+const partialAndVoid = deriveCalendarItems({
+  chores: [], shoppingItems: [], shoppingLists: [], roommates: members,
+  currentUserId: "a", householdId: "home-a",
+  expenses: [
+    { id: "partial", title: "Part paid", date: "2026-07-27", category: "other", amount: 999, amountCents: 601,
+      paidBy: "a", sharedWith: ["b"], splits: { b: 6.01 }, allocations: [{ participantId: "b", amountCents: 601 }],
+      repaymentCents: { b: 200 }, settled: false, recurring: "monthly" },
+    { id: "voided", title: "Voided", date: "2026-07-27", category: "other", amount: 50, amountCents: 5000,
+      paidBy: "a", sharedWith: ["b"], splits: { b: 50 }, settled: false, voidedAt: "2026-07-28T12:00:00Z" },
+  ],
+}, new Date(2026, 6, 27), new Date(2026, 8, 5));
+assert(partialAndVoid.length === 1 && partialAndVoid[0].sourceId === "partial", "voided expenses are retained in history but do not appear on the live calendar");
+assert(partialAndVoid[0].amountCents === 601, "calendar amounts use authoritative cents rather than stale dollar aliases");
+assert(partialAndVoid[0].completed === false, "a partial repayment does not mark the whole expense completed");
+assert(partialAndVoid[0].isRecurring === false, "partial repayment records never create projected expense occurrences");

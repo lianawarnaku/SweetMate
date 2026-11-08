@@ -1,15 +1,29 @@
 import type { ExpenseRow } from "./expenseRow.ts";
 
-export type ExpenseAction = "create" | "update" | "repay" | "settle" | "delete" | "reopen" | "undo_repay";
+export type ExpenseAction = "create" | "update" | "repay" | "settle" | "delete" | "reopen" | "undo_repay" | "restore";
 export type ExpenseOperation = {
   operationId: string;
   action: ExpenseAction;
   expenseId: string;
   payload: Record<string, unknown>;
   expectedVersion: number | null;
+  createdAt?: string;
 };
 export type ExpenseMutationResult = { expense: ExpenseRow | null; deleted: boolean; id: string };
-export type ExpenseSyncState = { ready: boolean; pending: number; pendingIds: string[]; error: string | null };
+export type ExpenseRequestSummary = ExpenseOperation & {
+  title: string;
+  amountCents?: number;
+  status: "pending" | "failed";
+  error?: string;
+  createdAt: string;
+};
+type FailedExpenseOperation = ExpenseOperation & { error: string; failedAt: string };
+export type ExpenseSyncState = {
+  ready: boolean; pending: number; pendingIds: string[]; error: string | null;
+  refreshing: boolean; lastSyncedAt: string | null; stale: boolean;
+  requests: ExpenseRequestSummary[];
+};
+function jsonCopy<T>(value: T): T { return JSON.parse(JSON.stringify(value)) as T; }
 type Storage = { getItem(key: string): Promise<string | null>; setItem(key: string, value: string): Promise<void> };
 export class ExpensePendingError extends Error {
   constructor() { super("Saved on this device, but not sent yet. Use Retry in Expenses when you’re connected. Don’t enter it again."); }
@@ -42,6 +56,10 @@ type ExpenseSyncOptions = {
  */
 export class ExpenseSync {
   private operations: ExpenseOperation[] = [];
+  private failedOperations: FailedExpenseOperation[] = [];
+  private refreshing = false;
+  private lastSyncedAt: string | null = null;
+  private stale = true;
   private rows = new Map<string, ExpenseRow>();
   private changes = new Map<string, { sequence: number; row: ExpenseRow | null }>();
   private sequence = 0;
@@ -58,7 +76,18 @@ export class ExpenseSync {
   constructor(options: ExpenseSyncOptions) { this.options = options; }
   get storageKey() { return `sweetmate:expenses:outbox:v1:${this.options.userId}:${this.options.householdId}`; }
   get state(): ExpenseSyncState {
-    return { ready: this.ready, pending: this.operations.length, pendingIds: [...new Set(this.operations.map(op => op.expenseId))], error: this.error };
+    const summary = (op: ExpenseOperation, status: "pending" | "failed", error?: string): ExpenseRequestSummary => ({
+      ...op, payload: jsonCopy(op.payload), status, error,
+      title: typeof op.payload.title === "string" ? op.payload.title : this.rows.get(op.expenseId)?.entry.title ?? "Expense",
+      amountCents: typeof op.payload.amountCents === "number" ? op.payload.amountCents
+        : op.action === "undo_repay" ? this.rows.get(op.expenseId)?.entry.repayments?.find(payment => payment.id === op.payload.paymentId)?.amountCents
+        : op.action === "repay" ? undefined : this.rows.get(op.expenseId)?.amount_cents,
+      createdAt: op.createdAt ?? "",
+    });
+    return { ready: this.ready, pending: this.operations.length, pendingIds: [...new Set(this.operations.map(op => op.expenseId))], error: this.error,
+      refreshing: this.refreshing, lastSyncedAt: this.lastSyncedAt, stale: this.stale,
+      requests: [...this.operations.map(op => summary(op, "pending")), ...this.failedOperations.map(op => summary(op, "failed", op.error))],
+    };
   }
   private publish() {
     if (!this.active) return;
@@ -71,7 +100,7 @@ export class ExpenseSync {
     return result;
   }
   private async persist() {
-    await this.options.storage.setItem(this.storageKey, JSON.stringify({ version: 1, operations: this.operations, rejection: this.rejection }));
+    await this.options.storage.setItem(this.storageKey, JSON.stringify({ version: 1, operations: this.operations, failedOperations: this.failedOperations, rejection: this.rejection }));
   }
   async initialize() {
     await this.serial(async () => {
@@ -81,9 +110,13 @@ export class ExpenseSync {
       if (raw) {
         const stored = JSON.parse(raw);
         if (stored.version !== 1 || !Array.isArray(stored.operations) || stored.operations.some((op: ExpenseOperation) =>
-          !op || typeof op.operationId !== "string" || typeof op.expenseId !== "string" || !["create", "update", "repay", "settle", "delete", "reopen", "undo_repay"].includes(op.action) || !op.payload || typeof op.payload !== "object"
+          !op || typeof op.operationId !== "string" || typeof op.expenseId !== "string" || !["create", "update", "repay", "settle", "delete", "reopen", "undo_repay", "restore"].includes(op.action) || !op.payload || typeof op.payload !== "object"
         )) throw new Error("Your saved expense requests could not be read. They have been kept on this device.");
         this.operations = stored.operations;
+        if (stored.failedOperations !== undefined && (!Array.isArray(stored.failedOperations) || stored.failedOperations.some((op: FailedExpenseOperation) =>
+          !op || typeof op.operationId !== "string" || typeof op.expenseId !== "string" || typeof op.error !== "string" || !op.payload || typeof op.payload !== "object"
+        ))) throw new Error("Your saved expense drafts could not be read. They have been kept on this device.");
+        this.failedOperations = stored.failedOperations ?? [];
         this.rejection = typeof stored.rejection === "string" ? stored.rejection : null;
         this.error = this.rejection;
       }
@@ -97,6 +130,8 @@ export class ExpenseSync {
     if (!this.active || !this.initialized) return;
     const refresh = ++this.refreshNumber;
     const atSequence = this.sequence;
+    this.refreshing = true;
+    this.publish();
     try {
       const incoming = await this.options.fetch();
       if (!this.active || refresh !== this.refreshNumber) return;
@@ -108,10 +143,14 @@ export class ExpenseSync {
       }
       this.rows = next;
       this.ready = true;
+      this.stale = false;
+      this.lastSyncedAt = new Date().toISOString();
       if (!this.operations.length) this.error = this.rejection;
       this.publish();
     } catch (error) {
-      if (this.active) { this.error = `Expenses couldn’t refresh. ${errorMessage(error)}`; this.publish(); }
+      if (this.active && refresh === this.refreshNumber) { this.stale = true; this.error = `Expenses couldn’t refresh. ${errorMessage(error)}`; this.publish(); }
+    } finally {
+      if (this.active && refresh === this.refreshNumber) { this.refreshing = false; this.publish(); }
     }
   }
   receive(row: ExpenseRow | { id: string; household_id?: string }, deleted = false) {
@@ -130,11 +169,11 @@ export class ExpenseSync {
       if (!this.active) throw new Error("Your Sweet changed. Open the expense again.");
       if (!this.initialized || !this.ready) throw new Error("Expenses are still loading. Please try again when they finish.");
       const matching = this.operations.find(op => op.action === action &&
-        (action === "create" ? JSON.stringify(op.payload) === JSON.stringify(payload) : op.expenseId === expenseId && JSON.stringify(op.payload) === JSON.stringify(payload)));
+        (op.expenseId === expenseId && JSON.stringify(op.payload) === JSON.stringify(payload)));
       if (!matching && this.operations.some(op => op.expenseId === expenseId)) throw new Error("This expense already has a request waiting to sync. Retry that request first.");
-      const operation = matching ?? { operationId: this.options.makeOperationId(), action, expenseId, payload, expectedVersion };
+      const operation = matching ?? { operationId: this.options.makeOperationId(), action, expenseId, payload: jsonCopy(payload), expectedVersion, createdAt: new Date().toISOString() };
       if (!matching) {
-        this.rejection = null;
+        this.rejection = this.failedOperations.at(-1)?.error ?? null;
         this.operations.push(operation);
         try { await this.persist(); }
         catch { this.operations = this.operations.filter(op => op !== operation); throw new Error("This request couldn’t be saved on your device. Please try again."); }
@@ -162,9 +201,13 @@ export class ExpenseSync {
         if (result.deleted) this.receive({ id: result.id, household_id: this.options.householdId }, true);
         else if (result.expense) this.receive(result.expense);
         const before = this.operations;
+        const previousFailed = this.failedOperations;
+        const previousRejection = this.rejection;
         this.operations = this.operations.filter(op => op.operationId !== operation.operationId);
+        this.failedOperations = this.failedOperations.filter(op => op.expenseId !== operation.expenseId || op.action !== operation.action);
+        this.rejection = this.failedOperations.at(-1)?.error ?? null;
         try { await this.persist(); }
-        catch (error) { this.operations = before; throw error; } // Keep receipt replayable if local acknowledgement fails.
+        catch (error) { this.operations = before; this.failedOperations = previousFailed; this.rejection = previousRejection; throw error; } // Keep receipt replayable if local acknowledgement fails.
         if (!this.active) return;
         this.outcomes.set(operation.operationId, result);
         if (this.outcomes.size > 100) this.outcomes.delete(this.outcomes.keys().next().value!);
@@ -179,10 +222,12 @@ export class ExpenseSync {
         }
         const rejection = new Error(errorMessage(error));
         const before = this.operations;
+        const previousFailed = this.failedOperations;
+        this.failedOperations = [...this.failedOperations.filter(op => op.operationId !== operation.operationId), { ...operation, error: rejection.message, failedAt: new Date().toISOString() }];
         this.rejection = rejection.message;
         this.operations = this.operations.filter(op => op.operationId !== operation.operationId);
         try { await this.persist(); }
-        catch { this.operations = before; this.error = "The server rejected a request, but its local status couldn’t be saved. Retry to check it again."; this.publish(); return; }
+        catch { this.operations = before; this.failedOperations = previousFailed; this.error = "The server rejected a request, but its local status couldn’t be saved. Retry to check it again."; this.publish(); return; }
         this.outcomes.set(operation.operationId, rejection);
         this.error = rejection.message;
         // A denied/stale command must not block independent expenses behind it.
@@ -197,6 +242,32 @@ export class ExpenseSync {
     if (!this.initialized) return this.initialize();
     await this.refresh();
     await this.serial(async () => { if (this.ready) { this.error = this.rejection; await this.flush(); } this.publish(); });
+  }
+  failedOperation(operationId: string): ExpenseOperation | null {
+    const operation = this.failedOperations.find(op => op.operationId === operationId);
+    if (!operation) return null;
+    if (this.operations.some(op => op.expenseId === operation.expenseId)) throw new Error("This expense still has a request waiting to sync. Check it before recovering a draft.");
+    return jsonCopy(operation);
+  }
+  currentExpense(id: string) { const value = this.rows.get(id); return value ? jsonCopy(value) : null; }
+  async dismissFailed(operationId: string) {
+    await this.serial(async () => {
+      if (!this.active) throw new Error("Your Sweet changed. Open Expenses again.");
+      if (this.operations.some(op => op.operationId === operationId)) throw new Error("This request may already have reached the server. Retry it to confirm its outcome before making another change.");
+      const before = this.failedOperations;
+      this.failedOperations = this.failedOperations.filter(op => op.operationId !== operationId);
+      const previousRejection = this.rejection;
+      this.rejection = this.failedOperations.at(-1)?.error ?? null;
+      try { await this.persist(); } catch (error) { this.failedOperations = before; this.rejection = previousRejection; throw error; }
+      this.error = this.rejection;
+      this.publish();
+    });
+  }
+  connectionLost() {
+    if (!this.active) return;
+    this.stale = true;
+    this.error = this.error ?? "Couldn’t connect. Balances show the last saved update.";
+    this.publish();
   }
   dispose() { this.active = false; ++this.refreshNumber; }
 }

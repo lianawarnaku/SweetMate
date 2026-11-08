@@ -6,6 +6,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { runExpenseDatabaseTests, ids, operationId, expensePayload } from './test-database.mjs';
+import { runExpensePaymentsDatabaseTests } from './test-payments-database.mjs';
 const modules = process.argv[2];
 const { default: EmbeddedPostgres } = await import(modules ? `${modules}/embedded-postgres/dist/index.js` : 'embedded-postgres');
 const directory = await mkdtemp(join(tmpdir(),'sweetmate-expense-postgres-'));
@@ -17,7 +18,9 @@ const rpc = async (client,action,id,payload={},version=null,operation=operationI
 try {
   await postgres.initialise();await postgres.start();
   const admin=await connect();
-  await runExpenseDatabaseTests({exec:sql=>admin.query(sql),query:(sql,params)=>admin.query(sql,params)});
+  const database={exec:sql=>admin.query(sql),query:(sql,params)=>admin.query(sql,params)};
+  await runExpenseDatabaseTests(database);
+  await runExpensePaymentsDatabaseTests(database);
   const alice=await connect(ids.alice);const carol=await connect(ids.carol);const peerAlice=await connect(ids.alice);
   await rpc(alice,'create','concurrent-repay',expensePayload());
   await alice.query('begin');await rpc(alice,'repay','concurrent-repay');
@@ -77,7 +80,37 @@ try {
   await alice.query('select pg_sleep(0.15)');await alice.query('commit');await staleSettled;
   const protectedRecord=(await admin.query(`select entry from public.expenses where id='undo-race'`)).rows[0].entry;
   assert.deepEqual(protectedRecord.paidBack,{});assert.equal(protectedRecord.manuallySettled,false);
-  console.log('PASS: native PostgreSQL independent repayments, concurrent operation retries, unique shopping conversion, mixed legacy/RPC lock contention, stale settlement races and correction barriers under contention.');
+  // Same-person overlapping partial payments cannot overpay one share.
+  await rpc(alice,'create','partial-overpay-race',expensePayload());
+  await alice.query('begin');await rpc(alice,'repay','partial-overpay-race',{amountCents:60,date:'2026-01-02'});
+  const overpay=assert.rejects(rpc(peerAlice,'repay','partial-overpay-race',{amountCents:60}),/remaining share/);
+  await alice.query('select pg_sleep(0.15)');await alice.query('commit');await overpay;
+  const partial=(await admin.query(`select entry from public.expenses where id='partial-overpay-race'`)).rows[0].entry;
+  assert.equal(partial.repaymentCents[ids.alice],60);assert.equal(partial.repayments.length,1);
+  assert.equal((await admin.query(`select count(*)::int count from public.expense_activity where expense_id='partial-overpay-race' and action='repay'`)).rows[0].count,1,'failed concurrent overpayment adds no activity');
+
+  await rpc(alice,'create','partial-merge-race',expensePayload());
+  await alice.query('begin');await rpc(alice,'repay','partial-merge-race',{amountCents:30});
+  const mergedPartial=rpc(peerAlice,'repay','partial-merge-race',{amountCents:40});
+  await alice.query('select pg_sleep(0.15)');await alice.query('commit');
+  assert.equal((await mergedPartial).expense.entry.repaymentCents[ids.alice],70);
+
+  const paymentRetryOp=operationId();await rpc(alice,'create','partial-retry-race',expensePayload());
+  await alice.query('begin');await rpc(alice,'repay','partial-retry-race',{amountCents:25},null,paymentRetryOp);
+  const paymentRetry=rpc(peerAlice,'repay','partial-retry-race',{amountCents:25},null,paymentRetryOp);
+  await alice.query('select pg_sleep(0.15)');await alice.query('commit');
+  const retriedPayment=(await paymentRetry).expense;
+  assert.equal(retriedPayment.entry.repaymentCents[ids.alice],25);assert.equal(retriedPayment.entry.repayments.length,1);
+  assert.equal((await admin.query(`select count(*)::int count from public.expense_activity where expense_id='partial-retry-race' and action='repay'`)).rows[0].count,1,'one idempotent payment has one activity event');
+
+  const beforeReverse=(await rpc(alice,'repay','partial-retry-race',{amountCents:25})).expense;
+  await alice.query('begin');await rpc(alice,'undo_repay','partial-retry-race');
+  const staleVoid=assert.rejects(rpc(peerAlice,'delete','partial-retry-race',{},beforeReverse.version),/changed/);
+  await alice.query('select pg_sleep(0.15)');await alice.query('commit');await staleVoid;
+  const afterReverse=(await admin.query(`select entry from public.expenses where id='partial-retry-race'`)).rows[0].entry;
+  assert.equal(afterReverse.voidedAt,undefined);assert.equal(afterReverse.repaymentCents[ids.alice],25);
+  console.log('PASS: native PostgreSQL independent/partial repayments, overpayment serialization, payment/activity retries, unique shopping conversion, mixed legacy/RPC locks, stale versions, correction barriers and recoverable void races.');
+
 
 } finally {
   await Promise.allSettled(clients.map(client=>client.end()));await postgres.stop();await rm(directory,{recursive:true,force:true});

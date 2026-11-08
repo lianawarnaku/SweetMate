@@ -172,6 +172,7 @@ export function deriveCalendarItems(
   }
 
   for (const expense of sources.expenses) {
+    if (expense.voidedAt) continue;
     // The shared expense source has already applied household access rules.
     // A legacy recurrence label is metadata, not a separate repayable IOU.
     // Show only the actual saved record until expense series are implemented.
@@ -184,7 +185,7 @@ export function deriveCalendarItems(
         description: `${expense.settled ? "Settled" : "Unsettled"} · paid by ${roommateName.get(expense.paidBy) ?? "a Sweetmate"}`,
         date: localDateKey(date), isRecurring: false,
         completed: isStoredOccurrence ? expense.settled : false,
-        amountCents: Math.round(expense.amount * 100), payerId: expense.paidBy,
+        amountCents: expense.amountCents ?? Math.round(expense.amount * 100), payerId: expense.paidBy,
       });
     }
   }

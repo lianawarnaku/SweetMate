@@ -3,8 +3,10 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { runInNewContext } from "node:vm";
 import ts from "typescript";
-import { allocationsToDollarSplits, buildStoredExpenseAllocations, centsToDollars } from "./money.ts";
+import { allocationsToDollarSplits, buildStoredExpenseAllocations, centsToDollars, parseMoneyToCents } from "./money.ts";
 import { ExpensePendingError } from "./expenseSync.ts";
+import { expenseRemainingCents } from "./expensePolicy.ts";
+import { normalizeExpenseDate, formatExpenseDate } from "./expenseDate.ts";
 
 // These execute the screen's real callbacks with controlled state and writes.
 // They verify state transitions and native-modal wiring, not iPhone presentation or pixels.
@@ -31,7 +33,7 @@ function visit(node: ts.Node) {
   ts.forEachChild(node, visit);
 }
 visit(parsed);
-const callbackNames = ["openDetails", "closeDetails", "finishDetailDismiss", "requestExpenseAction", "performExpenseAction"] as const;
+const callbackNames = ["openDetails", "closeDetails", "finishDetailDismiss", "requestExpenseAction", "performExpenseAction", "recoverExpenseRequest", "dismissExpenseRequest"] as const;
 for (const name of callbackNames) assert(initializers.has(name), `the real ${name} callback must exist`);
 assert(beginEdit, "the real Details Edit handler must exist");
 const actualBeginEdit = beginEdit;
@@ -49,9 +51,9 @@ inspectDetails(detailsModal);
 assert.equal(nestedModals, 1, "confirmation must not introduce another native Modal inside Details");
 assert(inlineConfirmation, "the same Details modal renders the selected expense's inline confirmation");
 
-type Action = "repay" | "undo" | "settle" | "reopen" | "delete";
-type Confirmation = { expenseId: string; action: Action; title: string; message: string; label: string };
-type ExpenseRecord = { id: string; title: string; version: number };
+type Action = "repay" | "undo" | "settle" | "reopen" | "void" | "restore";
+type Confirmation = { expenseId: string; action: Action; title: string; message: string; label: string; amount?: string; date?: string; paymentId?: string };
+type ExpenseRecord = { id: string; title: string; version: number; [key: string]: any };
 type Call = { action: Action; args: unknown[] };
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -60,14 +62,21 @@ function deferred<T>() {
   return { promise, resolve, reject };
 }
 function fixture() {
-  const original: ExpenseRecord = { id: "expense", title: "Dinner", version: 1 };
+  const original: ExpenseRecord = {
+    id: "expense", title: "Dinner", version: 1, amount: 30, amountCents: 3000,
+    paidBy: "payer", sharedWith: ["payer", "debtor"], splits: { payer: 10, debtor: 20 },
+    repaymentCents: { debtor: 500 }, settled: false, date: "2026-11-08", category: "other",
+    repayments: [{ id: "payment", actorId: "debtor", amountCents: 500, date: "2026-11-07", recordedAt: "2026-11-08T12:00:00Z" }],
+  };
   const calls: Call[] = [];
   const edits: ExpenseRecord[] = [];
+  const recoveredDrafts: any[] = [];
   const transitions: string[] = [];
   let write: () => Promise<boolean> = async () => true;
   let haptics = 0;
   const bindings: Record<string, any> = {
-    Error, Set,
+    Error, Set, centsToDollars, expenseRemainingCents, parseMoneyToCents, normalizeExpenseDate,
+    formatDate: formatExpenseDate, todayInputValue: () => "2026-11-08",
     detailExpenseId: null,
     detailVisible: false,
     detailConfirmation: null as Confirmation | null,
@@ -75,14 +84,18 @@ function fixture() {
     expenses: [original],
     detailExp: original,
     pendingEditRef: { current: null },
+    pendingRecoveryRef: { current: null },
+    requestBusyRef: { current: false }, requestBusy: false,
     runningExpenseIdsRef: { current: new Set<string>() },
     runningExpenseIds: new Set<string>(),
     pendingExpenseSet: new Set<string>(),
-    expenseSync: { ready: true },
+    expenseSync: { ready: true, recover: async () => null, dismissFailed: async () => {} },
     currentUserId: "debtor",
     setDetailExpenseId: (value: string | null) => { bindings.detailExpenseId = value; transitions.push(`selection:${value}`); },
     setDetailVisible: (value: boolean) => { bindings.detailVisible = value; transitions.push(`visible:${value}`); },
     setDetailConfirmation: (value: Confirmation | null) => { bindings.detailConfirmation = value; transitions.push(`confirmation:${value?.action ?? "none"}`); },
+    openRecoveredDraft: (draft: any) => { recoveredDrafts.push(draft); },
+    setRequestBusy: (busy: boolean) => { bindings.requestBusy = busy; },
     setActionError: (value: string | null) => { bindings.actionError = value; },
     setRunningExpenseIds: (value: Set<string>) => { bindings.runningExpenseIds = value; },
     openEditModal: (expense: ExpenseRecord) => { edits.push(expense); transitions.push("edit"); },
@@ -95,21 +108,21 @@ function fixture() {
   };
   for (const [name, action] of [
     ["markPersonPaid", "repay"], ["undoPersonPaid", "undo"], ["settleExpense", "settle"],
-    ["reopenExpense", "reopen"], ["deleteExpense", "delete"],
+    ["reopenExpense", "reopen"], ["deleteExpense", "void"], ["restoreExpense", "restore"],
   ] as const) bindings[name] = (...args: unknown[]) => { calls.push({ action, args }); return write(); };
   const exports: Record<string, (...args: any[]) => any> = {};
   bindings.exports = exports;
   const code = callbackNames.map(name => `const ${name} = ${initializers.get(name)!.getText(parsed)}; exports.${name} = ${name};`).join("\n") + `\nexports.beginEdit = ${actualBeginEdit.getText(parsed)};`;
   runInNewContext(ts.transpileModule(code, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, bindings);
   return {
-    bindings, original, calls, edits, transitions, callbacks: exports,
+    bindings, original, calls, edits, recoveredDrafts, transitions, callbacks: exports,
     set write(value: () => Promise<boolean>) { write = value; },
     get haptics() { return haptics; },
   };
 }
 
 // Every destructive/payment action asks in the currently selected Details surface.
-for (const action of ["repay", "undo", "settle", "reopen", "delete"] as const) {
+for (const action of ["repay", "undo", "settle", "reopen", "void", "restore"] as const) {
   const f = fixture();
   f.callbacks.openDetails(f.original.id);
   f.callbacks.requestExpenseAction(f.original, action);
@@ -124,7 +137,7 @@ for (const action of ["repay", "undo", "settle", "reopen", "delete"] as const) {
 }
 
 // Real acknowledgements gate success; the synchronous ref also blocks rapid duplicate presses.
-for (const action of ["repay", "undo", "settle", "reopen", "delete"] as const) {
+for (const action of ["repay", "undo", "settle", "reopen", "void", "restore"] as const) {
   const f = fixture();
   const acknowledgement = deferred<boolean>();
   f.write = () => acknowledgement.promise;
@@ -132,7 +145,7 @@ for (const action of ["repay", "undo", "settle", "reopen", "delete"] as const) {
   const pending = f.callbacks.performExpenseAction();
   assert.equal(f.calls.length, 1);
   assert.equal(f.calls[0].action, action);
-  assert.deepEqual(f.calls[0].args, action === "repay" ? ["expense", "debtor"] : ["expense"]);
+  assert.deepEqual(f.calls[0].args, action === "repay" ? ["expense", "debtor", 1500, "2026-11-08"] : action === "undo" ? ["expense", "payment"] : ["expense"]);
   assert.equal(f.bindings.runningExpenseIdsRef.current.has("expense"), true);
   assert.equal(f.bindings.runningExpenseIds.has("expense"), true);
   assert.equal(f.haptics, 0, "pressing Confirm is not a successful write");
@@ -146,8 +159,8 @@ for (const action of ["repay", "undo", "settle", "reopen", "delete"] as const) {
   assert.equal(f.bindings.actionError, null);
   assert.equal(f.bindings.runningExpenseIdsRef.current.size, 0);
   assert.equal(f.bindings.runningExpenseIds.size, 0);
-  assert.equal(f.bindings.detailVisible, action !== "delete");
-  assert.equal(f.bindings.detailExpenseId, "expense", "even a completed delete leaves modal selection for native dismissal cleanup");
+  assert.equal(f.bindings.detailVisible, true, "void retains Details so Restore is immediately reachable");
+  assert.equal(f.bindings.detailExpenseId, "expense", "successful writes retain their selected record");
 }
 
 // Failed, unavailable, loading and already-pending operations never report success.
@@ -203,6 +216,82 @@ for (const block of ["loading", "outbox", "running", "no-confirmation"] as const
   assert.equal(f.haptics, 1, "the row shortcut also waits for acknowledgement");
 }
 
+// Partial repayment is revalidated against the latest canonical remaining cents.
+{
+  const f = fixture();
+  f.callbacks.requestExpenseAction(f.original, "repay");
+  f.bindings.detailConfirmation.amount = "5.25";
+  f.bindings.detailConfirmation.date = "2026-11-06";
+  await f.callbacks.performExpenseAction();
+  assert.deepEqual(f.calls[0].args, ["expense", "debtor", 525, "2026-11-06"]);
+}
+for (const [amount, date] of [["0", "2026-11-08"], ["-1", "2026-11-08"], ["15.01", "2026-11-08"], ["1", "2026-02-30"], ["1.001", "2026-11-08"]]) {
+  const f = fixture();
+  f.callbacks.requestExpenseAction(f.original, "repay");
+  Object.assign(f.bindings.detailConfirmation, { amount, date });
+  await f.callbacks.performExpenseAction();
+  assert.equal(f.calls.length, 0, `invalid repayment ${amount}/${date} cannot write`);
+  assert.equal(f.haptics, 0);
+  assert.match(f.bindings.actionError, /positive repayment/);
+  assert.equal(f.bindings.runningExpenseIdsRef.current.size, 0);
+}
+{
+  const f = fixture();
+  f.callbacks.requestExpenseAction(f.original, "repay");
+  f.bindings.expenses = [{ ...f.original, repaymentCents: { debtor: 1900 } }];
+  await f.callbacks.performExpenseAction();
+  assert.equal(f.calls.length, 0, "a repayment cannot exceed a share reduced since the editor opened");
+}
+{
+  const f = fixture();
+  f.original.repayments.push({ id: "newest", actorId: "debtor", amountCents: 250, date: "2026-11-08", recordedAt: "2026-11-08T13:00:00Z" });
+  f.callbacks.requestExpenseAction(f.original, "undo", "payment");
+  assert.match(f.bindings.detailConfirmation.message, /\$5.00 recorded on Nov 7/);
+  await f.callbacks.performExpenseAction();
+  assert.deepEqual(f.calls[0].args, ["expense", "payment"], "specific reversal never targets the newer repayment");
+  f.callbacks.requestExpenseAction(f.original, "undo");
+  assert.equal(f.bindings.detailConfirmation.paymentId, "newest", "latest-own reversal freezes the exact selected repayment ID");
+  f.original.repayments[0].legacy = true;
+  f.callbacks.requestExpenseAction(f.original, "undo", "payment");
+  assert.match(f.bindings.detailConfirmation.message, /original payment date unavailable/);
+  assert.doesNotMatch(f.bindings.detailConfirmation.message, /recorded on Nov 7/);
+}
+
+// Recovery waits for authoritative checks; it cannot stack an editor on Details.
+{
+  const f = fixture();
+  const acknowledgement = deferred<any>();
+  let recoveries = 0;
+  f.bindings.expenseSync.recover = () => { recoveries++; return acknowledgement.promise; };
+  f.callbacks.openDetails("expense");
+  const pending = f.callbacks.recoverExpenseRequest("failed-operation");
+  assert.equal(f.bindings.requestBusy, true);
+  await f.callbacks.recoverExpenseRequest("failed-operation");
+  assert.equal(recoveries, 1);
+  assert.deepEqual(f.recoveredDrafts, []);
+  const recovered = { operationId: "failed-operation", action: "update", expenseId: "expense", expense: f.original };
+  acknowledgement.resolve(recovered);
+  await pending;
+  assert.equal(f.bindings.detailVisible, false);
+  assert.equal(f.bindings.pendingRecoveryRef.current, recovered);
+  assert.deepEqual(f.recoveredDrafts, [], "recovery editor waits for native dismissal");
+  f.callbacks.finishDetailDismiss();
+  assert.equal(f.recoveredDrafts[0], recovered);
+  assert.equal(f.bindings.requestBusy, false);
+}
+{
+  const f = fixture();
+  f.bindings.expenseSync.recover = async () => { throw new Error("This request is still waiting for confirmation."); };
+  await f.callbacks.recoverExpenseRequest("uncertain-operation");
+  assert.deepEqual(f.recoveredDrafts, []);
+  assert.match(f.bindings.actionError, /waiting for confirmation/);
+  assert.equal(f.bindings.requestBusyRef.current, false);
+  f.bindings.expenseSync.dismissFailed = async () => { throw new Error("Waiting requests cannot be dismissed."); };
+  await f.callbacks.dismissExpenseRequest("uncertain-operation");
+  assert.match(f.bindings.actionError, /cannot be dismissed/);
+  assert.equal(f.bindings.requestBusy, false);
+}
+
 // The Edit handler requests dismissal; only its native completion opens the editor.
 {
   const f = fixture();
@@ -244,6 +333,36 @@ for (const block of ["loading", "outbox", "running", "no-confirmation"] as const
   assert.deepEqual(f.edits, [], "ordinary closing cannot open an editor");
 }
 
+// Use the real editor/recovery population callbacks: recovery preserves the rejected
+// create identity, while edit captures the displayed version before realtime changes.
+{
+  const state: Record<string, any> = {};
+  const bindings: Record<string, any> = {
+    centsToDollars, normalizeExpenseDate, todayInputValue: () => "2026-11-08",
+    canEditExpense: () => true,
+    expenseShares: (expense: any) => expense.splits,
+    resetModal: () => { state.expenseDraftId = "new-random-id"; },
+  };
+  for (const field of ["editingExpenseId", "editingBaseVersion", "expTitle", "expCategory", "expPaidBy", "expTotalAmount", "expParticipants", "expSplits", "allocationMode", "expNotes", "expDate", "expenseSource", "iouSubmitError", "queuedIou", "showExpenseModal", "recoveryWarning", "expenseDraftId", "actionError"]) {
+    bindings[`set${field[0].toUpperCase()}${field.slice(1)}`] = (value: unknown) => { state[field] = value; };
+  }
+  const exports: Record<string, (...args: any[]) => void> = {};
+  runInNewContext(ts.transpileModule(
+    `const openEditModal = ${initializers.get("openEditModal")!.getText(parsed)}; exports.openEditModal = openEditModal; exports.openRecoveredDraft = ${initializers.get("openRecoveredDraft")!.getText(parsed)};`,
+    { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } },
+  ).outputText, Object.assign(bindings, { exports }));
+  const expense = { id: "rejected-id", title: "Dinner", amount: 30, amountCents: 3000, paidBy: "payer", sharedWith: ["debtor"], splits: { debtor: 30 }, category: "other", date: "2026-11-08", version: 9 };
+  exports.openRecoveredDraft({ operationId: "failed", expenseId: "rejected-id", action: "create", expense });
+  assert.equal(state.expenseDraftId, "rejected-id", "a recovered rejected create reuses its original safe idempotency identity");
+  assert.equal(state.expTotalAmount, "30.00");
+  assert.equal(state.showExpenseModal, true);
+  exports.openRecoveredDraft({ operationId: "failed-update", expenseId: "expense", action: "update", expense, warning: "Only descriptive fields were recovered." });
+  assert.equal(state.editingBaseVersion, 9, "a recovered update captures the refreshed record version");
+  assert.equal(state.recoveryWarning, "Only descriptive fields were recovered.");
+  expense.version = 10;
+  assert.equal(state.editingBaseVersion, 9, "a realtime change cannot silently move an already-open form's expected version");
+}
+
 // The actual form callback also waits for persistence and preserves the draft's
 // idempotency identity across retry instead of creating a second Shopping charge.
 assert(initializers.has("doSendIOU"));
@@ -260,7 +379,7 @@ function formFixture() {
     submittingIouRef: { current: false }, submittingIou: false,
     canSubmit: true, financialFieldsLocked: false,
     allocationValidation: { valid: true, totalCents: 601, allocationCents: { payer: 300, debtor: 301 } },
-    validExpenseDate: "2026-11-08", editingExpenseId: null, editingExpense: undefined,
+    validExpenseDate: "2026-11-08", editingExpenseId: null, editingExpense: undefined, editingBaseVersion: 7,
     expTitle: "  Groceries  ", expCategory: "groceries", expNotes: "  Receipt  ",
     expParticipants: ["payer", "debtor"], expPaidBy: "payer", allocationMode: "exact",
     expenseSource: undefined, enteredTotalCents: 601, expenseDraftId: "stable-draft-id",
@@ -334,7 +453,8 @@ function formFixture() {
   const pending = f.send();
   assert.equal(f.creates.length, 0);
   assert.equal(f.updates[0].id, "paid-expense");
-  assert.deepEqual(Object.keys(f.updates[0].payload).sort(), ["category", "notes", "title"], "paid descriptive edits preserve financial data, former participants and recurring metadata by omitting them");
+  assert.equal(f.updates[0].payload.version, 7, "the version shown when editing began protects against stale-form overwrites");
+  assert.deepEqual(Object.keys(f.updates[0].payload).sort(), ["category", "notes", "title", "version"], "paid descriptive edits preserve financial data, former participants and recurring metadata by omitting them");
   assert.equal(f.successes, 0);
   acknowledgement.resolve(true);
   await pending;
@@ -346,6 +466,7 @@ function formFixture() {
   f.bindings.editingExpense = { recurring: "custom", recurringCustom: "Old quarterly label" };
   f.write = async () => true;
   await f.send();
+  assert.equal(f.updates[0].payload.version, 7);
   assert.equal(f.updates[0].payload.recurring, "custom");
   assert.equal(f.updates[0].payload.recurringCustom, "Old quarterly label", "ordinary edits retain unsupported legacy recurrence metadata");
 }

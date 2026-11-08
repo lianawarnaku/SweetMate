@@ -3,6 +3,7 @@ import type { Expense } from "../context/AppContext.ts";
 import {
   allExpenseSharesPaid, canEditExpense, canManageExpense, canonicalExpense,
   expenseFinancialSignature, expenseShareCents, hasExpensePayments,
+  expensePaidCents, expenseRemainingCents, expenseOutstandingCents,
 } from "./expensePolicy.ts";
 
 const active = new Set(["creator", "payer", "debtor", "zero", "host"]);
@@ -70,3 +71,39 @@ for (const changed of [
   { ...paid, shoppingSource: { type: "shopping-item" as const, householdId: "home", shoppingListId: "list", shoppingListName: "Groceries", shoppingItemIds: ["item"] } },
 ]) assert.notEqual(expenseFinancialSignature(changed), signature, "paid financial changes must be detected");
 console.log("expense policy tests passed");
+
+const partial = { ...base, repaymentCents: { debtor: 200 }, paidBack: { debtor: true } };
+assert.equal(expensePaidCents(partial, "debtor"), 200);
+assert.equal(expenseRemainingCents(partial, "debtor"), 401, "partial payments subtract integer cents without rounding a dollar remainder");
+assert.equal(expenseOutstandingCents(partial, "debtor"), 401);
+assert.equal(allExpenseSharesPaid(partial), false, "a stale legacy paid flag cannot override an authoritative partial repayment");
+assert.equal(hasExpensePayments(partial), true, "even a partial repayment protects the financial terms");
+assert.equal(expensePaidCents({ ...base, paidBack: { debtor: true } }, "debtor"), 601, "legacy full-repayment flags retain their meaning");
+assert.equal(expensePaidCents({ ...base, repaymentCents: {}, paidBack: { debtor: true } }, "debtor"), 0, "an existing cent map is authoritative, including a missing participant");
+assert.equal(expensePaidCents({ ...base, repaymentCents: null, paidBack: { debtor: true } }, "debtor"), 601, "nullable old optional fields use the legacy fallback");
+assert.equal(expensePaidCents({ ...partial, repaymentCents: { payer: 600, debtor: 200 } }, "payer"), 0, "a payer's own allocation is never a repayment");
+assert.equal(expenseRemainingCents(partial, "payer"), 0);
+assert.equal(expenseRemainingCents(partial, "unrelated"), 0);
+assert.equal(expenseOutstandingCents(partial, "zero"), 0);
+for (const cents of [-1, 0.5, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1]) {
+  assert.equal(expensePaidCents({ ...base, repaymentCents: { debtor: cents } }, "debtor"), 0, "malformed cent totals cannot poison a balance");
+}
+assert.equal(expenseRemainingCents({ ...base, repaymentCents: { debtor: 700 } }, "debtor"), 0, "an over-recorded amount cannot create negative debt");
+const full = { ...base, repaymentCents: { debtor: 601 }, paidBack: {} };
+assert.equal(allExpenseSharesPaid(full), true, "cent totals establish full repayment without requiring legacy flags or zero-share acknowledgements");
+const manuallySettled = { ...partial, settled: true, manuallySettled: true };
+assert.equal(expenseRemainingCents(manuallySettled, "debtor"), 401, "manual settlement preserves raw payment accounting for reopening");
+assert.equal(expenseOutstandingCents(manuallySettled, "debtor"), 0);
+assert.equal(allExpenseSharesPaid(manuallySettled), false, "settled does not assert that every share was actually recorded as paid");
+assert.equal(expenseOutstandingCents({ ...partial, voidedAt: "2026-11-09T12:00:00Z" }, "debtor"), 0);
+assert.equal(expenseRemainingCents({ ...partial, voidedAt: "2026-11-09T12:00:00Z" }, "debtor"), 401, "voiding retains the historical amount and repayments");
+const reversed = { ...base, repaymentCents: { debtor: 0 }, paidBack: {}, repayments: [
+  { id: "repayment", actorId: "debtor", amountCents: 200, recordedAt: "2026-11-08T12:00:00Z", reversedAt: "2026-11-08T13:00:00Z" },
+] };
+assert.equal(expenseOutstandingCents(reversed, "debtor"), 601, "reversing a repayment restores its debt");
+assert.equal(hasExpensePayments(reversed), true, "reversed payments still protect financial history");
+assert.equal(hasExpensePayments({ ...base, financialHistory: true }), true);
+assert.equal(hasExpensePayments({ ...base, manuallySettled: true }), true);
+assert.equal(hasExpensePayments({ ...base, voidedAt: "2026-11-09T12:00:00Z" }), true);
+assert.equal(expenseFinancialSignature(partial), expenseFinancialSignature(base), "repayment amounts are facts, not edited financial terms");
+console.log("expense partial repayment, reversal and void policy tests passed");
