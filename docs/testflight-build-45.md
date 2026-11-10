@@ -12,7 +12,7 @@ The account holder accepted Apple's updated agreement. Push Notifications capabi
 - EAS submission: `5a526f21-9ffa-4263-80a3-fbaa3e075c76`, FINISHED.
 - Native build completed November 9 at 11:41 PM America/New_York; upload completed the same minute.
 - App Store Connect app: `6794171916`.
-- Apple lists version 1.0.0, build 45 in Build Uploads as Processing at the first post-upload check. Upload success is confirmed; tester availability is a separate processing step.
+- Apple processing completed. Build 45 is assigned to the existing internal TestFlight group `Sweet Mates!` (3 testers). External testing status is `Ready to Submit`; external beta review has not been submitted.
 
 [Build](https://expo.dev/accounts/lianawarnakulasooriyas-team/projects/homie/builds/2ee9fedd-9c93-4604-87bb-73e1633a5dd5)
 
