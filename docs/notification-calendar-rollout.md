@@ -14,7 +14,7 @@ Nudges remain anonymous. Push content contains no sender identity or chore text.
 
 Google Cloud project `homie-502522` has Calendar API enabled and the existing Supabase callback URI. The declared scopes were narrowed to calendar.events plus standard Google sign-in scopes. The app remains External/Testing; the requested owner account is already a test user. Public OAuth verification is separate from Apple's release process and remains required before unrestricted public Calendar access. Testing authorizations expire after seven days.
 
-A new native build is mandatory for push registration. Build 44 failed because the old provisioning profile lacked Push Notifications / aps-environment. Apple provisioning is blocked until the account holder accepts the latest Apple Developer Program License Agreement. APNs key creation has not succeeded; resume provisioning after acceptance before building the next release. Android additionally requires FCM v1 credentials for a separately signed Android release.
+A new native build is mandatory for push registration. Build 44 failed because the old provisioning profile lacked Push Notifications / aps-environment. The account holder accepted the updated Apple Developer Program License Agreement on November 9. An APNs key was created and assigned, Push Notifications was enabled, and a new provisioning profile was generated using the existing distribution certificate. Build 45 and its TestFlight upload succeeded. Android additionally requires FCM v1 credentials for a separately signed Android release.
 
 ## Validation
 
