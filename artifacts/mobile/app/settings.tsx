@@ -1,3 +1,4 @@
+import { signOutWithPushCleanup } from "@/lib/pushRegistration";
 import { KEYBOARD_BEHAVIOR } from "@/lib/keyboard";
 import { Surface } from "@/components/Surface";
 import { Feather } from "@expo/vector-icons";
@@ -237,7 +238,7 @@ export default function SettingsScreen() {
   const handleSignOut = async () => {
     setSigningOut(true);
     try {
-      const { error } = await supabase.auth.signOut();
+      const { error } = await signOutWithPushCleanup();
       if (error) {
         reportSupabaseError("sign out from settings", error);
         info("sign_out_error", "Unable to sign out", "Please check your connection and try again.");
@@ -1508,7 +1509,7 @@ export default function SettingsScreen() {
           </TouchableOpacity>
 
           {session?.user.id ? (
-            <FeedbackSection key={session.user.id} userId={session.user.id} email={session.user.email} />
+            <FeedbackSection key={session.user.id} userId={session.user.id} />
           ) : null}
 
           <CollapsibleSettingsSection

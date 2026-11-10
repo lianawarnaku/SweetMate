@@ -1,3 +1,4 @@
+import { PushNotificationManager } from "@/components/PushNotificationManager";
 import {
   BarlowCondensed_400Regular,
   BarlowCondensed_500Medium,
@@ -133,6 +134,7 @@ export default function RootLayout() {
                     >
                       <>
                         <HouseholdSetupRouteGuard />
+                        <PushNotificationManager userId={session?.user.id ?? null} />
                         <Stack
                           screenOptions={{
                             headerShown: false,

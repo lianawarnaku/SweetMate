@@ -58,6 +58,12 @@
           "calendarPermission": "SweetMate does not create calendar events for chores.",
           "remindersPermission": "Allow SweetMate to add your assigned chores to Apple Reminders."
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "defaultChannel": "nudges"
+        }
       ]
     ],
     "experiments": {

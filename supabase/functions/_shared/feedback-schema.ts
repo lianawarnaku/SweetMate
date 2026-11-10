@@ -1,7 +1,7 @@
 import { z } from "zod/v4";
 
 export const FEEDBACK_LIMIT = 1500;
-export const FEEDBACK_SUCCESS = "Your suggestion has been sent to the team.";
+export const FEEDBACK_SUCCESS = "Thank you for your feedback! Your suggestion has been sent to the Sweetmate team.";
 export const feedbackSchema = z
   .object({
     request_id: z.uuid(),

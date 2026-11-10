@@ -37,7 +37,6 @@ import { CompletionMotion, CompletionText } from "@/components/CompletionMotion"
 import { Surface } from "@/components/Surface";
 import { ExpenseRequestPanel } from "@/components/ExpenseRequestPanel";
 import { ExpenseActivityPanel } from "@/components/ExpenseActivityPanel";
-import { ChoreFilterButton } from "@/components/ChoreFilterButton";
 import { HistoryDisclosure } from "@/components/HistoryDisclosure";
 import { FloatingActionButton, useFloatingActionMetrics } from "@/components/FloatingActionButton";
 import { ScreenHeader } from "@/components/ScreenHeader";
@@ -313,10 +312,11 @@ export default function ExpensesScreen() {
   const iOwe = (iouSummary?.owingCents ?? 0) / 100;
   const owedToMe = (iouSummary?.owedCents ?? 0) / 100;
   const balancesUnavailable = !expenseSync.ready && !expenseSync.refreshing && Boolean(expenseSync.error);
-  const syncCaption = !expenseSync.ready ? balancesUnavailable ? "Balances couldn’t be checked. Retry when you’re connected." : "Checking saved expenses…"
-    : expenseSync.stale ? `Last confirmed ${expenseSync.lastSyncedAt ? new Date(expenseSync.lastSyncedAt).toLocaleString() : "earlier"}. Updates are unavailable.`
-    : expenseSync.refreshing ? "Updating household records…"
-    : expenseSync.lastSyncedAt ? `Updated ${new Date(expenseSync.lastSyncedAt).toLocaleString()}` : "Household records loaded";
+  useEffect(() => {
+    if (iouSummary && ((expenseFilter === "owe" && iOwe === 0) || (expenseFilter === "owed" && owedToMe === 0))) {
+      setExpenseFilter("all");
+    }
+  }, [expenseFilter, iOwe, owedToMe, iouSummary]);
   const visibleHistory = useMemo(
     () =>
       historyExpanded
@@ -440,7 +440,7 @@ export default function ExpensesScreen() {
   };
 
   const scrollToExpense = (filter: ExpenseFilter) => {
-    setExpenseFilter(filter);
+    setExpenseFilter(current => current === filter ? "all" : filter);
     flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
@@ -789,6 +789,10 @@ export default function ExpensesScreen() {
                 <TouchableOpacity
                   style={styles.balanceCardPressable}
                   onPress={() => scrollToExpense("owe")}
+                  accessibilityRole="button"
+                  accessibilityLabel="Show amounts you owe"
+                  accessibilityState={{ selected: expenseFilter === "owe" }}
+                  accessibilityHint="Tap again to return to all expenses"
                   activeOpacity={0.75}
                 >
                   <Reanimated.View style={[styles.balanceCardContent, balanceCardContentStyle]}>
@@ -797,7 +801,7 @@ export default function ExpensesScreen() {
                       -${iOwe.toFixed(2)}
                     </Reanimated.Text>
                     <Reanimated.Text style={[styles.balanceHint, balanceHintStyle, { color: colors.mutedForeground }]}>
-                      Tap to view
+                      {expenseFilter === "owe" ? "Tap again to show all" : "Tap to view"}
                     </Reanimated.Text>
                   </Reanimated.View>
                 </TouchableOpacity>
@@ -814,6 +818,10 @@ export default function ExpensesScreen() {
                 <TouchableOpacity
                   style={styles.balanceCardPressable}
                   onPress={() => scrollToExpense("owed")}
+                  accessibilityRole="button"
+                  accessibilityLabel="Show amounts owed to you"
+                  accessibilityState={{ selected: expenseFilter === "owed" }}
+                  accessibilityHint="Tap again to return to all expenses"
                   activeOpacity={0.75}
                 >
                   <Reanimated.View style={[styles.balanceCardContent, balanceCardContentStyle]}>
@@ -822,7 +830,7 @@ export default function ExpensesScreen() {
                       +${owedToMe.toFixed(2)}
                     </Reanimated.Text>
                     <Reanimated.Text style={[styles.balanceHint, balanceHintStyle, { color: colors.mutedForeground }]}>
-                      Tap to view
+                      {expenseFilter === "owed" ? "Tap again to show all" : "Tap to view"}
                     </Reanimated.Text>
                   </Reanimated.View>
                 </TouchableOpacity>
@@ -849,26 +857,6 @@ export default function ExpensesScreen() {
             )}
           </View>
 
-          <Text accessibilityLiveRegion="polite" style={[styles.syncCaption, { color: colors.mutedForeground }]}>{syncCaption}</Text>
-          {/* A net position is informational, not a repayment or settlement. */}
-          {iouSummary ? <View style={[styles.netSummary, { borderColor: colors.divider }]}>
-            <Text style={[styles.netSummaryTitle, { color: colors.foreground }]}>
-              Net IOU balance: {iouSummary.netCents < 0 ? "−" : iouSummary.netCents > 0 ? "+" : ""}${(Math.abs(iouSummary.netCents) / 100).toFixed(2)}
-            </Text>
-            <Text style={[styles.netSummaryHint, { color: colors.mutedForeground }]}>
-              {iouSummary.hasOutstandingDebts
-                ? iouSummary.netCents === 0
-                  ? "Your unpaid IOUs offset each other. Individual repayments are still outstanding."
-                  : iouSummary.netCents > 0
-                    ? "Overall, you’re owed more than you owe. Individual repayments stay the same."
-                    : "Overall, you owe more than you’re owed. Individual repayments stay the same."
-                : "No outstanding repayments for you."}
-            </Text>
-          </View> : null}
-
-          <View style={styles.expenseFilters} accessibilityRole="tablist">
-            {([{ value: "all", label: "All" }, { value: "owe", label: "I owe" }, { value: "owed", label: "Owed to me" }] as const).map((filter) => <ChoreFilterButton key={filter.value} pill label={filter.label} selected={expenseFilter === filter.value} accessibilityLabel={`Show ${filter.label.toLowerCase()} expenses`} onPress={() => scrollToExpense(filter.value)} />)}
-          </View>
           {/* Expense list */}
           <AnimatedFlatList
             ref={flatListRef}
@@ -887,19 +875,21 @@ export default function ExpensesScreen() {
             showsVerticalScrollIndicator={false}
             onScroll={expenseScrollHandler}
             scrollEventThrottle={16}
-            ListHeaderComponent={<View style={{ gap: 8, marginBottom: 12 }}>
-              <ExpenseRequestPanel requests={expenseSync.requests} busy={requestBusy || retryingExpenses}
-                onRetry={() => void retryExpenseSync()} onRecover={(id) => void recoverExpenseRequest(id)} onDismiss={(id) => void dismissExpenseRequest(id)} onOpenExpense={showExpense} />
-              <ExpenseActivityPanel activity={expenseActivity} loading={expenseActivityLoading} error={expenseActivityError}
-                onRetry={() => void loadExpenseActivity().catch(() => {})}
-                actorName={(id) => id ? roommates.find((roommate) => roommate.id === id)?.name ?? "Former Sweetmate" : "SweetMate"}
-                expenseTitle={(id) => expenses.find((expense) => expense.id === id)?.title ?? "Expense"} onOpenExpense={showExpense} />
-            </View>}
+            ListHeaderComponent={
+              <View style={{ gap: 8, marginBottom: 12 }}>
+                <ExpenseRequestPanel requests={expenseSync.requests} busy={requestBusy || retryingExpenses}
+                  onRetry={() => void retryExpenseSync()} onRecover={(id) => void recoverExpenseRequest(id)} onDismiss={(id) => void dismissExpenseRequest(id)} onOpenExpense={showExpense} />
+                <ExpenseActivityPanel activity={expenseActivity} loading={expenseActivityLoading} error={expenseActivityError}
+                  onRetry={() => void loadExpenseActivity().catch(() => {})}
+                  actorName={(id) => id ? roommates.find((roommate) => roommate.id === id)?.name ?? "Former Sweetmate" : "SweetMate"}
+                  expenseTitle={(id) => expenses.find((expense) => expense.id === id)?.title ?? "Expense"} onOpenExpense={showExpense} />
+              </View>
+            }
             ListEmptyComponent={
               <EmptyState
                 icon="dollar-sign"
                 title={!expenseSync.ready ? balancesUnavailable ? "Expenses unavailable" : "Checking expenses" : expenseFilter === "owe" ? "No recorded amounts you owe" : expenseFilter === "owed" ? "No recorded amounts owed to you" : "No active expenses"}
-                subtitle={!expenseSync.ready ? balancesUnavailable ? "Retry to refresh your household’s saved expenses." : "Saved records are being checked with your household." : expenseFilter === "all" ? "Tap + to log an expense, or tap the archive icon below." : "Choose All to view the household's other expenses."}
+                subtitle={!expenseSync.ready ? balancesUnavailable ? "Retry to refresh your household’s saved expenses." : "Saved records are being checked with your household." : expenseFilter === "all" ? "Tap + to log an expense, or tap the archive icon below." : "Tap the selected balance card again to show all expenses."}
               />
             }
             renderItem={({ item }) => {
@@ -1828,8 +1818,6 @@ export default function ExpensesScreen() {
 
 const styles = StyleSheet.create({
   loadingBalance: { minHeight: 94, borderWidth: 1, borderRadius: 18, alignItems: "center", justifyContent: "center", gap: 10 },
-  syncCaption: { fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 12, marginHorizontal: 18, marginBottom: 8 },
-  expenseFilters: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginHorizontal: 16, marginBottom: 8 },
   householdTotal: { fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 11, textAlign: "right", marginTop: 3 },
   detailPersonal: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 16, textAlign: "right" },
   paymentRow: { minHeight: 54, flexDirection: "row", flexWrap: "wrap", alignItems: "center", padding: 10, borderWidth: 1, borderRadius: 12, gap: 10 },
@@ -1841,9 +1829,6 @@ const styles = StyleSheet.create({
   settleShortcutText: { fontFamily: "Inter_600SemiBold", includeFontPadding: false, fontSize: 12, flexShrink: 1 },
   confirmationPanel: { borderWidth: 1, borderRadius: 14, padding: 14, gap: 12 },
   validationHint: { fontFamily: "Inter_500Medium", includeFontPadding: false, fontSize: 13, lineHeight: 18, marginBottom: 10 },
-  netSummary: { marginHorizontal: 20, marginBottom: 12, paddingVertical: 10, borderTopWidth: StyleSheet.hairlineWidth, gap: 4 },
-  netSummaryTitle: { fontFamily: "Inter_600SemiBold", includeFontPadding: false, fontSize: 17 },
-  netSummaryHint: { fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 14, lineHeight: 18 },
   container: { flex: 1 },
   header: {
     flexDirection: "row",

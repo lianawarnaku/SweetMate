@@ -37,10 +37,8 @@ type Category = "suggestion" | "bug" | "other";
 const categories: Category[] = ["suggestion", "bug", "other"];
 
 export function FeedbackSection({
-  email,
   userId,
 }: {
-  email?: string;
   userId: string;
 }) {
   const colors = useTheme();
@@ -71,7 +69,7 @@ export function FeedbackSection({
   const reset = () => {
     setCategory("suggestion");
     setMessage("");
-    setContact(email ?? "");
+    setContact("");
     setErrors({});
     setFailure("");
     setSuccess(false);

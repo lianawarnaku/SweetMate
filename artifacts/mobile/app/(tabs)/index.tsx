@@ -1,3 +1,4 @@
+import { isPointsVisible } from "@/constants/featureAvailability";
 import { ChoreFilterButton } from "@/components/ChoreFilterButton";
 import { CompletionUndoMenu } from "@/components/CompletionUndoMenu";
 import { CompletionMotion, CompletionText } from "@/components/CompletionMotion";
@@ -281,7 +282,7 @@ function ChoreRow({
 }: ChoreRowProps) {
   const colors = useTheme();
   const pointsEnabled = useAppContextSelector(
-    (context) => context.pointsEnabled,
+    (context) => isPointsVisible(context.pointsEnabled),
   );
   const cat = CATEGORIES.find((c) => c.key === chore.category) ?? CATEGORIES[5];
   const overdue = isOverdue(chore.dueDate, chore.completed);
@@ -566,7 +567,7 @@ export default function MyChoresScreen() {
       shoppingItems: context.shoppingItems,
       toggleShoppingItem: context.toggleShoppingItem,
       setShoppingItemCompleted: context.setShoppingItemCompleted,
-      pointsEnabled: context.pointsEnabled,
+      pointsEnabled: isPointsVisible(context.pointsEnabled),
       isHost: context.isHost,
     }));
 

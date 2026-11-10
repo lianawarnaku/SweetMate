@@ -3,36 +3,19 @@ import * as WebBrowser from "expo-web-browser";
 
 import { supabase } from "./supabase";
 import { authCallbackValue } from "./oauthCallback";
-import { apiBaseUrl } from "./externalTasks";
+import { calendarFetch } from "./calendarTransport";
 
 const CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar.events";
 
 export class GoogleCalendarConnectionError extends Error {}
 
 async function authedFetch(path: string, init?: RequestInit) {
-  const baseUrl = apiBaseUrl();
-  if (!baseUrl) {
-    throw new GoogleCalendarConnectionError(
-      "This build has no API server URL. Set EXPO_PUBLIC_API_URL and restart Expo.",
-    );
-  }
-  const accessToken = (await supabase.auth.getSession()).data.session?.access_token;
-  if (!accessToken) {
-    throw new GoogleCalendarConnectionError("Sign in again and try connecting Google Calendar.");
-  }
-  return fetch(`${baseUrl}/api${path}`, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${accessToken}`,
-      ...init?.headers,
-    },
-  });
+  return calendarFetch(path, init);
 }
 
 export async function isGoogleCalendarConnected(): Promise<boolean> {
   const response = await authedFetch("/calendar/connection");
-  if (!response.ok) return false;
+  if (!response.ok) throw new GoogleCalendarConnectionError("Could not check your Google Calendar connection. Please try again.");
   const data = (await response.json().catch(() => null)) as { connected?: boolean } | null;
   return data?.connected === true;
 }
@@ -46,6 +29,8 @@ export async function isGoogleCalendarConnected(): Promise<boolean> {
  * directly; the mobile app only ever talks to Supabase and to our backend.
  */
 export async function connectGoogleCalendar(): Promise<void> {
+  const original = (await supabase.auth.getSession()).data.session;
+  if (!original) throw new GoogleCalendarConnectionError("Sign in before connecting Google Calendar.");
   const redirectTo = ExpoLinking.createURL("auth/callback");
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
@@ -77,11 +62,21 @@ export async function connectGoogleCalendar(): Promise<void> {
   if (oauthMessage) throw new GoogleCalendarConnectionError(oauthMessage);
 
   const code = authCallbackValue(result.url, "code");
-  const session = code
-    ? (await supabase.auth.exchangeCodeForSession(code)).data.session
-    : (await supabase.auth.getSession()).data.session;
-
-  const providerRefreshToken = session?.provider_refresh_token;
+  const accessToken = authCallbackValue(result.url, "access_token");
+  const refreshToken = authCallbackValue(result.url, "refresh_token");
+  if (!code && (!accessToken || !refreshToken)) {
+    throw new GoogleCalendarConnectionError("Google returned an incomplete connection. Please try again.");
+  }
+  const exchange = code
+    ? await supabase.auth.exchangeCodeForSession(code)
+    : await supabase.auth.setSession({ access_token: accessToken!, refresh_token: refreshToken! });
+  if (exchange.error) throw new GoogleCalendarConnectionError("Could not finish Google sign-in. Please try again.");
+  const session = exchange.data.session;
+  if (!session || session.user.id !== original.user.id) {
+    await supabase.auth.setSession({ access_token: original.access_token, refresh_token: original.refresh_token });
+    throw new GoogleCalendarConnectionError("Choose the Google account linked to your current SweetMate account.");
+  }
+  const providerRefreshToken = session?.provider_refresh_token ?? authCallbackValue(result.url, "provider_refresh_token");
   if (!providerRefreshToken) {
     throw new GoogleCalendarConnectionError(
       "Google did not grant offline calendar access. Try again and allow the calendar permission when prompted.",

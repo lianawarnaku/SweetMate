@@ -342,3 +342,16 @@ export function groupChoreChartWeeks(
         })),
     }));
 }
+
+/** Return only the selected date's Monday–Sunday schedule, including empty weeks. */
+export function selectChoreChartWeek(
+  weeks: readonly ChoreChartWeek[],
+  date: string | Date,
+): ChoreChartWeek {
+  const startsOn = choreChartWeekStart(date);
+  return weeks.find((week) => week.startsOn === startsOn) ?? {
+    startsOn,
+    endsOn: startsOn ? addDays(startsOn, 6) : "",
+    rows: [],
+  };
+}

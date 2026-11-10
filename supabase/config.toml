@@ -418,3 +418,8 @@ enabled = true
 verify_jwt = false
 [functions.notify-feedback]
 verify_jwt = false
+
+[functions.nudge-push]
+verify_jwt = false
+[functions.calendar]
+verify_jwt = false

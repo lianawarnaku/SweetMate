@@ -26,7 +26,7 @@ const stubs = {
 };
 await build({
   stdin: {
-    contents: `import React from 'react'; import { createRoot } from 'react-dom/client'; import {FeedbackSection} from '${mobile}/components/FeedbackSection.tsx'; document.body.style.background=new URLSearchParams(location.search).get('appearance')==='light'?'#F4F4F7':'#070708';window.submissions=[];createRoot(document.getElementById('root')).render(<FeedbackSection userId="test-user" email="tester@example.com"/>);`,
+    contents: `import React from 'react'; import { createRoot } from 'react-dom/client'; import {FeedbackSection} from '${mobile}/components/FeedbackSection.tsx'; document.body.style.background=new URLSearchParams(location.search).get('appearance')==='light'?'#F4F4F7':'#070708';window.submissions=[];createRoot(document.getElementById('root')).render(<FeedbackSection userId="test-user"/>);`,
     resolveDir: mobile,
     loader: "tsx",
   },
@@ -99,7 +99,7 @@ try {
   });
   const email = page.getByRole("textbox", { name: "Contact email, optional" });
   await message.waitFor();
-  assert.equal(await email.inputValue(), "tester@example.com");
+  assert.equal(await email.inputValue(), "", "contact email must start blank");
   await page
     .getByRole("button", { name: "Send Feedback", exact: true })
     .last()
@@ -164,7 +164,7 @@ try {
     window.finishFeedback();
   });
   await page
-    .getByText("Your suggestion has been sent to the team.", { exact: true })
+    .getByText("Thank you for your feedback! Your suggestion has been sent to the Sweetmate team.", { exact: true })
     .waitFor();
   await page.getByRole("button", { name: "Done", exact: true }).click();
   await page
@@ -187,7 +187,7 @@ try {
   );
   assert.deepEqual(errors, []);
   console.log(
-    "PASS: form opening, email prefill/removal, validation, character cap, category, loading, duplicate prevention, failed retry ID, success/reset, narrow viewport, focus restoration.",
+    "PASS: form opening, blank optional contact email, validation, character cap, category, loading, duplicate prevention, failed retry ID, success/reset, narrow viewport, focus restoration.",
   );
 } catch (error) {
   console.error("Browser errors:", errors);

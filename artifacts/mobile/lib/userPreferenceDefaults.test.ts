@@ -1,5 +1,5 @@
 import { getEffectiveAppearanceMode, LIGHT_MODE_ENABLED, resolveThemeTokens } from "../constants/themeTokens.ts";
-import { LEADERBOARD_ENABLED, isLeaderboardVisible } from "../constants/featureAvailability.ts";
+import { LEADERBOARD_ENABLED, isLeaderboardVisible, isPointsVisible } from "../constants/featureAvailability.ts";
 import { resolveDisplayPreferenceDefaults } from "./userPreferenceDefaults.ts";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -36,6 +36,8 @@ assert(existing.pointsEnabled, "an explicit enabled leaderboard must survive mig
 assert(!LEADERBOARD_ENABLED, "leaderboard controls must remain hidden until the feature returns");
 assert(!isLeaderboardVisible(existing.pointsEnabled), "saved enabled preferences must not restore the hidden Ranks tab");
 assert(!isLeaderboardVisible(false), "new or opted-out users must not see Ranks");
+assert(!isPointsVisible(existing.pointsEnabled), "saved enabled preferences must not restore point displays while the leaderboard is deferred");
+assert(!isPointsVisible(false), "opted-out users must not see point displays");
 assert(existing.roommateActivityEnabled, "explicit enabled activity must survive migration");
 assert(!existing.plantEnabled, "an unrelated explicit preference must survive migration");
 

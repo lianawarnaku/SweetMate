@@ -145,7 +145,7 @@ Deno.test(
             "feedback/receipt",
         );
         body = JSON.parse(String(options?.body));
-        return new Response("{}", { status: 200 });
+        return Response.json({ id: "provider-receipt" });
       },
     );
     assert(success === null);
@@ -202,3 +202,11 @@ Deno.test(
     assert((await handler(post())).status === 200);
   },
 );
+
+Deno.test("provider success requires an acceptance receipt, not just HTTP 200", async () => {
+  const config = { apiKey: "key", from: "from", recipient: "to" };
+  for (const body of ["{}", "null", '{"id":""}', "invalid json"]) {
+    assert(await deliverNotification(row, config, async () => new Response(body)) === "provider_invalid_receipt");
+  }
+  assert(await deliverNotification(row, config, async () => Response.json({ id: "accepted-id" })) === null);
+});

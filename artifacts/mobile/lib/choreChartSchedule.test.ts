@@ -1,6 +1,7 @@
 import type { Chore } from "../context/AppContext";
 import {
   choreChartWeekStart,
+  selectChoreChartWeek,
   groupChoreChartWeeks,
   projectChoreChartSchedule,
 } from "./choreChartSchedule.ts";
@@ -394,3 +395,22 @@ assert(
     .join(",") === "2026-11-09:b,2026-11-11:a,2026-11-12:c",
   "deleted scheduled slots must still advance the shared rotation after a roster change",
 );
+
+// A calendar selection must never leak chores from another displayed week.
+const selectableWeeks = groupChoreChartWeeks(projectChoreChartSchedule(
+  [seed], roster, "2026-11-01", "2026-12-13", "2026-11-09",
+));
+for (const [date, start, end] of [
+  ["2026-11-09", "2026-11-09", "2026-11-15"],
+  ["2026-11-15", "2026-11-09", "2026-11-15"],
+  ["2026-11-16", "2026-11-16", "2026-11-22"],
+  ["2026-12-01", "2026-11-30", "2026-12-06"],
+]) {
+  const selected = selectChoreChartWeek(selectableWeeks, date);
+  assert(selected.startsOn === start && selected.endsOn === end, `selecting ${date} must show its Monday–Sunday week`);
+  assert(selected.rows.length > 0, "the selected scheduled week must contain its chores");
+  assert(selected.rows.every((row) => row.assignees.every((assignee) => assignee.dates.every((day) => day >= start && day <= end))), "only selected-week occurrences may be displayed");
+}
+const emptySelection = selectChoreChartWeek(selectableWeeks, "2027-01-01");
+assert(emptySelection.startsOn === "2026-12-28" && emptySelection.endsOn === "2027-01-03" && emptySelection.rows.length === 0, "an empty week across a year boundary must remain selected without falling back to other chores");
+console.log("group calendar week selection tests passed");

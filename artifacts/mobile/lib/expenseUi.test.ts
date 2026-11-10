@@ -471,3 +471,23 @@ function formFixture() {
   assert.equal(f.updates[0].payload.recurringCustom, "Old quarterly label", "ordinary edits retain unsupported legacy recurrence metadata");
 }
 console.log("expense UI callback and modal-handoff state tests passed (native iPhone presentation requires device testing)");
+
+// Balance-card filters remain usable after removing the overview/filter strip.
+{
+  let filter = "all";
+  let scrolls = 0;
+  const bindings: Record<string, any> = {
+    exports: {},
+    setExpenseFilter: (update: (current: string) => string) => { filter = update(filter); },
+    flatListRef: { current: { scrollToOffset: ({ offset }: { offset: number }) => { assert.equal(offset, 0); scrolls++; } } },
+    Haptics: { ImpactFeedbackStyle: { Light: "light" }, impactAsync: () => {} },
+  };
+  runInNewContext(ts.transpileModule(`exports.select = ${initializers.get("scrollToExpense")!.getText(parsed)};`, {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText, bindings);
+  bindings.exports.select("owe"); assert.equal(filter, "owe");
+  bindings.exports.select("owed"); assert.equal(filter, "owed");
+  bindings.exports.select("owed"); assert.equal(filter, "all");
+  bindings.exports.select("owe"); bindings.exports.select("owe"); assert.equal(filter, "all");
+  assert.equal(scrolls, 5);
+}

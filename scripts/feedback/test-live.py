@@ -36,7 +36,7 @@ try:
         assert code == 400, ('invalid request', code)
     code, result = call(endpoint, body, token)
     assert code == 200, ('submit', code, result)
-    assert result['message'] == 'Your suggestion has been sent to the team.'
+    assert result['message'] == 'Thank you for your feedback! Your suggestion has been sent to the Sweetmate team.'
     code, retry = call(endpoint, body, token)
     assert code == 200 and retry['id'] == result['id'], ('duplicate retry', code)
     for path, method, payload in [('/rest/v1/feedback?select=id', 'GET', None), ('/rest/v1/feedback?id=eq.' + result['id'], 'PATCH', {'status': 'closed'}), ('/rest/v1/feedback?id=eq.' + result['id'], 'DELETE', None)]:
@@ -57,6 +57,8 @@ try:
     assert row['notification_sent_at'] or row['notification_error'], 'delivery outcome not recorded'
     print('PASS: live authenticated save, validation, identity, RLS, retry deduplication, protected worker, server notification attempt, saved feedback survives email failure.')
     print('Notification state:', 'provider accepted' if row['notification_sent_at'] else row['notification_error'])
+    if '--require-email' in sys.argv:
+        assert row['notification_sent_at'], 'Feedback saved, but email was not accepted: ' + str(row['notification_error'])
 finally:
     if user_id:
         code, _ = call('/rest/v1/feedback?user_id=eq.' + user_id, method='DELETE', key=admin)

@@ -1,3 +1,4 @@
+import { isPointsVisible } from "@/constants/featureAvailability";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import React, { useMemo, useRef, useState } from "react";
@@ -74,7 +75,7 @@ export function ManualChoreForm({
     updateChore: context.updateChore,
     currentUserId: context.currentUserId,
     householdId: context.householdId,
-    pointsEnabled: context.pointsEnabled,
+    pointsEnabled: isPointsVisible(context.pointsEnabled),
     roommates: context.roommates,
   }));
   const defaultAssignee =

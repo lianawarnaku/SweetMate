@@ -58,8 +58,12 @@ export async function deliverNotification(
       }),
       signal: AbortSignal.timeout(10000),
     });
-    // Do not persist provider responses: they can contain addresses or credentials.
-    return response.ok ? null : `provider_http_${response.status}`;
+    // Never return or log raw provider responses; they can contain addresses.
+    if (!response.ok) return `provider_http_${response.status}`;
+    const receipt = await response.json().catch(() => null);
+    if (typeof receipt?.id !== "string" || !receipt.id.trim())
+      return "provider_invalid_receipt";
+    return null;
   } catch {
     return "provider_unavailable";
   }
@@ -76,6 +80,14 @@ export async function notifyPending(
   if (error) throw new Error("notification_claim_failed");
   for (const row of (data ?? []) as FeedbackRow[]) {
     const failure = await deliverNotification(row, config);
+    if (failure) {
+      // Safe operational context only: no message, contact address, or secrets.
+      console.error("feedback_notification_failed", {
+        feedback_id: row.id,
+        attempt: row.notification_attempts,
+        code: failure,
+      });
+    }
     const delay = Math.min(
       3600,
       60 * 2 ** Math.min(row.notification_attempts, 6),

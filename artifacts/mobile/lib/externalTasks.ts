@@ -1,3 +1,4 @@
+import { calendarFetch } from "./calendarTransport";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Calendar from "expo-calendar";
 import { Platform } from "react-native";
@@ -459,27 +460,12 @@ export async function addChoreToGoogleCalendar(chore: ExternalTaskChore) {
       "This chore has an invalid due date.",
     );
   }
-  const baseUrl = apiBaseUrl();
-  if (!baseUrl) {
-    throw new ExternalTaskError(
-      "EXPORT_FAILED",
-      "This build has no API server URL. Set EXPO_PUBLIC_API_URL and restart Expo.",
-    );
-  }
-  const accessToken = (await supabase.auth.getSession()).data.session?.access_token;
-  if (!accessToken) {
-    throw new ExternalTaskError(
-      "EXPORT_FAILED",
-      "Sign in again before adding chores to Google Calendar.",
-    );
-  }
   let response: Response;
   try {
-    response = await fetch(`${baseUrl}/api/calendar/add-chore`, {
+    response = await calendarFetch("/calendar/add-chore", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
       },
       body: JSON.stringify({
         choreId: chore.id,
@@ -495,7 +481,7 @@ export async function addChoreToGoogleCalendar(chore: ExternalTaskChore) {
   } catch (error) {
     throw new ExternalTaskError(
       "EXPORT_FAILED",
-      `SweetMate could not reach its calendar server at ${baseUrl}. ${normalizeNativeError(error)}`,
+      `SweetMate could not reach Google Calendar. ${normalizeNativeError(error)}`,
     );
   }
   const result = (await response.json().catch(() => null)) as {

@@ -1,3 +1,5 @@
+import { signOutWithPushCleanup } from "@/lib/pushRegistration";
+import { LEADERBOARD_ENABLED } from "@/constants/featureAvailability";
 import { KEYBOARD_BEHAVIOR } from "@/lib/keyboard";
 import { Feather } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -620,7 +622,7 @@ export function HouseholdSetupScreen({
                         }}
                       >
                         <Text style={[styles.reviewMeta, { color: colors.primary }]}>
-                          {CHORE_RECURRENCE_LABELS[chore.persistedRecurrence]} · {chore.points} points · {chore.category} · tap to change
+                          {CHORE_RECURRENCE_LABELS[chore.persistedRecurrence]}{LEADERBOARD_ENABLED ? ` · ${chore.points} points` : ""} · {chore.category} · tap to change
                         </Text>
                       </Pressable>
                     </View>
@@ -651,8 +653,14 @@ export function HouseholdSetupScreen({
                 <Text style={[styles.optionSectionNote, { color: colors.mutedForeground }]}>This will be used to auto-allocate chores evenly among Sweetmates.</Text>
               </View>
               <View style={styles.chips}>
-                {[5, 10, 15, 25, 30].map((points) => (
-                  <Chip key={points} label={`${points} pts`} selected={customPoints === points} onPress={() => setCustomPoints(points)} colors={colors} />
+                {([
+                  { points: 5, label: "Very easy" },
+                  { points: 10, label: "Easy" },
+                  { points: 15, label: "Moderate" },
+                  { points: 25, label: "Hard" },
+                  { points: 30, label: "Very hard" },
+                ]).map(({ points, label }) => (
+                  <Chip key={points} label={LEADERBOARD_ENABLED ? `${points} pts` : label} selected={customPoints === points} onPress={() => setCustomPoints(points)} colors={colors} />
                 ))}
               </View>
               <View style={[styles.customRow, { backgroundColor: colors.muted, borderColor: colors.border }]}>
@@ -665,7 +673,7 @@ export function HouseholdSetupScreen({
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.customChoreText, { color: colors.foreground }]}>{chore}</Text>
                     <Text style={[styles.reviewMeta, { color: colors.mutedForeground }]}>
-                      {CHORE_RECURRENCE_LABELS[customChoreSettings[chore]?.recurrence ?? "weekly"]} · {customChoreSettings[chore]?.points ?? 15} points · {customChoreSettings[chore]?.category ?? "other"}
+                      {CHORE_RECURRENCE_LABELS[customChoreSettings[chore]?.recurrence ?? "weekly"]}{LEADERBOARD_ENABLED ? ` · ${customChoreSettings[chore]?.points ?? 15} points` : ""} · {customChoreSettings[chore]?.category ?? "other"}
                     </Text>
                   </View>
                   <Feather name="x" size={16} color={colors.mutedForeground} />
@@ -691,7 +699,7 @@ export function HouseholdSetupScreen({
         <Pressable
           onPress={async () => {
             try {
-              const { error: signOutError } = await supabase.auth.signOut();
+              const { error: signOutError } = await signOutWithPushCleanup();
               if (signOutError) {
                 reportSupabaseError("sign out from household setup", signOutError);
                 setError(signOutError.message);

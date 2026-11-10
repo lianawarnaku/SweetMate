@@ -150,7 +150,7 @@ assert(
 assert(
   home.includes('(["today", "done", "archived"] as Filter[])') &&
     home.includes('iconOnly={f === "archived"}') &&
-    group.includes('iconOnly={option === "archived"}') &&
+    group.includes('iconOnly={option !== "active"}') &&
     home.includes("`Show ${archivedPersonalChoreCount} archived chores`") &&
     group.includes("`Show ${archivedHouseholdChores.length} archived group chores`"),
   "My Home and Group must retain icon-only archive filters with accessible counts",

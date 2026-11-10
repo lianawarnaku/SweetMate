@@ -169,3 +169,12 @@ allowBuilds:
   # uploads are configured separately in CI when release credentials exist.
   '@sentry/cli': false
   esbuild: true
+
+# Worklets 0.5.1's Babel plugin imports these without declaring them. Keep
+# native/web builds reproducible under pnpm's isolated dependency resolution.
+packageExtensions:
+  react-native-worklets@0.5.1:
+    dependencies:
+      '@babel/generator': ^7.29.0
+      '@babel/traverse': ^7.29.0
+      '@babel/types': ^7.29.0

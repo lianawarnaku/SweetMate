@@ -2,8 +2,8 @@
 
 Settings now includes a themed feedback sheet for authenticated users. The form
 supports Suggestion, Bug, and Other, a required message of up to 1,500 characters,
-and an optional, removable contact email prefilled from Supabase Auth. Success
-reads: “Your suggestion has been sent to the team.” The receipt is shown until
+and an optional contact email that always starts blank. Success
+reads: “Thank you for your feedback! Your suggestion has been sent to the Sweetmate team.” The receipt is shown until
 Done; the next form starts fresh. No feedback text or contact email is sent to
 analytics.
 
@@ -147,7 +147,7 @@ Frontend and exported-bundle scans found no recipient or server secrets.
 
 The component browser harness uses React Native Web with lightweight native
 adapters and controlled transport; it is not an iOS/Android device test. It
-covers opening, email prefill/removal, empty and invalid email validation,
+covers opening, blank optional contact email, empty and invalid email validation,
 character cap, selected category, disabled loading, duplicate clicks, retry
 keys, success/reset, narrow layouts, and focus restoration. Existing semantic
 theme colors and Inter typography are reused. The form now uses v2’s shared glass surfaces, buttons, accessibility preferences,
@@ -179,3 +179,48 @@ The live Python test requires a working system CA trust store. On this Mac it
 was run with `SSL_CERT_FILE=/etc/ssl/cert.pem`; TLS verification stayed enabled.
 There is no configured repository-wide JavaScript lint command. Real inbox
 receipt and native-device VoiceOver/TalkBack behavior remain unverified.
+
+## Delivery investigation (2026-10-15)
+
+Live Edge Function secret inspection confirmed that `RESEND_API_KEY` and
+`RESEND_FROM` are absent. Setting them on the Express API server does not
+configure Supabase Edge Functions. The private recipient secret is present.
+The existing table, RLS, RPC, durable queue, and retry worker are reused.
+No new table, email service, or public recipient configuration was added.
+
+The feedback form no longer takes or prefills the signed-in account email.
+Users can still optionally enter their own reply address. The recipient is
+never supplied by the frontend. The worker now logs a sanitized failure code,
+feedback ID, and attempt count, and requires a valid provider acceptance ID
+before marking a notification sent. It never logs raw provider response text.
+
+After configuring the two provider secrets in the Supabase dashboard, run the
+live check with `--require-email` to require provider acceptance, rather than
+merely a recorded delivery attempt. The test removes only its own temporary
+feedback and Auth user. Existing pending feedback stays queued for Cron.
+
+Verification on 2026-10-15: workspace typecheck, complete mobile test suite,
+seven Edge Function tests, both Edge Function typechecks, isolated PostgreSQL
+security tests, browser form tests in light and dark appearance, production web
+export, and frontend/exported-asset privacy scans passed. The configured
+recipient secret digest matches the requested private recipient.
+
+Both updated Edge Functions were deployed to the existing SweetMate project.
+A real post-deployment submission verified the new confirmation, persisted row,
+validation, denied table access, duplicate receipt, protected worker, and
+retention after notification failure. The strict `--require-email` check failed
+with `configuration_missing`; provider acceptance and inbox delivery are NOT
+verified. Temporary test rows and users were removed. Set the two missing
+Resend secrets before claiming email delivery works. No new TestFlight build
+was created, so the client-side form change still requires an app release.
+
+## Provider configuration verified (2026-10-16)
+
+Both `RESEND_API_KEY` and `RESEND_FROM` are now configured as Supabase
+Edge Function secrets. The live integration check with `--require-email`
+passed: authenticated feedback was persisted once, the current confirmation
+was returned, RLS restrictions and retry deduplication held, and the worker
+recorded provider acceptance. The temporary feedback and test Auth user were
+removed afterward. The earlier missing-configuration blocker is resolved.
+Provider acceptance was verified; Gmail inbox receipt still requires checking
+the receiving mailbox. No new mobile/TestFlight build was made by this check.
