@@ -1,3 +1,4 @@
+import { createChorePolicyFetch } from "./chorePolicyFetch";
 // Supabase client — the single, shared instance the rest of the app imports
 // from. Do not `new SupabaseClient(...)` anywhere else; multiple clients each
 // keep their own session + realtime connection and drift out of sync.
@@ -24,6 +25,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  global: { fetch: createChorePolicyFetch(supabaseUrl) },
   auth: {
     // Persist the session (access + refresh tokens) in AsyncStorage so users
     // stay signed in across app restarts.

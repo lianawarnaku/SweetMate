@@ -7,6 +7,7 @@ export type ChorePermissionInput = {
     creatorId?: string;
     assignmentMode?: "specific-person" | "round-robin" | "unassigned";
     completed: boolean;
+    skippedAt?: string;
   };
 };
 
@@ -56,7 +57,7 @@ export function resolveChorePermissions({
   isOwner,
   chore,
 }: ChorePermissionInput): ChorePermissions {
-  if (!currentUserId || !isActiveMember) {
+  if (!currentUserId || !isActiveMember || chore.skippedAt) {
     return {
       canView: false,
       canComplete: false,

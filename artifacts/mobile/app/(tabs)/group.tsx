@@ -62,6 +62,7 @@ import {
 } from "@/lib/externalTasks";
 import { reportRuntimeError } from "@/lib/runtimeDiagnostics";
 import { choreLocalDateKey, isBeforeLocalCalendarDay } from "@/lib/choreOccurrences";
+import { choreDefinitionId } from "@/lib/choreIdentity";
 import { activeChores, isArchivedIncomplete } from "@/lib/choreLifecycle";
 import { CHORE_RECURRENCE_LABELS } from "@/lib/choreSchedule";
 import { compactOverdueItems } from "@/lib/overdueDisplay";
@@ -546,11 +547,11 @@ export default function GroupChoresScreen() {
   const { contentBottomPadding } = useTabBarLayout();
 
   const activeHouseholdChores = useMemo(
-    () => activeChores(chores, lifecycleNow),
-    [chores, lifecycleNow],
+    () => activeChores(chores, lifecycleNow, householdTimezone),
+    [chores, lifecycleNow, householdTimezone],
   );
   const archivedHouseholdChores = useMemo(
-    () => chores.filter((chore) => isArchivedIncomplete(chore, lifecycleNow)),
+    () => chores.filter((chore) => chore.skippedAt || isArchivedIncomplete(chore, lifecycleNow)),
     [chores, lifecycleNow],
   );
   const displayedHouseholdChores =
@@ -562,7 +563,10 @@ export default function GroupChoresScreen() {
       if (current) current.push(chore);
       else choresByRoommate.set(chore.assignedTo, [chore]);
     });
-    const sections = roommates.map((roommate) => ({
+    const sectionMembers = choresByRoommate.has("")
+      ? [...roommates, { id: "", name: "Needs assignment", color: colors.primary, weeklyPoints: 0, avatarUri: undefined }]
+      : roommates;
+    const sections = sectionMembers.map((roommate) => ({
       roommate,
       // Keep occurrence identity and position stable when completion changes;
       // the selected row can then visibly transition to its completed style.
@@ -573,7 +577,7 @@ export default function GroupChoresScreen() {
     return choreView === "archived"
       ? sections.filter((section) => section.chores.length > 0)
       : sections;
-  }, [choreView, displayedHouseholdChores, roommates]);
+  }, [choreView, colors.primary, displayedHouseholdChores, roommates]);
 
   const handleNudge = (
     roommateId: string,
@@ -622,7 +626,6 @@ export default function GroupChoresScreen() {
       <View style={[styles.container, { backgroundColor: colors.background }]}>
       <ScreenHeader
         title="Group Chores"
-        subtitle="Your household’s shared responsibilities"
         topPadding={topPad + 16}
       />
 
@@ -899,7 +902,7 @@ export default function GroupChoresScreen() {
               title={choreView === "archived" ? "No past chores" : "No roommates yet"}
               subtitle={
                 choreView === "archived"
-                  ? "Older incomplete household chores will appear here"
+                  ? "Older chores and skipped turns will appear here"
                   : "Add roommates to see group chores"
               }
             />
@@ -913,7 +916,7 @@ export default function GroupChoresScreen() {
                 expanded: choreView === "archived" || expandedOverdueSections.has(roommate.id),
                 isOverdue: (chore) => !chore.completed && isOverdue(chore.dueDate),
                 keyForRepeatedItem: (chore) => chore.recurring
-                  ? chore.title.trim().toLocaleLowerCase()
+                  ? choreDefinitionId(chore)
                   : chore.id,
               });
               const visibleChores = overdueDisplay.visibleItems.slice(0, visibleLimit);
@@ -1088,9 +1091,10 @@ export default function GroupChoresScreen() {
                             }
                             handleChorePress(chore.id);
                           }}
-                          accessibilityRole="checkbox"
+                          disabled={Boolean(chore.skippedAt)}
+                          accessibilityRole={chore.skippedAt ? "text" : "checkbox"}
                           accessibilityState={{ checked: chore.completed }}
-                          accessibilityLabel={`${chore.title}. ${chore.completed ? "Completed." : "Not completed."} ${canManageChore(chore) ? "Double tap to update completion, or use the more actions button to manage." : "Double tap to update completion."}`}
+                          accessibilityLabel={`${chore.title}. ${chore.skippedAt ? "Skipped turn. No obligation." : chore.completed ? "Completed." : "Not completed."} ${canManageChore(chore) ? "Double tap to update completion, or use the more actions button to manage." : "Double tap to update completion."}`}
                           style={[
                             styles.choreRow,
                             {
@@ -1102,9 +1106,9 @@ export default function GroupChoresScreen() {
                           ]}
                         >
                           {/* Status icon */}
-                          <GlassCheckCircle
+                          {chore.skippedAt ? <Feather name="skip-forward" size={22} color={colors.mutedForeground} /> : <GlassCheckCircle
                             state={chore.completed ? "checked" : overdue ? "overdue" : "idle"}
-                          />
+                          />}
 
                           <View style={{ flex: 1 }}>
                             <CompletionText
@@ -1131,7 +1135,7 @@ export default function GroupChoresScreen() {
                                 },
                               ]}
                             >
-                              {formatDueDate(chore.dueDate)}
+                              {chore.skippedAt ? "Skipped · " : ""}{formatDueDate(chore.dueDate)}
                               {chore.recurring ? ` · ${CHORE_RECURRENCE_LABELS[chore.recurring]}` : ""}
                               {chore.assignmentMode === "round-robin" ? " · Round Robin" : ""}
                             </Text>

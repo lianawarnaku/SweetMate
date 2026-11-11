@@ -1,3 +1,6 @@
+import { useChoreLifecycleNow } from "@/hooks/useChoreLifecycleNow";
+import { choreDefinitionId, definitionFromChore, sameChore } from "@/lib/choreIdentity";
+import { activeChores } from "@/lib/choreLifecycle";
 import { setShoppingCompletion } from "@/lib/shoppingCompletion";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, {
@@ -34,10 +37,7 @@ import {
   type EssentialShoppingTransferResult,
 } from "@/lib/essentialShopping";
 import {
-  advanceChoreDueDate,
   advanceScheduledDate,
-  resolveRoundRobinParticipants,
-  roundRobinAssigneeAfter,
 } from "@/lib/choreSchedule";
 import {
   choreLocalDateKey,
@@ -67,10 +67,9 @@ import { rowToSharedBorrow, sharedBorrowToRow, type SharedBorrowRow } from "@/li
 import { withoutNormalizedCollections } from "@/lib/householdStatePayload";
 import { choreToRow, rowToChore, type ChoreRow } from "@/lib/choreRow";
 import { applyChoreRowEvent, planChoreSync } from "@/lib/choreSync";
-import { carryMappedReminderToNextOccurrence } from "@/lib/externalTasks";
+import { removeMappedReminderIfPresent } from "@/lib/externalTasks";
 import { choreNow } from "@/lib/choreClock";
 import { householdDateKey, householdDueDate } from "@/lib/choreTimezone";
-import { dueDateForScheduledDate } from "@/lib/choreOccurrences";
 import { materializeApprovedChart } from "@/lib/choreChart";
 import { recurringChoreClaims } from "@/lib/recurringChoreClaims";
 import type {
@@ -151,6 +150,10 @@ export interface SweetMembership {
 }
 
 export interface Chore {
+  choreDefinitionId?: string;
+  choreDefinition?: import("../lib/choreIdentity").ChoreDefinition;
+  skippedAt?: string;
+  skippedReason?: "outstanding" | "schedule-replaced";
   id: string;
   householdId?: string;
   title: string;
@@ -1146,7 +1149,7 @@ export function AppProvider({
           }
         });
     }
-  }, [activeCalendarDay, choreChartApplying, choresTableReady, householdId, loaded, recurrenceRefreshTick, resolvedHouseholdTimezone, roommates]);
+  }, [activeCalendarDay, choreChartApplying, chores, choresTableReady, householdId, loaded, recurrenceRefreshTick, resolvedHouseholdTimezone, roommates]);
 
   const preferenceUserId = session?.user.id;
 
@@ -2073,24 +2076,8 @@ export function AppProvider({
     }
     setRoommates((current) => current.filter((roommate) => roommate.id !== roommateId));
     setChores((current) => {
-      const remainingIds = roommates
-        .filter((roommate) => roommate.id !== roommateId)
-        .map((roommate) => roommate.id);
       const next = current.map((chore) => {
         if (chore.completed || chore.assignedTo !== roommateId) return chore;
-        if (chore.assignmentMode === "round-robin") {
-          const participants = resolveRoundRobinParticipants(chore, remainingIds);
-          const nextCursor = participants.length
-            ? (chore.roundRobinCursor ?? 0) % participants.length
-            : 0;
-          return {
-            ...chore,
-            assignedTo: participants[nextCursor] ?? "",
-            roundRobinParticipantIds: participants,
-            roundRobinCursor: nextCursor,
-            updatedAt: new Date().toISOString(),
-          };
-        }
         return {
           ...chore,
           assignedTo: "",
@@ -3089,7 +3076,7 @@ export function AppProvider({
       // delete still observes (and removes) the row created by the first job.
       const plan = planChoreSync(chores, persistedChoreRowsRef.current);
       if (plan.upserts.length) {
-        const { error } = await supabase.from("chores").upsert(plan.upserts, { onConflict: "id" });
+        const { data: savedRows, error } = await supabase.from("chores").upsert(plan.upserts, { onConflict: "id" }).select("*");
         if (error) {
           reportSupabaseError("persist normalized chores", error, {
             householdId,
@@ -3097,7 +3084,11 @@ export function AppProvider({
           });
           return;
         }
-        plan.upserts.forEach((row) => persistedChoreRowsRef.current.set(row.id, row));
+        for (const row of (savedRows ?? []) as ChoreRow[]) {
+          persistedChoreRowsRef.current.set(row.id, row);
+          choresRef.current = applyChoreRowEvent(choresRef.current, "UPDATE", row);
+        }
+        setChores(choresRef.current);
       }
       if (plan.deleteIds.length) {
         const { error } = await supabase
@@ -3449,12 +3440,20 @@ export function AppProvider({
       createdAt: chore.createdAt ?? now,
       updatedAt: now,
     };
-    const updated = [...choresRef.current, next];
+    next.choreDefinitionId = choreDefinitionId(next);
+    next.choreDefinition = { ...definitionFromChore(next), updatedAt: now };
+    const related = choresRef.current.filter(item => sameChore(item, next));
+    if (related.length && !isHost && !related.some(item => item.assignedTo === currentUserId || item.creatorId === currentUserId)) return null;
+    const existingOpen = related.filter(item => !item.completed && !item.skippedAt).sort((a,b) => a.dueDate.localeCompare(b.dueDate) || a.id.localeCompare(b.id))[0];
+    const updated = materializeRecurringOccurrences(
+      [...choresRef.current.map(item => sameChore(item, next) ? { ...item, choreDefinition: next.choreDefinition, updatedAt: now } : item),
+        ...(existingOpen ? [] : [next])], choreNow(), now, resolvedHouseholdTimezone, roommates.map(member => member.id),
+    );
     choresRef.current = updated;
     setChores(updated);
     track.choreCreated({ recurring: Boolean(chore.recurring) });
-    return id;
-  }, [currentUserId, householdId, roommates, session?.user.id]);
+    return existingOpen?.id ?? id;
+  }, [currentUserId, householdId, isHost, roommates, resolvedHouseholdTimezone, session?.user.id]);
 
   const activeSweet = useMemo(
     () => memberships.find((membership) => membership.sweetId === householdId) ?? null,
@@ -3517,25 +3516,40 @@ export function AppProvider({
     ) {
       return false;
     }
-    const next = choresRef.current.map((chore) =>
-      chore.id === id ? candidate : chore,
-    );
+    candidate.choreDefinitionId = choreDefinitionId(candidate);
+    candidate.choreDefinition = {
+      ...definitionFromChore(candidate),
+      anchorDate: candidate.scheduledDate ?? choreScheduledDate(candidate),
+      anchorDueDate: candidate.dueDate,
+      updatedAt: candidate.updatedAt!,
+    };
+    const merged = choresRef.current.map(chore => {
+      if (chore.id !== id && !sameChore(chore, current) && !sameChore(chore, candidate)) return chore;
+      const next = chore.id === id ? candidate : chore;
+      return { ...next, choreDefinitionId: candidate.choreDefinitionId,
+        choreDefinition: candidate.choreDefinition,
+        // Editing a schedule cannot move an existing obligation to somebody else.
+        ...(chore.id === id && current.assignedTo && activeMemberIds.has(current.assignedTo) ? {
+          assignedTo: current.assignedTo, assignmentMode: current.assignmentMode,
+          dueDate: current.dueDate, scheduledDate: current.scheduledDate,
+        } : {}), updatedAt: candidate.updatedAt };
+    });
+    const next = materializeRecurringOccurrences(merged, choreNow(), candidate.updatedAt, resolvedHouseholdTimezone, [...activeMemberIds]);
     choresRef.current = next;
     setChores(next);
     return true;
-  }, [canManageChore, householdId, roommates]);
+  }, [canManageChore, householdId, roommates, resolvedHouseholdTimezone]);
 
   const addChores = useCallback((newChores: (Omit<Chore, "id"> & { id?: string })[]): number => {
     if (applyingChartRef.current) return 0;
     const current = choresRef.current;
     const sourceKeys = new Set(current.flatMap((chore) => chore.sourceKey ? [chore.sourceKey] : []));
-    const manualTitles = new Set(current.filter((chore) => !chore.sourceKey).map((chore) => chore.title.trim().toLowerCase()));
+    const definitionIds = new Set(current.map(chore => choreDefinitionId(chore)));
     const accepted: Chore[] = [];
     for (const chore of newChores) {
-      const titleKey = chore.title.trim().toLowerCase();
-      if ((chore.sourceKey && sourceKeys.has(chore.sourceKey)) || (!chore.sourceKey && manualTitles.has(titleKey))) continue;
+      if ((chore.sourceKey && sourceKeys.has(chore.sourceKey)) || (chore.choreDefinitionId && definitionIds.has(chore.choreDefinitionId))) continue;
       if (chore.sourceKey) sourceKeys.add(chore.sourceKey);
-      else manualTitles.add(titleKey);
+      if (chore.choreDefinitionId) definitionIds.add(chore.choreDefinitionId);
       const id = chore.id ?? makeId();
       const now = new Date().toISOString();
       accepted.push({
@@ -3563,7 +3577,7 @@ export function AppProvider({
       });
     }
     if (accepted.length) {
-      const next = [...current, ...accepted];
+      const next = materializeRecurringOccurrences([...current, ...accepted], choreNow(), new Date().toISOString(), resolvedHouseholdTimezone, roommatesRef.current.map(member => member.id));
       choresRef.current = next;
       setChores(next);
       track.choreBatchCreated({
@@ -3572,7 +3586,7 @@ export function AppProvider({
       });
     }
     return accepted.length;
-  }, [currentUserId, householdId, session?.user.id]);
+  }, [currentUserId, householdId, resolvedHouseholdTimezone, session?.user.id]);
 
   // Apply an explicit desired state. Repeated completion intents are no-ops,
   // preventing delayed presses/realtime rerenders from reversing the result or
@@ -3589,7 +3603,7 @@ export function AppProvider({
       isOwner: isHost,
       allowed,
     });
-    if (!chore || !allowed) return;
+    if (!chore || chore.skippedAt || !allowed) return;
     const transition = choreCompletionTransition(
       chore.completed,
       completed,
@@ -3601,188 +3615,21 @@ export function AppProvider({
     } else {
       track.choreUndone({ recurring: Boolean(chore.recurring) });
     }
-    const wasCompleted = chore.completed;
+    if (completed) {
+      void removeMappedReminderIfPresent(currentUserId, id).catch(error => reportRuntimeError("remove completed chore reminder", error, { choreId: id }));
+    }
     const delta = transition.pointsDelta;
     const completedAt = choreNow().toISOString();
 
-    let nextChores: Chore[];
-    if (wasCompleted) {
-      const generated = chore.nextOccurrenceId
-        ? choresRef.current.find((candidate) => candidate.id === chore.nextOccurrenceId)
-        : undefined;
-      nextChores = choresRef.current
-        .filter((candidate) =>
-          !generated || generated.completed || candidate.id !== generated.id,
-        )
-        .map((candidate) =>
-          candidate.id === id
-            ? {
-                ...candidate,
-                completed: false,
-                completedAt: undefined,
-                completedByUserId: undefined,
-                nextOccurrenceId: generated?.completed
-                  ? candidate.nextOccurrenceId
-                  : undefined,
-                updatedAt: completedAt,
-              }
-            : candidate,
-        );
-    } else if (chore.recurring) {
-      const monthlyAnchorDay =
-        chore.monthlyAnchorDay ??
-        Number(
-          choreLocalDateKey(chore.initialDueDate ?? chore.dueDate).slice(-2),
-        );
-      let nextScheduledDate = advanceScheduledDate(
-        choreScheduledDate(chore),
-        chore.recurring,
-        monthlyAnchorDay,
-      );
-      let nextDueDate = advanceChoreDueDate(
-        chore.dueDate,
-        chore.recurring,
-        monthlyAnchorDay,
-        resolvedHouseholdTimezone,
-      );
-      let recurrenceSteps = 1;
-      const todayKey = householdDateKey(choreNow(), resolvedHouseholdTimezone);
-      while (nextScheduledDate <= todayKey) {
-        nextScheduledDate = advanceScheduledDate(
-          nextScheduledDate,
-          chore.recurring,
-          monthlyAnchorDay,
-        );
-        nextDueDate = advanceChoreDueDate(
-          nextDueDate,
-          chore.recurring,
-          monthlyAnchorDay,
-          resolvedHouseholdTimezone,
-        );
-        recurrenceSteps += 1;
-      }
-
-      nextDueDate = dueDateForScheduledDate(nextScheduledDate, chore.initialDueDate ?? chore.dueDate, resolvedHouseholdTimezone);
-      const seriesId = chore.recurrenceSeriesId ?? chore.id;
-      const rotationSeed = [...choresRef.current].filter((candidate) =>
-        candidate.householdId === chore.householdId &&
-        (candidate.recurrenceSeriesId ?? candidate.id) === seriesId &&
-        choreScheduledDate(candidate) < nextScheduledDate,
-      ).sort((left, right) => choreScheduledDate(right).localeCompare(choreScheduledDate(left)))[0] ?? chore;
-      const activeMemberIds = roommates.map((roommate) => roommate.id);
-      const participants = resolveRoundRobinParticipants(rotationSeed, activeMemberIds);
-      let rotationSteps = 1;
-      let rotationDate = advanceScheduledDate(choreScheduledDate(rotationSeed), chore.recurring, monthlyAnchorDay);
-      while (rotationDate && rotationDate < nextScheduledDate && rotationSteps < 10_000) {
-        rotationDate = advanceScheduledDate(rotationDate, chore.recurring, monthlyAnchorDay);
-        rotationSteps += 1;
-      }
-      const nextAssignee = rotationSeed.assignmentMode === "round-robin"
-        ? roundRobinAssigneeAfter(rotationSeed, activeMemberIds, rotationSteps)
-        : !rotationSeed.assignedTo || activeMemberIds.includes(rotationSeed.assignedTo) ? rotationSeed.assignedTo : undefined;
-      const recurrenceStopped =
-        nextAssignee === undefined ||
-        Boolean(chore.recurrenceEndsOn && nextScheduledDate >= chore.recurrenceEndsOn) ||
-        (chore.excludedOccurrenceDates ?? []).includes(nextScheduledDate);
-      if (recurrenceStopped) {
-        nextChores = choresRef.current.map((candidate) =>
-          candidate.id === id
-            ? {
-                ...candidate,
-                completed: true,
-                completedAt,
-                completedByUserId: currentUserId,
-                nextOccurrenceId: undefined,
-                updatedAt: completedAt,
-              }
-            : candidate,
-        );
-      } else {
-        const nextCursor = Math.max(0, participants.indexOf(nextAssignee!));
-        const existingNextOccurrence = choresRef.current.find((candidate) =>
-          candidate.id !== chore.id &&
-          (candidate.recurrenceSeriesId ?? candidate.id) ===
-            (chore.recurrenceSeriesId ?? chore.id) &&
-          choreScheduledDate(candidate) === nextScheduledDate
-        );
-        const nextId = existingNextOccurrence?.id ?? recurringOccurrenceId(
-          chore.householdId,
-          seriesId,
-          nextScheduledDate,
-        );
-        const nextOccurrence: Chore = {
-          ...chore,
-          id: nextId,
-          assignedTo: nextAssignee!,
-          assignmentMode: rotationSeed.assignmentMode,
-          roundRobinAllMembers: rotationSeed.roundRobinAllMembers,
-          excludedParticipantIds: rotationSeed.excludedParticipantIds,
-          roundRobinParticipantIds: participants.length
-            ? participants
-            : chore.roundRobinParticipantIds,
-          roundRobinCursor: nextCursor,
-          dueDate: nextDueDate,
-          scheduledDate: nextScheduledDate,
-          initialScheduledDate:
-            chore.initialScheduledDate ??
-            choreLocalDateKey(chore.initialDueDate ?? chore.dueDate),
-          monthlyAnchorDay,
-          nextDueDate,
-          completed: false,
-          completedAt: undefined,
-          completedByUserId: undefined,
-          occurrenceIndex: (chore.occurrenceIndex ?? 0) + recurrenceSteps,
-          nextOccurrenceId: undefined,
-          createdAt: completedAt,
-          updatedAt: completedAt,
-        };
-        nextChores = choresRef.current.map((candidate) =>
-          candidate.id === id
-            ? {
-                ...candidate,
-                completed: true,
-                completedAt,
-                completedByUserId: currentUserId,
-                nextOccurrenceId: nextId,
-                updatedAt: completedAt,
-              }
-            : candidate,
-        );
-        if (!existingNextOccurrence) {
-          nextChores.push(nextOccurrence);
-          const userScope = session?.user.id;
-          if (userScope) {
-            void carryMappedReminderToNextOccurrence(userScope, id, {
-              id: nextOccurrence.id,
-              title: nextOccurrence.title,
-              dueDate: nextOccurrence.dueDate,
-              category: nextOccurrence.category,
-              recurrence: nextOccurrence.recurring,
-              assignedToName: roommatesRef.current.find(
-                (roommate) => roommate.id === nextOccurrence.assignedTo,
-              )?.name,
-            }).catch((error) =>
-              reportRuntimeError("carry reminder to next occurrence", error, {
-                choreId: id,
-                nextChoreId: nextOccurrence.id,
-              }),
-            );
-          }
-        }
-      }
-    } else {
-      nextChores = choresRef.current.map((candidate) =>
-        candidate.id === id
-          ? {
-              ...candidate,
-              completed: true,
-              completedAt,
-              completedByUserId: currentUserId,
-              updatedAt: completedAt,
-            }
-          : candidate,
-      );
-    }
+    const nextChores = materializeRecurringOccurrences(
+      choresRef.current.map(candidate => candidate.id === id ? {
+        ...candidate, completed,
+        completedAt: completed ? completedAt : undefined,
+        completedByUserId: completed ? currentUserId : undefined,
+        nextOccurrenceId: undefined, updatedAt: completedAt,
+      } : candidate), choreNow(), completedAt, resolvedHouseholdTimezone,
+      roommatesRef.current.map(member => member.id),
+    );
     choresRef.current = nextChores;
     setChores(nextChores);
     const nextRoommates = roommatesRef.current.map((r) =>
@@ -3840,8 +3687,8 @@ export function AppProvider({
   const pickUpChore = useCallback((choreId: string, completedById: string) => {
     if (applyingChartRef.current) return;
     const chore = choresRef.current.find((candidate) => candidate.id === choreId);
-    if (!chore || chore.completed) return;
-    completeChore(choreId);
+    if (!chore || chore.completed || chore.skippedAt) return;
+    setChoreCompleted(choreId, true);
     setRoommates((prev) =>
       prev.map((r) => {
         if (r.id === completedById) {
@@ -3863,7 +3710,7 @@ export function AppProvider({
         return r;
       })
     );
-  }, [completeChore]);
+  }, [setChoreCompleted]);
 
   const deleteChore = useCallback((
     id: string,
@@ -4902,13 +4749,11 @@ export function AppProvider({
       : [],
     [appAlerts, householdId],
   );
-  const householdChoreSummary = useMemo(() => ({
-    totalChores: chores.length,
-    completedChores: chores.reduce(
-      (total, chore) => total + (chore.completed ? 1 : 0),
-      0,
-    ),
-  }), [chores]);
+  const householdSummaryClock = useChoreLifecycleNow(chores);
+  const householdChoreSummary = useMemo(() => {
+    const visible = activeChores(chores, choreNow(), resolvedHouseholdTimezone);
+    return { totalChores: visible.length, completedChores: visible.filter(chore => chore.completed).length };
+  }, [chores, activeCalendarDay, householdSummaryClock, resolvedHouseholdTimezone]);
 
   const contextValue = useMemo<AppContextType>(() => ({
     choreChartApplying, choreChartConfigurationReady, retryChoreChartConfiguration,

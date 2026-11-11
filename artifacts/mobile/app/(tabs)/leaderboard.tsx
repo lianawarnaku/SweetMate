@@ -107,7 +107,6 @@ export default function LeaderboardScreen() {
           <View>
             <Text style={[styles.kicker, { color: colors.primary }]}>SWEET STANDINGS</Text>
             <Text style={[styles.title, { color: colors.foreground }]}>Leaderboard</Text>
-            <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>A little treat for every chore completed</Text>
           </View>
           <HeaderActions />
         </View>

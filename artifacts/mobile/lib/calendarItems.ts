@@ -120,6 +120,7 @@ export function deriveCalendarItems(
 
   for (const chore of sources.chores) {
     if (
+      chore.skippedAt ||
       chore.assignedTo !== sources.currentUserId ||
       (sources.householdId && chore.householdId && chore.householdId !== sources.householdId)
     ) continue;

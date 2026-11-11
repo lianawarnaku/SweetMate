@@ -453,7 +453,6 @@ export default function ShoppingScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <ScreenHeader
         title="Shopping"
-        subtitle="See what your household still needs"
         topPadding={topPad + 16}
       />
 

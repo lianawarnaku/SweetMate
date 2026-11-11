@@ -5,7 +5,7 @@ import { useTheme } from "@/constants/colors";
 
 type ScreenHeaderProps = {
   title: string;
-  subtitle: string;
+  subtitle?: string;
   topPadding: number;
 };
 
@@ -22,7 +22,7 @@ export function ScreenHeader({ title, subtitle, topPadding }: ScreenHeaderProps)
     >
       <View style={styles.copy}>
         <Text accessibilityRole="header" style={[styles.title, { color: colors.foreground }]}>{title}</Text>
-        <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>{subtitle}</Text>
+        {subtitle ? <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>{subtitle}</Text> : null}
       </View>
       <HeaderActions />
     </View>

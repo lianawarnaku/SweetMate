@@ -18,7 +18,6 @@ import { useTheme } from "@/constants/colors";
 import { isLeaderboardVisible } from "@/constants/featureAvailability";
 import { useAppContextSelector } from "@/context/AppContext";
 import { SmoothPressable } from "@/components/SmoothPressable";
-import { GlassSurface } from "@/components/LiquidGlass";
 import { clampTabIndicatorX, resolveDraggedTabIndex } from "@/lib/tabBarGesture";
 import { tapLight } from "@/lib/haptics";
 
@@ -263,11 +262,11 @@ function ScrollableTabBar({ state, descriptors, navigation }: BottomTabBarProps)
         styles.tabBarShell,
         {
           bottom: tabBarBottom,
-          borderColor: colors.border,
+          backgroundColor: colors.surfaceModalOpaque,
+          shadowColor: "#000000",
         },
       ]}
     >
-      <GlassSurface variant="elevated" style={StyleSheet.absoluteFill} />
       <View
         style={styles.tabBarContent}
         onLayout={(event) => setContentWidth(event.nativeEvent.layout.width)}
@@ -285,7 +284,7 @@ function ScrollableTabBar({ state, descriptors, navigation }: BottomTabBarProps)
                 style={[
                   styles.selectionBubble,
                   {
-                    backgroundColor: colors.secondary,
+                    backgroundColor: colors.action,
                     transform: [
                       { scaleX: bubbleActivity.interpolate({ inputRange: [0, 1], outputRange: [0.84, 1], extrapolate: "clamp" }) },
                       { scaleY: bubbleActivity.interpolate({ inputRange: [0, 1], outputRange: [0.86, 1], extrapolate: "clamp" }) },
@@ -311,7 +310,7 @@ function ScrollableTabBar({ state, descriptors, navigation }: BottomTabBarProps)
         {visibleRoutes.map((route) => {
           const { options } = descriptors[route.key];
           const focused = focusedRouteKey === route.key;
-          const color = focused ? colors.primary : colors.mutedForeground;
+          const color = focused ? colors.actionForeground : colors.mutedForeground;
           const label =
             typeof options.tabBarLabel === "string"
               ? options.tabBarLabel
@@ -446,11 +445,9 @@ const styles = StyleSheet.create({
     left: 14,
     right: 14,
     height: 68,
-    borderWidth: 1,
     borderRadius: 28,
     overflow: "hidden",
     elevation: 12,
-    shadowColor: "transparent",
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.14,
     shadowRadius: 20,

@@ -1,3 +1,4 @@
+import { canonicalDefinition, choreDefinitionId } from "./choreIdentity.ts";
 import type {
   Chore,
   ChoreCategory,
@@ -156,6 +157,47 @@ export function projectChoreChartSchedule(
   const todayKey = dayKey(today);
   if (!start || !end || !todayKey || end < start) return [];
   const activeIds = [...new Set(activeMemberIds)];
+  if (chores.some(chore => chore.choreDefinitionId)) {
+    const groups = new Map<string, Chore[]>();
+    chores.forEach(chore => {
+      const key = JSON.stringify([chore.householdId,choreDefinitionId(chore)]);
+      groups.set(key,[...(groups.get(key) ?? []),chore]);
+    });
+    return [...groups.values()].flatMap(group => {
+      const definition = canonicalDefinition(group);
+      const identity = JSON.stringify([group[0].householdId,definition.id]);
+      const current = group.filter(chore => !chore.skippedAt);
+      const actual: ChoreChartOccurrence[] = current.filter(chore => {
+        const date=choreScheduledDate(chore); return date>=start && date<=end;
+      }).map(chore => ({ id: chore.id, seriesId: identity, title: chore.title, category: chore.category,
+        scheduledDate: choreScheduledDate(chore), assignedTo: chore.assignedTo, completed: chore.completed,
+        projected: false, recurring: definition.recurring,
+      }));
+      if (!definition.recurring || current.some(chore => !chore.completed && choreScheduledDate(chore)<=todayKey)) return actual;
+      const saved = new Map(group.filter(chore => (chore.recurrenceSeriesId ?? chore.id)===definition.seriesId).map(chore => [choreScheduledDate(chore),chore]));
+      const relevant = group.filter(chore => (chore.recurrenceSeriesId ?? chore.id)===definition.seriesId);
+      const cutoff = definition.endsOn ?? relevant.flatMap(chore => chore.recurrenceEndsOn ? [chore.recurrenceEndsOn] : []).sort()[0];
+      const excluded = new Set(relevant.flatMap(chore => chore.excludedOccurrenceDates ?? []));
+      const template = { ...group[0], ...definition, recurring: definition.recurring } as Chore;
+      let date=definition.anchorDate, prior:Chore|undefined, priorIndex=0;
+      for(let index=0; date && date<=end && index<10000; index++) {
+        if(cutoff && date>=cutoff) break;
+        const stored=saved.get(date);
+        if(stored && stored.skippedReason!=="schedule-replaced") { prior=stored; priorIndex=index; }
+        else if(date>todayKey && date>=start && !excluded.has(date) && !actual.some(chore => chore.scheduledDate===date)) {
+          actual.push({ id:`preview:${identity}:${date}`,seriesId:identity,title:definition.title,category:definition.category,
+            scheduledDate:date,assignedTo:definition.assignmentMode==="round-robin"
+              ? roundRobinAssigneeAfter(prior ? {...template,assignedTo:prior.assignedTo,roundRobinParticipantIds:prior.roundRobinParticipantIds} : template,activeIds,prior ? index-priorIndex : index) ?? "unassigned"
+              : activeIds.includes(definition.assignedTo) ? definition.assignedTo : "unassigned",
+            completed:false,projected:true,recurring:definition.recurring });
+        }
+        const next=advanceScheduledDate(date,definition.recurring,definition.monthlyAnchorDay);
+        if(!next || next<=date) break;
+        date=next;
+      }
+      return actual;
+    }).sort((a,b) => a.scheduledDate.localeCompare(b.scheduledDate) || a.id.localeCompare(b.id));
+  }
   const seriesIds = legacySeriesIds(chores);
   const groups = new Map<string, Chore[]>();
   for (const chore of chores) {

@@ -30,6 +30,7 @@ import {
   updateMappedReminderIfPresent,
 } from "@/lib/externalTasks";
 import { reportRuntimeError } from "@/lib/runtimeDiagnostics";
+import { canonicalDefinition, choreDefinitionId } from "@/lib/choreIdentity";
 import { InlineFeedback } from "@/components/InlineFeedback";
 
 const CATEGORIES: {
@@ -70,6 +71,7 @@ export function ManualChoreForm({
     householdId,
     pointsEnabled,
     roommates,
+    chores,
   } = useAppContextSelector((context) => ({
     addChore: context.addChore,
     updateChore: context.updateChore,
@@ -77,40 +79,51 @@ export function ManualChoreForm({
     householdId: context.householdId,
     pointsEnabled: isPointsVisible(context.pointsEnabled),
     roommates: context.roommates,
+    chores: context.chores,
   }));
+  const initialDefinition = initialChore?.choreDefinition;
   const defaultAssignee =
     roommates.some((member) => member.id === initialAssigneeId)
       ? initialAssigneeId!
       : currentUserId;
-  const [title, setTitle] = useState(initialChore?.title ?? "");
-  const [notes, setNotes] = useState(initialChore?.description ?? "");
+  const [identityId, setIdentityId] = useState(initialChore ? choreDefinitionId(initialChore) : "");
+  const definitions = useMemo(() => {
+    const groups = new Map<string, Chore[]>();
+    chores.filter(chore => chore.householdId === householdId).forEach(chore => {
+      const id = choreDefinitionId(chore);
+      groups.set(id, [...(groups.get(id) ?? []),chore]);
+    });
+    return [...groups.values()].map(group => canonicalDefinition(group)).sort((a,b) => a.title.localeCompare(b.title));
+  }, [chores,householdId]);
+  const [title, setTitle] = useState(initialDefinition?.title ?? initialChore?.title ?? "");
+  const [notes, setNotes] = useState(initialDefinition ? initialDefinition.description ?? "" : initialChore?.description ?? "");
   const [assignmentMode, setAssignmentMode] =
     useState<Exclude<AssignmentMode, "unassigned">>(
-      initialChore?.assignmentMode === "round-robin"
+      (initialDefinition?.assignmentMode ?? initialChore?.assignmentMode) === "round-robin"
         ? "round-robin"
         : "specific-person",
     );
   const [assigneeId, setAssigneeId] = useState(
-    initialChore?.assignedTo || defaultAssignee,
+    (initialDefinition?.assignedTo ?? initialChore?.assignedTo) || defaultAssignee,
   );
   const [allMembers, setAllMembers] = useState(
-    initialChore?.roundRobinAllMembers ?? true,
+    initialDefinition?.roundRobinAllMembers ?? initialChore?.roundRobinAllMembers ?? true,
   );
   const [participants, setParticipants] = useState<string[]>(
-    initialChore?.roundRobinParticipantIds ?? roommates.map((member) => member.id),
+    initialDefinition?.roundRobinParticipantIds ?? initialChore?.roundRobinParticipantIds ?? roommates.map((member) => member.id),
   );
   const [recurrence, setRecurrence] = useState<ChoreRecurrence | null>(
-    initialChore?.recurring ?? null,
+    initialDefinition ? initialDefinition.recurring ?? null : initialChore?.recurring ?? null,
   );
   const [dueDateInput, setDueDateInput] = useState(() =>
     initialChore
-      ? dateInput(new Date(initialChore.dueDate))
+      ? initialDefinition?.anchorDate ?? dateInput(new Date(initialChore.dueDate))
       : todayDateInput(),
   );
   const [category, setCategory] = useState<ChoreCategory>(
-    initialChore?.category ?? "cleaning",
+    initialDefinition?.category ?? initialChore?.category ?? "cleaning",
   );
-  const [points, setPoints] = useState(String(initialChore?.points ?? 20));
+  const [points, setPoints] = useState(String(initialDefinition?.points ?? initialChore?.points ?? 20));
   const [error, setError] = useState<string | null>(null);
   const submittingRef = useRef(false);
 
@@ -145,9 +158,10 @@ export function ManualChoreForm({
       setError("Select at least one person for the rotation.");
       return;
     }
-    const initialRoundRobinAssignee = selectedParticipants[0];
+    const initialRoundRobinAssignee = selectedParticipants.includes(assigneeId) ? assigneeId : selectedParticipants[0];
     submittingRef.current = true;
     const draft = {
+      choreDefinitionId: identityId || undefined,
       householdId: householdId ?? undefined,
       title: title.trim(),
       description: notes.trim() || undefined,
@@ -220,6 +234,31 @@ export function ManualChoreForm({
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
     >
+      <Text style={[styles.label, { color: colors.mutedForeground }]}>Shared chore</Text>
+      <Text style={[styles.orderText, { color: colors.mutedForeground }]}>
+        Choose an existing chore to share one schedule and one outstanding obligation. Similar titles stay separate unless you link them.
+      </Text>
+      <View style={styles.wrap}>
+        {!initialChore && <TouchableOpacity accessibilityRole="button" accessibilityState={{ selected: !identityId }}
+          onPress={() => setIdentityId("")} style={[styles.chip, chip(!identityId)]}>
+          <Text style={[styles.chipText, { color: colors.foreground }]}>New separate chore</Text>
+        </TouchableOpacity>}
+        {definitions.map(definition => <TouchableOpacity key={definition.id} accessibilityRole="button"
+          accessibilityLabel={`Use shared chore ${definition.title}`} accessibilityState={{ selected: identityId === definition.id }}
+          onPress={() => {
+            setIdentityId(definition.id); setTitle(definition.title); setNotes(definition.description ?? ""); setDueDateInput(definition.anchorDate);
+            setRecurrence(definition.recurring ?? null); setCategory(definition.category); setPoints(String(definition.points));
+            setAssignmentMode(definition.assignmentMode === "round-robin" ? "round-robin" : "specific-person");
+            setAssigneeId(definition.assignedTo || defaultAssignee); setAllMembers(definition.roundRobinAllMembers ?? true);
+            setParticipants(definition.roundRobinParticipantIds ?? roommates.map(member => member.id));
+            setError(null);
+          }} style={[styles.chip,chip(identityId === definition.id)]}>
+          <Text style={[styles.chipText, { color: colors.foreground }]}>{definition.title}</Text>
+        </TouchableOpacity>)}
+      </View>
+      {(initialChore || identityId) && <Text style={[styles.orderText, { color: colors.mutedForeground }]}>
+        Changes update the shared schedule. An unfinished chore stays with its current owner; missed turns are skipped.
+      </Text>}
       <Text style={[styles.label, { color: colors.mutedForeground }]}>Chore title</Text>
       <TextInput
         autoFocus

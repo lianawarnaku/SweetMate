@@ -1,3 +1,4 @@
+import { choreDefinitionId, definitionFromChore } from "./choreIdentity.ts";
 import type {
   Chore,
   GeneratedTask,
@@ -61,7 +62,7 @@ export function retainedChoreLoads(
   for (const chore of chores) {
     if (
       (householdId && chore.householdId !== householdId) ||
-      chore.completed ||
+      chore.completed || chore.skippedAt ||
       !(chore.assignedTo in totals)
     )
       continue;
@@ -135,7 +136,7 @@ export function buildHouseholdChart({
   tasks = tasks.map((task) => {
     const locked = chores.find(
       (chore) =>
-        !chore.completed &&
+        !chore.completed && !chore.skippedAt &&
         chore.assignmentLocked &&
         (!chore.recurrenceEndsOn ||
           chore.recurrenceEndsOn > householdDateKey(now, timezone)) &&
@@ -159,7 +160,7 @@ export function buildHouseholdChart({
   );
   for (const chore of chores) {
     if (
-      chore.completed ||
+      chore.completed || chore.skippedAt ||
       (chore.recurrenceEndsOn &&
         chore.recurrenceEndsOn <= householdDateKey(now, timezone)) ||
       !chore.assignmentLocked ||
@@ -252,7 +253,7 @@ export function materializeApprovedChart({
       ownerByTask.set(id, assignment.memberId);
     }),
   );
-  return (payload.generatedTasks ?? []).map((task) => {
+  return (payload.generatedTasks ?? []).map((task): Chore => {
     const assignee = ownerByTask.get(task.id);
     const participants = eligibleMemberIdsForTask(task.id, members, payload);
     if (!assignee || !participants.includes(assignee))
@@ -263,7 +264,7 @@ export function materializeApprovedChart({
       .filter(
         (chore) =>
           chore.householdId === householdId &&
-          !chore.completed &&
+          !chore.completed && !chore.skippedAt &&
           chore.assignmentLocked &&
           (!chore.recurrenceEndsOn ||
             chore.recurrenceEndsOn > householdDateKey(now, timezone)) &&
@@ -301,6 +302,7 @@ export function materializeApprovedChart({
       creatorId,
       title: task.title,
       sourceKey: task.id,
+      choreDefinitionId: chores.find(chore => chore.sourceKey === task.id)?.choreDefinitionId ?? `source:${task.id}`,
       assignedTo: assignee,
       assignmentMode: payload.pinnedAssignments?.[task.id]
         ? "specific-person"
@@ -330,7 +332,9 @@ export function materializeApprovedChart({
       createdAt: now.toISOString(),
       updatedAt: now.toISOString(),
     };
-  });
+  }).map(chore => ({ ...chore, choreDefinitionId: choreDefinitionId(chore),
+    choreDefinition: { ...definitionFromChore(chore, timezone), updatedAt: now.toISOString() },
+  }));
 }
 
 export function frequencyLabel(value: GeneratedTask["frequency"]): string {

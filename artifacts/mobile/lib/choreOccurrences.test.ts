@@ -75,14 +75,14 @@ assert(daily.length === 3, "each due recurring occurrence must be materialized i
 assert(new Set(daily.map(choreOccurrenceIdentity)).size === 3, "recurring occurrence identities must be unique");
 assert(daily.every((chore) => !chore.completed), "new recurring occurrences must begin unchecked");
 assert(isChoreCarryoverOnDay(daily[0], new Date(2026, 6, 29)), "missed Monday occurrence must coexist as carryover");
-assert(isChoreCarryoverOnDay(daily[1], new Date(2026, 6, 29)), "multiple missed occurrences must remain actionable");
-assert(isChoreActiveOnDay(daily[2], new Date(2026, 6, 29)), "current occurrence must be independently active");
+assert(!isChoreCarryoverOnDay(daily[1], new Date(2026, 6, 29)) && Boolean(daily[1].skippedAt), "a missed turn must be skipped while the oldest obligation remains open");
+assert(!isChoreActiveOnDay(daily[2], new Date(2026, 6, 29)), "today cannot create another obligation while the same chore is owed");
 
 const mondayDone = daily.map((chore, index) =>
   index === 0 ? { ...chore, completed: true, completedAt: new Date().toISOString() } : chore
 );
 assert(!isChoreActiveOnDay(mondayDone[0], new Date(2026, 6, 30)), "completing one occurrence must stop only its carryover");
-assert(isChoreActiveOnDay(mondayDone[1], new Date(2026, 6, 30)), "another missed occurrence must remain active");
+assert(!isChoreActiveOnDay(mondayDone[1], new Date(2026, 6, 30)), "completion must never reactivate a permanently skipped turn");
 assert(!mondayDone[2].completed, "completion must not leak to a later occurrence");
 
 const rerun = materializeRecurringOccurrences(
@@ -239,8 +239,8 @@ assert(
     weeklyCatchUp[0],
     "series",
     "2026-07-30T12:00:00.000Z",
-  ).length === 0,
-  "deleting a recurring series with no completed history must remove every occurrence",
+  ).every(chore => Boolean(chore.skippedAt)),
+  "deleting a recurring series must remove unfinished obligations while preserving skipped history",
 );
 
 // Regression: "delete entire series" must keep completed history and only
@@ -255,8 +255,8 @@ const seriesDeletedWithHistory = deleteRecurringChore(
   "2026-07-30T12:00:00.000Z",
 );
 assert(
-  seriesDeletedWithHistory.length === 2 &&
-    seriesDeletedWithHistory.every((chore) => chore.completed),
+  seriesDeletedWithHistory.filter(chore=>chore.completed).length === 2 &&
+    seriesDeletedWithHistory.every((chore) => chore.completed || Boolean(chore.skippedAt)),
   "deleting a series must preserve completed occurrences and remove only incomplete ones",
 );
 assert(
@@ -351,10 +351,10 @@ try {
   assert(fixedRoster.every((entry) => entry.assignedTo !== "d"), "a deliberately fixed rotation must not add new roommates");
   const departedPin = materializeRecurringOccurrences([{ ...zonedAnchor, assignmentMode: "specific-person", assignmentLocked: true }],
     new Date("2026-03-11T23:30:00.000Z"), "2026-03-11T23:30:00.000Z", "America/New_York", ["a", "c"]);
-  assert(departedPin.length === 1, "a removed pinned owner must require review before new chores are assigned to them");
+  assert(departedPin.slice(1).every(entry => !entry.assignedTo), "a removed pinned owner returns the obligation for reassignment");
   const nobodyEligible = materializeRecurringOccurrences([{ ...zonedAnchor, excludedParticipantIds: ["a", "b", "c"] }],
     new Date("2026-03-11T23:30:00.000Z"), "2026-03-11T23:30:00.000Z", "America/New_York", ["a", "b", "c"]);
-  assert(nobodyEligible.length === 1, "an empty eligible rotation must not create chores assigned to an excluded person");
+  assert(nobodyEligible.slice(1).every(entry => !entry.assignedTo), "an empty eligible rotation must return work for reassignment, never assign excluded people");
 
   const monthAnchor: Chore = { ...zonedAnchor, id: "month-31", recurrenceSeriesId: "month-31", recurring: "monthly",
     dueDate: "2026-01-31T14:15:32.125Z", initialDueDate: "2026-01-31T14:15:32.125Z",

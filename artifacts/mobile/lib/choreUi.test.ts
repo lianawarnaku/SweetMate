@@ -38,9 +38,9 @@ const externalTasks = readFileSync(resolve(process.cwd(), "lib/externalTasks.ts"
 assert(
   externalTasks.includes("export async function carryMappedReminderToNextOccurrence") &&
     externalTasks.includes("await AsyncStorage.removeItem(previousKey);") &&
-    context.includes("carryMappedReminderToNextOccurrence(userScope, id, {") &&
-    context.includes("if (!existingNextOccurrence) {"),
-  "completing a recurring occurrence must carry its mapped reminder forward to the newly generated occurrence instead of leaving it orphaned",
+    context.includes("removeMappedReminderIfPresent(currentUserId, id)") &&
+    !context.includes("if (!existingNextOccurrence) {"),
+  "completion must clear its mapped reminder without eagerly creating another obligation",
 );
 
 const chartMaterializer = readFileSync(resolve(process.cwd(), "lib/choreChart.ts"), "utf8");

@@ -1,5 +1,6 @@
 import type { Chore } from "../context/AppContext";
 import { ARCHIVE_INCOMPLETE_AFTER_DAYS } from "./choreArchivePolicy.ts";
+import { householdDateKey } from "./choreTimezone.ts";
 import { choreLocalDateKey } from "./choreOccurrences.ts";
 
 export const COMPLETED_CHORE_RETENTION_DAYS = 7;
@@ -20,7 +21,7 @@ export function completedRetentionBoundary(chore: Chore): Date | null {
 }
 
 export function incompleteArchiveBoundary(chore: Chore): Date | null {
-  if (chore.completed) return null;
+  if (chore.completed || chore.skippedAt || chore.choreDefinitionId) return null;
   const due = validDate(chore.dueDate);
   if (!due) return null;
   const boundary = new Date(due);
@@ -37,18 +38,19 @@ export function isRecentlyCompleted(chore: Chore, now: Date): boolean {
 }
 
 /**
- * A chore that has sat incomplete for two weeks or more stops showing up in
- * the active lists. It is not deleted and stays fully completable/editable —
- * this only affects what My Home/Group render by default, keeping a long-
- * neglected recurring series from surfacing a wall of overdue occurrences
- * the first time the app materializes its backlog.
+ * Legacy records archive after two weeks. Identity-based obligations retain
+ * their owner until completion or explicit reassignment; age cannot release
+ * an obligation or reveal another member’s skipped turn.
  */
 export function isArchivedIncomplete(chore: Chore, now: Date): boolean {
   const boundary = incompleteArchiveBoundary(chore);
   return boundary !== null && now.getTime() >= boundary.getTime();
 }
 
-export function isActiveChore(chore: Chore, now: Date): boolean {
+export function isActiveChore(chore: Chore, now: Date, timezone?: string): boolean {
+  const dueDay = timezone ? householdDateKey(new Date(chore.dueDate),timezone) : choreLocalDateKey(chore.dueDate);
+  const today = timezone ? householdDateKey(now,timezone) : choreLocalDateKey(now);
+  if (chore.skippedAt || dueDay > today) return false;
   if (isArchivedIncomplete(chore, now)) return false;
   return !chore.completed || isRecentlyCompleted(chore, now);
 }
@@ -67,7 +69,7 @@ export function endOfLocalWeek(value: Date): Date {
 }
 
 export function isChoreInCurrentWeek(chore: Chore, now: Date): boolean {
-  if (!isActiveChore(chore, now)) return false;
+  if (chore.skippedAt || isArchivedIncomplete(chore, now) || (chore.completed && !isRecentlyCompleted(chore, now))) return false;
   const dueKey = choreLocalDateKey(chore.dueDate);
   const todayKey = choreLocalDateKey(now);
   if (!chore.completed && dueKey && dueKey < todayKey) return true;
@@ -75,6 +77,6 @@ export function isChoreInCurrentWeek(chore: Chore, now: Date): boolean {
   return Boolean(due && due >= startOfLocalWeek(now) && due < endOfLocalWeek(now));
 }
 
-export function activeChores(chores: Chore[], now: Date): Chore[] {
-  return chores.filter((chore) => isActiveChore(chore, now));
+export function activeChores(chores: Chore[], now: Date, timezone?: string): Chore[] {
+  return chores.filter((chore) => isActiveChore(chore, now, timezone));
 }

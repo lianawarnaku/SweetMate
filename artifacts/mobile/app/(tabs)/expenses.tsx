@@ -753,7 +753,6 @@ export default function ExpensesScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <ScreenHeader
         title="Expenses"
-        subtitle="Record shared costs and repayments. SweetMate does not transfer money."
         topPadding={topPad + 16}
       />
 

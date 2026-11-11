@@ -8,6 +8,10 @@ import type { Chore } from "../context/AppContext";
  * data can be verified before any read path switches over.
  */
 export type ChoreRow = {
+  chore_definition_id?: string | null;
+  chore_definition?: Chore["choreDefinition"] | null;
+  skipped_at?: string | null;
+  skipped_reason?: Chore["skippedReason"] | null;
   id: string;
   household_id: string;
   title: string;
@@ -48,6 +52,10 @@ export type ChoreRow = {
 export function choreToRow(chore: Chore): ChoreRow | null {
   if (!chore.householdId) return null;
   return {
+    chore_definition_id: chore.choreDefinitionId ?? null,
+    chore_definition: chore.choreDefinition ?? null,
+    skipped_at: chore.skippedAt ?? null,
+    skipped_reason: chore.skippedReason ?? null,
     id: chore.id,
     household_id: chore.householdId,
     title: chore.title,
@@ -90,6 +98,10 @@ export function choreToRow(chore: Chore): ChoreRow | null {
 /** Inverse of choreToRow, for the future read-path cutover. */
 export function rowToChore(row: ChoreRow): Chore {
   return {
+    choreDefinitionId: row.chore_definition_id ?? undefined,
+    choreDefinition: row.chore_definition ?? undefined,
+    skippedAt: row.skipped_at ?? undefined,
+    skippedReason: row.skipped_reason ?? undefined,
     id: row.id,
     householdId: row.household_id,
     title: row.title,

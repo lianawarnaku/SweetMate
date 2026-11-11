@@ -553,10 +553,11 @@ export default function MyChoresScreen() {
   const { showPopup } = useAppPopup();
   const insets = useSafeAreaInsets();
   const { scrollBottomPadding } = useFloatingActionMetrics();
-  const { currentUserId, householdId, activeSweet, chores, roommates, expenses, setChoreCompleted, deleteChore, shoppingLists, shoppingItems, toggleShoppingItem, setShoppingItemCompleted, pointsEnabled, isHost } =
+  const { currentUserId, householdId, householdTimezone, activeSweet, chores, roommates, expenses, setChoreCompleted, deleteChore, shoppingLists, shoppingItems, toggleShoppingItem, setShoppingItemCompleted, pointsEnabled, isHost } =
     useAppContextSelector((context) => ({
       currentUserId: context.currentUserId,
       householdId: context.householdId,
+      householdTimezone: context.householdTimezone,
       activeSweet: context.activeSweet,
       chores: context.chores,
       roommates: context.roommates,
@@ -690,8 +691,8 @@ export default function MyChoresScreen() {
     [chores, currentUserId, householdId],
   );
   const activePersonalChores = useMemo(
-    () => activeChores(myChores, lifecycleNow),
-    [lifecycleNow, myChores],
+    () => activeChores(myChores, lifecycleNow, householdTimezone),
+    [householdTimezone, lifecycleNow, myChores],
   );
   const activePersonalChoreCount = useMemo(
     () => activePersonalChores.reduce((count, chore) => count + (chore.completed ? 0 : 1), 0),
@@ -1137,7 +1138,9 @@ export default function MyChoresScreen() {
                     {currentUser?.points ?? 0} pts
                   </Text>
                 </View>}
-                <HeaderActions />
+                <View style={styles.headerActions}>
+                  <HeaderActions />
+                </View>
               </View>
               <Text style={[styles.greeting, { color: colors.mutedForeground }]}>
                 Welcome home,
@@ -1709,6 +1712,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: 12,
   },
+  headerActions: { marginLeft: "auto" },
   greeting: { fontSize: 13, fontFamily: "Inter_400Regular" },
   username: { fontSize: 30, lineHeight: 36, fontFamily: "Inter_700Bold", includeFontPadding: false, marginTop: 2 },
   totalPoints: {

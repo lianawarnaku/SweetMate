@@ -284,7 +284,6 @@ export default function BorrowScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <ScreenHeader
         title="Borrowing"
-        subtitle="Track shared items between Sweetmates"
         topPadding={topPad + 16}
       />
 
