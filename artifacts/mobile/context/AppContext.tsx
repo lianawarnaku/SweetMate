@@ -1,3 +1,4 @@
+import { deleteAuthenticatedAccount, clearDeletedAccountStorage } from "@/lib/accountDeletion";
 import { useChoreLifecycleNow } from "@/hooks/useChoreLifecycleNow";
 import { choreDefinitionId, definitionFromChore, sameChore } from "@/lib/choreIdentity";
 import { activeChores } from "@/lib/choreLifecycle";
@@ -1780,9 +1781,12 @@ export function AppProvider({
     void AsyncStorage.setItem(activeSweetKey(userId), membership.sweetId);
   }, [householdId, memberships, session?.user.id]);
 
+  const [deletedMembers, setDeletedMembers] = useState<Roommate[]>([]);
+
   const refreshMembers = useCallback(async () => {
     if (!householdId) {
       setRoommates([]);
+      setDeletedMembers([]);
       return;
     }
     setMembersLoading(true);
@@ -1797,6 +1801,12 @@ export function AppProvider({
         reportSupabaseError("refresh household members", error, { householdId });
         return;
       }
+      const former = await supabase.from("former_household_members")
+        .select("id, display_name").eq("household_id", householdId);
+      setDeletedMembers((former.data ?? []).map((member) => ({
+        id: member.id, name: "Deleted member", color: "#808080",
+        role: "member" as const, points: 0, weeklyPoints: 0,
+      })));
       setRoommates((current) => {
         const existingById = new Map([
           ...memberMetadataRef.current,
@@ -2094,17 +2104,24 @@ export function AppProvider({
   }, [currentUserId, householdId, isHost, roommates]);
 
   const deleteOwnAccount = useCallback(async () => {
-    const { error } = await supabase.rpc("delete_own_account");
-    if (error) {
-      reportSupabaseError("delete own account", error);
-      throw error;
+    await deleteAuthenticatedAccount();
+    // Server deletion has committed. Always end the local session, even when
+    // the device storage layer is temporarily unavailable.
+    try {
+      if (session?.user.id) {
+        await clearDeletedAccountStorage(session.user.id);
+        await deleteLocalAnalyticsIdentity(session.user.id);
+      }
+    } catch {
+      // Never report a committed server deletion as a failed account deletion.
     }
-    await AsyncStorage.removeItem(STORAGE_KEY);
-    if (session?.user.id) {
-      await AsyncStorage.removeItem(userPreferencesKey(session.user.id));
-      await deleteLocalAnalyticsIdentity(session.user.id);
-    }
-    await supabase.auth.signOut({ scope: "local" });
+    try { await supabase.auth.signOut({ scope: "local" }); } catch { /* reset UI below */ }
+    sweetDataCacheRef.current = {};
+    memberMetadataRef.current.clear();
+    setMemberships([]);
+    setDeletedMembers([]);
+    setAppAlerts([]);
+    setSuppressedAlerts({});
     setHouseholdId(null);
     setHouseholdName(null);
     setInviteCode(null);
@@ -4698,8 +4715,8 @@ export function AppProvider({
   }, [householdId, session?.user.id]);
 
   const getRoommateById = useCallback(
-    (id: string) => roommates.find((r) => r.id === id),
-    [roommates]
+    (id: string) => roommates.find((r) => r.id === id) ?? deletedMembers.find((r) => r.id === id),
+    [roommates, deletedMembers]
   );
 
   const updateRoommate = useCallback(

@@ -327,7 +327,7 @@ export default function SettingsScreen() {
     confirm(
       "delete-own-account",
       "Delete your account permanently?",
-      "This erases your Supabase login and removes you from SweetMate. You can later create a brand-new account with the same email. A host must remove all other roommates first.",
+      "This permanently deletes your SweetMate account, profile, private items, feedback, and connected credentials. Shared records remain as Deleted member. Ownership transfers to another active roommate when needed; Sweets with no other members are deleted. Apple users will confirm with Apple. Previously exported reminders and calendar events remain in those services. Optional analytics erasure is requested separately.",
       () => {
         void (async () => {
           setDeletingAccount(true);
