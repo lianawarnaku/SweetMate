@@ -21,6 +21,7 @@ export async function runAccountDeletionDatabaseTests(db){
  }
 
  await db.exec(await readFile(new URL('../../supabase/migrations/202611100004_account_deletion.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../../supabase/migrations/202611110001_deleted_borrow_names.sql',import.meta.url),'utf8'));
  const scalar=async(sql,p=[])=>Object.values((await db.query(sql,p)).rows[0])[0];
  const login=async role=>db.exec(`reset role;set role ${role};set request.jwt.claim.sub='${ids.alice}';`);
  await login('authenticated');
@@ -35,7 +36,7 @@ export async function runAccountDeletionDatabaseTests(db){
  await db.query('insert into public.push_devices(user_id) values($1)',[ids.owner]);
  await db.query("insert into public.google_calendar_connections values($1,'private-google-token')",[ids.owner]);
  await db.query(`insert into public.private_borrow_items values('private',$1,$2,'{"private":"yes"}')`,[ids.home,ids.owner]);
- await db.query(`insert into public.shared_borrow_items(id,household_id,borrowed_from,due_date,entry) values('borrow',$1,$2,now(),$3)`,[ids.home,ids.owner,{visibility:'shared',borrowedFrom:ids.owner,title:'Ladder'}]);
+ await db.query(`insert into public.shared_borrow_items(id,household_id,borrowed_from,due_date,entry) values('borrow',$1,$2,now(),$3)`,[ids.home,ids.owner,{visibility:'shared',borrowedFrom:ids.owner,ownerName:'Private owner',borrowedBy:ids.bob,borrowerName:'Private Bob',title:'Ladder'}]);
  await db.query(`insert into public.chores(id,household_id,title,assigned_to,assignment_mode,round_robin_participant_ids,due_date) values('chore',$1,'Trash',$2,'round-robin',$3,now())`,[ids.home,ids.owner,[ids.owner,ids.alice]]);
  await db.query(`insert into public.household_states(household_key,household_id,state) values('deletion-fixture',$1,$2)`,[ids.home,{roommates:[{id:ids.owner,name:'Private owner',avatarUri:'private-avatar'}, {id:ids.alice,name:'Alice'}],expenses:[{paidBy:ids.owner,splits:{[ids.owner]:1,[ids.alice]:2}}]}]);
  await db.query('insert into public.nudges(household_id,sent_by,to_member_id) values($1,$2,$3)',[ids.home,ids.owner,ids.alice]);
@@ -53,6 +54,7 @@ export async function runAccountDeletionDatabaseTests(db){
  assert.equal(state.roommates[0].name,'Deleted member');assert.equal(state.expenses[0].splits[alias],1);
  const after=await db.query('select id,amount_cents from public.expenses order by id');assert.deepEqual(after.rows,expenseTotals.rows.map(({id,amount_cents})=>({id,amount_cents})),'shared money totals unchanged');
  assert.equal(await scalar(`select borrowed_from from public.shared_borrow_items where id='borrow'`),alias);
+ assert.equal(await scalar(`select entry->>'ownerName' from public.shared_borrow_items where id='borrow'`),'Deleted member');
  assert.equal(await scalar(`select assigned_to from public.chores where id='chore'`),null);
  assert.equal(await scalar('select count(*)::int from public.vendor_erasure_requests'),1);
  // A stale roommate snapshot cannot put a deleted profile or original ID back.
@@ -69,6 +71,9 @@ export async function runAccountDeletionDatabaseTests(db){
  const bobPaid=Number(await scalar('select count(*) from public.expenses where paid_by=$1',[ids.bob]));assert(bobPaid>0);
  await db.query('select public.finalize_account_deletion($1,null)',[ids.bob]);
  assert.deepEqual((await db.query('select id,amount_cents from public.expenses order by id')).rows,beforePayer);
+ assert.equal(await scalar(`select entry->>'borrowerName' from public.shared_borrow_items where id='borrow'`),'Deleted member');
+ await db.query(`update public.shared_borrow_items set entry=entry||'{"ownerName":"Private owner","borrowerName":"Private Bob"}'::jsonb where id='borrow'`);
+ assert(!JSON.stringify(await scalar(`select entry from public.shared_borrow_items where id='borrow'`)).includes('Private'));
  assert.equal(await scalar('select count(*)::int from auth.users where id=$1',[ids.bob]),0);
  await db.query('select public.finalize_account_deletion($1,null)',[ids.bob]); // idempotent
  // A failure anywhere in the transaction rolls ownership/data back.

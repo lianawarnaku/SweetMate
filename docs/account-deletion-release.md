@@ -1,7 +1,7 @@
 # Account deletion release gate
 
 Implementation: authenticated `delete-account` Edge Function, migration
-`202611100004_account_deletion.sql`, mobile deletion helper and Settings flow.
+`202611100004_account_deletion.sql` plus `202611110001_deleted_borrow_names.sql`, mobile deletion helper and Settings flow.
 No real account was deleted during development.
 
 ## Behavior
@@ -88,3 +88,12 @@ The two Apple Edge Function secrets were still absent at the last CLI check.
 Their entry has been handed to the owner. Native build and real-device Apple
 revocation are not yet verified. The support/privacy source is prepared locally;
 publishing those pages remains part of the wider App Store release task.
+
+The cached borrower/lender-name follow-up migration `202611110001` is also
+deployed and recorded. Its tests cover names attached to both original IDs and
+already-anonymous IDs, so stale client writes cannot restore those names.
+
+iOS build 47 (`1.0.0`) finished successfully from source commit `9ab428b`.
+EAS build: https://expo.dev/accounts/lianawarnakulasooriyas-team/projects/homie/builds/13ba6d5a-d069-4356-85b4-c9b251ffd2a4
+The subsequent borrowing-name fix is server-side and needs no binary rebuild.
+App Store Connect upload is in progress; no App Review/public release was made.
