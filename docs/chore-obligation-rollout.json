@@ -1,0 +1,56 @@
+{
+  "verifiedAt": "2026-11-11T02:17:09.103081+00:00",
+  "appSourceCommit": "f16061e15d903c1bf8c50a1ae87e95af9f0c5026",
+  "database": {
+    "migration": "202611100003_single_chore_obligation",
+    "migrationSha256": "2303b61e746383090ceb83180be4cc812ab4b994e93c239313cd06b82105d4cd",
+    "status": "applied and independently verified",
+    "recordCount": 623,
+    "completedHistoryPreserved": 175,
+    "incompleteBefore": 448,
+    "outstandingAfter": 61,
+    "laterTurnsMarkedSkipped": 387,
+    "duplicateOutstanding": 0,
+    "rowSecurityEnabled": true,
+    "uniqueOutstandingIndexValid": true,
+    "pendingMigrations": 0
+  },
+  "ios": {
+    "version": "1.0.0",
+    "build": "46",
+    "buildId": "b30e1b7d-4f67-4fe9-b86e-d16eefa382be",
+    "submissionId": "246f7e3b-40b1-461e-936e-142d18be4ecb",
+    "processingState": "VALID",
+    "internalState": "IN_BETA_TESTING",
+    "testGroup": "Sweet Mates!",
+    "publicAppStoreRelease": false
+  },
+  "validation": [
+    "workspace typecheck",
+    "full mobile suite",
+    "Expo web export",
+    "isolated PostgreSQL regressions",
+    "copied-live-data migration and exact targeted recovery",
+    "active-member and outsider RLS",
+    "independent-connection concurrency",
+    "two-member helper completion and owner visibility",
+    "guarded rollback-only live migration rehearsal",
+    "live rollback-only member/outsider/legacy-client smoke checks",
+    "live REST schema visibility and anonymous privacy",
+    "browser CORS preflight",
+    "Supabase migration-history reconciliation"
+  ],
+  "compatibility": {
+    "requiredChorePolicyHeader": "single-obligation-v1",
+    "oldBuildChoreWrites": "blocked with update-required error",
+    "legacyChoreScoreWrites": "blocked",
+    "unchangedLegacySettings": "permitted",
+    "userAction": "Install TestFlight 1.0.0 (46) before editing chores"
+  },
+  "recovery": {
+    "backup": "Private local backup outside the repository",
+    "restore": "Guarded chore-specific restoration tested against all original records; refuses to erase post-rollout activity"
+  },
+  "physicalDeviceVerification": "Not performed; App Store Connect confirms internal TestFlight availability",
+  "note": "This record does not include household names, member identities, or private chore data. The release source is unchanged by this documentation commit."
+}
