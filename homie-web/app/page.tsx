@@ -34,8 +34,8 @@ export default function Home() {
           SweetMate keeps chores, shared expenses, shopping, and borrowed items in
           one calm place for everyone in your household.
         </p>
-        <a className="primary-button" href="sweetmate://auth/callback">
-          Open SweetMate
+        <a className="primary-button" href="https://testflight.apple.com/join/Ee5PRBzr">
+          Join the iOS beta
         </a>
       </section>
 
@@ -56,6 +56,11 @@ export default function Home() {
           <p>Keep shopping and borrowed items visible to everyone.</p>
         </article>
       </section>
+      <footer className="site-footer" aria-label="Help and legal">
+        <Link href="/privacy">Privacy Policy</Link>
+        <Link href="/support">Support</Link>
+        <Link href="/delete-account">Delete your account</Link>
+      </footer>
     </main>
   );
 }
