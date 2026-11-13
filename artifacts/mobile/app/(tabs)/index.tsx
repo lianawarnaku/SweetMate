@@ -1,3 +1,4 @@
+import { householdDateKey } from "@/lib/choreTimezone";
 import { isPointsVisible } from "@/constants/featureAvailability";
 import { ChoreFilterButton } from "@/components/ChoreFilterButton";
 import { CompletionUndoMenu } from "@/components/CompletionUndoMenu";
@@ -784,6 +785,7 @@ export default function MyChoresScreen() {
           id: chore.id,
           title: chore.title,
           dueDate: chore.dueDate,
+          scheduledDate: chore.scheduledDate ?? householdDateKey(new Date(chore.dueDate), householdTimezone),
           category: chore.category,
           description: chore.description,
           recurrence: chore.recurring,
@@ -997,7 +999,7 @@ export default function MyChoresScreen() {
   const filtered = useMemo(
     () => {
       const now = lifecycleNow;
-      const candidates = filter === "archived" ? myChores : activePersonalChores;
+      const candidates = filter === "archived" || filter === "day" ? myChores : activePersonalChores;
       return candidates
         .filter((chore) => {
           if (filter === "archived") {
@@ -1008,7 +1010,7 @@ export default function MyChoresScreen() {
           }
           if (filter === "done") return isRecentlyCompleted(chore, now);
           if (filter === "day") {
-            return isChoreActiveOnDay(chore, selectedDate) || choreFeedback.completingIds.has(chore.id);
+            return (!isArchivedIncomplete(chore, now) && isChoreActiveOnDay(chore, selectedDate)) || choreFeedback.completingIds.has(chore.id);
           }
           return false;
         })
@@ -1663,7 +1665,7 @@ export default function MyChoresScreen() {
                 {editingChore ? "Edit Chore" : "Add Chore"}
               </Text>
               <Text style={[styles.addChoreHeaderSub, { color: colors.mutedForeground }]}>
-                {editingChore ? "Update assignment, schedule, or details" : "Assign it to yourself or a Sweetmate"}
+                {editingChore ? "Update assignment, schedule, or details" : "Type a chore to add it to your Sweet"}
               </Text>
             </View>
             <TouchableOpacity
@@ -1683,7 +1685,17 @@ export default function MyChoresScreen() {
               key={editingChore?.id ?? (showModal ? "new-open" : "new-closed")}
               initialAssigneeId={editingChore?.assignedTo ?? currentUserId}
               initialChore={editingChore}
-              onCreated={closeAddChore}
+              onCreated={(chore) => {
+                if (!editingChore) {
+                  const dueDay = householdDateKey(new Date(chore.dueDate), householdTimezone);
+                  const today = householdDateKey(new Date(), householdTimezone);
+                  setSelectedDate(new Date(`${dueDay}T12:00:00`));
+                  setFilter(dueDay > today ? "day" : "today");
+                  setShowEarlierChores(true);
+                  if (!expandedHomeSections["my-chores"]) toggleSection("my-chores");
+                }
+                closeAddChore();
+              }}
             />
           </KeyboardAvoidingView>
         </Animated.View>

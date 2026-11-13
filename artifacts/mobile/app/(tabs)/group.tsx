@@ -462,6 +462,7 @@ export default function GroupChoresScreen() {
           id: chore.id,
           title: chore.title,
           dueDate: chore.dueDate,
+          scheduledDate: chore.scheduledDate ?? householdDateKey(new Date(chore.dueDate), householdTimezone),
           category: chore.category,
           description: chore.description,
           recurrence: chore.recurring,
@@ -1283,7 +1284,7 @@ export default function GroupChoresScreen() {
                 {editingChore ? "Edit Chore" : "Add Chore"}
               </Text>
               <Text style={[styles.addChoreHeaderSub, { color: colors.mutedForeground }]}>
-                {editingChore ? "Update assignment, schedule, or details" : "Assign to any Sweetmate — including yourself"}
+                {editingChore ? "Update assignment, schedule, or details" : "Type a chore to add it to your Sweet"}
               </Text>
             </View>
             <TouchableOpacity
@@ -1303,8 +1304,20 @@ export default function GroupChoresScreen() {
               key={editingChore?.id ?? `${showAddChoreModal}-${addChoreTargetId ?? "self"}`}
               initialAssigneeId={addChoreTargetId ?? currentUserId}
               initialChore={editingChore}
-              onCreated={() => {
+              onCreated={(chore) => {
                 if (!editingChore) {
+                  const dueDay = householdDateKey(new Date(chore.dueDate), householdTimezone);
+                  const today = householdDateKey(new Date(), householdTimezone);
+                  if (dueDay > today) {
+                    setChoreView("calendar");
+                    setSelectedCalendarDate(dueDay);
+                    setMonthOffset((Number(dueDay.slice(0, 4)) - Number(today.slice(0, 4))) * 12 + Number(dueDay.slice(5, 7)) - Number(today.slice(5, 7)));
+                  } else {
+                    setChoreView("active");
+                    setExpandedChoreSections((current) => new Set([...current, chore.assignedTo]));
+                    setVisibleChoreLimits((current) => ({ ...current, [chore.assignedTo]: Math.max(current[chore.assignedTo] ?? 8, chores.filter((item) => item.assignedTo === chore.assignedTo).length + 1) }));
+                    setExpandedOverdueSections((current) => new Set([...current, chore.assignedTo]));
+                  }
                   setHouseMonitorEvent((event) => ({ nonce: event.nonce + 1, type: "created" }));
                 }
                 closeAddChoreSheet();
