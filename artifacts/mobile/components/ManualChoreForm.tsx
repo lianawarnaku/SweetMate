@@ -20,17 +20,16 @@ import {
 } from "@/context/AppContext";
 import { useTheme } from "@/constants/colors";
 import {
-  dateInput,
   parseDueDate,
-  todayDateInput,
-  tomorrowDateInput,
 } from "@/lib/choreForm";
 import {
   removeMappedReminderIfPresent,
   updateMappedReminderIfPresent,
 } from "@/lib/externalTasks";
 import { reportRuntimeError } from "@/lib/runtimeDiagnostics";
-import { canonicalDefinition, choreDefinitionId } from "@/lib/choreIdentity";
+import { choreDefinitionId } from "@/lib/choreIdentity";
+import { householdDateKey } from "@/lib/choreTimezone";
+import { advanceScheduledDate } from "@/lib/choreSchedule";
 import { InlineFeedback } from "@/components/InlineFeedback";
 
 const CATEGORIES: {
@@ -61,7 +60,7 @@ export function ManualChoreForm({
 }: {
   initialAssigneeId?: string;
   initialChore?: Chore;
-  onCreated: () => void;
+  onCreated: (chore: Pick<Chore, "id" | "assignedTo" | "dueDate">) => void;
 }) {
   const colors = useTheme();
   const {
@@ -71,7 +70,7 @@ export function ManualChoreForm({
     householdId,
     pointsEnabled,
     roommates,
-    chores,
+    householdTimezone,
   } = useAppContextSelector((context) => ({
     addChore: context.addChore,
     updateChore: context.updateChore,
@@ -79,22 +78,17 @@ export function ManualChoreForm({
     householdId: context.householdId,
     pointsEnabled: isPointsVisible(context.pointsEnabled),
     roommates: context.roommates,
-    chores: context.chores,
+    householdTimezone: context.householdTimezone,
   }));
   const initialDefinition = initialChore?.choreDefinition;
   const defaultAssignee =
     roommates.some((member) => member.id === initialAssigneeId)
       ? initialAssigneeId!
       : currentUserId;
-  const [identityId, setIdentityId] = useState(initialChore ? choreDefinitionId(initialChore) : "");
-  const definitions = useMemo(() => {
-    const groups = new Map<string, Chore[]>();
-    chores.filter(chore => chore.householdId === householdId).forEach(chore => {
-      const id = choreDefinitionId(chore);
-      groups.set(id, [...(groups.get(id) ?? []),chore]);
-    });
-    return [...groups.values()].map(group => canonicalDefinition(group)).sort((a,b) => a.title.localeCompare(b.title));
-  }, [chores,householdId]);
+  const identityId = initialChore ? choreDefinitionId(initialChore) : undefined;
+  const [showDetails, setShowDetails] = useState(Boolean(initialChore));
+  const today = householdDateKey(new Date(), householdTimezone);
+  const tomorrow = advanceScheduledDate(today, "daily");
   const [title, setTitle] = useState(initialDefinition?.title ?? initialChore?.title ?? "");
   const [notes, setNotes] = useState(initialDefinition ? initialDefinition.description ?? "" : initialChore?.description ?? "");
   const [assignmentMode, setAssignmentMode] =
@@ -117,8 +111,8 @@ export function ManualChoreForm({
   );
   const [dueDateInput, setDueDateInput] = useState(() =>
     initialChore
-      ? initialDefinition?.anchorDate ?? dateInput(new Date(initialChore.dueDate))
-      : todayDateInput(),
+      ? initialDefinition?.anchorDate ?? householdDateKey(new Date(initialChore.dueDate), householdTimezone)
+      : today,
   );
   const [category, setCategory] = useState<ChoreCategory>(
     initialDefinition?.category ?? initialChore?.category ?? "cleaning",
@@ -145,7 +139,7 @@ export function ManualChoreForm({
 
   const submit = () => {
     if (submittingRef.current) return;
-    const dueDate = parseDueDate(dueDateInput);
+    const dueDate = parseDueDate(dueDateInput, householdTimezone);
     if (!title.trim()) {
       setError("Enter a chore title.");
       return;
@@ -178,12 +172,15 @@ export function ManualChoreForm({
       roundRobinCursor: 0,
       recurring: recurrence ?? undefined,
       dueDate,
+      scheduledDate: dueDateInput.trim(),
+      initialScheduledDate: dueDateInput.trim(),
       initialDueDate: dueDate,
       nextDueDate: dueDate,
       completed: false,
       points: Number(points),
       category,
     };
+    const savedId = initialChore ? initialChore.id : addChore(draft);
     const saved = initialChore
       ? updateChore(initialChore.id, {
           ...draft,
@@ -192,7 +189,7 @@ export function ManualChoreForm({
             ? initialChore.recurrenceSeriesId ?? initialChore.id
             : undefined,
         })
-      : Boolean(addChore(draft));
+      : savedId !== null;
     if (!saved) {
       submittingRef.current = false;
       setError("The chore could not be created. Check the assignment and try again.");
@@ -220,7 +217,7 @@ export function ManualChoreForm({
       });
     }
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    onCreated();
+    onCreated({ id: initialChore?.id ?? savedId!, assignedTo: draft.assignedTo, dueDate });
   };
 
   const chip = (selected: boolean) => ({
@@ -234,34 +231,12 @@ export function ManualChoreForm({
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
     >
-      <Text style={[styles.label, { color: colors.mutedForeground }]}>Shared chore</Text>
-      <Text style={[styles.orderText, { color: colors.mutedForeground }]}>
-        Choose an existing chore to share one schedule and one outstanding obligation. Similar titles stay separate unless you link them.
-      </Text>
-      <View style={styles.wrap}>
-        {!initialChore && <TouchableOpacity accessibilityRole="button" accessibilityState={{ selected: !identityId }}
-          onPress={() => setIdentityId("")} style={[styles.chip, chip(!identityId)]}>
-          <Text style={[styles.chipText, { color: colors.foreground }]}>New separate chore</Text>
-        </TouchableOpacity>}
-        {definitions.map(definition => <TouchableOpacity key={definition.id} accessibilityRole="button"
-          accessibilityLabel={`Use shared chore ${definition.title}`} accessibilityState={{ selected: identityId === definition.id }}
-          onPress={() => {
-            setIdentityId(definition.id); setTitle(definition.title); setNotes(definition.description ?? ""); setDueDateInput(definition.anchorDate);
-            setRecurrence(definition.recurring ?? null); setCategory(definition.category); setPoints(String(definition.points));
-            setAssignmentMode(definition.assignmentMode === "round-robin" ? "round-robin" : "specific-person");
-            setAssigneeId(definition.assignedTo || defaultAssignee); setAllMembers(definition.roundRobinAllMembers ?? true);
-            setParticipants(definition.roundRobinParticipantIds ?? roommates.map(member => member.id));
-            setError(null);
-          }} style={[styles.chip,chip(identityId === definition.id)]}>
-          <Text style={[styles.chipText, { color: colors.foreground }]}>{definition.title}</Text>
-        </TouchableOpacity>)}
-      </View>
-      {(initialChore || identityId) && <Text style={[styles.orderText, { color: colors.mutedForeground }]}>
-        Changes update the shared schedule. An unfinished chore stays with its current owner; missed turns are skipped.
-      </Text>}
       <Text style={[styles.label, { color: colors.mutedForeground }]}>Chore title</Text>
       <TextInput
         autoFocus
+        accessibilityLabel="Chore title"
+        returnKeyType="done"
+        onSubmitEditing={submit}
         value={title}
         onChangeText={setTitle}
         placeholder="e.g. Clean bathroom"
@@ -269,6 +244,18 @@ export function ManualChoreForm({
         style={[styles.input, { color: colors.foreground, backgroundColor: colors.secondary, borderColor: colors.border }]}
       />
 
+      <TouchableOpacity
+        accessibilityRole="button"
+        accessibilityState={{ expanded: showDetails }}
+        onPress={() => setShowDetails((current) => !current)}
+        style={[styles.detailsToggle, { borderColor: colors.border }]}
+      >
+        <Text style={[styles.chipText, { color: colors.foreground }]}>
+          {showDetails ? "Hide details" : "Assignment, date & more"}
+        </Text>
+        <Feather name={showDetails ? "chevron-up" : "chevron-down"} size={18} color={colors.mutedForeground} />
+      </TouchableOpacity>
+      {showDetails ? <>
       <Text style={[styles.label, { color: colors.mutedForeground }]}>Assignment</Text>
       <View style={styles.wrap}>
         {(["specific-person", "round-robin"] as const).map((mode) => (
@@ -356,8 +343,8 @@ export function ManualChoreForm({
       <Text style={[styles.label, { color: colors.mutedForeground }]}>First due date</Text>
       <View style={styles.wrap}>
         {[
-          { label: "Today", value: todayDateInput() },
-          { label: "Tomorrow", value: tomorrowDateInput() },
+          { label: "Today", value: today },
+          { label: "Tomorrow", value: tomorrow },
         ].map((option) => (
           <TouchableOpacity
             key={option.label}
@@ -440,8 +427,13 @@ export function ManualChoreForm({
         style={[styles.input, styles.notes, { color: colors.foreground, backgroundColor: colors.secondary, borderColor: colors.border }]}
       />
 
+      </> : null}
+
       {error ? <InlineFeedback message={error} tone="error" /> : null}
       <TouchableOpacity
+        accessibilityRole="button"
+        accessibilityState={{ disabled: !title.trim() }}
+        disabled={!title.trim()}
         onPress={submit}
         style={[styles.submit, { backgroundColor: title.trim() ? colors.action : colors.muted }]}
       >
@@ -454,6 +446,7 @@ export function ManualChoreForm({
 }
 
 const styles = StyleSheet.create({
+  detailsToggle: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 48, borderBottomWidth: StyleSheet.hairlineWidth },
   content: { paddingHorizontal: 20, paddingTop: 18, paddingBottom: 36, gap: 10 },
   label: { fontFamily: "Inter_600SemiBold", includeFontPadding: false, fontSize: 13, marginTop: 5 },
   input: { minHeight: 48, borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 15 },

@@ -14,6 +14,7 @@ export type ExternalTaskChore = {
   id: string;
   title: string;
   dueDate: string;
+  scheduledDate?: string;
   category?: string;
   description?: string;
   recurrence?: string;
@@ -470,7 +471,7 @@ export async function addChoreToGoogleCalendar(chore: ExternalTaskChore) {
       body: JSON.stringify({
         choreId: chore.id,
         title: chore.title,
-        dueDate: chore.dueDate,
+        dueDate: chore.scheduledDate ?? chore.dueDate,
         category: chore.category,
         description: chore.description,
         assignee: chore.assignedToName,
