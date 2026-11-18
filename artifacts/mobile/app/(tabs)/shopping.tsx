@@ -175,9 +175,9 @@ export default function ShoppingScreen() {
   const inputStyle = (field: string) => [
     styles.input,
     {
-      backgroundColor: colors.muted,
-      color: colors.foreground,
-      borderColor: focusedInput === field ? colors.primary : colors.border,
+      backgroundColor: colors.cardElevated,
+      color: colors.textPrimary,
+      borderColor: focusedInput === field ? colors.focusRing : colors.divider,
       borderWidth: focusedInput === field ? 2 : 1,
     },
   ];
@@ -946,10 +946,11 @@ export default function ShoppingScreen() {
                 </Text>
               ) : null}
             </Text>
-            <Text style={[styles.label, { color: colors.mutedForeground }]}>Item name</Text>
+            <Text style={[styles.label, { color: colors.mutedForeground }]}>Item or ingredient name</Text>
             <TextInput
               style={inputStyle("item-name")}
-              placeholder="e.g. Dish soap"
+              accessibilityLabel="Item or ingredient name"
+              placeholder="e.g. Tomatoes or dish soap"
               placeholderTextColor={colors.mutedForeground}
               value={shopName}
               onChangeText={setShopName}
@@ -959,6 +960,7 @@ export default function ShoppingScreen() {
             />
             <Text style={[styles.label, { color: colors.mutedForeground }]}>Quantity</Text>
             <TextInput
+              accessibilityLabel="Item quantity"
               style={inputStyle("item-quantity")}
               placeholder="e.g. 2 or 1 bag"
               placeholderTextColor={colors.mutedForeground}
@@ -969,6 +971,7 @@ export default function ShoppingScreen() {
             />
             <Text style={[styles.label, { color: colors.mutedForeground }]}>Needed by (optional)</Text>
             <TextInput
+              accessibilityLabel="Item needed by date"
               style={inputStyle("item-date")}
               placeholder="YYYY-MM-DD"
               placeholderTextColor={colors.mutedForeground}
@@ -1011,11 +1014,12 @@ export default function ShoppingScreen() {
             ]}
           >
             <View style={[styles.handle, { backgroundColor: colors.border }]} />
-            <Text style={[styles.sheetTitle, { color: colors.foreground }]}>New list</Text>
+            <Text style={[styles.sheetTitle, { color: colors.foreground }]}>Create shopping list</Text>
             <Text style={[styles.label, { color: colors.mutedForeground }]}>List name</Text>
             <TextInput
               style={inputStyle("list-name")}
-              placeholder="e.g. Farmers Market"
+              accessibilityLabel="Shopping list name"
+              placeholder="e.g. Weekly groceries"
               placeholderTextColor={colors.mutedForeground}
               value={newListName}
               onChangeText={setNewListName}
@@ -1025,6 +1029,7 @@ export default function ShoppingScreen() {
             />
             <Text style={[styles.label, { color: colors.mutedForeground }]}>Planned date (optional)</Text>
             <TextInput
+              accessibilityLabel="Shopping list planned date"
               style={inputStyle("list-date")}
               placeholder="YYYY-MM-DD"
               placeholderTextColor={colors.mutedForeground}
@@ -1220,11 +1225,12 @@ const styles = StyleSheet.create({
   sheetSubtitle: { fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 16 },
   label: { fontFamily: "Inter_500Medium", includeFontPadding: false, fontSize: 13, marginBottom: 4 },
   input: {
+    minHeight: 48,
     borderRadius: 12,
     borderWidth: 1,
     paddingHorizontal: 14,
     paddingVertical: 11,
-    fontSize: 15,
+    fontSize: 17,
     fontFamily: "Inter_400Regular", includeFontPadding: false,
   },
   addBtn: {
