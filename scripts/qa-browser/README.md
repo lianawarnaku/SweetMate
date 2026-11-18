@@ -46,4 +46,18 @@ To force a frontend rebuild without changing the source, stop the browser server
 
 ## Verification in the Codex environment
 
-The main-source Expo web export succeeded. Launcher syntax and a startup/server smoke check passed with a simulated local Auth/REST service: fixture calls, distinct sessions, one household, all three servers, public-key substitution, the checklist and origin restrictions. This smoke check does not establish real Supabase integration. A full local Supabase startup in the cloud environment failed while extracting Docker images with `no space left on device`; the attempt was stopped. Thus authenticated end-to-end behavior of this launcher has not been established here. The actual Git updater was also checked against an isolated local remote: initial clone, detection of multiple pushed commits, fast-forward and an unchanged main all passed. The launcher will report a dependency, Docker, migration or fixture error in the terminal instead of pretending the preview is ready.
+The main-source Expo web export succeeded. Launcher syntax and a startup/server smoke check passed with a simulated local Auth/REST service: fixture calls, distinct sessions, one household, all three servers, public-key substitution, the checklist and origin restrictions. This smoke check does not establish real Supabase integration. A full local Supabase startup in the cloud environment failed while extracting Docker images with `no space left on device`; the attempt was stopped. Thus authenticated end-to-end behavior of this launcher has not been established here. The local-only migration preparer also handles the historical optional `avatar_color` field: fresh tables use the default and legacy custom colors are retained. All 45 ordered migrations replayed in disposable PostgreSQL-WASM, with Supabase extension loading/scheduling substituted; this does not establish full Supabase service startup. Production migration files are not modified.
+
+The actual Git updater was also checked against an isolated local remote: initial clone, detection of multiple pushed commits, fast-forward and an unchanged main all passed. The launcher will report a dependency, Docker, migration or fixture error in the terminal instead of pretending the preview is ready.
+
+
+## Updating a previously downloaded launcher
+
+From the downloaded preview folder, replace the launcher with the current branch version, then run it again. This does not reset your local QA database or reinstall Docker:
+
+```sh
+curl -fL https://raw.githubusercontent.com/lianawarnaku/SweetMate/codex/qa-browser-preview/scripts/qa-browser/start.mjs -o scripts/qa-browser/start.mjs
+node scripts/qa-browser/start.mjs
+```
+
+The correction includes the local fresh-database color migration and supported `logflare`/`mailpit` exclusion names. The launcher follows main for app code, but the launcher itself must be updated separately when its own setup logic changes.

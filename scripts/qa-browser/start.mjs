@@ -1,6 +1,6 @@
 import { spawn, spawnSync } from 'node:child_process';
 import { createServer } from 'node:http';
-import { readFile, writeFile, mkdir, cp, access, rename, rm } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, cp, access, rename, rm, readdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { dirname, resolve, extname, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -20,7 +20,7 @@ const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 const env = { ...process.env, SUPABASE_HOME: resolve(stateDir, 'cli'), SUPABASE_TELEMETRY_DISABLED: '1', npm_config_cache: resolve(stateDir, 'npm-cache') };
 const cli = ['exec', '--yes', '--package=supabase@2.109.1', '--', 'supabase'];
 const packageManager = ['exec', '--yes', '--package=pnpm@11.25.0', '--', 'pnpm'];
-const exclude = 'analytics,vector,studio,imgproxy,edge-runtime,inbucket';
+const exclude = 'logflare,vector,studio,imgproxy,edge-runtime,mailpit';
 const fatal = message => { throw new Error(message); };
 if (Number(process.versions.node.split('.')[0]) < 22) fatal('Install Node.js 22 or later, then run this again.');
 await mkdir(stateDir, { recursive: true });
@@ -50,6 +50,14 @@ async function syncSource() {
   const sha = capture('git', ['-C', appRoot, 'rev-parse', 'HEAD']).trim();
   return sha;
 }
+function prepareMigration(name, sql) {
+  if (name === '202607220004_add_household_member_color.sql') {
+    // An old deployed schema had avatar_color, but fresh main schemas do not.
+    // Reading the optional field through the row's JSON supports both shapes.
+    return sql.replace("coalesce(avatar_color, '#7B563B')", "coalesce(to_jsonb(household_members)->>'avatar_color', '#7B563B')");
+  }
+  return sql;
+}
 async function copySchema() {
   await mkdir(resolve(backend, 'supabase'), { recursive: true });
   let config = await readFile(resolve(appRoot, 'supabase/config.toml'), 'utf8');
@@ -59,6 +67,15 @@ async function copySchema() {
   if (!config.includes('project_id = "sweetmate-qa"')) fatal('The main-source Supabase config changed. Stop and review the QA config instead of using an unknown project.');
   await writeFile(resolve(backend, 'supabase/config.toml'), config);
   await cp(resolve(appRoot, 'supabase/migrations'), resolve(backend, 'supabase/migrations'), { recursive: true });
+  const localMigrations = resolve(backend, 'supabase/migrations');
+  for (const name of await readdir(localMigrations)) {
+    if (!name.endsWith('.sql')) continue;
+    const path = resolve(localMigrations, name);
+    const sql = await readFile(path, 'utf8');
+    const prepared = prepareMigration(name, sql);
+    if (prepared !== sql) await writeFile(path, prepared);
+  }
+
 }
 const initialSha = await syncSource();
 await copySchema();
