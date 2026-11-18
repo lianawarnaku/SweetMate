@@ -1,0 +1,206 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SweetMate QA checklist</title><style>body{font:16px system-ui;margin:24px auto;padding:0 20px;max-width:900px;background:#15171b;color:#f5f5f5}button,select,textarea{font:inherit;padding:12px;box-sizing:border-box}textarea,select{width:100%}button{margin:6px}p,li{line-height:1.6}a{color:#96c7ff}pre{white-space:pre-wrap;overflow-wrap:anywhere}#buttons{display:flex;flex-wrap:wrap}</style><h1>SweetMate QA checklist</h1><p>A = Avery (owner) · B = Blake (member). Results are saved in this browser.</p><a href="/">Back to the two-person preview</a><p id="progress"></p><label>Test<select id="select"></select></label><h2 id="title"></h2><p id="actors"></p><ol id="actions"></ol><p><strong>Expected: </strong><span id="expected"></span></p><p><strong>Debug: </strong><span id="debug"></span></p><label>Observed result / evidence (no tokens or private data)<textarea id="notes" rows="4" maxlength="1000"></textarea></label><div id="buttons"><button id="prev">Previous</button><button id="pass">Pass & next</button><button id="fail">Fail</button><button id="blocked">Blocked</button><button id="next">Next</button><button id="report">Show report</button></div><pre id="reportText"></pre><script>
+const tests=[
+      ['Setup','Verify the exact release candidate','A + B','P0',[
+        'Record the installed build number on both devices and the EAS build’s Git commit.',
+        'Confirm both builds were produced from main 53f6f79 (or deliberately record the newer SHA being tested).',
+        'Use a separate test backend when available; otherwise create only disposable accounts and QA households.'],
+        'Both devices run the same intended source. Build 47 does not contain the merged chore fixes. No real household records are used.',
+        'Stop downstream testing if the installed source is unknown. Compare the EAS build commit, app version and remote environment.'],
+      ['Setup','Establish independent identities','A + B','P0',[
+        'Sign into A and B with two different account identities. Use two separate sessions; do not switch one shared session back and forth.',
+        'Record A/B account aliases, device/iOS versions and sign-in methods. Use disposable Apple/email for A and an approved disposable Google test account for B when available.',
+        'Turn optional analytics and crash reporting off initially.'],
+        'A and B have different user IDs. Closing or logging out of B does not log out A.',
+        'Compare authenticated user IDs and session scope; never copy access tokens into the report.'],
+      ['Membership','Create a household and join','A creates → B joins → A observes','P0',[
+        'A creates QA Sweet 1 and finishes household setup. B joins using its invite code.',
+        'A and B open the member list. Restart B and reopen the same household.'],
+        'Both see exactly two active members, A as owner and B as member. B remains joined after restart.',
+        'Check household_members, selected household ID and membership-loading errors. Do not treat a failed query as an empty household.'],
+      ['Membership','Reject an invalid invitation','B','P1',[
+        'B opens Join Household and enters a deliberately invalid code.',
+        'Cancel, then reopen the existing household.'],
+        'An understandable error appears, no phantom membership is created and QA Sweet 1 remains accessible.',
+        'Capture the join error code and membership rows; redact the valid invite code.'],
+      ['Chores','Add a title-only chore from My Sweet','A adds → B observes','P0',[
+        'A opens My Sweet and adds QA — wash dishes using only the title field.',
+        'Without refreshing, inspect A’s personal list and both group lists. Restart A.'],
+        'One new chore appears immediately for A and in Group on both devices. It survives restart. The form has no shared-chore picker or existing-title bubbles.',
+        'Record whether the row is absent locally or only on B. Inspect scheduled_date, due_date, assigned_to, household_id and normalized chore row.'],
+      ['Chores','Add from Group as the member','B adds → A observes','P0',[
+        'B adds QA — sweep entry from the group tab, assigned to B.',
+        'Check B’s My Sweet list and A’s Group list before and after reopening the app.'],
+        'B can create the chore. Both group lists update; only B’s personal chores include it.',
+        'Check B’s active membership, form default assignee, INSERT result and Realtime delivery.'],
+      ['Chores','Create two independent chores with the same title','A + B','P1',[
+        'A creates two one-time chores both named QA — repeat title.',
+        'Complete one and inspect the other from B’s group view.'],
+        'Two independent IDs exist. Completing one does not complete, silently reuse or alter the other.',
+        'Compare chore_definition_id and occurrence IDs. New typed titles must not link to an existing definition.'],
+      ['Chores','Assign a chore to the other persona','A assigns → B acts','P0',[
+        'A adds QA — take out recycling from Group; expand optional details and assign it to B.',
+        'B checks My Sweet and completes it. A checks Group.'],
+        'The chore appears under B, completion reaches A, and A does not see it as A’s personal assignment.',
+        'Compare assignment and completion owner in client state and stored row; distinguish permission failure from a stale list.'],
+      ['Chores','Reveal new chores behind filters','A + B','P1',[
+        'Collapse A’s My Chores and select Done or Archive. Add a chore due today.',
+        'Collapse B’s group section and add a chore for B. Repeat when the section contains more than eight chores.'],
+        'Saving reveals the appropriate active section and new row. A valid save is not hidden by the old filter, collapse or row limit.',
+        'Compare the stored row with the visible filter, expanded section and row limit.'],
+      ['Chores','Validate empty input and repeated taps','A','P1',[
+        'Try an empty or whitespace-only title. Then enter QA — one tap and tap Add repeatedly.',
+        'Repeat using the keyboard Done key. Test a long title and emoji.'],
+        'Empty input does not save. Each deliberate submission creates one row; rapid duplicate taps do not create duplicates. Labels remain readable.',
+        'Check submitting guard, returned chore ID and count of rows created at that timestamp.'],
+      ['Chores','Future date and timezone','A schedules → B observes','P0',[
+        'Add QA — tomorrow for tomorrow through optional details. Check the selected future day and Group calendar.',
+        'Use different device timezones while retaining the household timezone. Add another chore due today.',
+        'Reopen both apps.'],
+        'The chosen household calendar date is preserved. Today’s chore is immediately active; tomorrow’s is visible on its scheduled day and does not become today’s debt.',
+        'Record device and household timezone plus scheduled_date and due_date. Do not change a production clock to test this.'],
+      ['Chores','Completion, pickup and undo','B completes → A checks → authorized undo','P0',[
+        'B picks up an open chore originally assigned to A from Group.',
+        'Check ownership and completion on both devices, then use the supported undo action.'],
+        'One completion is recorded with the correct actor. A normal active member can pick up an open group chore; undo follows owner/assignee permissions.',
+        'Check resolveChorePermissions and server authorization. Member pickup is intentional; it is not an owner-only action.'],
+      ['Chores','Recurring chore lifecycle','A creates → B completes','P0',[
+        'Create QA — rotate bins as a daily rotation across A and B, with today as the first date.',
+        'Complete today’s obligation. Review the next scheduled date and rotation. Use the test-clock harness for overnight/overdue scenarios in a test environment.'],
+        'At most one outstanding obligation exists per definition. Completion does not pull a future turn into today; owner/rotation and completed history remain consistent.',
+        'Inspect definition, recurrence series, occurrence date and skipped rows. Run chore obligation/clock/database tests for rollover.'],
+      ['Chores','Edit and delete without damaging other chores','A + B','P0',[
+        'Edit a chore’s title, date and assignee; check both sessions.',
+        'For a recurring chore, exercise each available deletion scope with fresh fixtures. Cancel deletion once before confirming.'],
+        'Only the chosen chore/scope changes. Cancellation changes nothing. Unrelated chores and completion history survive.',
+        'Compare deleted IDs and recurrence dates with the selected scope. Check explicit normalized-row deletes.'],
+      ['Expenses','Create a precise equal split','A pays → B checks','P0',[
+        'Start with no outstanding QA expenses. A records QA groceries: $24.60 paid by A, split equally between A and B.',
+        'Inspect both balances, details and shared activity. Restart B.'],
+        'Each share is $12.30; B owes A $12.30. Both devices show identical cents, payer and participants after restart.',
+        'Compare amount_cents, allocation cents, versions and balance projection. Do not use floating-point visual rounding as evidence.'],
+      ['Expenses','Partial repayment and targeted reversal','B records → A observes','P0',[
+        'Against the $12.30 share, B records a $5.00 repayment through the supported action.',
+        'Verify $7.30 remains, then reverse only that payment through the authorized correction flow.'],
+        'Remainder changes to $7.30 and back to $12.30. Activity retains a correct payment/reversal history; no duplicate payment appears.',
+        'Inspect expense_payments, operation receipts, repayment cents and server version.'],
+      ['Expenses','Invalid amounts and uneven cents','A','P0',[
+        'Try zero, negative, malformed and excessive-decimal totals; cancel invalid attempts.',
+        'Create a fresh $10.01 expense with a two-person split and inspect allocations.'],
+        'Invalid financial values are rejected. Valid allocations sum to exactly 1001 cents, with no lost or extra cent.',
+        'Record exact input, allocations and validation response. Avoid imposing a particular recipient of the rounding cent unless specified.'],
+      ['Expenses','Stale editor and simultaneous changes','A + B at the same time','P0',[
+        'Both open the same editable QA expense before either saves.',
+        'Save a change on A, then attempt B’s stale operation. Also retry a single repayment after a simulated dropped response.'],
+        'A stale operation is rejected/refreshed or safely serialized. No silent overwrite, overpayment or duplicate payment occurs.',
+        'Capture original/current version, operation ID and request ordering. Use native concurrency tests for deterministic races.'],
+      ['Expenses','Settlement, reopen, void and restore','Authorized payer/owner → other observes','P0',[
+        'On a separate fixture, exercise available settle and reopen actions.',
+        'On another fixture with recorded payments, exercise supported void/restore; cancel destructive dialogs once.'],
+        'Outstanding balances change correctly on both devices. Payments and activity are retained; settled/voided expenses are not charged twice.',
+        'Compare settled/voided flags, financial history and payment projection; do not expect a plain deletion of paid history.'],
+      ['Shopping and borrowing','Shared shopping updates','A adds → B checks off','P1',[
+        'A adds QA milk and QA rice to a shared list. B checks off one item.',
+        'Edit quantity/price if supported and check both sessions after restart.'],
+        'Both see the same items and completion state, without duplicate rows or changes leaking into personal lists.',
+        'Compare shared/private scope, item IDs and realtime event ordering.'],
+      ['Shopping and borrowing','Convert shopping to an expense once','A + B','P0',[
+        'Give a QA shopping item a known price. Use the supported expense/IOU conversion.',
+        'Attempt the same conversion again and, with both devices, at nearly the same time.'],
+        'Only one financial source claim is created. Price, payer, participants and resulting balance remain correct.',
+        'Check source-item claim, operation receipt and expense cents; run shopping-source concurrency tests.'],
+      ['Shopping and borrowing','Borrow and return across personas','A lends → B borrows → return','P1',[
+        'Record QA drill lent by A to B with a known due date.',
+        'Inspect borrowing views on both devices; mark returned using the supported actor and repeat the tap.'],
+        'Lender/borrower are consistent. Return is reflected once, and does not alter unrelated borrowing or money records.',
+        'Inspect borrowing item ID, permissions and returned timestamp.'],
+      ['Sync and isolation','Foreground, background and restart','A mutates → B resumes','P0',[
+        'Background B while A creates one chore, one expense and one shopping item.',
+        'Resume B, then force-quit and reopen it. Repeat with A and B swapped.'],
+        'Shared records converge and remain after restart. No phantom empty household or reset-onboarding screen appears.',
+        'Measure foreground and relaunch separately. Compare durable rows, hydration state and realtime subscription lifecycle.'],
+      ['Sync and isolation','Offline writes and reconnect','A offline → B online','P0',[
+        'Put A offline. Try a chore and an expense mutation; record whether the UI queues it or explicitly refuses it.',
+        'Let B make an independent change, then reconnect A. Restart both.'],
+        'Every acknowledged operation persists once or shows a recoverable failure. No other member’s change disappears. Never call an unsaved item a success.',
+        'Record pending/sync indicators, outbox state, operation IDs, request retries and final database rows.'],
+      ['Sync and isolation','Switch households and account','A + B','P0',[
+        'B creates QA Sweet 2 without A; create a distinctive chore and expense there.',
+        'Switch B between the two households repeatedly, then sign out B and sign back into B.',
+        'Inspect A’s QA Sweet 1 throughout.'],
+        'No QA Sweet 2 data reaches A. Roles and lists switch correctly, with no stale previous-household flash or wrong-account writes.',
+        'Inspect active household/user IDs in payloads, caches and subscriptions. Prefer a staging API authorization check to prove access denial.'],
+      ['Sync and isolation','Role changes and removal while open','A removes → B attempts action','P0',[
+        'Keep B’s QA Sweet 1 open. A removes B using the membership action.',
+        'B attempts to refresh and mutate a record. Rejoin B afterward only if required for the remaining tests.'],
+        'B loses household access and cannot make authorized server writes. A’s records and B’s unrelated household survive.',
+        'Check membership revocation, RLS/RPC response and local fallback; hiding a button alone is not an authorization test.'],
+      ['Calendar and notifications','Connect, disconnect and reconnect Google','B using approved Google test identity','P1',[
+        'B connects Google Calendar, cancels once, then completes consent with the Google identity linked to B.',
+        'Disconnect, check the Settings status, and reconnect.'],
+        'Cancel leaves the account intact. Consent leads to connected status; disconnect and reconnect work without signing into a different SweetMate account.',
+        'Classify Google consent restrictions separately from token exchange or backend connection errors. Record the error code, never tokens.'],
+      ['Calendar and notifications','Export a chore as all-day on the chosen date','B exports → Google Calendar checks','P0',[
+        'B creates QA — calendar date for a known day, then explicitly chooses Add to Google Calendar on that chore.',
+        'Open B’s primary Google calendar and inspect the all-day row and reminder.',
+        'Repeat with an evening New York due time whose UTC instant is on the following day.'],
+        'One all-day event appears on the household scheduled date, not the UTC date. Creating the chore alone does not export it.',
+        'Compare export payload dueDate with scheduledDate; inspect Google start.date and exclusive end.date, not dateTime.'],
+      ['Calendar and notifications','Duplicate export and retained copies','B','P1',[
+        'Export the same occurrence twice, then export a different occurrence.',
+        'Disconnect Calendar and inspect already-exported events.'],
+        'The first occurrence has one event; a different occurrence is distinct. Disconnect retains existing Google copies. Existing copies are not automatically synchronized.',
+        'Compare occurrence-derived event IDs and duplicate response. Correct an old exported event directly in Google Calendar.'],
+      ['Calendar and notifications','Nudge delivery and privacy','A sends → B receives','P1',[
+        'Give B an open chore. A nudges B while B is foregrounded, backgrounded and terminated, using separate fresh fixtures.',
+        'Tap a delivered notification. Check permission denied, dismissed/retracted nudge and signed-out B.'],
+        'Permitted pushes open the correct household/chore. Notification content exposes neither sender identity nor chore text. Denial does not break in-app chores.',
+        'Record permission state, device registration and delivery receipt. A successful queue receipt is not proof the phone displayed a notification.'],
+      ['Calendar and notifications','Expiry, denial and network failure','B','P1',[
+        'Revoke SweetMate in Google Account connections, then try another export.',
+        'Try an export offline and retry after reconnecting; try declining Calendar permission during reconnection.'],
+        'The app gives a clear reconnect/retry message, remains usable and never reports an unsaved export as completed.',
+        'Capture response status/code and connected/reconnectRequired state; Google testing grants may expire independently of the app.'],
+      ['Device quality','Keyboard, sheets and accessibility','A + B','P1',[
+        'On a small iPhone, open Add Chore and Expense with the keyboard visible. Save, cancel and dismiss each sheet.',
+        'Repeat with large text and VoiceOver, long names and light/dark appearance where supported.',
+        'Check reduced motion and repeated navigation.'],
+        'Required fields and actions remain reachable, focus/labels are useful, no sheet traps occur and no text is clipped beyond recovery.',
+        'Attach a short screen recording with device/text-size settings and exact taps. Browser screenshots do not prove native sheet behavior.'],
+      ['Device quality','Telemetry choices and feedback','A + B independently','P1',[
+        'Keep both telemetry choices off; restart and use app features. Enable only analytics for A, only crash reporting for B, then turn each off.',
+        'Submit one non-sensitive QA feedback report. In a test build, inspect outbound telemetry before consent and after opt-out.'],
+        'Consent is independent and remembered. Optional services receive no events before consent or after opt-out. Feedback is stored once with the correct account.',
+        'Inspect sanitized network events/provider settings. A toggle’s visual state alone does not prove collection stopped.'],
+      ['Release and deletion','Public review links and reviewer access','A + B','P0',[
+        'Open sweetmate.info, /privacy, /support and /delete-account while signed out.',
+        'Compare privacy and support URLs in App Store Connect and the app. Test the reviewer account from a fresh install.'],
+        'Every configured link loads the intended current page publicly. Reviewer credentials and household instructions work without owner assistance.',
+        'Separate DNS/hosting 404s from app problems. The previously merged website source was not confirmed published.'],
+      ['Release and deletion','Leave a household without deleting the account','B leaves → A observes','P0',[
+        'With B also in QA Sweet 2, leave QA Sweet 1 as B.',
+        'Inspect A’s household and B’s remaining household; restart B.'],
+        'Only the chosen membership is removed. B can still sign in and access QA Sweet 2; A retains shared records.',
+        'Check membership changes versus auth user deletion. Use disposable households only.'],
+      ['Release and deletion','Delete a member account with shared history','B deletes disposable B → A observes','P0',[
+        'Rejoin B to QA Sweet 1 if needed, seed an unpaid/partially paid QA expense and borrowing record, then request B account deletion.',
+        'Cancel once, then confirm. Verify old-session access and the retained shared history as A.'],
+        'Cancel preserves B. Confirm removes B’s auth/private credentials and memberships; shared financial/borrowing facts remain under Deleted member with unchanged amounts. Exports remain in their services.',
+        'Verify Auth, private rows, active sessions and anonymized snapshots. Analytics erasure is a separate operator process; a queue entry is not proof of erasure.'],
+      ['Release and deletion','Owner transfer, last member and Apple revocation','A on disposable fixtures only','P0',[
+        'Recreate disposable B if necessary. In a separate QA household owned by A with B active, test A account deletion and owner transfer.',
+        'Test deletion of the sole remaining member on a separate disposable fixture.',
+        'For an Apple-linked test account, cancel/wrong-account confirmation, then successful revocation/deletion; otherwise mark this Apple case Blocked.'],
+        'Ownership transfers to an active member; no-member households are removed. Failed Apple confirmation preserves the account, successful deletion revokes the grant. No real account is deleted.',
+        'Confirm Apple deletion secrets and provider revocation response before claiming success. Previous notes left physical Apple revocation unverified.'],
+      ['Release and deletion','Clean-install regression and final triage','A + B on fresh disposable accounts','P0',[
+        'After fixes, install the intended candidate fresh and repeat onboarding, one shared chore, one exact-cent expense and one Calendar export.',
+        'Retest each recorded failure and repeat its neighboring regression. Confirm zero open P0 defects and document every remaining blocked test.'],
+        'Release evidence identifies the exact build/SHA, both devices, failures fixed, repeat results and remaining limitations. Blocked tests are not counted as passes.',
+        'Do not change source during a run without recording the new SHA/build. Repeat impacted tests after rebuilding.']
+    ];
+const get=id=>document.getElementById(id);let saved={};try{saved=JSON.parse(localStorage.getItem('sweetmate-qa-checklist-v1')||'{}')}catch{}let current=0;
+tests.forEach((t,i)=>{const o=document.createElement('option');o.value=i;o.textContent=`${i+1}. ${t[0]} — ${t[1]}`;get('select').append(o)});
+function save(){localStorage.setItem('sweetmate-qa-checklist-v1',JSON.stringify(saved))}
+function render(){const t=tests[current];get('select').value=current;get('title').textContent=t[1];get('actors').textContent=t[2]+' · '+t[3];get('actions').replaceChildren();t[4].forEach(s=>{const li=document.createElement('li');li.textContent=s;get('actions').append(li)});get('expected').textContent=t[5];get('debug').textContent=t[6];get('notes').value=saved[current]?.notes||'';const counts={pass:0,fail:0,blocked:0};Object.values(saved).forEach(x=>{if(x.status in counts)counts[x.status]++});get('progress').textContent=`${counts.pass} passed · ${counts.fail} failed · ${counts.blocked} blocked · ${tests.length-counts.pass-counts.fail-counts.blocked} not tested`;get('prev').disabled=current===0;get('next').disabled=current===tests.length-1}
+get('notes').onchange=()=>{saved[current]={status:saved[current]?.status||'untested',notes:get('notes').value};save()};get('select').onchange=()=>{current=Number(get('select').value);render()};get('prev').onclick=()=>{current=Math.max(0,current-1);render()};get('next').onclick=()=>{current=Math.min(tests.length-1,current+1);render()};['pass','fail','blocked'].forEach(status=>get(status).onclick=()=>{saved[current]={status,notes:get('notes').value};save();if(status==='pass'&&current<tests.length-1)current++;render()});get('report').onclick=()=>{get('reportText').textContent=tests.map((t,i)=>`${i+1}. ${t[1]} — ${saved[i]?.status||'untested'}\n${saved[i]?.notes||''}`).join('\n\n')};render();
+</script></html>
