@@ -54,7 +54,12 @@ function prepareMigration(name, sql) {
   if (name === '202607220004_add_household_member_color.sql') {
     // An old deployed schema had avatar_color, but fresh main schemas do not.
     // Reading the optional field through the row's JSON supports both shapes.
-    return sql.replace("coalesce(avatar_color, '#7B563B')", "coalesce(to_jsonb(household_members)->>'avatar_color', '#7B563B')");
+    sql = sql.replace("coalesce(avatar_color, '#7B563B')", "coalesce(to_jsonb(household_members)->>'avatar_color', '#7B563B')");
+  }
+  // The local CLI can execute each SQL statement separately. A LOCK must be
+  // inside an explicit transaction, including the backfill and trigger cutover.
+  if (/^\s*lock\s+table\b/im.test(sql) && !/^\s*begin\s*;/im.test(sql)) {
+    sql = `begin;\n${sql}\ncommit;\n`;
   }
   return sql;
 }

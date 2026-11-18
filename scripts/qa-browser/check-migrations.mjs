@@ -32,6 +32,35 @@ for(const legacy of [false,true]){
  if(legacy)assert.equal(rows[2].color,'#7B563B');
  await db.exec(prepared);await db.close();
 }
+function splitSQL(sql) {
+ const result=[];let start=0,i=0,quote='',dollar='',block=0,line=false;
+ while(i<sql.length){
+  const c=sql[i],next=sql[i+1];
+  if(line){if(c==='\n')line=false;i++;continue;}
+  if(block){if(c==='/'&&next==='*'){block++;i+=2;}else if(c==='*'&&next==='/'){block--;i+=2;}else i++;continue;}
+  if(dollar){if(sql.startsWith(dollar,i)){i+=dollar.length;dollar='';}else i++;continue;}
+  if(quote){if(c===quote&&next===quote){i+=2;continue;}if(c===quote)quote='';else if(c==='\\')i++;i++;continue;}
+  if(c==='-'&&next==='-'){line=true;i+=2;continue;}
+  if(c==='/'&&next==='*'){block=1;i+=2;continue;}
+  if(c==="'"||c==='"'){quote=c;i++;continue;}
+  if(c==='$'){const match=/^\$(?:[A-Za-z_][A-Za-z_0-9]*)?\$/.exec(sql.slice(i));if(match){dollar=match[0];i+=dollar.length;continue;}}
+  if(c===';'){const part=sql.slice(start,i+1).trim();if(part)result.push(part);start=i+1;}
+  i++;
+ }
+ const trailing=sql.slice(start).trim();if(trailing&&!/^--[^\n]*$/.test(trailing))result.push(trailing);
+ assert(!quote&&!dollar&&!block,'unterminated SQL quote/comment');return result;
+}
+assert.equal(splitSQL("select ';'; /* comment; */ select $$begin;end;$$; -- comment;\nselect 1;").length,3);
+const lockName='202611080003_expense_payments_activity.sql';
+const lockOriginal=await readFile(resolve(root,'supabase/migrations',lockName),'utf8');
+const lockPrepared=context.prepare(lockName,lockOriginal);
+assert.match(lockPrepared,/^begin;/);assert.match(lockPrepared,/commit;\s*$/);
+assert.equal(context.prepare(lockName,lockPrepared),lockPrepared,'explicit transactions must not be nested');
+const transactionCheck=new PGlite();
+await transactionCheck.exec('create table expenses(id integer);');
+await assert.rejects(()=>transactionCheck.exec('lock table expenses in access exclusive mode;'),/transaction blocks/);
+for(const statement of splitSQL(context.prepare('fixture.sql','lock table expenses in access exclusive mode;')))await transactionCheck.exec(statement);
+await transactionCheck.close();
 const db=new PGlite();
 try{
  await db.exec(`
@@ -51,7 +80,7 @@ try{
   // PGlite has no Supabase extension binaries. Leave the functions/policies
   // intact; only extension loading and actual scheduling are substituted.
   sql=sql.replace(/create extension if not exists (pgcrypto|pg_cron|pg_net)(?: with schema \w+)?;/gi,'');
-  try{await db.exec(sql);}catch(error){console.error('FAILED migration:',n);throw error;}
+  try{for(const statement of splitSQL(sql))await db.exec(statement);}catch(error){console.error('FAILED migration:',n);throw error;}
  }
- console.log(`PASS: fresh and legacy color migration paths; ${names.length} ordered migrations replayed (extension loading/scheduling substituted).`);
+ console.log(`PASS: fresh and legacy color migration paths; ${names.length} ordered migrations replayed statement-by-statement with explicit transaction boundaries (extension loading/scheduling substituted).`);
 }finally{await db.close();}
