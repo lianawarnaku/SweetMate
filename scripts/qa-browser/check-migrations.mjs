@@ -13,6 +13,9 @@ const source=await readFile(resolve(root,'scripts/qa-browser/start.mjs'),'utf8')
 const start=source.indexOf('function prepareMigration('),end=source.indexOf('async function copySchema()',start);
 assert(start>=0&&end>start);
 const context={};runInNewContext(source.slice(start,end)+';this.prepare=prepareMigration;',context);
+const grantsStart=source.indexOf('function localQAGrants()'),grantsEnd=source.indexOf('async function applyLocalQAGrants()',grantsStart);
+assert(grantsStart>=0&&grantsEnd>grantsStart);
+runInNewContext(source.slice(grantsStart,grantsEnd)+';this.grants=localQAGrants;',context);
 const name='202607220004_add_household_member_color.sql';
 const original=await readFile(resolve(root,'supabase/migrations',name),'utf8');
 const prepared=context.prepare(name,original);
@@ -82,5 +85,38 @@ try{
   sql=sql.replace(/create extension if not exists (pgcrypto|pg_cron|pg_net)(?: with schema \w+)?;/gi,'');
   try{for(const statement of splitSQL(sql))await db.exec(statement);}catch(error){console.error('FAILED migration:',n);throw error;}
  }
+ // Verify real role behavior after full SQL replay, not just table creation.
+ const a='11111111-1111-4111-8111-111111111111',b='22222222-2222-4222-8222-222222222222',outsider='33333333-3333-4333-8333-333333333333';
+ await db.query('insert into auth.users(id) values($1),($2),($3)',[a,b,outsider]);
+ const login=async id=>{await db.exec('reset role');await db.query("select set_config('request.jwt.claim.sub',$1,false)",[id]);await db.exec('set role authenticated');};
+ await login(a);
+ await assert.rejects(()=>db.query('select * from public.household_preferences'),/permission denied/);
+ const created=await db.query("select * from public.create_household('QA Sweet 1','Avery','#5793d6','QA123456','America/New_York')");
+ const hid=created.rows[0].household_id;
+ await login(b);await db.query("select public.join_household('QA123456','Blake','#b58ad0')");
+ await db.exec('reset role');await db.exec(context.grants());await db.exec(context.grants());
+ await login(a);
+ await db.query('insert into public.household_preferences(household_id,household_complete,updated_by) values($1,true,$2)',[hid,a]);
+ assert.equal((await db.query('select * from public.household_members')).rows.length,2);
+ assert.equal((await db.query('select household_complete from public.household_preferences')).rows[0].household_complete,true);
+ // An authenticated member can create/read chores and shopping; outsiders cannot.
+ await db.exec(`set request.headers='{"x-sweetmate-chore-policy":"single-obligation-v1"}';`);
+ await db.query("insert into public.chores(id,household_id,title,creator_id,assigned_to,due_date,scheduled_date) values('qa-chore',$1,'QA — wash dishes',$2,$2,'2026-11-18T23:59:00Z','2026-11-18')",[hid,a]);
+ await db.query("insert into public.shopping_lists(id,household_id,name,sort_order,entry) values('qa-list',$1,'QA shopping',0,'{}')",[hid]);
+ await db.query("insert into public.private_borrow_items(id,household_id,owner_id,entry) values(gen_random_uuid(),$1,$2,$3)",[hid,a,JSON.stringify({visibility:'private',householdId:hid,creatorId:a,ownerId:a})]);
+ await login(b);
+ assert.equal((await db.query('select * from public.chores')).rows.length,1);
+ assert.equal((await db.query('select * from public.shopping_lists')).rows.length,1);
+ assert.equal((await db.query('select * from public.private_borrow_items')).rows.length,0);
+ await assert.rejects(()=>db.query("update public.household_members set role='owner' where user_id=$1",[b]),/permission denied/);
+ await assert.rejects(()=>db.query('select sent_by from public.nudges'),/permission denied/);
+ for(const table of ['google_calendar_connections','push_devices','nudge_push_deliveries','expense_operation_receipts','expense_shopping_claims','deleted_member_aliases','vendor_erasure_requests']){
+   await assert.rejects(()=>db.query(`select * from public.${table}`),/permission denied/);
+ }
+ await assert.rejects(()=>db.query('insert into public.proposed_charts(household_id,created_by) values($1,$2)',[hid,b]),/permission denied/);
+ await login(outsider);
+ for(const table of ['households','household_members','household_preferences','chores','shopping_lists'])assert.equal((await db.query(`select * from public.${table}`)).rows.length,0);
+ await assert.rejects(()=>db.query('insert into public.household_preferences(household_id,updated_by) values($1,$2)',[hid,outsider]),/row-level security/);
+ console.log('PASS: reproduced missing table grants; real owner/member fixture creation, preferences/chore/shopping access, private-record isolation, outsider RLS and protected column/service-table restrictions.');
  console.log(`PASS: fresh and legacy color migration paths; ${names.length} ordered migrations replayed statement-by-statement with explicit transaction boundaries (extension loading/scheduling substituted).`);
 }finally{await db.close();}

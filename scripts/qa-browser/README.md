@@ -60,4 +60,11 @@ curl -fL https://raw.githubusercontent.com/lianawarnaku/SweetMate/codex/qa-brows
 node scripts/qa-browser/start.mjs
 ```
 
-The corrections include the local fresh-database color migration, explicit transaction boundaries for lock-bearing migrations, and supported `logflare`/`mailpit` exclusion names. The launcher follows main for app code, but the launcher itself must be updated separately when its own setup logic changes.
+The corrections include the local fresh-database color migration, explicit transaction boundaries for lock-bearing migrations, narrowly scoped local client grants for fresh projects, and supported `logflare`/`mailpit` exclusion names. The launcher follows main for app code, but the launcher itself must be updated separately when its own setup logic changes.
+
+
+### Fresh-project table privileges
+
+After verifying that the API is the local 127.0.0.1:54321 project, the launcher applies explicit client grants inside the `supabase_db_sweetmate-qa` Docker container. This restores the table access that older projects inherited by default. It does not change RLS policies or grant access to Calendar credentials, push queues, erasure records, or other service-only tables. Membership role/status updates and RPC-only financial/chart writes remain restricted. The same grants run after local schema updates. No remote database command is issued.
+
+The regression test reproduces the ungranted preferences error, then verifies owner/member fixture creation, preferences writes, shared chore/shopping reads, private borrowing isolation, outsider row filtering, forbidden membership-role updates, hidden nudge sender columns, and service-only table denial after the grants. The SQL checks use PostgreSQL-WASM, with extension scheduling substituted; they do not establish a full real-service browser run.

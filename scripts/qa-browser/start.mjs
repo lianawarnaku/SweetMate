@@ -50,6 +50,31 @@ async function syncSource() {
   const sha = capture('git', ['-C', appRoot, 'rev-parse', 'HEAD']).trim();
   return sha;
 }
+function localQAGrants() {
+  // Older production projects inherited table grants; fresh local projects do
+  // not. Restore only the client operations used by main, retaining all RLS,
+  // column restrictions, RPC-only writes and service-only tables.
+  return `begin;
+    grant usage on schema public to authenticated;
+    grant select on public.households, public.household_members,
+      public.expenses, public.proposed_charts, public.proposed_chart_approvals,
+      public.sweet_essential_shortlist_items to authenticated;
+    grant update(display_name, color) on public.household_members to authenticated;
+    grant select, insert, update on public.household_preferences,
+      public.household_states to authenticated;
+    grant select, insert, update, delete on public.chores,
+      public.shopping_lists, public.shopping_items, public.shared_borrow_items,
+      public.private_borrow_items, public.item_difficulty,
+      public.member_task_preferences, public.sweet_essential_item_assignments to authenticated;
+    grant select, insert on public.recurring_chore_occurrence_keys to authenticated;
+    grant select(id, household_id, to_member_id, chore_id, sent_at, seen, seen_at, dismissed_at),
+      insert, delete on public.nudges to authenticated;
+    grant update(seen, seen_at, dismissed_at) on public.nudges to authenticated;
+  commit;`;
+}
+async function applyLocalQAGrants() {
+  await run('docker', ['exec', 'supabase_db_sweetmate-qa', 'psql', '-X', '-v', 'ON_ERROR_STOP=1', '-U', 'postgres', '-d', 'postgres', '-c', localQAGrants()]);
+}
 function prepareMigration(name, sql) {
   if (name === '202607220004_add_household_member_color.sql') {
     // An old deployed schema had avatar_color, but fresh main schemas do not.
@@ -97,6 +122,7 @@ const service = status.SERVICE_ROLE_KEY || status.service_role_key;
 const apiUrl = status.API_URL || status.api_url;
 if (apiUrl !== localUrl || !anon || !service) fatal('Expected a local Supabase instance at 127.0.0.1:54321 with local API keys. Refusing any other backend.');
 if (process.env.SWEETMATE_QA_REUSE_BACKEND !== '1') await run(npm, [...cli, 'migration', 'up', '--local', '--workdir', backend]);
+if (process.env.SWEETMATE_QA_REUSE_BACKEND !== '1') await applyLocalQAGrants();
 async function request(path, { token = service, method = 'GET', body, headers = {} } = {}) {
   const response = await fetch(localUrl + path, {
     method, headers: { apikey: anon, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', ...headers },
@@ -227,6 +253,7 @@ const updater = !process.env.SWEETMATE_QA_WEB_DIR && setInterval(async () => {
     console.log(`Main changed to ${sha.slice(0,7)}. Applying local migrations and rebuilding…`);
     await copySchema();
     await run(npm, [...cli, 'migration', 'up', '--local', '--workdir', backend]);
+    await applyLocalQAGrants();
     await buildBrowser(sha);
     syncMessage = 'Up to date';
     console.log(`Updated both browser profiles to ${sha.slice(0,7)}. QA records and sessions retained.`);
