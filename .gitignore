@@ -47,3 +47,6 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# Isolated local browser QA data and dependency caches
+.sweetmate-qa/
