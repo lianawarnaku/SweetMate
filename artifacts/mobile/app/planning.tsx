@@ -1220,9 +1220,6 @@ export default function PlanningScreen() {
           <View style={styles.customTaskHeader}>
             <View>
               <Text style={[styles.customTaskTitle, { color: colors.foreground }]}>Custom tasks</Text>
-              <Text style={[styles.customTaskHint, { color: colors.mutedForeground }]}>
-                Difficulty defaults to 3/5 and is required.
-              </Text>
             </View>
             <TouchableOpacity onPress={() => router.push("/task-difficulty")}>
               <Text style={[styles.editDifficultyLink, { color: colors.primary }]}>Edit item levels</Text>
@@ -1962,7 +1959,6 @@ const styles = StyleSheet.create({
   preferenceIntro: { fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 13, marginTop: -7 },
   customTaskHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
   customTaskTitle: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 18 },
-  customTaskHint: { fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 12, marginTop: 2 },
   editDifficultyLink: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 12 },
   savedCustomTask: { borderWidth: 1, borderRadius: 12, padding: 10, flexDirection: "row", alignItems: "center" },
   savedCustomTitle: { fontFamily: "Inter_600SemiBold", includeFontPadding: false, fontSize: 14 },
