@@ -12,7 +12,7 @@ import { Feather, FontAwesome } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as ExpoLinking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -62,6 +62,7 @@ export function SignInScreen() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [socialLoading, setSocialLoading] = useState<SocialProvider | null>(null);
+  const socialInFlightRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [confirmationEmail, setConfirmationEmail] = useState<string | null>(null);
@@ -172,7 +173,8 @@ export function SignInScreen() {
   };
 
   const signInWithSocialProvider = async (provider: SocialProvider) => {
-    if (!privacyChoiceReady || loading || socialLoading) return;
+    if (!privacyChoiceReady || loading || socialLoading || socialInFlightRef.current) return;
+    socialInFlightRef.current = true;
     setSocialLoading(provider);
     const analyticsAttempt = beginAnalyticsAuth({ method: provider, mode });
     setError(null);
@@ -216,15 +218,17 @@ export function SignInScreen() {
         authenticatedUserId = sessionData.session?.user.id;
       }
 
-      if (authenticatedUserId) {
-        await recordAnalyticsAuthSucceeded(authenticatedUserId, analyticsAttempt, { method: provider, mode });
+      if (!authenticatedUserId) {
+        throw new Error(`${provider === "google" ? "Google" : "Apple"} did not return a login session. Please try again.`);
       }
+      await recordAnalyticsAuthSucceeded(authenticatedUserId, analyticsAttempt, { method: provider, mode });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (e) {
       reportRuntimeError(`${provider} sign in`, e);
       setError(e instanceof Error ? e.message : `Could not sign in with ${provider}.`);
       hapticError();
     } finally {
+      socialInFlightRef.current = false;
       setSocialLoading(null);
     }
   };
