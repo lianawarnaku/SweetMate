@@ -1,3 +1,7 @@
+import { usePersonalSchedule } from "@/hooks/usePersonalSchedule";
+import { useRandomTasks } from "@/hooks/useRandomTasks";
+import type { RandomTask, RandomTaskInput } from "@/lib/randomTasks";
+import { chartRestartAlerts, mergeChartRestartAlerts, type ChartRestartNotification } from "@/lib/chartRestartAlerts";
 import { deleteAuthenticatedAccount, clearDeletedAccountStorage } from "@/lib/accountDeletion";
 import { useChoreLifecycleNow } from "@/hooks/useChoreLifecycleNow";
 import { choreDefinitionId, definitionFromChore, sameChore } from "@/lib/choreIdentity";
@@ -16,7 +20,7 @@ import React, {
   useSyncExternalStore,
 } from "react";
 import type { Session } from "@supabase/supabase-js";
-import { AppState, InteractionManager } from "react-native";
+import { AppState, InteractionManager, Platform } from "react-native";
 
 import { supabase } from "@/lib/supabase";
 import {
@@ -413,6 +417,7 @@ export interface HomeProfile {
   roomCounts?: Partial<Record<ItemCategory, number>>;
   removedGeneratedKeys?: string[];
   recurrenceOverrides?: Record<string, ChoreRecurrence>;
+  generatedTaskOverrides?: Record<string, Partial<Pick<GeneratedTask, "title" | "difficulty">>>;
 }
 
 export interface GeneratedTask {
@@ -525,8 +530,9 @@ interface AppContextType {
   deleteCustomTask: (id: string) => void;
   chartApprovals: ChartApproval[];
   proposeChart: (payload: ProposedChart["payload"]) => Promise<string>;
-  approveProposedChart: () => Promise<void>;
-  forceApproveProposedChart: () => Promise<void>;
+  submitChartReview: (payload: ProposedChart["payload"], expectedChartId: string | null, approveSelf: boolean) => Promise<string>;
+  approveProposedChart: (chartId?: string) => Promise<void>;
+  forceApproveProposedChart: (chartId?: string) => Promise<void>;
   restartChartProcess: () => Promise<void>;
   isHost: boolean;
   preferencesLoaded: boolean;
@@ -534,16 +540,26 @@ interface AppContextType {
   finishPreferencesOnboarding: () => Promise<void>;
   householdSetupStep: HouseholdSetupStep | null;
   setHouseholdSetupStep: (step: HouseholdSetupStep | null) => Promise<void>;
-  completeHouseholdSetup: () => Promise<void>;
+  completeHouseholdSetup: (profile?: HomeProfile, options?: { preserveOnboarding?: boolean }) => Promise<void>;
   quickGuideOpen: boolean;
   quickGuideSource: "settings" | "onboarding";
   openQuickGuide: () => void;
   dismissQuickGuide: () => void;
   appAlerts: AppAlert[];
+  personalSchedule: ReturnType<typeof usePersonalSchedule>;
+  randomTasks: RandomTask[];
+  randomTasksReady: boolean;
+  randomTasksLoading: boolean;
+  randomTasksError: string | null;
+  randomTasksNow: number;
+  createRandomTask: (input: RandomTaskInput) => Promise<void>;
+  claimRandomTask: (taskId: string) => Promise<void>;
+  refreshRandomTasks: () => Promise<unknown>;
   markAlertRead: (alertId: string) => void;
   markAllAlertsRead: () => void;
   householdComplete: boolean;
-  setHouseholdComplete: (complete: boolean) => void;
+  setHouseholdComplete: (complete: boolean) => Promise<void>;
+  householdSetupDataReady: boolean;
   colorScheme: ColorScheme;
   setColorScheme: (scheme: ColorScheme) => void;
   appearanceMode: AppearanceMode;
@@ -669,6 +685,7 @@ interface AppContextType {
   setChoreChart: (data: ChoreChartData | null, startedAt: string | null) => void;
   homeProfile: HomeProfile | null;
   setHomeProfile: (profile: HomeProfile | null) => void;
+  saveGeneratedTaskSettings: (taskId: string, settings: Pick<GeneratedTask, "title" | "difficulty" | "frequency">) => Promise<void>;
 }
 
 const ASLEEP_AUTO_REVERT_MS = 9 * 60 * 60 * 1000;
@@ -1032,6 +1049,8 @@ export function AppProvider({
   const [quickGuideSource, setQuickGuideSource] = useState<"settings" | "onboarding">("onboarding");
   const [appAlerts, setAppAlerts] = useState<AppAlert[]>([]);
   const [householdComplete, setHouseholdCompleteState] = useState(false);
+  const activeSetupHouseholdRef = useRef(householdId);
+  activeSetupHouseholdRef.current = householdId;
   const [loaded, setLoaded] = useState(false);
   const [cloudReady, setCloudReady] = useState(false);
   const [choresTableReady, setChoresTableReady] = useState(false);
@@ -1121,7 +1140,9 @@ export function AppProvider({
   }, [activeCalendarDay, resolvedHouseholdTimezone]);
 
   useEffect(() => {
-    if (!loaded || !householdId || !activeCalendarDay || applyingChartRef.current) return;
+    // An empty roster during hydration is not a confirmed member departure.
+    // Wait for both normalized chores and active members before reconciling.
+    if (!loaded || !householdId || !activeCalendarDay || !choresTableReady || membersLoading || !roommates.length || applyingChartRef.current) return;
     const reconciled = materializeRecurringOccurrences(
       choresRef.current,
       choreNow(),
@@ -1150,7 +1171,9 @@ export function AppProvider({
           }
         });
     }
-  }, [activeCalendarDay, choreChartApplying, chores, choresTableReady, householdId, loaded, recurrenceRefreshTick, resolvedHouseholdTimezone, roommates]);
+  }, [activeCalendarDay, choreChartApplying, chores, choresTableReady, householdId, loaded, membersLoading, recurrenceRefreshTick, resolvedHouseholdTimezone, roommates]);
+
+  const personalSchedule = usePersonalSchedule(loaded ? session?.user.id ?? null : null, householdId, roommateActivityEnabled);
 
   const preferenceUserId = session?.user.id;
 
@@ -1338,20 +1361,51 @@ export function AppProvider({
     [preferenceUserId],
   );
 
-  const completeHouseholdSetup = useCallback(async () => {
+  const persistCompletedHousehold = useCallback(async (profile?: HomeProfile) => {
+    const target = householdId;
+    const savedProfile = profile ?? homeProfile;
+    if (!target || !savedProfile) throw new Error("Finish your home details before completing household setup.");
+    const { error } = await supabase.rpc("finish_household_setup", {
+      target_household_id: target,
+      home_profile: savedProfile,
+    });
+    if (error) throw error;
+    if (activeSetupHouseholdRef.current !== target) throw new Error("The active household changed. Return to the household you were setting up.");
+    setHomeProfileState(savedProfile);
+    setHouseholdCompleteState(true);
+  }, [householdId, homeProfile]);
+
+  const saveGeneratedTaskSettings = useCallback(async (
+    taskId: string,
+    settings: Pick<GeneratedTask, "title" | "difficulty" | "frequency">,
+  ) => {
+    const target = householdId;
+    if (!target || !homeProfile) throw new Error("Finish your household setup first.");
+    const { data, error } = await supabase.rpc("update_generated_task_settings", {
+      target_household_id: target, task_id: taskId,
+      task_settings: { ...settings, title: settings.title.trim() },
+    });
+    if (error) throw error;
+    if (activeSetupHouseholdRef.current !== target) throw new Error("The active household changed. Reopen its generated tasks to edit them.");
+    setHomeProfileState(data as unknown as HomeProfile);
+  }, [householdId, homeProfile]);
+
+  const completeHouseholdSetup = useCallback(async (profile?: HomeProfile, options?: { preserveOnboarding?: boolean }) => {
+    await persistCompletedHousehold(profile);
+    const onboardingPending = options?.preserveOnboarding ? preferencesOnboardingPending : true;
     if (preferenceUserId) {
       await AsyncStorage.mergeItem(
         userPreferencesKey(preferenceUserId),
         JSON.stringify({
           householdSetupStep: null,
           householdSetupVersion: HOUSEHOLD_SETUP_VERSION,
-          onboardingPending: true,
+          onboardingPending,
         }),
       );
     }
     setHouseholdSetupStepState(null);
-    setPreferencesOnboardingPending(true);
-  }, [preferenceUserId]);
+    setPreferencesOnboardingPending(onboardingPending);
+  }, [preferenceUserId, persistCompletedHousehold, preferencesOnboardingPending]);
 
   const currentGuideUserId = session?.user.id;
   const openQuickGuide = useCallback(() => {
@@ -1399,6 +1453,15 @@ export function AppProvider({
       }
     };
 
+    async function refreshCompletion() {
+      const { data, error } = await supabase.from("household_preferences")
+        .select("household_complete").eq("household_id", householdId).maybeSingle();
+      if (active && !error && data) applyPreferences(data);
+    }
+    const appStateSubscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") void refreshCompletion();
+    });
+
     async function connectPreferences() {
       const { data, error } = await supabase
         .from("household_preferences")
@@ -1418,7 +1481,7 @@ export function AppProvider({
       } else {
         const { error: createError } = await supabase.from("household_preferences").insert({
           household_id: householdId,
-          household_complete: householdComplete,
+          household_complete: false,
           updated_by: userId,
           updated_at: new Date().toISOString(),
         });
@@ -1458,11 +1521,11 @@ export function AppProvider({
               household_complete?: boolean;
               updated_by?: string;
             };
-            if (row.updated_by === userId) return;
-            applyPreferences(row);
+            if (active) applyPreferences(row);
           },
         )
         .subscribe((status, error) => {
+          if (status === "SUBSCRIBED") void refreshCompletion();
           if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
             reportSupabaseError(
               "subscribe to household preferences",
@@ -1478,41 +1541,14 @@ export function AppProvider({
     });
     return () => {
       active = false;
+      appStateSubscription.remove();
       setHouseholdPreferencesReady(false);
       supabase.removeChannel(channel);
     };
   }, [householdId, localPreferencesLoaded, session?.user.id]);
 
-  // Coalesce updates to the shared setup-completion flag only.
-  useEffect(() => {
-    const userId = session?.user.id;
-    if (!householdPreferencesReady || !userId || !householdId) return;
+  // Setup completion is persisted explicitly, never echoed from a cached flag.
 
-    let interaction: ReturnType<typeof InteractionManager.runAfterInteractions> | null = null;
-    const timer = setTimeout(() => {
-      interaction = InteractionManager.runAfterInteractions(async () => {
-        const { error } = await supabase.from("household_preferences").upsert({
-          household_id: householdId,
-          household_complete: householdComplete,
-          updated_by: userId,
-          updated_at: new Date().toISOString(),
-        });
-        if (error) {
-          reportSupabaseError("save household preferences", error, { householdId });
-          console.warn("SweetMate preference could not sync:", error.message);
-        }
-      });
-    }, 220);
-    return () => {
-      clearTimeout(timer);
-      interaction?.cancel();
-    };
-  }, [
-    householdComplete,
-    householdId,
-    householdPreferencesReady,
-    session?.user.id,
-  ]);
 
   useEffect(() => {
     const userId = session?.user.id;
@@ -1623,6 +1659,7 @@ export function AppProvider({
         setChoreChartState(null);
         setChoreChartStartedAtState(null);
         setHomeProfileState(null);
+        setHouseholdCompleteState(false);
         setLiveChartState(null);
         setCustomTasks([]);
       }
@@ -1741,6 +1778,7 @@ export function AppProvider({
     setChoreChartState(null);
     setChoreChartStartedAtState(null);
     setHomeProfileState(null);
+    setHouseholdCompleteState(false);
     setLiveChartState(null);
     setCustomTasks([]);
     setItemDifficulties([]);
@@ -2059,6 +2097,7 @@ export function AppProvider({
     setChoreChartState(null);
     setChoreChartStartedAtState(null);
     setHomeProfileState(null);
+    setHouseholdCompleteState(false);
     setLiveChartState(null);
     setCustomTasks([]);
     setItemDifficulties([]);
@@ -2235,17 +2274,61 @@ export function AppProvider({
   }, []);
 
   const markAlertRead = useCallback((alertId: string) => {
+    const readAt = new Date().toISOString();
     setAppAlerts((current) =>
-      current.map((alert) => alert.id === alertId && !alert.readAt
-        ? { ...alert, readAt: new Date().toISOString() }
-        : alert),
+      current.map((alert) => alert.id === alertId && !alert.readAt ? { ...alert, readAt } : alert),
     );
-  }, []);
+    if (householdId && currentUserId && alertId.startsWith("chart-restart:")) {
+      void Promise.resolve(supabase.from("chore_chart_restart_notifications").update({ read_at: readAt })
+        .eq("id", alertId.slice("chart-restart:".length)).eq("household_id", householdId).eq("recipient_id", currentUserId))
+        .then(({ error }) => { if (error) reportSupabaseError("mark chart restart alert read", error, { householdId }); })
+        .catch((error) => reportRuntimeError("mark chart restart alert read", error, { householdId }));
+    }
+  }, [householdId, currentUserId]);
 
   const markAllAlertsRead = useCallback(() => {
     const readAt = new Date().toISOString();
     setAppAlerts((current) => markVisibleAlertsRead(current, currentUserId, readAt));
-  }, [currentUserId]);
+    if (householdId && currentUserId) {
+      void Promise.resolve(supabase.from("chore_chart_restart_notifications").update({ read_at: readAt })
+        .eq("household_id", householdId).eq("recipient_id", currentUserId).is("read_at", null))
+        .then(({ error }) => { if (error) reportSupabaseError("mark chart restart alerts read", error, { householdId }); })
+        .catch((error) => reportRuntimeError("mark chart restart alerts read", error, { householdId }));
+    }
+  }, [householdId, currentUserId]);
+
+  useEffect(() => {
+    if (!loaded || !householdId || !currentUserId || currentUserId === CURRENT_USER_ID) return;
+    let active = true;
+    let version = 0;
+    const refresh = async () => {
+      const request = ++version;
+      try {
+        const { data, error } = await supabase.from("chore_chart_restart_notifications")
+          .select("id, household_id, chart_id, actor_id, actor_name, recipient_id, created_at, read_at")
+          .eq("household_id", householdId).eq("recipient_id", currentUserId).order("created_at", { ascending: false });
+        if (!active || request !== version) return;
+        if (error) throw error;
+        const alerts = chartRestartAlerts((data ?? []) as ChartRestartNotification[], householdId, currentUserId);
+        setAppAlerts((current) => mergeChartRestartAlerts(current, alerts));
+      } catch (error) {
+        if (active && request === version) reportRuntimeError("load chart restart alerts", error, { householdId });
+      }
+    };
+    void refresh();
+    const channel = supabase.channel(`chart-restart-alerts:${householdId}:${currentUserId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "chore_chart_restart_notifications", filter: `household_id=eq.${householdId}` }, () => { if (active) void refresh(); })
+      .subscribe((status) => { if (status === "SUBSCRIBED" && active) void refresh(); });
+    const appState = AppState.addEventListener("change", (status) => { if (status === "active") void refresh(); });
+    const onFocus = () => { if (active) void refresh(); };
+    if (Platform.OS === "web" && typeof window !== "undefined") window.addEventListener("focus", onFocus);
+    return () => {
+      active = false;
+      appState.remove();
+      if (Platform.OS === "web" && typeof window !== "undefined") window.removeEventListener("focus", onFocus);
+      void supabase.removeChannel(channel);
+    };
+  }, [loaded, householdId, currentUserId]);
 
   useEffect(() => {
     if (!nudgesReady || !householdId || !currentUserId) return;
@@ -2936,7 +3019,7 @@ export function AppProvider({
           },
           (payload) => {
             const row = payload.new as { state?: Partial<SharedHouseholdState>; updated_by?: string };
-            if (!row.state || row.updated_by === userId) return;
+            if (!active || !row.state) return;
             applyingRemoteRef.current = true;
             applySharedState(row.state);
           }
@@ -3091,7 +3174,10 @@ export function AppProvider({
     chorePersistenceQueueRef.current = chorePersistenceQueueRef.current.then(async () => {
       // Calculate after earlier queued mutations finish so a rapid create then
       // delete still observes (and removes) the row created by the first job.
-      const plan = planChoreSync(chores, persistedChoreRowsRef.current);
+      if (activeSetupHouseholdRef.current !== householdId || !choresTableReadyRef.current) return;
+      // Include server-created random chores and Realtime changes that arrived
+      // while an earlier write was queued; an older render must not delete them.
+      const plan = planChoreSync(choresRef.current, persistedChoreRowsRef.current);
       if (plan.upserts.length) {
         const { data: savedRows, error } = await supabase.from("chores").upsert(plan.upserts, { onConflict: "id" }).select("*");
         if (error) {
@@ -3101,6 +3187,7 @@ export function AppProvider({
           });
           return;
         }
+        if (activeSetupHouseholdRef.current !== householdId) return;
         for (const row of (savedRows ?? []) as ChoreRow[]) {
           persistedChoreRowsRef.current.set(row.id, row);
           choresRef.current = applyChoreRowEvent(choresRef.current, "UPDATE", row);
@@ -3120,10 +3207,29 @@ export function AppProvider({
           });
           return;
         }
+        if (activeSetupHouseholdRef.current !== householdId) return;
         plan.deleteIds.forEach((id) => persistedChoreRowsRef.current.delete(id));
       }
     });
   }, [chores, choresTableReady, householdId, session?.user.id]);
+
+  const receiveRandomTaskChores = useCallback((rows: ChoreRow[], target: string) => {
+    if (activeSetupHouseholdRef.current !== target || !choresTableReadyRef.current) return;
+    let next = choresRef.current;
+    for (const row of rows) {
+      if (row.household_id !== target) continue;
+      const existing = next.find((chore) => chore.id === row.id);
+      if (existing && Date.parse(existing.updatedAt ?? "") > Date.parse(row.updated_at)) continue;
+      const normalized = rowToChore(row);
+      persistedChoreRowsRef.current.set(row.id, choreToRow(normalized)!);
+      next = applyChoreRowEvent(next, "UPDATE", row);
+    }
+    if (next !== choresRef.current) { choresRef.current = next; setChores(next); }
+  }, []);
+  const { tasks: randomTasks, ready: randomTasksReady, loading: randomTasksLoading, error: randomTasksError,
+    now: randomTasksNow, create: createRandomTask, claim: claimRandomTask, refresh: refreshRandomTasks } = useRandomTasks(
+    loaded && cloudReady && choresTableReady ? householdId : null, session?.user.id ?? null, receiveRandomTaskChores,
+  );
 
   // Nudges live in their own table so acknowledgement is per row and updates
   // immediately on every signed-in device. Never select sent_by: received
@@ -4468,9 +4574,10 @@ export function AppProvider({
     setCustomTasks((current) => current.filter((task) => task.id !== id));
   }, []);
 
-  const setHouseholdComplete = useCallback((complete: boolean) => {
-    setHouseholdCompleteState(complete);
-  }, []);
+  const setHouseholdComplete = useCallback(async (complete: boolean) => {
+    if (!complete) throw new Error("Completed household setup cannot be reset.");
+    await persistCompletedHousehold();
+  }, [persistCompletedHousehold]);
 
   useEffect(() => {
     if (!householdComplete || !householdId) return;
@@ -4586,28 +4693,50 @@ export function AppProvider({
     return String(data);
   }, [householdId]);
 
-  const approveProposedChart = useCallback(async () => {
-    if (!currentProposedChart || currentProposedChart.status !== "pending") return;
+  const submitChartReview = useCallback(async (
+    payload: ProposedChart["payload"], expectedChartId: string | null, approveSelf: boolean,
+  ) => {
+    const target = householdId;
+    if (!target) throw new Error("No household is selected.");
+    const { data, error } = await supabase.rpc("submit_chore_chart_review", {
+      target_household_id: target, chart_payload: payload,
+      expected_chart_id: expectedChartId, approve_self: approveSelf,
+    });
+    if (error) {
+      reportSupabaseError("submit chore chart for review", error, { householdId: target });
+      void refreshChartStateRef.current?.().catch(() => {});
+      throw error;
+    }
+    if (activeSetupHouseholdRef.current !== target) throw new Error("The active household changed. Reopen the chart in its household.");
+    track.chorePlanCreated({ source: "generated", chore_count_bucket: analyticsCountBucket(payload.generatedTasks?.length ?? 0) });
+    await refreshChartStateRef.current?.();
+    return String(data);
+  }, [householdId]);
+
+  const approveProposedChart = useCallback(async (chartId?: string) => {
+    const targetChartId = chartId ?? currentProposedChart?.id;
+    if (!targetChartId) throw new Error("Reopen the latest chart before approving.");
     const { error } = await supabase.rpc("approve_proposed_chart", {
-      target_chart_id: currentProposedChart.id,
+      target_chart_id: targetChartId,
     });
     if (error) {
       reportSupabaseError("approve proposed chart", error, {
-        chartId: currentProposedChart.id,
+        chartId: targetChartId,
       });
       throw error;
     }
     await refreshChartStateRef.current?.();
   }, [currentProposedChart]);
 
-  const forceApproveProposedChart = useCallback(async () => {
-    if (!currentProposedChart || currentProposedChart.status !== "pending") return;
+  const forceApproveProposedChart = useCallback(async (chartId?: string) => {
+    const targetChartId = chartId ?? currentProposedChart?.id;
+    if (!targetChartId) throw new Error("Reopen the latest chart before approving.");
     const { error } = await supabase.rpc("force_approve_proposed_chart", {
-      target_chart_id: currentProposedChart.id,
+      target_chart_id: targetChartId,
     });
     if (error) {
       reportSupabaseError("force approve proposed chart", error, {
-        chartId: currentProposedChart.id,
+        chartId: targetChartId,
       });
       throw error;
     }
@@ -4615,16 +4744,16 @@ export function AppProvider({
   }, [currentProposedChart]);
 
   const restartChartProcess = useCallback(async () => {
-    if (!householdId) return;
-    const { error } = await supabase.rpc("cancel_proposed_charts", {
-      target_household_id: householdId,
+    const target = householdId;
+    if (!target) throw new Error("No household is selected.");
+    const { error } = await supabase.rpc("restart_chore_chart_review", {
+      target_household_id: target,
     });
     if (error) {
-      reportSupabaseError("restart chart process", error, { householdId });
+      reportSupabaseError("restart chart process", error, { householdId: target });
       throw error;
     }
-    setCurrentProposedChartState(null);
-    setChartApprovals([]);
+    if (activeSetupHouseholdRef.current !== target) throw new Error("The active household changed. Reopen chore planning in its household.");
     await refreshChartStateRef.current?.();
   }, [householdId]);
 
@@ -4788,6 +4917,7 @@ export function AppProvider({
     deleteCustomTask,
     chartApprovals,
     proposeChart,
+    submitChartReview,
     approveProposedChart,
     forceApproveProposedChart,
     restartChartProcess,
@@ -4803,10 +4933,13 @@ export function AppProvider({
     openQuickGuide,
     dismissQuickGuide,
     appAlerts: visibleAppAlerts,
+    personalSchedule,
+    randomTasks, randomTasksReady, randomTasksLoading, randomTasksError, randomTasksNow, createRandomTask, claimRandomTask, refreshRandomTasks,
     markAlertRead,
     markAllAlertsRead,
     householdComplete,
     setHouseholdComplete,
+    householdSetupDataReady: householdPreferencesReady && cloudReady,
     colorScheme,
     setColorScheme,
     appearanceMode,
@@ -4920,11 +5053,14 @@ export function AppProvider({
     setChoreChart,
     homeProfile,
     setHomeProfile: setHomeProfileState,
+    saveGeneratedTaskSettings,
   }), [
-    itemDifficulties, setItemDifficulty, resetItemDifficulties,
+    personalSchedule,
+    randomTasks, randomTasksReady, randomTasksLoading, randomTasksError, randomTasksNow, createRandomTask, claimRandomTask, refreshRandomTasks,
+    itemDifficulties, setItemDifficulty, resetItemDifficulties, saveGeneratedTaskSettings,
     memberPreferences, setMemberPreference, currentProposedChart,
     choreChartApplying, choreChartConfigurationReady, retryChoreChartConfiguration, setCurrentProposedChart, liveChart, setLiveChart, customTasks,
-    addCustomTask, deleteCustomTask, chartApprovals, proposeChart,
+    addCustomTask, deleteCustomTask, chartApprovals, proposeChart, submitChartReview,
     approveProposedChart, forceApproveProposedChart, restartChartProcess,
     isHost, preferencesLoaded, preferencesOnboardingPending,
     finishPreferencesOnboarding, householdSetupStep, setHouseholdSetupStep,
@@ -4932,7 +5068,7 @@ export function AppProvider({
     dismissQuickGuide, visibleAppAlerts, markAlertRead, markAllAlertsRead,
     householdComplete, setHouseholdComplete,
     colorScheme, appearanceMode, pointsEnabled, plantEnabled, roommateActivityEnabled, leaderboardPeriod, householdId, memberships, activeSweet, householdName,
-    inviteCode, householdLoading, householdError, membersLoading, currentMemberRole,
+    inviteCode, householdLoading, householdError, membersLoading, currentMemberRole, householdPreferencesReady, cloudReady,
     refreshMembers, refreshHousehold, createHousehold, joinHousehold, switchSweet, leaveSweet,
     deleteHousehold, removeRoommate, deleteOwnAccount, currentUserId,
     setCurrentUser, roommates, chores, householdChoreSummary, expenses, shoppingLists, shoppingItems,

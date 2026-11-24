@@ -86,7 +86,7 @@ export function GlassSurface({ children, style, variant = "regular", material = 
         style={[
           StyleSheet.absoluteFill,
           { backgroundColor: fill },
-          Platform.OS === "web" && !reduceTransparency && isSheet
+          Platform.OS === "web" && !reduceTransparency
             ? styles.webFrost
             : undefined,
         ]}

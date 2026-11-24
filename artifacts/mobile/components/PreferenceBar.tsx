@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { LayoutChangeEvent, StyleSheet, Text, View } from "react-native";
+import { LayoutChangeEvent, Platform, StyleSheet, Text, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   runOnJS,
@@ -11,10 +11,10 @@ import Animated, {
 
 import { useTheme } from "@/constants/colors";
 
-// Change this one switch to false if preference bars should remain fully continuous.
-const SNAP_TO_CHECKPOINTS = true;
-const CHECKPOINTS = [0, 50, 100] as const;
-const DOT_COUNT = 13;
+import { useAccessibilityPreferences } from "@/hooks/useAccessibilityPreferences";
+import { PREFERENCE_DOT_COUNT, preferenceDotIndex, snapPreference, stepPreference } from "@/lib/preferenceScale";
+
+const DOT_COUNT = PREFERENCE_DOT_COUNT;
 const THUMB_WIDTH = 38;
 
 interface PreferenceBarProps {
@@ -25,19 +25,6 @@ interface PreferenceBarProps {
   helperText: string;
 }
 
-const clamp = (value: number, min: number, max: number) =>
-  Math.min(max, Math.max(min, value));
-
-function resolvePreferenceValue(rawValue: number): number {
-  "worklet";
-  if (!SNAP_TO_CHECKPOINTS) return Math.round(rawValue);
-  return CHECKPOINTS.reduce((nearest, checkpoint) =>
-    Math.abs(checkpoint - rawValue) < Math.abs(nearest - rawValue)
-      ? checkpoint
-      : nearest,
-  );
-}
-
 export function PreferenceBar({
   value,
   onChange,
@@ -46,18 +33,29 @@ export function PreferenceBar({
   helperText,
 }: PreferenceBarProps) {
   const colors = useTheme();
+  const { reduceMotion } = useAccessibilityPreferences();
+  const selectedDot = preferenceDotIndex(value);
+  const valueDescription = `${value} out of 100, position ${selectedDot + 1} of ${DOT_COUNT}; ${value < 50 ? "less preferred" : value > 50 ? "more preferred" : "impartial"}`;
   const trackWidth = useSharedValue(0);
   const thumbX = useSharedValue(0);
   const dragStartX = useSharedValue(0);
 
   useEffect(() => {
     const travel = Math.max(0, trackWidth.value - THUMB_WIDTH);
-    thumbX.value = withTiming((clamp(value, 0, 100) / 100) * travel, {
-      duration: 180,
-    });
-  }, [thumbX, trackWidth, value]);
+    const position = preferenceDotIndex(value) / (DOT_COUNT - 1) * travel;
+    thumbX.value = reduceMotion ? position : withTiming(position, { duration: 180 });
+  }, [thumbX, trackWidth, value, reduceMotion]);
 
-  const pan = Gesture.Pan()
+  const selectPosition = (rawValue: number) => {
+    "worklet";
+    const snappedValue = snapPreference(rawValue);
+    const travel = Math.max(0, trackWidth.value - THUMB_WIDTH);
+    const position = preferenceDotIndex(snappedValue) / (DOT_COUNT - 1) * travel;
+    thumbX.value = reduceMotion ? position : withSpring(position, { damping: 18, stiffness: 180, mass: 0.7 });
+    runOnJS(onChange)(snappedValue);
+  };
+
+  const pan = Gesture.Pan().minDistance(4)
     .onBegin(() => {
       dragStartX.value = thumbX.value;
     })
@@ -68,14 +66,29 @@ export function PreferenceBar({
     .onEnd(() => {
       const travel = Math.max(0, trackWidth.value - THUMB_WIDTH);
       const rawValue = travel > 0 ? (thumbX.value / travel) * 100 : 50;
-      const snappedValue = resolvePreferenceValue(rawValue);
-      thumbX.value = withSpring((snappedValue / 100) * travel, {
-        damping: 18,
-        stiffness: 180,
-        mass: 0.7,
-      });
-      runOnJS(onChange)(snappedValue);
+      selectPosition(rawValue);
     });
+
+  const tap = Gesture.Tap().onEnd((event, success) => {
+    if (!success) return;
+    const travel = Math.max(0, trackWidth.value - THUMB_WIDTH);
+    selectPosition(travel > 0 ? (event.x - THUMB_WIDTH / 2) / travel * 100 : 50);
+  });
+  const gesture = Gesture.Exclusive(pan, tap);
+  const keyboardProps = Platform.OS === "web" ? {
+    tabIndex: 0 as const,
+    "aria-valuemin": 0,
+    "aria-valuemax": 100,
+    "aria-valuenow": value,
+    "aria-valuetext": valueDescription,
+    onKeyDown: (event: { nativeEvent: { key?: string }; preventDefault: () => void }) => {
+      const key = event.nativeEvent.key;
+      const direction = key === "ArrowRight" || key === "ArrowUp" ? 1 : key === "ArrowLeft" || key === "ArrowDown" ? -1 : 0;
+      if (!direction && key !== "Home" && key !== "End") return;
+      event.preventDefault();
+      onChange(key === "Home" ? 0 : key === "End" ? 100 : stepPreference(value, direction));
+    },
+  } : {};
 
   const thumbStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: thumbX.value }],
@@ -84,7 +97,7 @@ export function PreferenceBar({
   const handleLayout = (event: LayoutChangeEvent) => {
     const width = event.nativeEvent.layout.width;
     trackWidth.value = width;
-    thumbX.value = (clamp(value, 0, 100) / 100) * Math.max(0, width - THUMB_WIDTH);
+    thumbX.value = (preferenceDotIndex(value) / (DOT_COUNT - 1)) * Math.max(0, width - THUMB_WIDTH);
   };
 
   return (
@@ -93,27 +106,28 @@ export function PreferenceBar({
       <Text style={[styles.question, { color: colors.foreground }]}>{questionText}</Text>
       <Text style={[styles.helper, { color: colors.mutedForeground }]}>{helperText}</Text>
 
-      <GestureDetector gesture={pan}>
-        <View style={styles.gestureArea} onLayout={handleLayout}
+      <GestureDetector gesture={gesture}>
+        <View {...keyboardProps} style={styles.gestureArea} onLayout={handleLayout}
           accessible accessibilityRole="adjustable" accessibilityLabel={questionText}
-          accessibilityHint="Adjust your preference. This influences starting assignments; use Never me during chart approval to exclude yourself."
-          accessibilityValue={{ min: 0, max: 100, now: value, text: value < 25 ? "Not preferred" : value > 75 ? "Preferred" : "Impartial" }}
+          accessibilityHint="Tap or drag to any of the 13 dots. Adjust your preference. This influences starting assignments; use Never me during chart approval to exclude yourself."
+          accessibilityValue={{ min: 0, max: 100, now: value, text: valueDescription }}
           accessibilityActions={[{ name: "increment", label: "Prefer more" }, { name: "decrement", label: "Prefer less" }]}
           onAccessibilityAction={({ nativeEvent }) => {
-            if (nativeEvent.actionName === "increment") onChange(clamp(value + 50, 0, 100));
-            if (nativeEvent.actionName === "decrement") onChange(clamp(value - 50, 0, 100));
+            if (nativeEvent.actionName === "increment") onChange(stepPreference(value, 1));
+            if (nativeEvent.actionName === "decrement") onChange(stepPreference(value, -1));
           }}
         >
           <View style={[styles.track, { backgroundColor: colors.border }]} />
-          <View style={styles.dots}>
+          <View pointerEvents="none" style={styles.dots}>
             {Array.from({ length: DOT_COUNT }, (_, index) => (
               <View
                 key={index}
-                style={[styles.dot, { backgroundColor: colors.mutedForeground }]}
+                style={[styles.dot, { backgroundColor: index === selectedDot ? colors.primary : colors.mutedForeground }]}
               />
             ))}
           </View>
           <Animated.View
+            pointerEvents="none"
             style={[
               styles.thumb,
               { backgroundColor: colors.foreground },
@@ -175,8 +189,9 @@ const styles = StyleSheet.create({
   },
   dots: {
     position: "absolute",
-    left: THUMB_WIDTH / 2,
-    right: THUMB_WIDTH / 2,
+    // Align each dot's center with the thumb center at its checkpoint.
+    left: THUMB_WIDTH / 2 - 2,
+    right: THUMB_WIDTH / 2 - 2,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",

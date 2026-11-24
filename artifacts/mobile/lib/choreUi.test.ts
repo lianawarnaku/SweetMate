@@ -1,3 +1,4 @@
+import { boundedCalendarScrollOffset, initialCalendarScrollIntent, nextCalendarScrollIntent } from "./floatingCalendarScroll.ts";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { runInNewContext } from "node:vm";
@@ -20,9 +21,6 @@ const glassCheckCircle = readFileSync(resolve(process.cwd(), "components/GlassCh
 const chorePermissionsLib = readFileSync(resolve(process.cwd(), "lib/chorePermissions.ts"), "utf8");
 const planning = readFileSync(resolve(process.cwd(), "app/planning.tsx"), "utf8");
 const nudgeToast = readFileSync(resolve(process.cwd(), "components/NudgeToast.tsx"), "utf8");
-const dayDetailsStart = home.indexOf("function CalendarDayDetails(");
-const dayDetailsEnd = home.indexOf("export default function MyChoresScreen()");
-const dayDetails = home.slice(dayDetailsStart, dayDetailsEnd);
 
 assert(
   context.includes('.from("chores")') &&
@@ -45,7 +43,7 @@ assert(
 
 const chartMaterializer = readFileSync(resolve(process.cwd(), "lib/choreChart.ts"), "utf8");
 assert(
-  planning.includes("buildHouseholdChart({") && planning.includes("await proposeChart(chartDraft)") &&
+  planning.includes("buildHouseholdChart({") && planning.includes("await submitChartReview(reviewedPreview.payload, reviewedPreview.baseChartId, submission.approveSelf)") &&
     context.includes('supabase.rpc("apply_approved_chore_chart"') &&
     chartMaterializer.includes("recurring: task.frequency") &&
     chartMaterializer.replace(/\s/g, "").includes("advanceScheduledDate(today,task.frequency"),
@@ -96,26 +94,12 @@ assert(
   "My Sweet must render the current user's name without the appended home emoji",
 );
 assert(
-  home.includes("if (!visible) return null;") &&
-    !home.includes('<Modal visible={visible} transparent animationType="slide"') &&
     home.includes("LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);\n    setSelectedDate(date);") &&
-    home.includes("duration: 100,") &&
-    home.includes("duration: 160,") &&
-    home.includes('sectionId === "schedule" && expandedHomeSections.schedule') &&
     home.includes("today ? colors.warning") &&
     home.includes("textDecorationLine: selected ? \"underline\" : \"none\"") &&
     !home.includes("calendarSelectionBubble") &&
-      home.includes('today ? ", today" : ""') &&
-    home.includes("onClose={closeCalendarDayDetails}"),
-  "selected calendar-day details must stay inline so another date can be selected without dismissing the list",
-);
-assert(
-  dayDetails.startsWith("function CalendarDayDetails(") &&
-    dayDetails.includes("<View style={styles.dayDetailsPanel}>") &&
-    !dayDetails.includes("<Surface") &&
-    dayDetails.includes("styles.dayItemDivider") &&
-    !dayDetails.includes("borderWidth: 1"),
-  "selected-day chores must render as an unframed agenda with divider-separated rows, not nested cards",
+      home.includes('today ? ", today" : ""'),
+  "calendar dates must retain the accessible current-day accent and selected-day underline",
 );
 assert(
   home.includes("? colors.primary\n    : isToday(chore.dueDate)") &&
@@ -212,7 +196,7 @@ assert(
 );
 assert(
   home.includes('title="Calendar"') &&
-    home.includes('{expandedHomeSections.schedule && <Surface') &&
+    home.includes('{(focusDismissed || expandedHomeSections.schedule) && <View') && home.includes('const calendarContent = (') &&
     !home.includes('!listView && expandedHomeSections.schedule'),
   "calendar must remain available in saved list view as well as dashboard view",
 );
@@ -348,3 +332,20 @@ for (const listView of [false, true]) {
     "an explicit Show House Monitor opt-out must remain respected",
   );
 }
+
+let calendarIntent = initialCalendarScrollIntent();
+calendarIntent = nextCalendarScrollIntent(calendarIntent, 90, 100);
+assert(!calendarIntent.hidden, "the calendar must remain visible while its original slot is still on screen");
+calendarIntent = nextCalendarScrollIntent(calendarIntent, 110, 100);
+assert(calendarIntent.hidden, "scrolling down past the calendar slot must tuck the floating week away");
+calendarIntent = nextCalendarScrollIntent(calendarIntent, 108, 100);
+assert(calendarIntent.hidden, "minor scroll jitter must not flicker the overhang");
+calendarIntent = nextCalendarScrollIntent(calendarIntent, 102, 100);
+assert(!calendarIntent.hidden, "upward scrolling must bring the calendar back before returning to the top");
+calendarIntent = nextCalendarScrollIntent(calendarIntent, 120, 100);
+assert(calendarIntent.hidden, "scrolling down again must hide the calendar again");
+calendarIntent = nextCalendarScrollIntent(calendarIntent, 0, 100);
+assert(!calendarIntent.hidden && calendarIntent.direction === 0, "returning to the top must restore the normal visible calendar position");
+assert(boundedCalendarScrollOffset(-20, 1000, 300) === 0 && boundedCalendarScrollOffset(720, 1000, 300) === 700, "elastic overscroll at either edge must not invent a reversed scroll direction");
+assert(boundedCalendarScrollOffset(10, 200, 500) === 0, "short pages must not hide the calendar when the content cannot scroll");
+assert(!initialCalendarScrollIntent(450).hidden, "changing household/day or leaving week mode must start with a visible overhang");

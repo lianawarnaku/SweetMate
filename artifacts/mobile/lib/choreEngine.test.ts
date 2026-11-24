@@ -1,3 +1,4 @@
+import { preferenceDotIndex, preferenceValueAtDot, snapPreference, stepPreference } from "./preferenceScale.ts";
 import type { GeneratedTask, MemberPreference } from "../context/AppContext";
 import {
   buildBalancedChart,
@@ -16,6 +17,18 @@ function rejects(action: () => unknown, message: string) {
   try { action(); } catch { rejected = true; }
   assert(rejected, message);
 }
+
+const dotValues = [0, 8, 17, 25, 33, 42, 50, 58, 67, 75, 83, 92, 100];
+for (let index = 0; index < dotValues.length; index++) {
+  assert(preferenceValueAtDot(index) === dotValues[index], "every visible dot must have its own integer saved value");
+  assert(preferenceDotIndex(dotValues[index]) === index, "saved values must restore to the exact same dot");
+  assert(snapPreference(index * 100 / 12) === dotValues[index], "tapping each evenly spaced dot must select its value");
+  assert(stepPreference(dotValues[index], 1) === dotValues[Math.min(12, index + 1)], "keyboard/screen-reader increment must advance exactly one dot");
+  assert(stepPreference(dotValues[index], -1) === dotValues[Math.max(0, index - 1)], "keyboard/screen-reader decrement must move exactly one dot");
+}
+assert(snapPreference(-20) === 0 && snapPreference(120) === 100, "track taps beyond endpoints must clamp safely");
+assert(snapPreference(4) === 0 && snapPreference(5) === 8, "selection must snap to the closest visible dot");
+assert(snapPreference(0) === 0 && snapPreference(50) === 50 && snapPreference(100) === 100, "existing three-stop preferences must remain unchanged");
 
 const members = [{ id: "a" }, { id: "b" }];
 function task(id: string, difficulty: GeneratedTask["difficulty"], extra: Partial<GeneratedTask> = {}): GeneratedTask {
@@ -95,6 +108,18 @@ const timeTasks = [task("morning", 3, { timeOfDay: "morning", keepTogetherGroup:
 const oppositePreferences = [preference("a", "morning", 100), preference("a", "night", 0), preference("b", "morning", 0), preference("b", "night", 100)];
 const preferred = buildBalancedChart(timeTasks, members, oppositePreferences, { mode: "preference" });
 assert(owner(preferred, "morning") === "a" && owner(preferred, "night") === "b", "opposite morning/night preferences must split a soft group and select the matching person");
+// Adjacent intermediate values used to collapse into the same middle setting.
+const fineTasks = timeTasks.map((entry) => ({ ...entry, keepTogetherGroup: undefined }));
+const finePreferences = [preference("a", "morning", 58), preference("a", "night", 67), preference("b", "morning", 67), preference("b", "night", 58)];
+const fineChart = buildBalancedChart(fineTasks, members, finePreferences, { mode: "preference" });
+assert(owner(fineChart, "morning") === "b" && owner(fineChart, "night") === "a", "adjacent intermediate preference strengths must influence balanced starting assignments");
+assert(loadSpread(fineChart.memberLoads ?? []) === 0, "fine preferences must preserve equal workload when an equal split exists");
+const reversedFine = buildBalancedChart(fineTasks, members, finePreferences.map((entry) => ({ ...entry, value: entry.value === 58 ? 67 : 58 })), { mode: "preference" });
+assert(owner(reversedFine, "morning") === "a" && owner(reversedFine, "night") === "b", "reversing one-dot preference differences must change the appropriate assignments");
+for (const value of dotValues) {
+  const result = buildBalancedChart(fineTasks, members, [preference("a", "morning", value), preference("b", "morning", 50)], { mode: "preference", pinnedAssignments: { morning: "b" } });
+  assert(owner(result, "morning") === "b", "no slider position may override a fixed assignee");
+}
 const hardExclusion = buildBalancedChart(timeTasks, members, oppositePreferences, {
   mode: "preference", excludedAssignments: { morning: ["a"] },
 });
@@ -145,3 +170,7 @@ for (let fixture = 0; fixture < 20; fixture += 1) {
     assert(assignment.taskIds.every((taskId) => eligibleMemberIdsForTask(taskId, roster, constraints).includes(assignment.memberId)), "optimization must never violate any hard eligibility constraint");
   }
 }
+
+const mildGroupedPreferences = [preference("a", "morning", 67), preference("a", "night", 33), preference("b", "morning", 33), preference("b", "night", 67)];
+const independentTimeTurns = buildBalancedChart(timeTasks, members, mildGroupedPreferences, { mode: "preference" });
+assert(owner(independentTimeTurns, "morning") === "a" && owner(independentTimeTurns, "night") === "b", "legacy morning/night groups must split without requiring an extreme preference");

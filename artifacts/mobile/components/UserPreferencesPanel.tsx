@@ -1,6 +1,7 @@
+import { AppSwitch } from "@/components/AppSwitch";
 import { Feather } from "@expo/vector-icons";
 import React from "react";
-import { StyleSheet, Switch, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 
 import { colorSchemes, resolveThemeTokens, type ColorScheme, useTheme } from "@/constants/colors";
 import { LEADERBOARD_ENABLED } from "@/constants/featureAvailability";
@@ -71,10 +72,9 @@ export function UserPreferencesPanel() {
         <Text style={[styles.preferenceLabel, { color: colors.foreground }]}>
           Show Roommate Activity
         </Text>
-        <Switch
+        <AppSwitch
           value={roommateActivityEnabled}
           onValueChange={setRoommateActivityEnabled}
-          trackColor={{ false: colors.border, true: colors.primary }}
         />
       </View>
       {LEADERBOARD_ENABLED && (
@@ -82,10 +82,9 @@ export function UserPreferencesPanel() {
           <Text style={[styles.preferenceLabel, { color: colors.foreground }]}>
             Show points & leaderboard
           </Text>
-          <Switch
+          <AppSwitch
             value={pointsEnabled}
             onValueChange={setPointsEnabled}
-            trackColor={{ false: colors.border, true: colors.primary }}
           />
         </View>
       )}
@@ -93,10 +92,9 @@ export function UserPreferencesPanel() {
         <Text style={[styles.preferenceLabel, { color: colors.foreground }]}>
           Show House Monitor
         </Text>
-        <Switch
+        <AppSwitch
           value={plantEnabled}
           onValueChange={setPlantEnabled}
-          trackColor={{ false: colors.border, true: colors.primary }}
         />
       </View>
     </View>

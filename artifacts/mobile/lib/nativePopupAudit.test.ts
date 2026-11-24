@@ -32,7 +32,6 @@ const glassPopupComponents = [
   "AppPopupProvider.tsx",
   "ActionMenuModal.tsx",
   "QuickGuideModal.tsx",
-  "AnalyticsConsentManager.tsx",
 ];
 for (const name of glassPopupComponents) {
   const source = readFileSync(join(root, "components", name), "utf8");

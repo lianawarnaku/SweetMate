@@ -1,10 +1,9 @@
-import React, { useEffect, useState, useSyncExternalStore } from "react";
+import { AppSwitch } from "@/components/AppSwitch";
+import React, { useEffect, useSyncExternalStore } from "react";
 import type { Session } from "@supabase/supabase-js";
 import {
   Linking,
-  Modal,
   StyleSheet,
-  Switch,
   Text,
   TouchableOpacity,
   View,
@@ -12,8 +11,6 @@ import {
 
 import { useTheme } from "@/constants/colors";
 import { useAppPopup } from "@/components/AppPopupProvider";
-import { GlassModalBackdrop, GlassModalSurface } from "@/components/GlassModalSurface";
-import { GlassButton } from "@/components/GlassButton";
 import {
   analyticsSnapshot,
   loadAnalyticsPreferences,
@@ -72,12 +69,17 @@ export function AnalyticsPreferencesPanel({ userId }: { userId: string }) {
               {row.description}
             </Text>
           </View>
-          <Switch
+          <AppSwitch
             value={preferences[row.key]}
             onValueChange={(value) =>
               void saveAnalyticsPreferences(userId, {
                 [row.key]: value,
-                ...(row.key === "productAnalyticsEnabled" ? { noticeVersion: PRIVACY_NOTICE_VERSION } : {}),
+                noticeVersion: PRIVACY_NOTICE_VERSION,
+                // Renew only the choice being explicitly changed, never revive
+                // an older opt-in for the other category.
+                ...(preferences.noticeVersion !== PRIVACY_NOTICE_VERSION
+                  ? { [row.key === "productAnalyticsEnabled" ? "crashReportingEnabled" : "productAnalyticsEnabled"]: false }
+                  : {}),
               }).catch(() => showPopup({ title: "Choice couldn't be saved", message: "Please try again.", actions: [{ label: "Got it", primary: true }] }))
             }
             accessibilityLabel={`${row.title}: ${preferences[row.key] ? "on" : "off"}`}
@@ -95,87 +97,16 @@ export function AnalyticsPreferencesPanel({ userId }: { userId: string }) {
   );
 }
 
+/** Restores saved consent; signup now owns the optional opt-in UI. */
 export function AnalyticsConsentManager({ session }: { session: Session | null }) {
-  const colors = useTheme();
-  const { showPopup } = useAppPopup();
-  const openPolicy = () => openPrivacyPolicy(() => showPopup({ title: "Privacy Policy unavailable", message: "Check your connection and try again, or visit sweetmate.info/privacy in a browser.", actions: [{ label: "Got it", primary: true }] }));
   const userId = session?.user.id ?? null;
-  const { loaded, preferences } = useAnalyticsPreferences(userId);
-  const [saving, setSaving] = useState(false);
-
+  const { showPopup } = useAppPopup();
   useEffect(() => {
-    void loadAnalyticsPreferences(userId).catch(() => {
-      showPopup({ title: "Privacy choices unavailable", message: "Please reopen SweetMate to try loading your privacy choices again.", actions: [{ label: "Got it", primary: true }] });
+    void loadAnalyticsPreferences(userId, { resetAnonymous: !userId }).catch(() => {
+      showPopup({ title: "Privacy choices unavailable", message: "Optional analytics and crash reporting remain paused. You can retry from Settings.", actions: [{ label: "Got it", primary: true }] });
     });
   }, [userId]);
-
-  const choose = async (share: boolean) => {
-    if (saving) return;
-    setSaving(true);
-    try {
-      await saveAnalyticsPreferences(userId, {
-        productAnalyticsEnabled: share,
-        crashReportingEnabled: false,
-        noticeVersion: PRIVACY_NOTICE_VERSION,
-      }, userId ? "privacy_notice" : "before_auth");
-    } catch {
-      showPopup({ title: "Choice couldn't be saved", message: "Please try again. Optional analytics stays paused until your choice is saved.", actions: [{ label: "Got it", primary: true }] });
-    } finally { setSaving(false); }
-  };
-
-  const visible =
-    loaded && preferences.noticeVersion !== PRIVACY_NOTICE_VERSION;
-
-  return (
-    <Modal visible={visible} transparent animationType="fade">
-      <View style={styles.overlay}>
-        <GlassModalBackdrop />
-        <GlassModalSurface style={styles.notice}>
-          <Text style={[styles.noticeTitle, { color: colors.foreground }]}>
-            Your privacy choices
-          </Text>
-          <Text style={[styles.noticeBody, { color: colors.mutedForeground }]}>
-            Help improve SweetMate by sharing app opens, screens visited, active
-            time, setup progress, and feature-use events with a random identifier.
-            Sharing is optional and starts only if you choose it. Household content
-            is excluded. Crash reporting stays off; you can change either choice
-            later in Settings.
-          </Text>
-          <TouchableOpacity
-            accessibilityRole="link"
-            onPress={openPolicy}
-          >
-            <Text style={[styles.policyText, { color: colors.primary }]}>Review Privacy Policy</Text>
-          </TouchableOpacity>
-          <View style={styles.consentActions}>
-            <GlassButton
-              accessibilityRole="button"
-              accessibilityLabel="Don't share optional analytics"
-              tone="neutral"
-              style={styles.consentButton}
-              disabled={saving}
-              onPress={() => void choose(false)}
-            >
-              <Text style={[styles.consentText, { color: "#fff" }]}>
-                {"Don't share"}
-              </Text>
-            </GlassButton>
-            <GlassButton
-              accessibilityRole="button"
-              accessibilityLabel="Share optional product analytics"
-              style={styles.consentButton}
-              disabled={saving}
-              onPress={() => void choose(true)}
-            >
-              <Text style={[styles.consentText, { color: "#fff" }]}>
-                Share analytics
-              </Text>
-            </GlassButton>
-          </View>
-        </GlassModalSurface>
-      </View>
-    </Modal>
-  );
+  return null;
 }
 
 const styles = StyleSheet.create({
@@ -186,24 +117,4 @@ const styles = StyleSheet.create({
   description: { fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 12, lineHeight: 17, marginTop: 3 },
   policyLink: { minHeight: 44, alignItems: "center", justifyContent: "center" },
   policyText: { fontFamily: "Inter_600SemiBold", includeFontPadding: false, fontSize: 13 },
-  overlay: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 24,
-  },
-  notice: { width: "100%", maxWidth: 440, borderRadius: 30, padding: 22 },
-  noticeTitle: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 22 },
-  noticeBody: { fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 14, lineHeight: 20, marginVertical: 12 },
-  consentActions: { flexDirection: "row", gap: 10, marginTop: 18 },
-  consentButton: {
-    flex: 1,
-    minHeight: 50,
-    borderRadius: 25,
-  },
-  consentText: {
-    fontFamily: "Inter_700Bold", includeFontPadding: false,
-    fontSize: 14,
-    textAlign: "center",
-  },
 });

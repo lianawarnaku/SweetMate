@@ -1,7 +1,7 @@
 import type { Chore } from "../context/AppContext";
 import { ARCHIVE_INCOMPLETE_AFTER_DAYS } from "./choreArchivePolicy.ts";
 import { householdDateKey } from "./choreTimezone.ts";
-import { choreLocalDateKey } from "./choreOccurrences.ts";
+import { choreLocalDateKey, choreScheduledDate, isChoreActiveOnDay } from "./choreOccurrences.ts";
 
 export const COMPLETED_CHORE_RETENTION_DAYS = 7;
 export { ARCHIVE_INCOMPLETE_AFTER_DAYS } from "./choreArchivePolicy.ts";
@@ -53,6 +53,16 @@ export function isActiveChore(chore: Chore, now: Date, timezone?: string): boole
   if (chore.skippedAt || dueDay > today) return false;
   if (isArchivedIncomplete(chore, now)) return false;
   return !chore.completed || isRecentlyCompleted(chore, now);
+}
+
+/** A calendar selection may include saved future work that is not due today. */
+export function choresActiveOnSelectedDay(chores: readonly Chore[], selectedDay: Date, now: Date): Chore[] {
+  return chores.filter((chore) =>
+    Number.isFinite(new Date(chore.dueDate).getTime()) &&
+    !isArchivedIncomplete(chore, now) &&
+    isChoreActiveOnDay(chore, selectedDay) &&
+    (!chore.recurrenceEndsOn || choreScheduledDate(chore) < chore.recurrenceEndsOn),
+  );
 }
 
 export function startOfLocalWeek(value: Date): Date {

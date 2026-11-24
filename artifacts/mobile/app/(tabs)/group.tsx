@@ -1,6 +1,10 @@
+import { BusyScheduleStatus } from "@/components/BusyScheduleStatus";
+import { RandomTaskSection } from "@/components/RandomTaskSection";
+import { currentHouseholdWeekChores } from "@/lib/groupChores";
 import { router, useLocalSearchParams } from "expo-router";
 import { isPointsVisible } from "@/constants/featureAvailability";
 import { CompletionMotion, CompletionText } from "@/components/CompletionMotion";
+import { GlassFilterGroup } from "@/components/GlassFilterGroup";
 import { ChoreFilterButton } from "@/components/ChoreFilterButton";
 import { SectionDivider } from "@/components/SectionDivider";
 import { CompletionUndoMenu } from "@/components/CompletionUndoMenu";
@@ -63,7 +67,7 @@ import {
 import { reportRuntimeError } from "@/lib/runtimeDiagnostics";
 import { choreLocalDateKey, isBeforeLocalCalendarDay } from "@/lib/choreOccurrences";
 import { choreDefinitionId } from "@/lib/choreIdentity";
-import { activeChores, isArchivedIncomplete } from "@/lib/choreLifecycle";
+import { isArchivedIncomplete } from "@/lib/choreLifecycle";
 import { CHORE_RECURRENCE_LABELS } from "@/lib/choreSchedule";
 import { compactOverdueItems } from "@/lib/overdueDisplay";
 import { groupChoreChartWeeks, projectChoreChartSchedule, selectChoreChartWeek } from "@/lib/choreChartSchedule";
@@ -147,11 +151,19 @@ export default function GroupChoresScreen() {
   const isFocused = useIsFocused();
   const { nudgeId } = useLocalSearchParams<{ nudgeId?: string }>();
   const insets = useSafeAreaInsets();
-  const { roommates, chores, householdChoreSummary, householdLoading, currentUserId, householdId, householdTimezone, activeSweet, setChoreCompleted, pickUpChore, sendNudge, removeNudge, nudges, roommateStatuses, setRoommateStatus, pointsEnabled, plantEnabled, roommateActivityEnabled, isHost, deleteChore } =
+  const { personalSchedule, randomTasks, randomTasksReady, randomTasksLoading, randomTasksError, randomTasksNow, createRandomTask, claimRandomTask, refreshRandomTasks, roommates, chores, householdLoading, currentUserId, householdId, householdTimezone, activeSweet, setChoreCompleted, pickUpChore, sendNudge, removeNudge, nudges, roommateStatuses, setRoommateStatus, pointsEnabled, plantEnabled, roommateActivityEnabled, isHost, deleteChore } =
     useAppContextSelector((context) => ({
       roommates: context.roommates,
+      personalSchedule: context.personalSchedule,
       chores: context.chores,
-      householdChoreSummary: context.householdChoreSummary,
+      randomTasks: context.randomTasks,
+      randomTasksReady: context.randomTasksReady,
+      randomTasksLoading: context.randomTasksLoading,
+      randomTasksError: context.randomTasksError,
+      randomTasksNow: context.randomTasksNow,
+      createRandomTask: context.createRandomTask,
+      claimRandomTask: context.claimRandomTask,
+      refreshRandomTasks: context.refreshRandomTasks,
       householdLoading: context.householdLoading,
       currentUserId: context.currentUserId,
       householdId: context.householdId,
@@ -170,8 +182,16 @@ export default function GroupChoresScreen() {
       isHost: context.isHost,
       deleteChore: context.deleteChore,
     }));
-  const monitorCompletionTokens = useMemo(() => houseMonitorCompletionTokens(chores), [chores]);
-  const lifecycleNow = useChoreLifecycleNow(chores);
+  const lifecycleNow = useChoreLifecycleNow(chores, householdTimezone);
+  const weekHouseholdChores = useMemo(
+    () => currentHouseholdWeekChores(chores, householdId, lifecycleNow, householdTimezone),
+    [chores, householdId, lifecycleNow, householdTimezone],
+  );
+  const householdChoreSummary = useMemo(() => ({
+    totalChores: weekHouseholdChores.length,
+    completedChores: weekHouseholdChores.filter((chore) => chore.completed).length,
+  }), [weekHouseholdChores]);
+  const monitorCompletionTokens = useMemo(() => houseMonitorCompletionTokens(weekHouseholdChores), [weekHouseholdChores]);
   const { listView, pinchGesture } =
     usePinchListView(currentUserId, "group");
 
@@ -546,16 +566,12 @@ export default function GroupChoresScreen() {
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const { contentBottomPadding } = useTabBarLayout();
 
-  const activeHouseholdChores = useMemo(
-    () => activeChores(chores, lifecycleNow, householdTimezone),
-    [chores, lifecycleNow, householdTimezone],
-  );
   const archivedHouseholdChores = useMemo(
     () => chores.filter((chore) => chore.skippedAt || isArchivedIncomplete(chore, lifecycleNow)),
     [chores, lifecycleNow],
   );
   const displayedHouseholdChores =
-    choreView === "archived" ? archivedHouseholdChores : activeHouseholdChores;
+    choreView === "archived" ? archivedHouseholdChores : weekHouseholdChores;
   const roommatesWithChores = useMemo(() => {
     const choresByRoommate = new Map<string, typeof displayedHouseholdChores>();
     displayedHouseholdChores.forEach((chore) => {
@@ -635,6 +651,11 @@ export default function GroupChoresScreen() {
         onScroll={handleGroupScroll}
         scrollEventThrottle={32}
       >
+        <RandomTaskSection key={`${householdId}:${currentUserId}`} tasks={randomTasks} roommates={roommates} chores={chores}
+          currentUserId={currentUserId} timezone={householdTimezone} ready={randomTasksReady}
+          loading={randomTasksLoading} error={randomTasksError} now={randomTasksNow}
+          onRefresh={refreshRandomTasks} onCreate={createRandomTask} onClaim={claimRandomTask} onOpenChore={openChoreActions} />
+
         {/* Each completed chore fills a body box, then overflow fills the roof. */}
         {/* Compact chores must not override the Show House Monitor preference. */}
         {plantEnabled && <View
@@ -669,6 +690,7 @@ export default function GroupChoresScreen() {
           {roommatesExpanded && <View style={styles.roommatesGrid}>
             {roommates.map((rm) => {
               const status = roommateStatuses[rm.id] ?? "home";
+              const scheduleBusy = personalSchedule.activity.find((entry) => entry.member_id === rm.id);
               const emoji =
                 status === "asleep" ? "😴" : status === "away" ? "🤫" : "😊";
               return (
@@ -688,6 +710,8 @@ export default function GroupChoresScreen() {
                   <Text style={[styles.roommateTileName, { color: colors.foreground }]} numberOfLines={1}>
                     {rm.id === currentUserId ? "You" : rm.name.split(" ")[0]}
                   </Text>
+                  {scheduleBusy && <BusyScheduleStatus endsAt={scheduleBusy.ends_at} timezone={householdTimezone} />}
+
                   <TouchableOpacity
                     accessibilityRole="button"
                     accessibilityLabel={`${rm.id === currentUserId ? "Your" : `${rm.name}'s`} status: ${status === "asleep" ? "sleeping" : status === "away" ? "do not disturb" : "home"}`}
@@ -708,13 +732,13 @@ export default function GroupChoresScreen() {
           </View>}
         </View> : null}
 
-        <View style={styles.choreFilterRow} accessibilityRole="tablist">
+        <GlassFilterGroup style={styles.choreFilterRow}>
           {(["active", "calendar", "archived"] as const).map((option) => (
             <ChoreFilterButton
               key={option}
               selected={choreView === option}
               pill
-              accessibilityLabel={option === "active" ? "Show active group chores" : option === "calendar" ? "Show chore calendar and weekly assignments" : `Show ${archivedHouseholdChores.length} archived group chores`}
+              accessibilityLabel={option === "active" ? "Show this week’s group chores" : option === "calendar" ? "Show chore calendar and weekly assignments" : `Show ${archivedHouseholdChores.length} archived group chores`}
               onPress={() => {
                 setChoreView(option);
                 setExpandedOverdueSections(new Set());
@@ -724,7 +748,7 @@ export default function GroupChoresScreen() {
               label={option === "active" ? "Group" : option === "calendar" ? "Calendar" : "Archive"}
             />
           ))}
-        </View>
+        </GlassFilterGroup>
 
       {choreView === "calendar" ? (
         (() => {
@@ -1043,7 +1067,7 @@ export default function GroupChoresScreen() {
                         { color: colors.mutedForeground },
                       ]}
                     >
-                      No chores assigned
+                      No chores this week
                     </Text>
                   ) : (
                     <>
@@ -1350,12 +1374,7 @@ const styles = StyleSheet.create({
   scheduleAssigneeTag: { maxWidth: "100%", flexShrink: 1 },
   scheduleAssigneeName: { flexShrink: 1 },
   scheduleDates: { flexShrink: 1, fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 12, lineHeight: 17 },
-  choreFilterRow: {
-    flexDirection: "row",
-    paddingHorizontal: 16,
-    gap: 8,
-    marginBottom: 12,
-  },
+  choreFilterRow: { marginHorizontal: 16, marginBottom: 12 },
   section: {
     borderRadius: 22,
     borderWidth: 1,

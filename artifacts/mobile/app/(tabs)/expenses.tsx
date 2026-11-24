@@ -41,6 +41,7 @@ import { HistoryDisclosure } from "@/components/HistoryDisclosure";
 import { FloatingActionButton, useFloatingActionMetrics } from "@/components/FloatingActionButton";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { InlineFeedback } from "@/components/InlineFeedback";
+import { GlassActionBar } from "@/components/GlassActionBar";
 import { GlassButton } from "@/components/GlassButton";
 import { ExpensePendingError } from "@/lib/expenseSync";
 import { expenseMatchesFilter, expensePersonalLabel, projectExpenseBalances, type ExpenseFilter } from "@/lib/expensePresentation";
@@ -171,6 +172,7 @@ export default function ExpensesScreen() {
   }));
 
   const [showExpenseModal, setShowExpenseModal] = useState(false);
+  const [iouFooterHeight, setIouFooterHeight] = useState(84);
   const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null);
   const [editingBaseVersion, setEditingBaseVersion] = useState<number | undefined>(undefined);
   const [detailExpenseId, setDetailExpenseId] = useState<string | null>(null);
@@ -1290,7 +1292,7 @@ export default function ExpensesScreen() {
             <ScrollView
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
-              contentContainerStyle={styles.iouBody}
+              contentContainerStyle={[styles.iouBody, { paddingBottom: iouFooterHeight + Math.max(insets.bottom, 12) + 32 }]}
             >
               {recoveryWarning ? <InlineFeedback message={recoveryWarning} /> : null}
               {financialFieldsLocked ? <InlineFeedback message="Financial terms are locked to preserve this expense’s record. You can still update the title, category, and notes." /> : null}
@@ -1771,15 +1773,9 @@ export default function ExpensesScreen() {
             </ScrollView>
 
             {/* Sticky footer with the primary action */}
-            <View
-              style={[
-                styles.iouFooter,
-                {
-                  backgroundColor: colors.background,
-                  borderTopColor: colors.border,
-                  paddingBottom: Math.max(insets.bottom, 12) + 4,
-                },
-              ]}
+            <GlassActionBar
+              onLayout={({ nativeEvent }) => setIouFooterHeight(nativeEvent.layout.height)}
+              style={[styles.iouFooter, { bottom: Math.max(insets.bottom, 12) }]}
             >
               {formValidationMessage ? <Text accessibilityLiveRegion="polite" style={[styles.validationHint, { color: colors.mutedForeground }]}>{formValidationMessage}</Text> : null}
               <TouchableOpacity
@@ -1806,7 +1802,7 @@ export default function ExpensesScreen() {
                   {submittingIou ? "Saving…" : queuedIou || pendingExpenseSet.has(expenseDraftId) ? "Waiting to sync" : editingExpenseId ? "Save Changes" : "Send IOU"}
                 </Text>
               </TouchableOpacity>
-            </View>
+            </GlassActionBar>
           </KeyboardAvoidingView>
         </Animated.View>
       </Modal>
@@ -2276,11 +2272,7 @@ const styles = StyleSheet.create({
     paddingBottom: 28,
     gap: 18,
   },
-  iouFooter: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    borderTopWidth: StyleSheet.hairlineWidth,
-  },
+  iouFooter: { position: "absolute", left: 16, right: 16 },
   iouSendBtn: {
     flexDirection: "row",
     alignItems: "center",

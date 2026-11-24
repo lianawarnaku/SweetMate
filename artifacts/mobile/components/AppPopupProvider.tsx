@@ -104,10 +104,10 @@ export function AppPopupProvider({ children }: { children: ReactNode }) {
                   {runningActionLabel === action.label ? (
                     <ActivityIndicator
                       size="small"
-                      color={action.destructive ? colors.destructiveForeground : action.primary ? colors.primaryForeground : colors.foreground}
+                      color={action.destructive ? colors.destructiveForeground : action.primary ? colors.actionForeground : colors.foreground}
                     />
                   ) : null}
-                  <Text style={[styles.actionText, { color: action.destructive ? colors.destructiveForeground : action.primary ? colors.primaryForeground : colors.foreground }]}>
+                  <Text style={[styles.actionText, { color: action.destructive ? colors.destructiveForeground : action.primary ? colors.actionForeground : colors.foreground }]}>
                     {runningActionLabel === action.label ? "Working…" : action.label}
                   </Text>
                 </GlassButton>

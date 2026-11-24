@@ -21,11 +21,13 @@ function publish(next: Partial<AccessibilityPreferences>) {
 function initialize() {
   if (initialized) return;
   initialized = true;
+  const transparencyQuery = Platform.OS === "web" && typeof window !== "undefined"
+    ? window.matchMedia("(prefers-reduced-transparency: reduce)") : null;
 
   Promise.all([
     AccessibilityInfo.isReduceMotionEnabled(),
     Platform.OS === "web"
-      ? Promise.resolve(false)
+      ? Promise.resolve(Boolean(transparencyQuery?.matches))
       : AccessibilityInfo.isReduceTransparencyEnabled(),
   ]).then(([reduceMotion, reduceTransparency]) => {
     publish({ reduceMotion, reduceTransparency });
@@ -37,6 +39,7 @@ function initialize() {
   AccessibilityInfo.addEventListener("reduceMotionChanged", (reduceMotion) => {
     publish({ reduceMotion });
   });
+  transparencyQuery?.addEventListener("change", (event) => publish({ reduceTransparency: event.matches }));
   if (Platform.OS !== "web") {
     AccessibilityInfo.addEventListener(
       "reduceTransparencyChanged",

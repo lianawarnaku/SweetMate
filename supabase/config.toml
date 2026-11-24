@@ -426,3 +426,6 @@ verify_jwt = false
 
 [functions.delete-account]
 verify_jwt = false
+
+[functions.google-schedule]
+verify_jwt = false

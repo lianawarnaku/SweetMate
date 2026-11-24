@@ -1,3 +1,5 @@
+import { householdDateKey, householdDueDate } from "@/lib/choreTimezone";
+import { advanceScheduledDate } from "@/lib/choreSchedule";
 import { useEffect, useState } from "react";
 import { AppState } from "react-native";
 
@@ -8,16 +10,14 @@ import {
 } from "@/lib/choreLifecycle";
 import { choreNow } from "@/lib/choreClock";
 
-export function useChoreLifecycleNow(chores: Chore[]): Date {
+export function useChoreLifecycleNow(chores: Chore[], timezone?: string): Date {
   const [now, setNow] = useState(choreNow);
 
   useEffect(() => {
     const current = choreNow();
-    const nextMidnight = new Date(
-      current.getFullYear(),
-      current.getMonth(),
-      current.getDate() + 1,
-    );
+    const nextMidnight = timezone
+      ? new Date(householdDueDate(advanceScheduledDate(householdDateKey(current, timezone), "daily"), 0, timezone))
+      : new Date(current.getFullYear(), current.getMonth(), current.getDate() + 1);
     const nextLifecycleBoundary = chores.reduce<number | null>((nearest, chore) => {
       const boundaries = [
         completedRetentionBoundary(chore)?.getTime(),
@@ -43,7 +43,7 @@ export function useChoreLifecycleNow(chores: Chore[]): Date {
       clearTimeout(timer);
       subscription.remove();
     };
-  }, [chores, now]);
+  }, [chores, now, timezone]);
 
   return now;
 }

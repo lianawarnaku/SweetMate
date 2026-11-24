@@ -1,3 +1,5 @@
+import { householdSetupDestinationRoute, householdSetupDestinationKey } from "./householdSetup.ts";
+import { requestHouseholdSetupRecovery, pendingHouseholdSetupRecovery, consumeHouseholdSetupRecovery } from "./householdSetupRecovery.ts";
 import {
   HOUSEHOLD_SETUP_STEPS,
   HOUSEHOLD_SETUP_VERSION,
@@ -108,3 +110,14 @@ assert(
     planningScreen.includes("continuingSetupRef.current"),
   "browse and continue actions must suppress duplicate navigation",
 );
+
+requestHouseholdSetupRecovery("target-home");
+assert(!consumeHouseholdSetupRecovery("other-home"), "loading a different household must not consume the recovery destination");
+assert(pendingHouseholdSetupRecovery() === "target-home", "the recovery target must survive navigation remounts during a household switch");
+assert(consumeHouseholdSetupRecovery("target-home"), "recovery must resume after the intended household loads");
+assert(pendingHouseholdSetupRecovery() === null, "a completed recovery redirect must not steal later navigation");
+
+assert(householdSetupDestinationRoute("chore-chart") === "/planning?type=chore-chart", "the immediate choice must open chart planning for review, not silently apply chores");
+assert(householdSetupDestinationRoute("app") === "/(tabs)", "the later choice must open the app");
+assert(householdSetupDestinationKey("avery") !== householdSetupDestinationKey("blake"), "the post-setup choice must remain account-scoped");
+assert(!setupScreen.includes("materializeApprovedChart") && !setupScreen.includes("addChores(initialChores)"), "finishing household setup must not auto-create chores before the now/later choice");

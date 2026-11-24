@@ -28,7 +28,7 @@ type OnboardingStepProperties = OnboardingProperties & {
   step: "details" | "home" | "essentials" | "items" | "review" | "join" | "preferences";
 };
 type EventProperties = {
-  analytics_consent_granted: { source: "before_auth" | "privacy_notice" | "settings" };
+  analytics_consent_granted: { source: "before_auth" | "privacy_notice" | "settings" | "signup" };
   app_opened: { launch_type: "cold" | "foreground" | "consent" };
   screen_viewed: { screen: AnalyticsScreen };
   app_active_time: { duration_seconds: number };
@@ -259,7 +259,7 @@ async function applyPreferences(userId: string, expectedRevision: number) {
   appliedRevision = expectedRevision;
 }
 
-export function loadAnalyticsPreferences(userId: string | null) {
+export function loadAnalyticsPreferences(userId: string | null, options?: { resetAnonymous?: boolean }) {
   const scope = scopeKey(userId);
   const previousScope = activeUserId;
   if (userId && previousScope === PREAUTH_SCOPE) preauthTarget = userId;
@@ -275,7 +275,7 @@ export function loadAnalyticsPreferences(userId: string | null) {
     if (expectedRevision !== revision) return;
     // Sign-out gets a fresh pre-auth choice, rather than passing the last person's
     // consent to the next person on a shared device.
-    if (!userId && previousScope && previousScope !== PREAUTH_SCOPE) {
+    if (!userId && (options?.resetAnonymous || (previousScope && previousScope !== PREAUTH_SCOPE))) {
       await AsyncStorage.multiRemove([preferenceKey(PREAUTH_SCOPE), analyticsIdKey(PREAUTH_SCOPE)]);
       preferencesByUser.delete(PREAUTH_SCOPE);
     }
@@ -362,6 +362,38 @@ export function saveAnalyticsPreferences(
     }
     throw error;
   });
+}
+
+/** Apply the optional signup choice only to its own successful auth attempt.
+ * Email-confirmation flows stage it under that account without starting SDKs.
+ * Existing accounts keep their saved choices, including an explicit opt-out.
+ */
+export async function saveSignupAnalyticsConsent(
+  userId: string,
+  enabled: boolean,
+  attempt: number,
+  authenticated: boolean,
+) {
+  if (attempt !== authAttempt) return;
+  await transition;
+  if (attempt !== authAttempt) return;
+  const scope = scopeKey(userId);
+  const raw = await AsyncStorage.getItem(preferenceKey(scope));
+  if (attempt !== authAttempt) return;
+  if (raw) {
+    try { if (JSON.parse(raw)?.noticeVersion) return; } catch { /* Replace a malformed cached choice with the explicit selection. */ }
+  }
+  const choice = {
+    productAnalyticsEnabled: enabled,
+    crashReportingEnabled: enabled,
+    noticeVersion: PRIVACY_NOTICE_VERSION,
+  };
+  if (!authenticated) {
+    await AsyncStorage.setItem(preferenceKey(scope), JSON.stringify({ ...DEFAULT_PREFERENCES, ...choice }));
+    return;
+  }
+  if (activeUserId !== PREAUTH_SCOPE && activeUserId !== scope) return;
+  await saveAnalyticsPreferences(userId, choice, "signup");
 }
 
 export function resetAnalyticsIdentity() {

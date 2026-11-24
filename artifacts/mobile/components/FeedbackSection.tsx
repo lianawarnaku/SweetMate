@@ -161,10 +161,6 @@ export function FeedbackSection({
           Suggestions &amp; Feedback
         </Text>
       </View>
-      <Text style={[styles.body, { color: colors.mutedForeground }]}>
-        Have an idea, suggestion, or something we could improve? Send us your
-        feedback.
-      </Text>
       <Pressable
         ref={opener}
         accessibilityRole="button"

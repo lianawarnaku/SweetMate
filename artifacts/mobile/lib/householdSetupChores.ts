@@ -3,6 +3,7 @@ import type {
   CustomTask,
   GeneratedTask,
   HousingType,
+  HomeProfile,
 } from "../context/AppContext";
 import type {
   ItemCategory,
@@ -15,6 +16,7 @@ import {
 import { difficultyForPoints } from "./choreChart.ts";
 import {
   buildHouseholdTasks,
+  applyGeneratedTaskSettings,
   parseHouseholdAmenities,
 } from "./taskGenerator.ts";
 
@@ -39,6 +41,7 @@ export function buildHouseholdSetupChores({
   customChoreSettings = {},
   removedGeneratedKeys = [],
   recurrenceOverrides = {},
+  generatedTaskOverrides = {},
 }: {
   householdId: string;
   housingType: HousingType;
@@ -49,6 +52,7 @@ export function buildHouseholdSetupChores({
   customChoreSettings?: Record<string, SetupCustomChoreSettings>;
   removedGeneratedKeys?: readonly string[];
   recurrenceOverrides?: Record<string, GeneratedTask["frequency"]>;
+  generatedTaskOverrides?: HomeProfile["generatedTaskOverrides"];
 }): {
   generatedTasks: GeneratedTask[];
   customTasks: CustomTask[];
@@ -75,18 +79,10 @@ export function buildHouseholdSetupChores({
       roomInstanceId: `${amenity.category}-${index + 1}`,
     }));
   });
-  const removed = new Set(removedGeneratedKeys);
-  const generatedTasks = buildHouseholdTasks(
-    amenities,
-    housingType,
-    [],
-    itemDifficulties,
-  )
-    .filter((task) => !removed.has(task.id))
-    .map((task) => ({
-      ...task,
-      frequency: recurrenceOverrides[task.id] ?? task.frequency,
-    }));
+  const generatedTasks = applyGeneratedTaskSettings(
+    buildHouseholdTasks(amenities, housingType, [], itemDifficulties),
+    { removedGeneratedKeys: [...removedGeneratedKeys], recurrenceOverrides, generatedTaskOverrides },
+  );
   const customById = new Map<string, CustomTask>();
   for (const title of customChores) {
     const cleanedTitle = title.trim();

@@ -1,6 +1,10 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { householdSetupDestinationKey, type HouseholdSetupDestination } from "@/lib/householdSetup";
+import { GlassButton } from "@/components/GlassButton";
+import { useAppPopup } from "@/components/AppPopupProvider";
 import { Feather } from "@expo/vector-icons";
 import React from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { BrandMark } from "@/components/BrandMark";
@@ -8,16 +12,18 @@ import { UserPreferencesPanel } from "@/components/UserPreferencesPanel";
 import { HouseholdCompletionControl } from "@/components/HouseholdCompletionControl";
 import { useTheme } from "@/constants/colors";
 import { useAppContext } from "@/context/AppContext";
-import { SmoothPressable } from "@/components/SmoothPressable";
 import { InviteCodeCard } from "@/components/InviteCodeCard";
 import { useOnboardingAnalytics } from "@/hooks/useOnboardingAnalytics";
 
 export function PreferencesOnboardingScreen() {
   const colors = useTheme();
+  const { showPopup } = useAppPopup();
+  const [saving, setSaving] = React.useState(false);
   const insets = useSafeAreaInsets();
   const {
     finishPreferencesOnboarding,
     currentUserId,
+    householdId,
     householdName,
     inviteCode,
     householdLoading,
@@ -31,14 +37,21 @@ export function PreferencesOnboardingScreen() {
     step: "preferences",
   });
   const finishing = React.useRef(false);
-  const finish = async () => {
-    if (finishing.current) return;
+  const finish = async (destination: HouseholdSetupDestination) => {
+    if (finishing.current || !householdId) return;
     finishing.current = true;
+    setSaving(true);
     try {
+      // The navigator remounts after preferences. Its guard resumes this saved
+      // destination only after the complete household is ready.
+      await AsyncStorage.setItem(householdSetupDestinationKey(currentUserId), JSON.stringify({ householdId, destination }));
       await finishPreferencesOnboarding();
       onboarding.completeStep();
       onboarding.complete();
+    } catch {
+      showPopup({ title: "Couldn't finish setup", message: "Your household is saved. Please try choosing what to do next again.", actions: [{ label: "OK" }] });
     } finally {
+      setSaving(false);
       finishing.current = false;
     }
   };
@@ -66,14 +79,16 @@ export function PreferencesOnboardingScreen() {
         <View style={styles.completion}>
           <HouseholdCompletionControl />
         </View>
-        <SmoothPressable
-          accessibilityRole="button"
-          onPress={() => void finish()}
-          style={[styles.continueButton, { backgroundColor: colors.action }]}
-        >
-          <Text style={styles.continueText}>Continue</Text>
-          <Feather name="arrow-right" size={18} color="#fff" />
-        </SmoothPressable>
+        <View style={{ marginHorizontal: 20, marginTop: 18, gap: 12 }}>
+          <Text style={[styles.subtitle, { color: colors.mutedForeground, marginBottom: 0 }]}>Choose what to do next. Your household and preferences are saved with either option.</Text>
+          <GlassButton style={{ borderRadius: 12 }} disabled={saving} accessibilityLabel="Set up chore chart now" onPress={() => void finish("chore-chart")}>
+            <Text style={[styles.continueText, { color: colors.actionForeground, flexShrink: 1, textAlign: "center" }]}>Set up chore chart now</Text>
+          </GlassButton>
+          <Pressable accessibilityRole="button" disabled={saving} accessibilityLabel="Skip and do later" onPress={() => void finish("app")} style={{ minHeight: 44, alignSelf: "flex-end", alignItems: "flex-end", justifyContent: "flex-start", paddingTop: 4, marginTop: -8, opacity: saving ? 0.5 : 1 }}>
+            <Text style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: colors.mutedForeground, textDecorationLine: "underline", textAlign: "right" }}>Skip and do later</Text>
+          </Pressable>
+          <Text style={[styles.subtitle, { color: colors.mutedForeground, marginBottom: 0 }]}>You can return to Settings → Household Preferences → Chore Chart whenever you're ready.</Text>
+        </View>
       </ScrollView>
     </View>
   );

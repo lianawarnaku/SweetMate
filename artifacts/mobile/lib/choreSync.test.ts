@@ -41,3 +41,43 @@ assert(choreParity([], [baseRow]).extra[0] === base.id, "parity must report orph
 assert(choreParity([base], [updatedRow]).mismatched[0] === base.id, "parity must report field mismatches");
 
 console.log("chore normalized sync tests passed");
+
+// PostgREST rows and JSONB definitions do not preserve client key ordering.
+// Replaying unchanged data from two devices must never restart persistence.
+function reverseObjectKeys(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(reverseObjectKeys);
+  if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).reverse().map(([key, entry]) => [key, reverseObjectKeys(entry)]));
+  return value;
+}
+const definedChore: Chore = { ...base, choreDefinitionId: "source:dishes", roundRobinParticipantIds: ["user-1", "user-2"],
+  choreDefinition: { id: "source:dishes", seriesId: "series-1", title: base.title, category: base.category,
+    points: base.points, assignedTo: base.assignedTo, anchorDate: "2026-08-27", anchorDueDate: base.dueDate,
+    monthlyAnchorDay: 27, updatedAt: base.updatedAt! } };
+const definedRow = choreToRow(definedChore)!;
+const databaseRow = reverseObjectKeys(definedRow) as typeof definedRow;
+assert(JSON.stringify(databaseRow) !== JSON.stringify(definedRow), "the fixture must reproduce database key ordering");
+const remoteRows = new Map([[definedRow.id, databaseRow]]);
+assert(planChoreSync([definedChore], remoteRows).upserts.length === 0, "database key ordering must not queue writes of unchanged chores");
+assert(choreParity([definedChore], [databaseRow]).mismatched.length === 0, "parity must compare actual values, including JSONB definitions");
+let firstDevice = [definedChore];
+let secondDevice = applyChoreRowEvent([], "INSERT", databaseRow);
+for (let event = 0; event < 50; event++) {
+  const beforeFirst = firstDevice, beforeSecond = secondDevice;
+  firstDevice = applyChoreRowEvent(firstDevice, "UPDATE", databaseRow);
+  secondDevice = applyChoreRowEvent(secondDevice, "UPDATE", definedRow);
+  assert(firstDevice === beforeFirst && secondDevice === beforeSecond, "an unchanged echo must retain both devices' snapshots");
+  assert(planChoreSync(firstDevice, remoteRows).upserts.length === 0 && planChoreSync(secondDevice, remoteRows).upserts.length === 0, "two-device echoes must settle without generating more writes");
+}
+const postgresTimestampRow = { ...databaseRow, due_date: definedRow.due_date.replace(".000Z", "+00:00"),
+  created_at: definedRow.created_at.replace(".000Z", "+00:00"), updated_at: definedRow.updated_at.replace(".000Z", "+00:00") };
+assert(planChoreSync([definedChore], new Map([[definedChore.id, postgresTimestampRow]])).upserts.length === 0, "equivalent database timestamp formatting must not cause writes");
+assert(applyChoreRowEvent(firstDevice, "UPDATE", postgresTimestampRow) === firstDevice, "equivalent UTC timestamps must not restart synchronization");
+assert(planChoreSync([{ ...definedChore, title: "Actually edited" }], remoteRows).upserts.length === 1, "a real title edit must still persist");
+assert(planChoreSync([{ ...definedChore, roundRobinParticipantIds: ["user-2", "user-1"] }], remoteRows).upserts.length === 1, "rotation participant order is meaningful and must persist");
+assert(planChoreSync([{ ...definedChore, choreDefinition: { ...definedChore.choreDefinition!, title: "New definition" } }], remoteRows).upserts.length === 1, "a real nested definition edit must still persist");
+const sameInstantEdit = { ...postgresTimestampRow, title: "Edited on another device" };
+assert(applyChoreRowEvent(firstDevice, "UPDATE", sameInstantEdit)[0].title === sameInstantEdit.title, "equivalent timestamp spellings must not discard real remote edits");
+const older = { ...sameInstantEdit, updated_at: "2026-08-26T12:00:00Z", title: "Old version" };
+assert(applyChoreRowEvent(firstDevice, "UPDATE", older) === firstDevice, "older events must retain the newer local snapshot");
+assert(applyChoreRowEvent(firstDevice, "DELETE", { ...databaseRow, id: "already-gone" }) === firstDevice, "replayed deletes must not trigger another save");
+console.log("Chore database round-trip and two-device sync feedback regression tests passed");

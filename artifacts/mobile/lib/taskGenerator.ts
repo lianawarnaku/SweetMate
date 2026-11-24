@@ -8,6 +8,7 @@ import type {
   CustomTask,
   GeneratedTask,
   HousingType,
+  HomeProfile,
 } from "@/context/AppContext";
 
 export interface SelectedAmenity {
@@ -76,4 +77,39 @@ export async function generateHouseholdTasks(
   itemDifficulties: readonly ItemDifficultyDefault[] = [],
 ): Promise<GeneratedTask[]> {
   return buildHouseholdTasks(amenities, housingType, customTasks, itemDifficulties);
+}
+
+/** Apply per-chore edits without changing the stable generated task identity. */
+export function applyGeneratedTaskSettings(
+  tasks: readonly GeneratedTask[],
+  profile: Pick<HomeProfile, "removedGeneratedKeys" | "recurrenceOverrides" | "generatedTaskOverrides">,
+): GeneratedTask[] {
+  const removed = new Set(profile.removedGeneratedKeys ?? []);
+  return tasks.filter((task) => !removed.has(task.id)).map((task) => {
+    const override = profile.generatedTaskOverrides?.[task.id];
+    return {
+      ...task,
+      title: override?.title?.trim() || task.title,
+      difficulty: override?.difficulty ?? task.difficulty,
+      frequency: profile.recurrenceOverrides?.[task.id] ?? task.frequency,
+    };
+  });
+}
+
+/** Shared source for the generated-task editor and the chart preview. */
+export function buildConfiguredHouseholdTasks(
+  profile: HomeProfile,
+  customTasks: readonly CustomTask[] = [],
+  itemDifficulties: readonly ItemDifficultyDefault[] = [],
+): GeneratedTask[] {
+  const amenities = parseHouseholdAmenities(profile.items).flatMap((amenity) => {
+    const count = Math.max(1, Math.floor(profile.roomCounts?.[amenity.category] ?? 1));
+    return Array.from({ length: count }, (_, index) => ({
+      ...amenity, roomInstanceId: `${amenity.category}-${index + 1}`,
+    }));
+  });
+  return applyGeneratedTaskSettings(
+    buildHouseholdTasks(amenities, profile.housingType, customTasks, itemDifficulties),
+    profile,
+  );
 }

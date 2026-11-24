@@ -1,6 +1,9 @@
+import { currentHouseholdWeekChores } from "./groupChores.ts";
+import { upcomingHouseholdChores, upcomingChoreDueLabel } from "./upcomingChores.ts";
 import type { Chore } from "../context/AppContext";
 import {
   activeChores,
+  choresActiveOnSelectedDay,
   ARCHIVE_INCOMPLETE_AFTER_DAYS,
   completedRetentionBoundary,
   incompleteArchiveBoundary,
@@ -110,3 +113,63 @@ const active = Array.from({ length: 1_000 }, (_, index): Chore => ({
   id: `active-${index}`,
 }));
 assert(activeChores([...history, ...active], now).length === 1_000, "active screens must exclude 10,000 historical chores");
+
+
+const upcomingNow = new Date("2026-11-24T18:00:00Z");
+const upcomingTimezone = "America/New_York";
+const tomorrowChore: Chore = { ...base, id: "upcoming-daily", dueDate: "2026-11-25T14:00:00Z", scheduledDate: "2026-11-25", recurring: "daily" };
+const weeklyChore: Chore = { ...tomorrowChore, id: "upcoming-weekly", dueDate: "2026-12-01T17:00:00Z", scheduledDate: "2026-12-01", recurring: "weekly" };
+const monthlyChore: Chore = { ...tomorrowChore, id: "upcoming-monthly", dueDate: "2026-12-24T17:00:00Z", scheduledDate: "2026-12-24", recurring: "monthly" };
+const upcomingSaved = [weeklyChore, monthlyChore, tomorrowChore,
+  { ...tomorrowChore, id: "other-home", householdId: "home-b" },
+  { ...tomorrowChore, id: "done-future", completed: true },
+  { ...tomorrowChore, id: "skipped-future", skippedAt: upcomingNow.toISOString() },
+  { ...tomorrowChore, id: "retired", recurrenceEndsOn: "2026-11-25" },
+  { ...tomorrowChore, id: "due-today", dueDate: "2026-11-25T01:00:00Z", scheduledDate: "2026-11-24" },
+  { ...tomorrowChore, id: "invalid-date", dueDate: "invalid" },
+];
+const upcomingSnapshot = JSON.stringify(upcomingSaved);
+const selectedUpcoming = upcomingHouseholdChores(upcomingSaved, "home-a", upcomingNow, upcomingTimezone);
+assert(selectedUpcoming.map((chore) => chore.id).join(",") === "upcoming-daily,upcoming-weekly,upcoming-monthly", "Upcoming must show saved future chores in due-date order, excluding completed, skipped, retired, today's, invalid, and other-household records");
+assert(JSON.stringify(upcomingSaved) === upcomingSnapshot, "showing Upcoming must not change assignments, due dates, or completion");
+assert(upcomingHouseholdChores(upcomingSaved, null, upcomingNow, upcomingTimezone).length === 0, "Upcoming requires an active household");
+const householdMidnight = new Date("2026-11-25T05:00:00Z");
+assert(upcomingHouseholdChores([tomorrowChore], "home-a", householdMidnight, upcomingTimezone).length === 0, "a chore must leave Upcoming when its household's due day begins");
+assert(activeChores([tomorrowChore], householdMidnight, upcomingTimezone).length === 1, "the same saved occurrence must move into the current list without duplication");
+const aroundMidnight = "2026-11-25T00:30:00Z";
+const losAngelesDue = upcomingChoreDueLabel(aroundMidnight, "America/Los_Angeles");
+assert(losAngelesDue.date.includes("Nov 24, 2026") && losAngelesDue.time.includes("4:30") && losAngelesDue.time.includes("PM"), "due labels must show the actual household date and time, even when the UTC date differs");
+const tokyoDue = upcomingChoreDueLabel(aroundMidnight, "Asia/Tokyo");
+assert(tokyoDue.date.includes("Nov 25, 2026") && tokyoDue.time.includes("9:30") && tokyoDue.time.includes("AM"), "due labels must respect a different household timezone");
+const selectedTomorrow = new Date(2026, 10, 25, 12);
+assert(choresActiveOnSelectedDay(upcomingSaved, selectedTomorrow, upcomingNow).filter(chore => chore.householdId === "home-a").map(chore => chore.id).sort().join(",") === "due-today,upcoming-daily", "selecting tomorrow must include its saved future chore and existing carryover, excluding later, skipped, retired, completed, and invalid rows");
+assert(choresActiveOnSelectedDay([tomorrowChore], new Date(2026, 10, 24, 12), upcomingNow).length === 0, "a future chore must not be mislabeled as due today");
+const ownUpcoming = upcomingHouseholdChores(upcomingSaved.filter(chore => chore.assignedTo === "member-a"), "home-a", upcomingNow, upcomingTimezone);
+assert(ownUpcoming.map(chore => chore.id).join(",") === "upcoming-daily,upcoming-weekly,upcoming-monthly", "personal Upcoming must retain the actual saved due dates and monthly work before it is due");
+// Group lists use the calendar's strict household week, including saved future
+// chores later this week; other weeks remain available through Calendar.
+const groupWeekNow = new Date("2026-11-24T18:00:00Z");
+const groupWeekRows: Chore[] = [
+  tomorrowChore, weeklyChore, monthlyChore,
+  { ...tomorrowChore, id: "week-monday", scheduledDate: "2026-11-23", dueDate: "2026-11-23T14:00:00Z" },
+  { ...tomorrowChore, id: "week-sunday", scheduledDate: "2026-11-29", dueDate: "2026-11-30T04:59:00Z" },
+  { ...tomorrowChore, id: "next-monday", scheduledDate: "2026-11-30", dueDate: "2026-11-30T05:00:00Z" },
+  { ...tomorrowChore, id: "older-debt", scheduledDate: "2026-11-22", dueDate: "2026-11-23T04:59:00Z" },
+  { ...tomorrowChore, id: "completed-this-week", completed: true, completedAt: groupWeekNow.toISOString() },
+  { ...tomorrowChore, id: "skipped-this-week", skippedAt: groupWeekNow.toISOString() },
+  { ...tomorrowChore, id: "retired-this-week", recurrenceEndsOn: "2026-11-25" },
+  { ...tomorrowChore, id: "other-household", householdId: "home-b" },
+  { ...tomorrowChore, id: "invalid-week-date", dueDate: "invalid" },
+];
+const savedGroupWeekRows = JSON.stringify(groupWeekRows);
+const groupWeek = currentHouseholdWeekChores(groupWeekRows, "home-a", groupWeekNow, upcomingTimezone);
+assert(groupWeek.map(chore => chore.id).sort().join(",") === "completed-this-week,upcoming-daily,week-monday,week-sunday", "Group must show only Monday–Sunday saved chores, including later this week and completed work, without other weeks, skipped, retired or other-household records");
+assert(JSON.stringify(groupWeekRows) === savedGroupWeekRows, "filtering Group must not delete or change saved chores, assignments or due dates");
+assert(currentHouseholdWeekChores(groupWeekRows, null, groupWeekNow, upcomingTimezone).length === 0, "weekly Group chores require an active household");
+const nextWeekGroup = currentHouseholdWeekChores(groupWeekRows, "home-a", new Date("2026-11-30T05:00:00Z"), upcomingTimezone);
+assert(nextWeekGroup.map(chore => chore.id).sort().join(",") === "next-monday,upcoming-weekly", "the Group list must advance at household midnight on Monday");
+const zoneWeekChore = { ...tomorrowChore, scheduledDate: undefined, dueDate: "2026-11-23T15:00:00Z" };
+const zoneWeekNow = new Date("2026-11-23T02:00:00Z");
+assert(currentHouseholdWeekChores([zoneWeekChore], "home-a", zoneWeekNow, "America/New_York").length === 0, "New York's Sunday must not include next Monday's chore");
+assert(currentHouseholdWeekChores([zoneWeekChore], "home-a", zoneWeekNow, "Asia/Tokyo").length === 1, "Tokyo's Monday must already include its new household week");
+console.log("Group household-week filtering and personal Upcoming visibility tests passed");

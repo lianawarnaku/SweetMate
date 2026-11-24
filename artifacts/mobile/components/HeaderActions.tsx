@@ -3,6 +3,7 @@ import { router } from "expo-router";
 import React from "react";
 import { StyleSheet, View } from "react-native";
 
+import { GlassControlSurface } from "@/components/GlassControlSurface";
 import { SmoothPressable } from "@/components/SmoothPressable";
 import { useTheme } from "@/constants/colors";
 import { useAppContextSelector } from "@/context/AppContext";
@@ -31,8 +32,9 @@ export function HeaderActions() {
         accessibilityHint="Shows household reminders and updates"
         onPress={() => router.push("/alerts")}
         containerStyle={styles.hitArea}
-        style={[styles.button, { backgroundColor: colors.muted }]}
+        style={styles.button}
       >
+        <GlassControlSurface borderless pointerEvents="none" style={[StyleSheet.absoluteFill, { borderRadius: 22 }]} />
         <Feather name="bell" size={20} color={colors.foreground} />
         {hasPendingAlert && (
           <View
@@ -52,8 +54,9 @@ export function HeaderActions() {
         accessibilityHint="Opens appearance, accessibility, and account settings"
         onPress={() => router.push("/settings")}
         containerStyle={styles.hitArea}
-        style={[styles.button, { backgroundColor: colors.muted }]}
+        style={styles.button}
       >
+        <GlassControlSurface borderless pointerEvents="none" style={[StyleSheet.absoluteFill, { borderRadius: 22 }]} />
         <Feather name="settings" size={20} color={colors.foreground} />
       </SmoothPressable>
     </View>

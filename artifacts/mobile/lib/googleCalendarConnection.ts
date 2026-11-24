@@ -5,7 +5,11 @@ import { supabase } from "./supabase";
 import { authCallbackValue } from "./oauthCallback";
 import { calendarFetch } from "./calendarTransport";
 
-const CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar.events";
+const CALENDAR_SCOPE = [
+  "https://www.googleapis.com/auth/calendar.events",
+  "https://www.googleapis.com/auth/calendar.calendarlist.readonly",
+  "https://www.googleapis.com/auth/tasks.readonly",
+].join(" ");
 
 export class GoogleCalendarConnectionError extends Error {}
 

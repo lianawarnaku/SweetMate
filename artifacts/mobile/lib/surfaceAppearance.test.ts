@@ -142,4 +142,14 @@ for (const [os, available, api] of platforms) {
 assert(nodes(ios.sheet({ children: child })).some((node) => node.type === "BlurView"), "GlassSheet defaults to frosted modal");
 ios.reduce(true);
 assert.equal(ios.glass({ variant: "elevated", children: child }).type, "View", "reduced transparency disables native navigation glass");
+// Floating controls retain readable fallback fills on every supported platform.
+for (const [os, available, api] of platforms) {
+  const view = renderer(os, available, api);
+  const control = nodes(view.glass({ variant: "elevated", pointerEvents: "none", children: child }));
+  assert.equal(control.some(node => flatten(node.props.style).backdropFilter), os === "web", "web floating controls must blur behind sharp labels");
+  view.reduce(true);
+  const fallback = nodes(view.glass({ variant: "elevated", pointerEvents: "none", children: child }));
+  assert(!fallback.some(node => node.type === "GlassView" || node.type === "BlurView" || flatten(node.props.style).backdropFilter), "reducing transparency removes blur from floating controls");
+  assert(fallback.some(node => flatten(node.props.style).backgroundColor === view.colors.cardElevated), "floating controls keep an opaque semantic fill when transparency is reduced");
+}
 console.log("surface appearance renderer tests passed");

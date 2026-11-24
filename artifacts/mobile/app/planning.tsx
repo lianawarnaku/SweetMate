@@ -1,8 +1,14 @@
+import { useChoreChartReview } from "@/hooks/useChoreChartReview";
+import { GlassActionBar } from "@/components/GlassActionBar";
+import { GlassButton } from "@/components/GlassButton";
+import { GlassModalBackdrop, GlassModalSurface } from "@/components/GlassModalSurface";
+import { useAccessibilityPreferences } from "@/hooks/useAccessibilityPreferences";
+import { HouseholdCompletionControl } from "@/components/HouseholdCompletionControl";
 import { KEYBOARD_BEHAVIOR } from "@/lib/keyboard";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -18,14 +24,18 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { useAppContext, type ProposedChart, type Roommate } from "@/context/AppContext";
+import { useAppContext, type Roommate } from "@/context/AppContext";
 import { useTheme } from "@/constants/colors";
 import { error as hapticError } from "@/lib/haptics";
 import type { ChoreFrequency, ChoreTimeOfDay } from "@/constants/choreRules";
 import type { Difficulty } from "@/lib/itemDifficulty";
-import { generateHouseholdTasks, parseHouseholdAmenities } from "@/lib/taskGenerator";
+import { buildConfiguredHouseholdTasks } from "@/lib/taskGenerator";
+import { ChoreAssignmentPreferencesSheet } from "@/components/ChoreAssignmentPreferencesSheet";
+import { ChoreChartPreviewSheet } from "@/components/ChoreChartPreviewSheet";
+import { choreChartReviewState, choreChartReviewSubmission, type ChoreChartReviewDraft } from "@/lib/choreChartReview";
+import { GeneratedTasksSheet } from "@/components/GeneratedTasksSheet";
 import { PreferenceBar } from "@/components/PreferenceBar";
-import { buildHouseholdChart, frequencyLabel } from "@/lib/choreChart";
+import { buildHouseholdChart, frequencyLabel, withAssignmentRequest, type ChartPayload } from "@/lib/choreChart";
 import { choreNow } from "@/lib/choreClock";
 import { reportRuntimeError } from "@/lib/runtimeDiagnostics";
 import {
@@ -37,7 +47,7 @@ import { analyticsCountBucket, track } from "@/lib/analytics";
 import { useOnboardingAnalytics } from "@/hooks/useOnboardingAnalytics";
 import { essentialRecommendationsForHousingType } from "@/lib/essentialRecommendations";
 
-type PlanType = "chore-chart" | "home-checklist" | null;
+type PlanType = "chore-chart" | "home-checklist";
 
 const PREFERENCE_DIMENSIONS = [
   {
@@ -503,6 +513,7 @@ function SectionCard({
 
 export default function PlanningScreen() {
   const colors = useTheme();
+  const { reduceMotion } = useAccessibilityPreferences();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{
     type?: string;
@@ -511,11 +522,11 @@ export default function PlanningScreen() {
   }>();
   const setupMode = params.setup === "household";
   const {
-    roommates, chores, householdTimezone, itemDifficulties, currentProposedChart, proposeChart, essentialsAssignees, setEssentialSelfAssignment,
+    roommates, chores, householdTimezone, itemDifficulties, approveProposedChart, submitChartReview, essentialsAssignees, setEssentialSelfAssignment,
     essentialOwned, essentialShortlist, essentialShortlistUpdatedBy,
     setEssentialOwned, saveEssentialShortlist, addSelectedEssentialsToShopping,
-    pointsEnabled, householdComplete, householdId, homeProfile, customTasks,
-    addCustomTask, deleteCustomTask, memberPreferences, setMemberPreference,
+    pointsEnabled, householdComplete, householdId, homeProfile, customTasks, householdSetupDataReady, membersLoading,
+    addCustomTask, deleteCustomTask, memberPreferences, setMemberPreference, saveGeneratedTaskSettings,
     currentUserId, setHouseholdSetupStep, choreChartConfigurationReady, retryChoreChartConfiguration,
     shoppingLists, shoppingItems,
   } = useAppContext();
@@ -533,23 +544,68 @@ export default function PlanningScreen() {
     recommendations.map(({ categoryId, itemId }) => `${categoryId}:${itemId}`),
   );
 
-  const [selectedType, setSelectedType] = useState<PlanType>(() =>
-    params.type === "home-checklist" || params.type === "chore-chart"
-      ? params.type
-      : null,
-  );
+  const selectedType: PlanType = setupMode || params.type === "home-checklist"
+    ? "home-checklist"
+    : "chore-chart";
+  const sharedReview = useChoreChartReview(selectedType === "chore-chart" ? householdId : null);
+  const currentProposedChart = sharedReview.review?.chart ?? null;
+  const chartApprovals = sharedReview.review?.approvals ?? [];
   const [checkedEssentials, setCheckedEssentials] = useState<Record<string, Set<string>>>({});
   const [customEssentials, setCustomEssentials] = useState<Record<string, string[]>>({});
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   const [shortlistOpen, setShortlistOpen] = useState(false);
+  const [howItWorksOpen, setHowItWorksOpen] = useState(false);
+  const [generatedTasksOpen, setGeneratedTasksOpen] = useState(false);
+  const generatedTasks = useMemo(() => homeProfile && householdId
+    ? buildConfiguredHouseholdTasks(homeProfile, [], itemDifficulties.filter((entry) => entry.householdId === householdId))
+    : [], [homeProfile, householdId, itemDifficulties]);
   const [shoppingPreviewOpen, setShoppingPreviewOpen] = useState(false);
   const [shortlistDraft, setShortlistDraft] = useState<Record<string, Record<string, boolean>>>({});
   const [result, setResult] = useState<string | null>(null);
-  const [chartDraft, setChartDraft] = useState<ProposedChart["payload"] | null>(null);
+  const [assignmentPreferencesOpen, setAssignmentPreferencesOpen] = useState(false);
+  const [assignmentDraft, setAssignmentDraft] = useState<{ householdId: string; baseChartId: string | null; payload: ChartPayload; changed: boolean } | null>(null);
+  const [chartPreview, setChartPreview] = useState<(ChoreChartReviewDraft & { now: Date; inputKey: string; ruleChanges: boolean }) | null>(null);
+  const [chartPreviewError, setChartPreviewError] = useState<string | null>(null);
+  const [chartApprovalSuccess, setChartApprovalSuccess] = useState(false);
+  const approvalHouseholdRef = useRef(householdId);
+  approvalHouseholdRef.current = householdId;
+  const returnToMySweet = useCallback(() => {
+    setChartApprovalSuccess(false);
+    setChartPreview(null);
+    router.dismissTo("/(tabs)" as never);
+  }, []);
+  useEffect(() => {
+    setChartPreview((current) => current && current.householdId !== householdId ? null : current);
+    setChartPreviewError(null);
+    setChartApprovalSuccess(false);
+    setAssignmentDraft(null);
+    setAssignmentPreferencesOpen(false);
+  }, [householdId]);
+  const submittingChartRef = useRef(false);
   const [loading, setLoading] = useState(false);
+  const [planningActionHeight, setPlanningActionHeight] = useState(84);
   const [error, setError] = useState<string | null>(null);
-  const draftInputs = JSON.stringify([homeProfile, customTasks, itemDifficulties, memberPreferences, roommates.map((member) => member.id), chores, currentProposedChart?.id]);
-  useEffect(() => { setChartDraft(null); }, [draftInputs]);
+  const hasAssignmentChanges = Boolean(assignmentDraft?.changed && assignmentDraft.householdId === householdId);
+  const assignmentDraftStale = hasAssignmentChanges && assignmentDraft!.baseChartId !== (currentProposedChart?.id ?? null);
+  const assignmentStaleMessage = "The shared chart changed. Discard your unsent preferences and reopen the editor to use its latest version.";
+  const draftInputs = JSON.stringify([householdId, homeProfile, customTasks, itemDifficulties, memberPreferences, roommates.map((member) => member.id), chores, hasAssignmentChanges ? assignmentDraft?.payload : null]);
+  const previewReview = chartPreview ? choreChartReviewState({
+    draft: chartPreview, currentChart: currentProposedChart, householdId,
+    inputsChanged: chartPreview.inputKey !== draftInputs,
+  }) : null;
+  const previewApprovals = chartPreview?.approvedChartId && chartPreview.approvedChartId === previewReview?.chartId
+    ? [...chartApprovals, { id: "preview-confirmed-approval", proposedChartId: chartPreview.approvedChartId, memberId: currentUserId, approved: true, approvedAt: chartPreview.now.toISOString() }]
+    : chartApprovals;
+  const previewApproved = previewReview?.kind === "approved" || Boolean(previewReview?.chartId && previewApprovals.some((approval) => approval.proposedChartId === previewReview.chartId && approval.memberId === currentUserId && approval.approved));
+  const previewStale = previewReview?.kind === "stale";
+  const previewSent = Boolean(chartPreview?.submittedChartId && chartPreview.submittedChartId === previewReview?.chartId);
+  const previewNotice = previewReview?.kind === "draft"
+    ? chartPreview?.ruleChanges
+      ? "Your permanent preferences rebuild this chart. Send for approval starts everyone—including you—as Pending. Earlier approvals do not carry over."
+      : "This preview has not been sent yet. Approve records your approval and leaves everyone else Pending. Approvals from earlier charts do not carry over."
+    : previewReview?.kind === "approved"
+      ? "This chore chart has been approved."
+      : "Approvals shown here apply to this version of the chore chart.";
   const [customTaskTitle, setCustomTaskTitle] = useState("");
   const [customTaskDifficulty, setCustomTaskDifficulty] = useState<Difficulty>(3);
   const [customTaskFrequency, setCustomTaskFrequency] = useState<ChoreFrequency>("weekly");
@@ -815,6 +871,45 @@ export default function PlanningScreen() {
     }
   }
 
+  const buildCreatorChart = (previous: ChartPayload | null | undefined, now = choreNow()) => {
+    if (!choreChartConfigurationReady) throw new Error("Wait for your saved chore settings to load before previewing a chart.");
+    if (!householdId || !homeProfile || !householdComplete) throw new Error("Complete household setup before generating tasks.");
+    const tasks = buildConfiguredHouseholdTasks(
+      homeProfile, customTasks, itemDifficulties.filter((entry) => entry.householdId === householdId),
+    );
+    return buildHouseholdChart({
+      tasks, members: roommates, preferences: memberPreferences.filter((entry) => entry.householdId === householdId), chores,
+      householdId, now, timezone: householdTimezone, previous,
+    });
+  };
+
+  const openAssignmentPreferences = async () => {
+    setError(null);
+    try {
+      const fresh = await sharedReview.refresh();
+      if (hasAssignmentChanges && assignmentDraft!.baseChartId !== (fresh.chart?.id ?? null)) throw new Error(assignmentStaleMessage);
+      const payload = buildCreatorChart(hasAssignmentChanges ? assignmentDraft!.payload : fresh.chart?.payload);
+      setAssignmentDraft({ householdId: fresh.householdId, baseChartId: fresh.chart?.id ?? null, payload, changed: hasAssignmentChanges });
+      setAssignmentPreferencesOpen(true);
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : "Unable to open permanent preferences. Please try again.");
+      hapticError();
+    }
+  };
+
+  const requestAssignment = (taskId: string, kind: "always" | "never") => {
+    if (!assignmentDraft || assignmentDraft.householdId !== householdId) throw new Error("Reopen permanent task preferences for this household.");
+    if (assignmentDraft.baseChartId !== (currentProposedChart?.id ?? null)) throw new Error(assignmentStaleMessage);
+    if (kind === "always" && assignmentDraft.payload.pinnedAssignments?.[taskId] === currentUserId) return;
+    if (kind === "never" && assignmentDraft.payload.excludedAssignments?.[taskId]?.includes(currentUserId)) return;
+    const requested = withAssignmentRequest(assignmentDraft.payload, taskId, currentUserId, kind);
+    // Rebuild synchronously so impossible exclusions show an inline error and
+    // never replace the last valid set of rules.
+    const payload = buildCreatorChart(requested);
+    setAssignmentDraft({ ...assignmentDraft, payload, changed: true });
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  };
+
   // ── Build + create chores ────────────────────────────────────────────────
   // Each chore *group* (Bathroom Heavy etc.) is expanded into the individual
   // tasks it covers, so the user sees them as separate to-dos in My Home and
@@ -825,34 +920,19 @@ export default function PlanningScreen() {
     setLoading(true);
     setError(null);
     setResult(null);
-    setChartDraft(null);
+    setChartPreviewError(null);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     try {
       if (selectedType === "chore-chart") {
-        if (!choreChartConfigurationReady) throw new Error("Wait for your saved chore settings to load before previewing a chart.");
-        if (!householdId || !homeProfile) {
-          throw new Error("Complete household setup before generating tasks.");
-        }
-        const tasks = await generateHouseholdTasks(
-          householdId,
-          parseHouseholdAmenities(homeProfile.items).flatMap((amenity) => {
-            const count = Math.max(1, homeProfile.roomCounts?.[amenity.category] ?? 1);
-            return Array.from({ length: count }, (_, index) => ({
-              ...amenity,
-              roomInstanceId: `${amenity.category}-${index + 1}`,
-            }));
-          }),
-          homeProfile.housingType,
-          customTasks,
-          itemDifficulties.filter((entry) => entry.householdId === householdId),
-        );
-        const includedTasks = tasks.filter((task) => !(homeProfile.removedGeneratedKeys ?? []).includes(task.id))
-          .map((task) => ({ ...task, frequency: homeProfile.recurrenceOverrides?.[task.id] ?? task.frequency }));
-        setChartDraft(buildHouseholdChart({
-          tasks: includedTasks, members: roommates, preferences: memberPreferences.filter((entry) => entry.householdId === householdId), chores,
-          householdId, now: choreNow(), timezone: householdTimezone, previous: currentProposedChart?.payload,
-        }));
+        const fresh = await sharedReview.refresh();
+        if (hasAssignmentChanges && assignmentDraft!.baseChartId !== (fresh.chart?.id ?? null)) throw new Error(assignmentStaleMessage);
+        const previewNow = choreNow();
+        const payload = buildCreatorChart(hasAssignmentChanges ? assignmentDraft!.payload : fresh.chart?.payload, previewNow);
+        setChartPreview({
+          payload, now: previewNow, householdId: fresh.householdId, inputKey: draftInputs, ruleChanges: hasAssignmentChanges,
+          baseChartId: fresh.chart?.id ?? null, approvedChartId: null,
+        });
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         return;
       }
@@ -869,18 +949,43 @@ export default function PlanningScreen() {
     }
   };
 
-  const sendChartForApproval = async () => {
-    if (!chartDraft) return;
+  const closeChartPreview = () => {
+    if (chartApprovalSuccess) { returnToMySweet(); return; }
+    if (submittingChartRef.current) return;
+    setChartPreview(null);
+    setChartPreviewError(null);
+  };
+
+  const submitChartPreview = async () => {
+    if (!chartPreview || !previewReview || previewStale || (chartPreview.ruleChanges ? previewSent : previewApproved) || submittingChartRef.current) return;
+    submittingChartRef.current = true;
     setLoading(true);
-    setError(null);
+    setChartPreviewError(null);
+    const reviewedPreview = chartPreview;
     try {
-      await proposeChart(chartDraft);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      router.push("/alerts");
+      const fresh = await sharedReview.refresh();
+      const verified = choreChartReviewState({ draft: reviewedPreview, currentChart: fresh.chart, householdId: fresh.householdId, inputsChanged: false });
+      if (verified.kind === "stale") throw new Error("The chart changed. Go back and preview the latest review before approving.");
+      const submission = choreChartReviewSubmission(verified, reviewedPreview.ruleChanges);
+      if (!submission) throw new Error("This review is already complete. Go back to the creator to make changes.");
+      let submittedChartId: string;
+      if (!submission.replace && verified.kind === "pending") {
+        await approveProposedChart(verified.chartId);
+        submittedChartId = verified.chartId;
+      } else {
+        submittedChartId = await submitChartReview(reviewedPreview.payload, reviewedPreview.baseChartId, submission.approveSelf);
+      }
+      await sharedReview.refresh();
+      if (approvalHouseholdRef.current !== reviewedPreview.householdId) return;
+      setChartPreview((current) => current === reviewedPreview ? { ...current, submittedChartId, approvedChartId: submission.approveSelf ? submittedChartId : null } : current);
+      if (reviewedPreview.ruleChanges) setAssignmentDraft((current) => current?.householdId === reviewedPreview.householdId && current.baseChartId === reviewedPreview.baseChartId ? null : current);
+      if (submission.approveSelf) setChartApprovalSuccess(true);
+      else Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (failure) {
-      setError(failure && typeof failure === "object" && "message" in failure ? String(failure.message) : "Unable to send the chart. Please try again.");
+      setChartPreviewError(failure && typeof failure === "object" && "message" in failure ? String(failure.message) : "Unable to submit the chart. Please try again.");
       hapticError();
     } finally {
+      submittingChartRef.current = false;
       setLoading(false);
     }
   };
@@ -888,7 +993,7 @@ export default function PlanningScreen() {
   const isChoreChart = selectedType === "chore-chart";
   const canGenerate =
     selectedType !== null &&
-    (selectedType === "home-checklist" || (isChoreChart && householdComplete && choreChartConfigurationReady && homeProfile !== null && roommates.length > 0));
+    (selectedType === "home-checklist" || (isChoreChart && sharedReview.review !== null && !sharedReview.loading && householdSetupDataReady && !membersLoading && householdComplete && choreChartConfigurationReady && homeProfile !== null && roommates.length > 0));
 
   // ── Render ───────────────────────────────────────────────────────────────
   return (
@@ -899,7 +1004,7 @@ export default function PlanningScreen() {
     >
     <ScrollView
       style={{ flex: 1 }}
-      contentContainerStyle={{ paddingBottom: 24 }}
+      contentContainerStyle={{ paddingBottom: planningActionHeight + Math.max(insets.bottom, botPad, 12) + 32 }}
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
     >
@@ -907,7 +1012,7 @@ export default function PlanningScreen() {
         <View style={styles.headerRow}>
           <TouchableOpacity
             accessibilityRole="button"
-            accessibilityLabel={setupMode ? "Back from Sweet Essentials" : "Back from Planning Helper"}
+            accessibilityLabel={isChoreChart ? "Back from Chore Chart" : "Back from Sweet Essentials"}
             onPress={() =>
               setupMode
                 ? router.replace("/sweet-setup" as never)
@@ -920,167 +1025,52 @@ export default function PlanningScreen() {
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
             <Text style={[styles.title, { color: colors.foreground }]}>
-              {setupMode ? "Sweet Essentials" : "Planning Helper"}
+              {isChoreChart ? "Chore Chart" : "Sweet Essentials"}
             </Text>
-            <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-              {setupMode ? "Choose what your new Sweet needs" : "Choose a tool, customize it, then review"}
-            </Text>
+            {isChoreChart && <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel="How does this work?"
+              accessibilityHint="Explains how your household details and preferences shape the chore chart"
+              onPress={() => setHowItWorksOpen(true)}
+              style={styles.howItWorksLink}
+            >
+              <Text style={[styles.howItWorksLinkText, { color: colors.mutedForeground }]}>How does this work?</Text>
+            </TouchableOpacity>}
           </View>
         </View>
       </View>
 
-      {/* ── Plan type selector ── */}
-      {!setupMode ? <><Text style={[styles.sectionLabel, { color: colors.foreground }]}>
-        Choose a planning tool
-      </Text>
-
-      <View accessibilityRole="radiogroup" style={styles.typeRow}>
-        <TouchableOpacity
-          accessibilityRole="radio"
-          accessibilityState={{ checked: isChoreChart, disabled: !householdComplete }}
-          accessibilityLabel="Chore Chart"
-          accessibilityHint={householdComplete ? "Build a weekly chore rotation" : "Finish household setup to unlock"}
-          disabled={!householdComplete}
-          style={[
-            styles.typeCard,
-            {
-              backgroundColor: isChoreChart ? colors.primary + "12" : colors.card,
-              borderColor: isChoreChart ? colors.primary : colors.border,
-              opacity: householdComplete ? 1 : 0.58,
-            },
-          ]}
-          onPress={() => {
-            setSelectedType("chore-chart");
-            setResult(null);
-            setChartDraft(null);
-          }}
-        >
-          <View
-            style={[
-              styles.typeIcon,
-              { backgroundColor: isChoreChart ? colors.primary + "20" : colors.secondary },
-            ]}
-          >
-            <Feather
-              name="calendar"
-              size={24}
-              color={isChoreChart ? colors.primary : colors.mutedForeground}
-            />
-          </View>
-          <Text
-            style={[
-              styles.typeTitle,
-              { color: isChoreChart ? colors.primary : colors.foreground },
-            ]}
-          >
-            Chore Chart
-          </Text>
-          <Text style={[styles.typeDesc, { color: colors.mutedForeground }]}>
-            {householdComplete
-              ? "Recurring chore assignments"
-              : "Finish setup to unlock"}
-          </Text>
-          {!householdComplete && (
-            <Feather name="lock" size={16} color={colors.mutedForeground} />
-          )}
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          accessibilityRole="radio"
-          accessibilityState={{ checked: selectedType === "home-checklist" }}
-          accessibilityLabel="Sweet Essentials"
-          accessibilityHint="Track what your shared home still needs"
-          style={[
-            styles.typeCard,
-            {
-              backgroundColor:
-                selectedType === "home-checklist" ? colors.accent + "12" : colors.card,
-              borderColor:
-                selectedType === "home-checklist" ? colors.accent : colors.border,
-            },
-          ]}
-          onPress={() => {
-            setSelectedType("home-checklist");
-            setResult(null);
-            setChartDraft(null);
-          }}
-        >
-          <View
-            style={[
-              styles.typeIcon,
-              {
-                backgroundColor:
-                  selectedType === "home-checklist"
-                    ? colors.accent + "20"
-                    : colors.secondary,
-              },
-            ]}
-          >
-            <Feather
-              name="home"
-              size={24}
-              color={
-                selectedType === "home-checklist"
-                  ? colors.accent
-                  : colors.mutedForeground
-              }
-            />
-          </View>
-          <Text
-            style={[
-              styles.typeTitle,
-              {
-                color:
-                  selectedType === "home-checklist"
-                    ? colors.accent
-                    : colors.foreground,
-              },
-            ]}
-          >
-            Sweet Essentials
-          </Text>
-          <Text style={[styles.typeDesc, { color: colors.mutedForeground }]}>
-            Shared home checklist
-          </Text>
-        </TouchableOpacity>
-      </View>
-      {!householdComplete && (
+      {isChoreChart && (!householdSetupDataReady || !householdComplete || !homeProfile || !roommates.length) && (
         <View style={[styles.lockBanner, { backgroundColor: colors.muted, borderColor: colors.border }]}>
           <Feather name="lock" size={16} color={colors.mutedForeground} />
           <Text style={[styles.lockText, { color: colors.mutedForeground }]}>
-            Add all roommates and mark household setup complete before building a chore chart.
+            {!householdSetupDataReady || membersLoading
+              ? "Loading your household setup and members…"
+              : !homeProfile ? "Your roommates are saved. Finish your home type and shared items to create a chore chart."
+              : !householdComplete ? "Your home details are saved. Confirm setup is complete to unlock the chore chart."
+              : "Your household members must finish loading before a chart can be built."}
           </Text>
           <TouchableOpacity
             accessibilityRole="button"
             accessibilityLabel="Finish household setup"
             accessibilityHint="Opens household settings"
-            onPress={() => router.push("/settings")}
+            disabled={!householdSetupDataReady || membersLoading}
+            onPress={() => router.push((!homeProfile ? `/sweet-setup?resume=1&household=${householdId}` : "/settings") as never)}
             style={[styles.finishSetupButton, { backgroundColor: colors.action }]}
           >
             <Text style={[styles.finishSetupText, { color: colors.actionForeground }]}>Finish setup</Text>
             <Feather name="arrow-right" size={15} color={colors.actionForeground} />
           </TouchableOpacity>
         </View>
-      )}</> : null}
+      )}
 
+      {isChoreChart && householdSetupDataReady && homeProfile && !householdComplete ? <HouseholdCompletionControl /> : null}
       {isChoreChart && !choreChartConfigurationReady && <View style={[styles.customTaskCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <Text style={[styles.preferenceIntro, { color: colors.mutedForeground }]}>Your saved chore settings must finish loading before a chart can be built.</Text>
         <TouchableOpacity accessibilityRole="button" accessibilityLabel="Retry loading chore settings" style={{ minHeight: 44, justifyContent: "center" }} onPress={() => void retryChoreChartConfiguration().catch((error) => setError(error instanceof Error ? error.message : "Unable to load chore settings."))}>
           <Text style={[styles.savedCustomTitle, { color: colors.primary }]}>Retry loading</Text>
         </TouchableOpacity>
       </View>}
-      {isChoreChart && homeProfile && (
-        <View style={[styles.customTaskCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Text accessibilityRole="header" style={[styles.customTaskTitle, { color: colors.foreground }]}>Your household</Text>
-          <Text style={[styles.preferenceIntro, { color: colors.mutedForeground }]}>
-            Uses the features and room counts saved during household setup, plus your custom tasks and saved item difficulty levels.
-          </Text>
-          <Text style={[styles.savedCustomMeta, { color: colors.foreground }]}>
-            {homeProfile.housingType} · {homeProfile.items.length} selected features
-          </Text>
-        </View>
-      )}
-
       {/* ── Home Essentials checklist ── */}
       {selectedType === "home-checklist" && (
         <View style={[styles.amenityArea, { marginTop: 4 }]}>
@@ -1186,12 +1176,6 @@ export default function PlanningScreen() {
 
       {isChoreChart && (
         <View style={styles.preferenceSection}>
-          <Text style={[styles.sectionLabel, { color: colors.foreground, marginHorizontal: 0 }]}>
-            Your task preferences
-          </Text>
-          <Text style={[styles.preferenceIntro, { color: colors.mutedForeground }]}>
-            Preferences help choose starting assignments. Recurring chores then rotate among eligible Sweetmates. Use “Always me” or “Never me” during approval for a firm rule.
-          </Text>
           {PREFERENCE_DIMENSIONS.map((dimension) => {
             const preference = memberPreferences.find(
               (entry) => entry.householdId === householdId && entry.memberId === currentUserId && entry.key === dimension.key,
@@ -1215,14 +1199,22 @@ export default function PlanningScreen() {
         </View>
       )}
 
+      {isChoreChart && <GlassButton
+        tone="neutral"
+        disabled={!householdSetupDataReady || !choreChartConfigurationReady || !homeProfile}
+        accessibilityLabel="See current generated tasks"
+        onPress={() => setGeneratedTasksOpen(true)}
+        style={{ marginHorizontal: 16, marginTop: 16, borderRadius: 12 }}
+      >
+        <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 14, color: colors.foreground, flexShrink: 1, textAlign: "center" }}>See current generated tasks</Text>
+        <Feather name="arrow-right" size={16} color={colors.foreground} />
+      </GlassButton>}
+
       {isChoreChart && (
         <View style={[styles.customTaskCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <View style={styles.customTaskHeader}>
             <View>
               <Text style={[styles.customTaskTitle, { color: colors.foreground }]}>Custom tasks</Text>
-              <Text style={[styles.customTaskHint, { color: colors.mutedForeground }]}>
-                Difficulty defaults to 3/5 and is required.
-              </Text>
             </View>
             <TouchableOpacity onPress={() => router.push("/task-difficulty")}>
               <Text style={[styles.editDifficultyLink, { color: colors.primary }]}>Edit item levels</Text>
@@ -1264,16 +1256,16 @@ export default function PlanningScreen() {
             ))}
           </View>
           <Text style={[styles.customTaskFieldLabel, { color: colors.mutedForeground }]}>FREQUENCY</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.customTaskOptions}>
+          <View style={styles.customFrequencyOptions}>
             {(["daily", "everyOtherDay", "everyThreeDays", "weekly", "biweekly", "monthly"] as ChoreFrequency[]).map((value) => (
-              <TouchableOpacity key={value} onPress={() => setCustomTaskFrequency(value)} style={[styles.customTextChip, {
+              <TouchableOpacity key={value} onPress={() => setCustomTaskFrequency(value)} style={[styles.customTextChip, styles.customFrequencyChip, {
                 backgroundColor: value === customTaskFrequency ? colors.action : colors.muted,
                 borderColor: value === customTaskFrequency ? colors.primary : colors.border,
               }]}>
-                <Text style={{ color: value === customTaskFrequency ? colors.actionForeground : colors.mutedForeground, fontFamily: "Inter_600SemiBold", includeFontPadding: false, fontSize: 12 }}>{frequencyLabel(value)}</Text>
+                <Text style={{ color: value === customTaskFrequency ? colors.actionForeground : colors.mutedForeground, fontFamily: "Inter_600SemiBold", includeFontPadding: false, fontSize: 12, flexShrink: 1, textAlign: "center" }}>{frequencyLabel(value)}</Text>
               </TouchableOpacity>
             ))}
-          </ScrollView>
+          </View>
           <Text style={[styles.customTaskFieldLabel, { color: colors.mutedForeground }]}>TIME OF DAY</Text>
           <View style={styles.customTaskOptions}>
             {(["morning", "night", "any"] as ChoreTimeOfDay[]).map((value) => (
@@ -1307,42 +1299,32 @@ export default function PlanningScreen() {
         </View>
       )}
 
+      {isChoreChart && <View style={styles.permanentPreferencesSection}>
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="Click here to be the permanent owner of a task"
+          accessibilityHint="Opens Always me and Never me preferences for household and custom tasks"
+          disabled={!canGenerate || loading}
+          onPress={() => void openAssignmentPreferences()}
+          style={[styles.howItWorksLink, { opacity: canGenerate && !loading ? 1 : 0.5 }]}
+        >
+          <Text style={[styles.howItWorksLinkText, { color: colors.mutedForeground }]}>Click here to be the <Text style={{ fontFamily: "Inter_400Regular_Italic" }}>permanent</Text> owner of a task</Text>
+        </TouchableOpacity>
+        {hasAssignmentChanges && <>
+          <Text accessibilityLiveRegion="polite" style={[styles.customTaskHint, { color: assignmentDraftStale ? colors.destructive : colors.mutedForeground }]}>{assignmentDraftStale ? assignmentStaleMessage : "Unsent permanent preferences. Preview the chart, then send it for everyone's approval."}</Text>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Discard unsent permanent preferences" disabled={loading} onPress={() => { setAssignmentDraft(null); setError(null); }} style={styles.howItWorksLink}>
+            <Text style={[styles.howItWorksLinkText, { color: colors.mutedForeground }]}>Discard changes</Text>
+          </TouchableOpacity>
+        </>}
+      </View>}
+
       {/* ── Error ── */}
-      {error ? (
+      {error || sharedReview.error ? (
         <View style={[styles.errorBox, { backgroundColor: colors.destructive + "12", borderColor: colors.destructive + "33" }]}>
           <Feather name="alert-circle" size={16} color={colors.destructive} />
-          <Text style={[styles.errorText, { color: colors.destructive }]}>{error}</Text>
+          <Text style={[styles.errorText, { color: colors.destructive }]}>{error || sharedReview.error}</Text>
         </View>
       ) : null}
-
-      {isChoreChart && chartDraft && (
-        <View style={[styles.generatedTaskCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Text accessibilityRole="header" style={[styles.customTaskTitle, { color: colors.foreground }]}>Proposed starting assignments</Text>
-          <Text style={[styles.preferenceIntro, { color: colors.mutedForeground, marginTop: 8 }]}>
-            Workload combines difficulty and how often chores recur, including retained unfinished work. Rotating chores change assignee each occurrence. Changes begin with upcoming chores after approval; completed chores, overdue work and manual assignments are retained.
-          </Text>
-          {chartDraft.assignments.map((assignment) => (
-            <View key={assignment.memberId} style={{ marginTop: 16 }}>
-              <Text accessibilityRole="header" style={[styles.savedCustomTitle, { color: colors.foreground }]}>
-                {roommates.find((member) => member.id === assignment.memberId)?.name ?? "Sweetmate"} · {assignment.totalLoad.toFixed(1)} weighted workload
-              </Text>
-              {assignment.taskIds.length === 0 && <Text style={[styles.savedCustomMeta, { color: colors.mutedForeground }]}>No new starting assignments</Text>}
-              {assignment.taskIds.map((taskId) => {
-                const task = chartDraft.generatedTasks?.find((entry) => entry.id === taskId);
-                if (!task) return null;
-                return <View key={task.id} style={[styles.generatedTaskRow, { borderTopColor: colors.border }]}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.savedCustomTitle, { color: colors.foreground }]}>{task.title}</Text>
-                    <Text style={[styles.savedCustomMeta, { color: colors.mutedForeground }]}>
-                      {frequencyLabel(task.frequency)} · {task.timeOfDay} · {task.difficulty}/5 difficulty{chartDraft.manualAssignmentTaskIds?.includes(task.id) ? " · manual schedule" : chartDraft.pinnedAssignments?.[task.id] ? " · fixed assignee" : " · rotates"}
-                    </Text>
-                  </View>
-                </View>;
-              })}
-            </View>
-          ))}
-        </View>
-      )}
 
       {/* ── Home checklist / fallback text result ── */}
       {result ? (
@@ -1352,7 +1334,7 @@ export default function PlanningScreen() {
             <Text style={[styles.resultTitle, { color: colors.foreground }]}>
               Your {selectedType === "chore-chart" ? "Chore Chart" : "Sweet Checklist"}
             </Text>
-            <TouchableOpacity onPress={() => { setResult(null); setChartDraft(null); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <TouchableOpacity onPress={() => { setResult(null); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <Feather name="x" size={16} color={colors.mutedForeground} />
             </TouchableOpacity>
           </View>
@@ -1360,6 +1342,91 @@ export default function PlanningScreen() {
         </View>
       ) : null}
     </ScrollView>
+
+    {chartPreview && <ChoreChartPreviewSheet
+      key={chartPreview.now.getTime()}
+      visible={isChoreChart}
+      payload={chartPreview.payload}
+      members={roommates} chores={chores} now={chartPreview.now}
+      householdId={chartPreview.householdId} timezone={householdTimezone}
+      chartId={previewReview?.chartId ?? null} approvals={previewApprovals} currentUserId={currentUserId}
+      approved={previewApproved} sendForApproval={chartPreview.ruleChanges} sent={previewSent || previewReview?.kind === "approved"} busy={loading || sharedReview.loading} blocked={previewStale}
+      notice={previewNotice}
+      error={previewStale ? "Household settings or the shared chart changed. Go back and preview again before approving." : chartPreviewError}
+      approvalSuccess={chartApprovalSuccess} onSuccessComplete={returnToMySweet}
+      onApprove={() => void submitChartPreview()} onBack={closeChartPreview}
+    />}
+
+    <ChoreAssignmentPreferencesSheet
+      key={householdId ?? "no-household"}
+      visible={isChoreChart && assignmentPreferencesOpen}
+      payload={assignmentDraft?.payload ?? null}
+      members={roommates} currentUserId={currentUserId} busy={loading}
+      blocked={assignmentDraft && assignmentDraft.baseChartId !== (currentProposedChart?.id ?? null) ? hasAssignmentChanges ? assignmentStaleMessage : "The shared chart changed. Close and reopen preferences to use its latest version." : null}
+      onChange={requestAssignment} onClose={() => setAssignmentPreferencesOpen(false)}
+    />
+
+    <GeneratedTasksSheet
+      key={householdId ?? "no-household"}
+      visible={isChoreChart && generatedTasksOpen}
+      tasks={generatedTasks}
+      onClose={() => setGeneratedTasksOpen(false)}
+      onSave={saveGeneratedTaskSettings}
+    />
+
+    <Modal
+      visible={isChoreChart && howItWorksOpen}
+      transparent
+      animationType={reduceMotion ? "none" : "fade"}
+      onRequestClose={() => setHowItWorksOpen(false)}
+    >
+      <View style={[styles.howItWorksOverlay, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 16 }]}>
+        <GlassModalBackdrop onPress={() => setHowItWorksOpen(false)} accessibilityLabel="Close chore chart explanation" />
+        <GlassModalSurface style={styles.howItWorksSheet}>
+          <View style={styles.howItWorksHeader}>
+            <Text accessibilityRole="header" style={[styles.howItWorksTitle, { color: colors.foreground }]}>How does this work?</Text>
+            <GlassButton tone="neutral" accessibilityLabel="Close chore chart explanation" onPress={() => setHowItWorksOpen(false)} style={{ width: 44 }}>
+              <Feather name="x" size={18} color={colors.foreground} />
+            </GlassButton>
+          </View>
+          <ScrollView style={{ flexShrink: 1 }} contentContainerStyle={{ gap: 20 }}>
+            <View style={{ gap: 8 }}>
+              <Text accessibilityRole="header" style={[styles.customTaskTitle, { color: colors.foreground }]}>Your household</Text>
+              <Text style={[styles.howItWorksBody, { color: colors.mutedForeground }]}>Uses the features and room counts saved during household setup, plus your custom tasks and saved item difficulty levels.</Text>
+              <Text style={[styles.howItWorksBody, { color: colors.foreground }]}>
+                {homeProfile
+                  ? `${homeProfile.housingType} · ${homeProfile.items.length} selected ${homeProfile.items.length === 1 ? "feature" : "features"}`
+                  : "Finish household setup to save your home type and shared features."}
+              </Text>
+            </View>
+            <View style={{ gap: 8 }}>
+              <Text accessibilityRole="header" style={[styles.customTaskTitle, { color: colors.foreground }]}>Your task preferences</Text>
+              <Text style={[styles.howItWorksBody, { color: colors.mutedForeground }]}>Preferences help choose starting assignments. Recurring chores then rotate among eligible Sweetmates. Use the permanent task preferences link below Custom tasks for an Always me or Never me rule.</Text>
+            </View>
+            <View style={{ gap: 8 }}>
+              <Text accessibilityRole="header" style={[styles.customTaskTitle, { color: colors.foreground }]}>Review and approval</Text>
+              <Text style={[styles.howItWorksBody, { color: colors.mutedForeground }]}>Review starting assignments and average weekly workload. Recurring chores rotate among eligible Sweetmates. Always me fixes the assignee; Never me excludes you. Changes begin after approval.</Text>
+              <Text style={[styles.howItWorksBody, { color: colors.mutedForeground }]}>Preview chore chart opens the review popup. Approve records your approval, shows a confirmation checkmark, and returns you to My Sweet while other Sweetmates remain Pending. Back returns to the creator. Approving an unchanged shared proposal keeps its existing approvals. A new or revised chart starts a new review.</Text>
+            </View>
+            <View style={{ gap: 8 }}>
+              <Text accessibilityRole="header" style={[styles.customTaskTitle, { color: colors.foreground }]}>Changing and resending a chart</Text>
+              <Text style={[styles.howItWorksBody, { color: colors.mutedForeground }]}>To set a firm task rule, choose the gray underlined “Click here to be the permanent owner of a task” link directly below Custom tasks in the creator. The optional editor opens only when you choose it. Always me or Never me rebuilds the starting assignments, rotation, and workload in an unsent preview. If a rule leaves nobody eligible, the change is blocked.</Text>
+              <Text style={[styles.howItWorksBody, { color: colors.mutedForeground }]}>After changing Always me or Never me, Send for approval is the only submission option. Everyone—including the person making the change—starts as Pending and must approve the revised chart. Earlier approvals do not carry over. Discard changes in the creator returns to the shared rules.</Text>
+              <Text style={[styles.howItWorksBody, { color: colors.mutedForeground }]}>The approval list shows who has approved and who is still pending for the current shared chart. The chart takes effect after everyone approves, unless the host chooses Create chart anyway. The active chart and saved chores stay in place while the revision is being reviewed.</Text>
+            </View>
+            <View style={{ gap: 8 }}>
+              <Text accessibilityRole="header" style={[styles.customTaskTitle, { color: colors.foreground }]}>Workload and rotation</Text>
+              <Text style={[styles.howItWorksBody, { color: colors.mutedForeground }]}>
+                Average weekly workload combines difficulty and frequency, divided among eligible Sweetmates for rotating chores. Fixed chores count entirely toward their assignee. The list shows who takes the first turn; it does not limit who shares future turns. Unfinished one-off chores stay assigned separately and are not included in this weekly average. Changes begin with upcoming chores after approval; completed chores, overdue work and manual assignments are retained.
+              </Text>
+            </View>
+          </ScrollView>
+          <GlassButton onPress={() => setHowItWorksOpen(false)} style={{ borderRadius: 12 }} accessibilityLabel="Done reading chore chart explanation">
+            <Text style={[styles.howItWorksDone, { color: colors.actionForeground }]}>Done</Text>
+          </GlassButton>
+        </GlassModalSurface>
+      </View>
+    </Modal>
 
     <Modal
       visible={shortlistOpen}
@@ -1719,34 +1786,38 @@ export default function PlanningScreen() {
     </Modal>
 
     {/* ── Sticky bottom button area ── */}
-    <View style={[styles.stickyBottom, { backgroundColor: colors.background, borderTopColor: colors.border, paddingBottom: botPad + 16 }]}>
+    <GlassActionBar onLayout={({ nativeEvent }) => setPlanningActionHeight(nativeEvent.layout.height)} style={[styles.stickyBottom, { bottom: Math.max(insets.bottom, botPad, 12) }]}>
       <Pressable
         style={[styles.generateBtn, { backgroundColor: canGenerate && !loading ? colors.action : colors.muted }]}
         disabled={!canGenerate || loading}
-        onPress={isChoreChart && chartDraft ? sendChartForApproval : generate}
+        onPress={generate}
         accessibilityRole="button"
         accessibilityState={{ disabled: !canGenerate || loading, busy: loading }}
-        accessibilityLabel={isChoreChart ? chartDraft ? "Send chart for approval" : "Preview chore chart" : "Shortlist items"}
+        accessibilityLabel={isChoreChart ? "Preview chore chart" : "Shortlist items"}
       >
         {loading ? <ActivityIndicator color={colors.actionForeground} /> : <>
-          <Feather name={isChoreChart && chartDraft ? "send" : "list"} size={18} color={colors.actionForeground} />
-          <Text style={[styles.generateText, { color: colors.actionForeground }]}>
-            {isChoreChart ? chartDraft ? "Send for approval" : "Preview chore chart" : "Shortlist Items"}
+          <Feather name="list" size={18} color={colors.actionForeground} />
+          <Text style={[styles.generateText, { color: colors.actionForeground, flexShrink: 1, textAlign: "center" }]}>
+            {isChoreChart ? "Preview chore chart" : "Shortlist Items"}
           </Text>
         </>}
       </Pressable>
-      {isChoreChart && chartDraft ? <Pressable
-        style={[styles.rebuildBtn, { borderColor: colors.border, minHeight: 44 }]}
-        accessibilityRole="button" accessibilityLabel="Rebuild preview"
-        onPress={generate} disabled={loading}
-      ><Text style={[styles.rebuildText, { color: colors.foreground }]}>Rebuild preview</Text></Pressable> : null}
-    </View>
+
+    </GlassActionBar>
     </KeyboardAvoidingView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  howItWorksLink: { minHeight: 44, alignSelf: "flex-start", justifyContent: "center" },
+  howItWorksLinkText: { fontFamily: "Inter_400Regular", fontSize: 13, textDecorationLine: "underline" },
+  howItWorksOverlay: { flex: 1, justifyContent: "center", paddingHorizontal: 20 },
+  howItWorksSheet: { width: "100%", maxWidth: 480, maxHeight: "100%", alignSelf: "center", borderRadius: 24, padding: 20, gap: 20 },
+  howItWorksHeader: { flexDirection: "row", alignItems: "center", gap: 12 },
+  howItWorksTitle: { flex: 1, fontFamily: "Inter_700Bold", fontSize: 20 },
+  howItWorksBody: { fontFamily: "Inter_400Regular", fontSize: 13, lineHeight: 20 },
+  howItWorksDone: { fontFamily: "Inter_600SemiBold", fontSize: 15 },
   container: { flex: 1 },
   header: { paddingHorizontal: 20, paddingBottom: 16 },
   headerRow: { flexDirection: "row", alignItems: "center", gap: 12 },
@@ -1957,6 +2028,7 @@ const styles = StyleSheet.create({
     textAlignVertical: "top",
     marginBottom: 12,
   },
+  permanentPreferencesSection: { marginHorizontal: 20, marginTop: 8 },
   customTaskCard: { marginHorizontal: 16, marginTop: 14, borderWidth: 1, borderRadius: 18, padding: 14, gap: 10 },
   preferenceSection: { marginHorizontal: 16, marginTop: 14, gap: 10 },
   preferenceIntro: { fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 13, marginTop: -7 },
@@ -1970,6 +2042,8 @@ const styles = StyleSheet.create({
   customTaskInput: { height: 46, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, fontFamily: "Inter_500Medium", includeFontPadding: false, fontSize: 15 },
   customTaskFieldLabel: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 11, letterSpacing: 1, marginTop: 2 },
   customTaskOptions: { flexDirection: "row", gap: 7 },
+  customFrequencyOptions: { flexDirection: "row", flexWrap: "wrap", gap: 7 },
+  customFrequencyChip: { maxWidth: "100%", minHeight: 44, paddingVertical: 8 },
   customTaskChip: { flex: 1, height: 36, borderWidth: 1, borderRadius: 9, alignItems: "center", justifyContent: "center" },
   customTextChip: { minHeight: 36, borderWidth: 1, borderRadius: 9, paddingHorizontal: 11, alignItems: "center", justifyContent: "center" },
   saveCustomTask: { height: 46, borderRadius: 12, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7 },
@@ -2146,12 +2220,7 @@ const styles = StyleSheet.create({
   },
 
   // ── Sticky bottom ──
-  stickyBottom: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    gap: 8,
-  },
+  stickyBottom: { position: "absolute", left: 16, right: 16 },
   addTasksBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -2160,17 +2229,5 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingVertical: 14,
   },
-  rebuildBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    borderRadius: 12,
-    paddingVertical: 10,
-    borderWidth: 1,
-  },
-  rebuildText: {
-    fontFamily: "Inter_500Medium", includeFontPadding: false,
-    fontSize: 14,
-  },
+
 });

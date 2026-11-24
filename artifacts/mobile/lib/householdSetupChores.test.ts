@@ -188,3 +188,13 @@ assert.deepEqual(
   "a repeated setup submission must retain stable chore identities",
 );
 console.log("Household setup chore pipeline tests passed");
+
+const editedSetup = buildHouseholdSetupChores({
+  householdId, housingType: "apartment", items: selected,
+  roomCounts: { bathroom: 2, bedroom: 3 },
+  generatedTaskOverrides: { [removedId]: { title: "Edited toilet chore", difficulty: 2 } },
+  recurrenceOverrides: { [removedId]: "monthly" },
+});
+assert.equal(editedSetup.generatedTasks.find((task) => task.id === removedId)?.title, "Edited toilet chore");
+assert.equal(editedSetup.generatedTasks.find((task) => task.id === removedId)?.difficulty, 2);
+assert.equal(editedSetup.generatedTasks.find((task) => task.id === removedId)?.frequency, "monthly", "reopening setup must retain planner edits");

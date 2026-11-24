@@ -1,3 +1,4 @@
+import { useHouseholdPlanningStatus } from "@/hooks/useHouseholdPlanningStatus";
 import { signOutWithPushCleanup } from "@/lib/pushRegistration";
 import { KEYBOARD_BEHAVIOR } from "@/lib/keyboard";
 import { Surface } from "@/components/Surface";
@@ -105,27 +106,27 @@ function CollapsibleSettingsSection({
   icon,
   children,
   defaultOpen = false,
+  headerAccessory,
 }: {
   title: string;
-  subtitle: string;
+  subtitle?: string;
   icon: React.ComponentProps<typeof Feather>["name"];
   children: ReactNode;
   defaultOpen?: boolean;
+  headerAccessory?: ReactNode;
 }) {
   const colors = useTheme();
   const [open, setOpen] = useState(defaultOpen);
 
   return (
     <View style={styles.collapsibleSection}>
+      <View style={[styles.collapsibleHeader, { backgroundColor: colors.card, borderColor: colors.border }]}>
       <TouchableOpacity
         accessibilityRole="button"
         accessibilityState={{ expanded: open }}
         accessibilityLabel={`${title}, ${open ? "collapse" : "expand"}`}
         onPress={() => setOpen((current) => !current)}
-        style={[
-          styles.collapsibleHeader,
-          { backgroundColor: colors.card, borderColor: colors.border },
-        ]}
+        style={[styles.collapsibleToggle, headerAccessory ? styles.collapsibleToggleWithAccessory : undefined]}
       >
         <View
           style={[
@@ -139,21 +140,24 @@ function CollapsibleSettingsSection({
           <Text style={[styles.collapsibleTitle, { color: colors.foreground }]}>
             {title}
           </Text>
-          <Text
+          {subtitle ? <Text
             style={[
               styles.collapsibleSubtitle,
               { color: colors.mutedForeground },
             ]}
           >
             {subtitle}
-          </Text>
+          </Text> : null}
         </View>
         <Feather
-          name={open ? "chevron-up" : "chevron-down"}
+          accessible={false}
+          name={open ? "chevron-down" : "chevron-right"}
           size={19}
           color={colors.mutedForeground}
         />
       </TouchableOpacity>
+      {headerAccessory ? <View style={styles.collapsibleHeaderAccessory}>{headerAccessory}</View> : null}
+      </View>
       {open ? <View style={styles.collapsibleContent}>{children}</View> : null}
     </View>
   );
@@ -162,6 +166,7 @@ function CollapsibleSettingsSection({
 export default function SettingsScreen() {
   const colors = useTheme();
   const insets = useSafeAreaInsets();
+  const planningStatus = useHouseholdPlanningStatus();
   const {
     roommates,
     currentUserId,
@@ -173,7 +178,6 @@ export default function SettingsScreen() {
     refreshHousehold,
     deleteHousehold,
     restartChartProcess,
-    currentProposedChart,
     isHost,
     householdComplete,
     removeRoommate,
@@ -275,12 +279,12 @@ export default function SettingsScreen() {
   };
 
   const confirmRestartChart = () => {
-    confirm("restart_chart", "Restart chore planning?", "This cancels the current pending proposal and lets your household generate a fresh chart.", () => {
+    confirm("restart_chart", "Restart chore planning?", "This resets every Sweetmate to Pending so everyone can review and approve again. Your current chores and saved household settings stay in place.", () => {
           void (async () => {
             setRestartingChart(true);
             try {
               await restartChartProcess();
-              router.push("/planning");
+              router.push("/planning?type=chore-chart" as never);
             } catch {
               hapticError();
               info("restart_chart_error", "Could not restart", "Please check your connection and try again.");
@@ -648,6 +652,151 @@ export default function SettingsScreen() {
     }
   };
 
+  const householdPreferencesSection = (
+    <>
+      {/* Planning section */}
+      <Text
+        style={[styles.sectionLabel, { color: colors.mutedForeground }]}
+      >
+        HOUSEHOLD PLANNING TOOLS
+      </Text>
+      <CollapsibleSettingsSection
+        title="HOUSEHOLD PREFERENCES"
+        subtitle="Setup, task difficulty, and household planning"
+        icon="home"
+        headerAccessory={<HouseholdCompletionControl compact chartStatus={planningStatus.chartStatus} />}
+      >
+        <View>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel="Open Chore Chart planning"
+            style={[
+              styles.linkRow,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+            onPress={() => router.push("/planning?type=chore-chart" as never)}
+          >
+            <View
+              style={[
+                styles.linkIcon,
+                { backgroundColor: colors.primary + "18" },
+              ]}
+            >
+              <Feather name="calendar" size={20} color={colors.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.linkTitle, { color: colors.foreground }]}>
+                CHORE CHART
+              </Text>
+              <Text style={[styles.linkSub, { color: colors.mutedForeground }]}>
+                Build a fair shared schedule for household chores
+              </Text>
+            </View>
+            <Feather
+              name="chevron-right"
+              size={18}
+              color={colors.mutedForeground}
+            />
+          </TouchableOpacity>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel="Open Sweet Essentials"
+            style={[
+              styles.linkRow,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+            onPress={() => router.push("/planning?type=home-checklist" as never)}
+          >
+            <View
+              style={[
+                styles.linkIcon,
+                { backgroundColor: colors.accent + "18" },
+              ]}
+            >
+              <Feather name="shopping-bag" size={20} color={colors.accent} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.linkTitle, { color: colors.foreground }]}>
+                SWEET ESSENTIALS
+              </Text>
+              <Text style={[styles.linkSub, { color: colors.mutedForeground }]}>
+                Browse the optional checklist for setting up your Sweet
+              </Text>
+            </View>
+            <Feather
+              name="chevron-right"
+              size={18}
+              color={colors.mutedForeground}
+            />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.linkRow,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+            onPress={() => router.push("/task-difficulty")}
+          >
+            <View
+              style={[
+                styles.linkIcon,
+                { backgroundColor: colors.accent + "18" },
+              ]}
+            >
+              <Feather name="bar-chart-2" size={19} color={colors.accent} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.linkTitle, { color: colors.foreground }]}>
+                TASK DIFFICULTY
+              </Text>
+              <Text style={[styles.linkSub, { color: colors.mutedForeground }]}>
+                Review and edit shared difficulty levels
+              </Text>
+            </View>
+            <Feather
+              name="chevron-right"
+              size={18}
+              color={colors.mutedForeground}
+            />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.linkRow,
+              {
+                backgroundColor: colors.card,
+                borderColor: colors.border,
+                opacity: restartingChart ? 0.6 : 1,
+              },
+            ]}
+            onPress={confirmRestartChart}
+            disabled={restartingChart}
+          >
+            <View
+              style={[
+                styles.linkIcon,
+                { backgroundColor: colors.warning + "18" },
+              ]}
+            >
+              <Feather name="rotate-ccw" size={18} color={colors.warning} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.linkTitle, { color: colors.foreground }]}>
+                RESTART CHART PROCESS
+              </Text>
+              <Text style={[styles.linkSub, { color: colors.mutedForeground }]}>
+                Reset everyone's approval and revise the chart
+              </Text>
+            </View>
+            <Feather
+              name="chevron-right"
+              size={18}
+              color={colors.mutedForeground}
+            />
+          </TouchableOpacity>
+        </View>
+      </CollapsibleSettingsSection>
+    </>
+  );
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View
@@ -689,18 +838,11 @@ export default function SettingsScreen() {
                   { color: colors.foreground },
                 ]}
               >
-                MAKE SWEETMATE YOURS
-              </Text>
-              <Text
-                style={[
-                  styles.settingsIntroSub,
-                  { color: colors.mutedForeground },
-                ]}
-              >
-                Profile, household tools, and account access
+                {householdName?.trim() || "Your household"}
               </Text>
             </View>
           </View>
+          {planningStatus.needsAttention && householdPreferencesSection}
           {/* Profile section */}
           {/* Account section — login / switch / logout */}
           <Text
@@ -715,50 +857,11 @@ export default function SettingsScreen() {
               { backgroundColor: colors.card, borderColor: colors.border },
             ]}
           >
-            <View style={styles.activeHouseholdRow}>
-              <View
-                style={[
-                  styles.linkIcon,
-                  { backgroundColor: colors.primary + "18" },
-                ]}
-              >
-                <Feather name="home" size={18} color={colors.primary} />
-              </View>
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <Text
-                  style={[styles.fieldLabel, { color: colors.mutedForeground }]}
-                >
-                  ACTIVE HOUSEHOLD
-                </Text>
-                <Text
-                  style={[styles.accountName, { color: colors.foreground }]}
-                  numberOfLines={1}
-                >
-                  {householdName ?? "No household selected"}
-                </Text>
-              </View>
-              <View style={[styles.householdStatusBadge, { backgroundColor: colors.success + "18", borderColor: colors.success + "55" }]}>
-                <View style={[styles.householdStatusDot, { backgroundColor: colors.success }]} />
-                <Text style={[styles.householdStatusText, { color: colors.success }]}>Active</Text>
-              </View>
-            </View>
-            <View style={styles.householdSummaryRow} accessibilityRole="summary">
-              <View style={[styles.householdSummaryChip, { backgroundColor: colors.muted, borderColor: colors.border }]}>
-                <Feather name="users" size={13} color={colors.primary} />
-                <Text style={[styles.householdSummaryText, { color: colors.foreground }]}>
-                  {roommates.length} {roommates.length === 1 ? "member" : "members"}
-                </Text>
-              </View>
-              <View style={[styles.householdSummaryChip, { backgroundColor: colors.muted, borderColor: colors.border }]}>
-                <Feather name={isHost ? "shield" : "user"} size={13} color={colors.primary} />
-                <Text style={[styles.householdSummaryText, { color: colors.foreground }]}>{isHost ? "Host" : "Member"}</Text>
-              </View>
-              <View style={[styles.householdSummaryChip, { backgroundColor: colors.muted, borderColor: colors.border }]}>
-                <Feather name={householdComplete ? "check-circle" : "clock"} size={13} color={householdComplete ? colors.success : colors.mutedForeground} />
-                <Text style={[styles.householdSummaryText, { color: householdComplete ? colors.success : colors.mutedForeground }]}>
-                  {householdComplete ? "Setup complete" : "Setup in progress"}
-                </Text>
-              </View>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
+              <Text style={[styles.householdSummaryText, { color: colors.mutedForeground }]}>
+                {householdComplete ? "Setup complete" : "Setup in progress"}
+              </Text>
+              {householdComplete && <Feather name="check-square" size={14} color={colors.mutedForeground} />}
             </View>
             <TouchableOpacity
               accessibilityRole="button"
@@ -810,7 +913,6 @@ export default function SettingsScreen() {
                   {isHost ? "Household host" : "Household member"}
                 </Text>
               </View>
-              <Feather name="shield" size={16} color={colors.success} />
             </View>
             <View style={styles.householdTileGroup}>
               <InviteCodeCard
@@ -835,15 +937,6 @@ export default function SettingsScreen() {
                   ]}
                 >
                   HOUSEHOLD MEMBERS
-                </Text>
-                <Text
-                  style={[
-                    styles.memberManagementHint,
-                    { color: colors.mutedForeground },
-                  ]}
-                >
-                  Removing someone only revokes household access. It does not
-                  delete their account.
                 </Text>
                 {roommates
                   .filter((roommate) => roommate.id !== currentUserId)
@@ -1235,148 +1328,7 @@ export default function SettingsScreen() {
             </View>
           </View>
 
-          {/* Planning section */}
-          <Text
-            style={[styles.sectionLabel, { color: colors.mutedForeground }]}
-          >
-            HOUSEHOLD TOOLS
-          </Text>
-          <CollapsibleSettingsSection
-            title="HOUSEHOLD PREFERENCES"
-            subtitle="Setup, task difficulty, and household planning"
-            icon="home"
-          >
-            <View>
-              <HouseholdCompletionControl />
-              <TouchableOpacity
-                style={[
-                  styles.linkRow,
-                  { backgroundColor: colors.card, borderColor: colors.border },
-                ]}
-                onPress={() => router.push("/task-difficulty")}
-              >
-                <View
-                  style={[
-                    styles.linkIcon,
-                    { backgroundColor: colors.accent + "18" },
-                  ]}
-                >
-                  <Feather name="bar-chart-2" size={19} color={colors.accent} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.linkTitle, { color: colors.foreground }]}>
-                    TASK DIFFICULTY
-                  </Text>
-                  <Text style={[styles.linkSub, { color: colors.mutedForeground }]}>
-                    Review and edit shared difficulty levels
-                  </Text>
-                </View>
-                <Feather
-                  name="chevron-right"
-                  size={18}
-                  color={colors.mutedForeground}
-                />
-              </TouchableOpacity>
-              <TouchableOpacity
-                accessibilityRole="button"
-                accessibilityLabel="Open Chore Chart planning"
-                style={[
-                  styles.linkRow,
-                  { backgroundColor: colors.card, borderColor: colors.border },
-                ]}
-                onPress={() => router.push("/planning?type=chore-chart" as never)}
-              >
-                <View
-                  style={[
-                    styles.linkIcon,
-                    { backgroundColor: colors.primary + "18" },
-                  ]}
-                >
-                  <Feather name="calendar" size={20} color={colors.primary} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.linkTitle, { color: colors.foreground }]}>
-                    CHORE CHART
-                  </Text>
-                  <Text style={[styles.linkSub, { color: colors.mutedForeground }]}>
-                    Build a fair shared schedule for household chores
-                  </Text>
-                </View>
-                <Feather
-                  name="chevron-right"
-                  size={18}
-                  color={colors.mutedForeground}
-                />
-              </TouchableOpacity>
-              <TouchableOpacity
-                accessibilityRole="button"
-                accessibilityLabel="Open Sweet Essentials"
-                style={[
-                  styles.linkRow,
-                  { backgroundColor: colors.card, borderColor: colors.border },
-                ]}
-                onPress={() => router.push("/planning?type=home-checklist" as never)}
-              >
-                <View
-                  style={[
-                    styles.linkIcon,
-                    { backgroundColor: colors.accent + "18" },
-                  ]}
-                >
-                  <Feather name="shopping-bag" size={20} color={colors.accent} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.linkTitle, { color: colors.foreground }]}>
-                    SWEET ESSENTIALS
-                  </Text>
-                  <Text style={[styles.linkSub, { color: colors.mutedForeground }]}>
-                    Browse the optional checklist for setting up your Sweet
-                  </Text>
-                </View>
-                <Feather
-                  name="chevron-right"
-                  size={18}
-                  color={colors.mutedForeground}
-                />
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.linkRow,
-                  {
-                    backgroundColor: colors.card,
-                    borderColor: colors.border,
-                    opacity: restartingChart ? 0.6 : 1,
-                  },
-                ]}
-                onPress={confirmRestartChart}
-                disabled={restartingChart}
-              >
-                <View
-                  style={[
-                    styles.linkIcon,
-                    { backgroundColor: colors.warning + "18" },
-                  ]}
-                >
-                  <Feather name="rotate-ccw" size={18} color={colors.warning} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.linkTitle, { color: colors.foreground }]}>
-                    RESTART CHART PROCESS
-                  </Text>
-                  <Text style={[styles.linkSub, { color: colors.mutedForeground }]}>
-                    {currentProposedChart?.status === "pending"
-                      ? "Cancel the pending proposal and generate a new one"
-                      : "Return to planning and generate a fresh proposal"}
-                  </Text>
-                </View>
-                <Feather
-                  name="chevron-right"
-                  size={18}
-                  color={colors.mutedForeground}
-                />
-              </TouchableOpacity>
-            </View>
-          </CollapsibleSettingsSection>
+          {!planningStatus.needsAttention && householdPreferencesSection}
 
           <Text
             style={[styles.sectionLabel, { color: colors.mutedForeground }]}
@@ -1394,7 +1346,6 @@ export default function SettingsScreen() {
           {session?.user.id ? (
             <CollapsibleSettingsSection
               title="PRIVACY & DIAGNOSTICS"
-              subtitle="Analytics and diagnostic sharing"
               icon="shield"
             >
               <AnalyticsPreferencesPanel userId={session.user.id} />
@@ -2132,16 +2083,6 @@ const styles = StyleSheet.create({
   },
   householdStatusDot: { width: 6, height: 6, borderRadius: 3 },
   householdStatusText: { fontFamily: "Inter_600SemiBold", includeFontPadding: false, fontSize: 12 },
-  householdSummaryRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  householdSummaryChip: {
-    minHeight: 32,
-    borderRadius: 16,
-    borderWidth: 1,
-    paddingHorizontal: 10,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-  },
   householdSummaryText: { fontFamily: "Inter_500Medium", includeFontPadding: false, fontSize: 12 },
   householdTileGroup: {
     gap: 8,
@@ -2254,11 +2195,6 @@ const styles = StyleSheet.create({
     fontSize: 19,
     letterSpacing: 1.4,
   },
-  settingsIntroSub: {
-    fontFamily: "Inter_400Regular", includeFontPadding: false,
-    fontSize: 14,
-    marginTop: 2,
-  },
   collapsibleSection: {
     marginTop: 20,
   },
@@ -2270,8 +2206,22 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 20,
     flexDirection: "row",
+    flexWrap: "wrap",
     alignItems: "center",
     gap: 12,
+  },
+  collapsibleToggle: {
+    flex: 1,
+    minHeight: 44,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  collapsibleToggleWithAccessory: {
+    flexBasis: "100%",
+  },
+  collapsibleHeaderAccessory: {
+    width: "100%",
   },
   collapsibleHeaderCopy: {
     flex: 1,

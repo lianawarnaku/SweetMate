@@ -52,6 +52,7 @@ export function retainedChoreLoads(
   now: Date,
   timezone: string,
   householdId?: string,
+  recurringOnly = false,
 ): Record<string, number> {
   const totals = Object.fromEntries(members.map((member) => [member.id, 0]));
   const today = householdDateKey(now, timezone);
@@ -67,6 +68,8 @@ export function retainedChoreLoads(
     )
       continue;
     const generated = Boolean(chore.sourceKey && !chore.assignmentLocked);
+    if (recurringOnly && (generated || !chore.recurring ||
+      (chore.recurrenceEndsOn && chore.recurrenceEndsOn <= today))) continue;
     if (generated && choreDay(chore, timezone) > today) continue;
     const difficulty = difficultyForPoints(chore.points);
     if (generated) {
@@ -103,6 +106,37 @@ export function retainedChoreLoads(
     });
   });
   return totals;
+}
+
+/** Long-run weekly effort shares; starting turns and one-off backlog do not change them. */
+export function averageWeeklyWorkloads({
+  payload, members, chores, now, timezone, householdId,
+}: {
+  payload: ChartPayload;
+  members: Member[];
+  chores: Chore[];
+  now: Date;
+  timezone: string;
+  householdId: string;
+}): Record<string, number> | null {
+  if (payload.version !== 2 || payload.rotation !== "round-robin" || !payload.generatedTasks) return null;
+  const plannedTaskIds = new Set(payload.generatedTasks.map((task) => task.id));
+  const loads = retainedChoreLoads(
+    chores.filter((chore) => !chore.sourceKey || !plannedTaskIds.has(chore.sourceKey)),
+    members, now, timezone, householdId, true,
+  );
+  for (const task of payload.generatedTasks) {
+    let participants: string[];
+    try {
+      participants = eligibleMemberIdsForTask(task.id, members, payload);
+    } catch {
+      // A stale proposal can reference departed members. Show a rebuild prompt.
+      return null;
+    }
+    const share = taskLoad(task) / participants.length;
+    for (const memberId of participants) loads[memberId] += share;
+  }
+  return loads;
 }
 
 export function buildHouseholdChart({

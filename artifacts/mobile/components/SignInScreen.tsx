@@ -18,6 +18,7 @@ import {
   KeyboardAvoidingView,
   Linking,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -32,8 +33,7 @@ import { error as hapticError } from "@/lib/haptics";
 import { BrandMark } from "./BrandMark";
 import { supabase } from "@/lib/supabase";
 import { reportSupabaseError, reportRuntimeError } from "@/lib/runtimeDiagnostics";
-import { beginAnalyticsAuth, recordAnalyticsAuthSucceeded } from "@/lib/analytics";
-import { useAnalyticsPreferences } from "@/components/AnalyticsConsentManager";
+import { beginAnalyticsAuth, recordAnalyticsAuthSucceeded, saveSignupAnalyticsConsent } from "@/lib/analytics";
 import { authCallbackValue } from "@/lib/oauthCallback";
 
 type Mode = "signin" | "signup";
@@ -55,7 +55,7 @@ function isValidEmail(s: string): boolean {
 
 export function SignInScreen() {
   const colors = useTheme();
-  const { ready: privacyChoiceReady } = useAnalyticsPreferences(null);
+  const [shareOptionalData, setShareOptionalData] = useState(false);
   const insets = useSafeAreaInsets();
   const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState("");
@@ -67,7 +67,7 @@ export function SignInScreen() {
   const [confirmationEmail, setConfirmationEmail] = useState<string | null>(null);
 
   const submit = async () => {
-    if (!privacyChoiceReady) return;
+    if (loading || socialLoading) return;
     setError(null);
     setInfo(null);
     if (!isValidEmail(email)) {
@@ -118,6 +118,10 @@ export function SignInScreen() {
           setError(signUpError.message);
           hapticError();
           return;
+        }
+        if (data.user?.id) {
+          try { await saveSignupAnalyticsConsent(data.user.id, shareOptionalData, analyticsAttempt, Boolean(data.session)); }
+          catch (consentError) { reportRuntimeError("save optional signup privacy choice", consentError); }
         }
         if (data.session) {
           // Auto-confirm is enabled — the new user is signed in immediately.
@@ -172,7 +176,7 @@ export function SignInScreen() {
   };
 
   const signInWithSocialProvider = async (provider: SocialProvider) => {
-    if (!privacyChoiceReady || loading || socialLoading) return;
+    if (loading || socialLoading) return;
     setSocialLoading(provider);
     const analyticsAttempt = beginAnalyticsAuth({ method: provider, mode });
     setError(null);
@@ -217,6 +221,10 @@ export function SignInScreen() {
       }
 
       if (authenticatedUserId) {
+        if (mode === "signup") {
+          try { await saveSignupAnalyticsConsent(authenticatedUserId, shareOptionalData, analyticsAttempt, true); }
+          catch (consentError) { reportRuntimeError("save optional social signup privacy choice", consentError); }
+        }
         await recordAnalyticsAuthSucceeded(authenticatedUserId, analyticsAttempt, { method: provider, mode });
       }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -229,7 +237,7 @@ export function SignInScreen() {
     }
   };
 
-  const busy = loading || socialLoading !== null || !privacyChoiceReady;
+  const busy = loading || socialLoading !== null;
   const canSubmit = email.trim().length > 0 && password.length > 0 && !busy;
   const openPolicy = () => openPrivacyPolicy(() => setError("Privacy Policy unavailable. Check your connection, or visit sweetmate.info/privacy in a browser."));
 
@@ -343,6 +351,36 @@ export function SignInScreen() {
               </Text>
             )}
           </TouchableOpacity>
+          {mode === "signup" ? (
+            <View style={styles.signupConsent}>
+              <Pressable
+                accessibilityRole="checkbox"
+                accessibilityLabel="Share optional product analytics and crash reports"
+                accessibilityState={{ checked: shareOptionalData, disabled: busy }}
+                aria-checked={shareOptionalData}
+                {...(Platform.OS === "web" ? {
+                  onKeyDown: (event: { nativeEvent: { key?: string; repeat?: boolean }; preventDefault: () => void }) => {
+                    if (event.nativeEvent.key === " " || event.nativeEvent.key === "Spacebar") {
+                      event.preventDefault();
+                      if (!busy && !event.nativeEvent.repeat) setShareOptionalData((current) => !current);
+                    }
+                  },
+                } : {})}
+                disabled={busy}
+                onPress={() => setShareOptionalData((current) => !current)}
+                style={styles.consentRow}
+              >
+                <View style={[styles.consentBox, { borderColor: colors.foreground, backgroundColor: shareOptionalData ? colors.foreground : "transparent" }]}>
+                  {shareOptionalData ? <Feather name="check" size={16} color={colors.background} /> : null}
+                </View>
+                <Text style={[styles.consentCopy, { color: colors.foreground }]}>Help improve SweetMate by sharing product analytics and crash reports. Optional.</Text>
+              </Pressable>
+              <Text style={[styles.consentDetails, { color: colors.mutedForeground }]}>
+                Household content is excluded. You can change either choice in Settings. Read our{" "}
+                <Text accessibilityRole="link" onPress={openPolicy} style={[styles.privacyLink, { color: colors.primary }]}>Privacy Statement</Text>.
+              </Text>
+            </View>
+          ) : null}
           <View style={styles.dividerRow}>
             <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
             <Text style={[styles.dividerText, { color: colors.mutedForeground }]}>OR CONTINUE WITH</Text>
@@ -384,25 +422,14 @@ export function SignInScreen() {
               </>
             )}
           </TouchableOpacity>
-          {mode === "signup" ? (
-            <Text style={[styles.privacyCopy, { color: colors.mutedForeground }]}>
-              By creating an account, you acknowledge the{" "}
-              <Text
-                accessibilityRole="link"
-                onPress={openPolicy}
-                style={{ color: colors.primary, fontFamily: "Inter_600SemiBold" }}
-              >
-                Privacy Policy
-              </Text>
-              . Optional analytics and crash reporting remain off unless you enable them.
-            </Text>
-          ) : null}
+
 
           <TouchableOpacity
             style={styles.switchRow}
             disabled={busy}
             onPress={() => {
               setMode(mode === "signin" ? "signup" : "signin");
+              setShareOptionalData(false);
               setError(null);
               setInfo(null);
               setConfirmationEmail(null);
@@ -423,6 +450,12 @@ export function SignInScreen() {
 }
 
 const styles = StyleSheet.create({
+  signupConsent: { marginTop: 12, gap: 4 },
+  consentRow: { flexDirection: "row", alignItems: "center", gap: 12, minHeight: 48 },
+  consentBox: { width: 24, height: 24, borderRadius: 6, borderWidth: 1.5, alignItems: "center", justifyContent: "center" },
+  consentCopy: { flex: 1, fontFamily: "Inter_500Medium", fontSize: 13, lineHeight: 19 },
+  consentDetails: { fontFamily: "Inter_400Regular", fontSize: 12, lineHeight: 18, marginLeft: 36 },
+  privacyLink: { fontFamily: "Inter_600SemiBold", textDecorationLine: "underline" },
   root: { flex: 1 },
   scroll: { paddingHorizontal: 24, alignItems: "center" },
   logoWrap: {

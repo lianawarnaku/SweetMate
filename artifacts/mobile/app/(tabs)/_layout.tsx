@@ -10,6 +10,7 @@ import {
   StyleSheet,
   Text,
   View,
+  type ViewStyle,
 } from "react-native";
 import { useAccessibilityPreferences } from "@/hooks/useAccessibilityPreferences";
 import { useTabBarLayout } from "@/hooks/useTabBarLayout";
@@ -17,6 +18,7 @@ import { useTabBarLayout } from "@/hooks/useTabBarLayout";
 import { useTheme } from "@/constants/colors";
 import { isLeaderboardVisible } from "@/constants/featureAvailability";
 import { useAppContextSelector } from "@/context/AppContext";
+import { GlassTabBar } from "@/components/LiquidGlass";
 import { SmoothPressable } from "@/components/SmoothPressable";
 import { clampTabIndicatorX, resolveDraggedTabIndex } from "@/lib/tabBarGesture";
 import { tapLight } from "@/lib/haptics";
@@ -41,7 +43,7 @@ function ScrollableTabBar({ state, descriptors, navigation }: BottomTabBarProps)
   );
   const focusedRouteKey = state.routes[state.index]?.key;
   const preloadedRouteKeys = useRef(new Set<string>());
-  const { reduceMotion } = useAccessibilityPreferences();
+  const { reduceMotion, reduceTransparency } = useAccessibilityPreferences();
   const [contentWidth, setContentWidth] = useState(0);
   const indicatorX = useRef(new Animated.Value(0)).current;
   const bubbleActivity = useRef(new Animated.Value(0)).current;
@@ -257,14 +259,15 @@ function ScrollableTabBar({ state, descriptors, navigation }: BottomTabBarProps)
   }, [focusedRouteKey, navigation, visibleRoutes]);
 
   return (
-    <View
+    <GlassTabBar
       style={[
         styles.tabBarShell,
         {
           bottom: tabBarBottom,
-          backgroundColor: colors.surfaceModalOpaque,
+          borderColor: colors.glassRim,
           shadowColor: "#000000",
         },
+        Platform.OS === "web" && !reduceTransparency ? styles.webFrost : undefined,
       ]}
     >
       <View
@@ -351,7 +354,7 @@ function ScrollableTabBar({ state, descriptors, navigation }: BottomTabBarProps)
           );
         })}
       </View>
-    </View>
+    </GlassTabBar>
   );
 }
 
@@ -440,6 +443,7 @@ export default function TabLayout() {
 }
 
 const styles = StyleSheet.create({
+  webFrost: { backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)" } as ViewStyle,
   tabBarShell: {
     position: "absolute",
     left: 14,

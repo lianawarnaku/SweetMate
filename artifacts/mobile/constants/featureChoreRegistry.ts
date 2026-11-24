@@ -49,8 +49,8 @@ export const FEATURE_CHORE_RULES: Readonly<Record<string, readonly ChoreTemplate
   "bathroom:mirror": [{ id: "clean-bathroom-mirror", title: "Clean bathroom mirror", category: "bathroom", recurrence: "weekly", points: 10 }],
   "bathroom:bath_mat": [{ id: "wash-bath-mat", title: "Wash bath mat", category: "laundry", recurrence: "weekly", points: 10 }],
   "kitchen:dishwasher": [
-    { id: "load-unload-dishwasher", title: "Unload dishwasher", category: "kitchen", recurrence: "daily", points: 10, timeOfDay: "morning", keepTogetherGroup: "dishwasher-daily" },
-    { id: "load-run-dishwasher", title: "Load and run dishwasher", category: "kitchen", recurrence: "daily", points: 10, timeOfDay: "night", keepTogetherGroup: "dishwasher-daily" },
+    { id: "load-unload-dishwasher", title: "Unload dishwasher", category: "kitchen", recurrence: "daily", points: 10, timeOfDay: "morning" },
+    { id: "load-run-dishwasher", title: "Load and run dishwasher", category: "kitchen", recurrence: "daily", points: 10, timeOfDay: "night" },
     { id: "clean-dishwasher-filter", title: "Clean dishwasher filter", category: "kitchen", recurrence: "monthly", points: 25 },
   ],
   "kitchen:refrigerator": [

@@ -215,4 +215,66 @@ const deletedCount = events.length;
 analytics.track.shoppingItemAdded();
 assert.equal(events.length, deletedCount);
 assert.equal(diagnosticOptions.beforeSend({}), null);
-console.log("analytics consent, identity, activation, and privacy tests passed");
+// Signup checkbox: consent belongs only to the successful account/attempt.
+await analytics.loadAnalyticsPreferences(null, { resetAnonymous: true });
+const signupAttempt = analytics.beginAnalyticsAuth({ method: "email", mode: "signup" });
+await analytics.loadAnalyticsPreferences("checkbox-opt-in");
+await analytics.saveSignupAnalyticsConsent("checkbox-opt-in", true, signupAttempt, true);
+assert.equal(analytics.analyticsSnapshot("checkbox-opt-in").preferences.productAnalyticsEnabled, true);
+assert.equal(analytics.analyticsSnapshot("checkbox-opt-in").preferences.crashReportingEnabled, true);
+assert.equal(events.at(-1)?.properties.source, "signup");
+
+await analytics.loadAnalyticsPreferences(null, { resetAnonymous: true });
+const uncheckedAttempt = analytics.beginAnalyticsAuth({ method: "email", mode: "signup" });
+await analytics.loadAnalyticsPreferences("checkbox-unchecked");
+const beforeUnchecked = events.length;
+await analytics.saveSignupAnalyticsConsent("checkbox-unchecked", false, uncheckedAttempt, true);
+await analytics.recordAnalyticsAuthSucceeded("checkbox-unchecked", uncheckedAttempt, { method: "email", mode: "signup" }, true);
+assert.equal(analytics.analyticsSnapshot("checkbox-unchecked").preferences.noticeVersion, version);
+assert.equal(analytics.analyticsSnapshot("checkbox-unchecked").preferences.productAnalyticsEnabled, false);
+assert.equal(analytics.analyticsSnapshot("checkbox-unchecked").preferences.crashReportingEnabled, false);
+assert.equal(events.length, beforeUnchecked, "unchecked signup must succeed without optional collection");
+
+// Social signup returning an existing user must preserve their independent choices.
+await analytics.loadAnalyticsPreferences(null, { resetAnonymous: true });
+storage.set("sweetmate:telemetry-preferences:v1:existing-social", JSON.stringify({ productAnalyticsEnabled: false, crashReportingEnabled: true, noticeVersion: version }));
+const existingAttempt = analytics.beginAnalyticsAuth({ method: "google", mode: "signup" });
+await analytics.loadAnalyticsPreferences("existing-social");
+await analytics.saveSignupAnalyticsConsent("existing-social", true, existingAttempt, true);
+assert.equal(analytics.analyticsSnapshot("existing-social").preferences.productAnalyticsEnabled, false);
+assert.equal(analytics.analyticsSnapshot("existing-social").preferences.crashReportingEnabled, true);
+
+// Email confirmation stages the choice without enabling an anonymous SDK session.
+await analytics.loadAnalyticsPreferences(null, { resetAnonymous: true });
+const pendingAttempt = analytics.beginAnalyticsAuth({ method: "email", mode: "signup" });
+const beforePending = events.length;
+await analytics.saveSignupAnalyticsConsent("confirmation-pending", true, pendingAttempt, false);
+assert.equal(events.length, beforePending);
+assert.equal(analytics.analyticsSnapshot(null).preferences.productAnalyticsEnabled, false);
+assert.equal(JSON.parse(storage.get("sweetmate:telemetry-preferences:v1:confirmation-pending")!).crashReportingEnabled, true);
+await analytics.loadAnalyticsPreferences("confirmation-pending");
+assert.equal(analytics.analyticsSnapshot("confirmation-pending").preferences.productAnalyticsEnabled, true);
+assert.equal(analytics.analyticsSnapshot("confirmation-pending").preferences.crashReportingEnabled, true);
+
+await analytics.loadAnalyticsPreferences(null, { resetAnonymous: true });
+const staleCheckboxAttempt = analytics.beginAnalyticsAuth({ method: "apple", mode: "signup" });
+await analytics.loadAnalyticsPreferences("signed-out-checkbox");
+await analytics.loadAnalyticsPreferences(null, { resetAnonymous: true });
+await analytics.saveSignupAnalyticsConsent("signed-out-checkbox", true, staleCheckboxAttempt, true);
+assert.equal(storage.has("sweetmate:telemetry-preferences:v1:signed-out-checkbox"), false, "late signup callback cannot enable collection after sign-out");
+
+const failureAttempt = analytics.beginAnalyticsAuth({ method: "email", mode: "signup" });
+await analytics.loadAnalyticsPreferences("checkbox-save-failure");
+failNextStorageWrite = true;
+await assert.rejects(analytics.saveSignupAnalyticsConsent("checkbox-save-failure", true, failureAttempt, true), /storage unavailable/);
+assert.equal(analytics.analyticsSnapshot("checkbox-save-failure").preferences.productAnalyticsEnabled, false);
+assert.equal(analytics.analyticsSnapshot("checkbox-save-failure").preferences.crashReportingEnabled, false);
+
+// Legacy pre-auth consent cannot be inherited on the new signed-out screen.
+await analytics.loadAnalyticsPreferences(null);
+await analytics.saveAnalyticsPreferences(null, { ...consent, crashReportingEnabled: true });
+await analytics.loadAnalyticsPreferences(null, { resetAnonymous: true });
+assert.equal(analytics.analyticsSnapshot(null).preferences.productAnalyticsEnabled, false);
+assert.equal(analytics.analyticsSnapshot(null).preferences.crashReportingEnabled, false);
+assert.equal(storage.has("sweetmate:telemetry-preferences:v1:signed-out"), false);
+console.log("analytics consent, signup checkbox, identity, activation, and privacy tests passed");

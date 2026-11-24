@@ -1,3 +1,4 @@
+import { AppSwitch } from "@/components/AppSwitch";
 import { HistoryDisclosure } from "@/components/HistoryDisclosure";
 import { CompletionMotion, CompletionText } from "@/components/CompletionMotion";
 import { KEYBOARD_BEHAVIOR } from "@/lib/keyboard";
@@ -14,7 +15,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -821,11 +821,10 @@ export default function BorrowScreen() {
                   : "Only you can see this in your personal borrowing log."}
               </Text>
             </View>
-            <Switch
+            <AppSwitch
               value={privateEntry}
               onValueChange={setPrivateEntry}
               disabled={editingId !== null}
-              trackColor={{ false: colors.border, true: colors.primary }}
               accessibilityLabel="Private entry"
               accessibilityHint="When enabled, only you can retrieve and view this borrowing entry"
             />

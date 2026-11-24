@@ -313,10 +313,13 @@ export function HouseMonitor({
     ? getHouseMonitorProgress(totalChores, replay.fromCompletedChores)
     : null;
   // Keep every body a full square grid; remaining chores belong to the roof.
-  const gridSide = Math.sqrt(gridSquares);
+  // At 0%, show the complete empty 4×4 house rather than a faint roof
+  // over a single tile. These outline cells do not represent completed chores.
+  const emptyHouse = completedChores === 0;
+  const gridSide = emptyHouse ? 4 : Math.sqrt(gridSquares);
   const gridRows = gridSide;
   const roofClipId = `house-monitor-roof-${useId().replace(/:/g, "")}`;
-  const restingFocus = totalChores > 0 ? 1 : 0.45;
+  const restingFocus = 1;
   const focusProgress = useSharedValue(1);
   const roofProgress = useSharedValue(pendingReplay ? 0 : roofCompletionRatio);
   const roofScaleX = useSharedValue(1);
@@ -481,7 +484,7 @@ export function HouseMonitor({
           <Path
             d={HOUSE_MONITOR_ROOF_PATH}
             transform={HOUSE_MONITOR_ROOF_TRANSFORM}
-            fill={faintThemeColor(
+            fill={emptyHouse ? "none" : faintThemeColor(
               colors.primary,
               colors.background,
               0.1,
@@ -503,7 +506,7 @@ export function HouseMonitor({
             stroke={faintThemeColor(
               colors.primary,
               colors.background,
-              0.3,
+              emptyHouse ? 0.55 : 0.3,
               reduceTransparency,
             )}
             strokeWidth={2}
@@ -526,7 +529,7 @@ export function HouseMonitor({
                   >
                     <GridSquare
                       color={colors.primary}
-                      emptyColor={faintThemeColor(
+                      emptyColor={emptyHouse ? "transparent" : faintThemeColor(
                         colors.primary,
                         colors.background,
                         totalChores === 0 ? 0.04 : 0.1,
@@ -535,7 +538,7 @@ export function HouseMonitor({
                       emptyBorderColor={faintThemeColor(
                         colors.primary,
                         colors.background,
-                        totalChores === 0 ? 0.12 : 0.3,
+                        emptyHouse ? 0.55 : 0.3,
                         reduceTransparency,
                       )}
                       completed={index < filledSquares}

@@ -1,6 +1,7 @@
 import { PushNotificationManager } from "@/components/PushNotificationManager";
 import {
   BarlowCondensed_400Regular,
+  BarlowCondensed_400Regular_Italic,
   BarlowCondensed_500Medium,
   BarlowCondensed_600SemiBold,
   BarlowCondensed_700Bold,
@@ -90,6 +91,7 @@ export default function RootLayout() {
     // Keep the established aliases so every existing screen adopts the new
     // condensed SweetMate type system without scattered one-off font changes.
     Inter_400Regular: BarlowCondensed_400Regular,
+    Inter_400Regular_Italic: BarlowCondensed_400Regular_Italic,
     Inter_500Medium: BarlowCondensed_500Medium,
     Inter_600SemiBold: BarlowCondensed_600SemiBold,
     Inter_700Bold: BarlowCondensed_700Bold,

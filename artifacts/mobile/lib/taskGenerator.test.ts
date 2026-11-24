@@ -8,6 +8,7 @@ import { resolveItemDifficulty } from "../constants/itemDifficulty.ts";
 import { buildBalancedChart, taskLoad } from "./choreEngine.ts";
 import {
   buildHouseholdTasks,
+  buildConfiguredHouseholdTasks,
   generateHouseholdTasks,
   parseHouseholdAmenities,
 } from "./taskGenerator.ts";
@@ -92,7 +93,8 @@ assert.ok(
   morningTask && nightTask,
   "real built-in tasks must carry meaningful preference attributes",
 );
-assert.equal(morningTask.keepTogetherGroup, nightTask.keepTogetherGroup);
+assert.equal(morningTask.keepTogetherGroup, undefined, "unloading must be independently assignable");
+assert.equal(nightTask.keepTogetherGroup, undefined, "loading must be independently assignable");
 const preferences = [
   { householdId, memberId: "a", key: "morning", value: 100 },
   { householdId, memberId: "a", key: "night", value: 0 },
@@ -204,8 +206,8 @@ assert.equal(
       .filter((task) => task.keepTogetherGroup)
       .map((task) => task.keepTogetherGroup),
   ).size,
-  2,
-  "unrelated rooms must not be forced into the same keep-together group",
+  0,
+  "dishwasher morning and night chores must remain independent in every room",
 );
 
 const supported = await generateHouseholdTasks(
@@ -271,3 +273,25 @@ assert.deepEqual(
   "explicit custom task settings must survive generation",
 );
 console.log("Task generator regression tests passed");
+
+// Editing a generated chore must preserve its identity and affect chart inputs.
+const configuredProfile = {
+  housingType: "apartment" as const,
+  items: ["bathroom:Toilet"], additionalChores: [], roomCounts: { bathroom: 2 },
+};
+const roomDefaults = buildConfiguredHouseholdTasks(configuredProfile);
+const firstRoomTask = roomDefaults[0]!;
+const secondRoomTask = roomDefaults.find((task) => task.id !== firstRoomTask.id)!;
+const configured = buildConfiguredHouseholdTasks({
+  ...configuredProfile,
+  generatedTaskOverrides: { [firstRoomTask.id]: { title: "Custom bathroom chore", difficulty: 1 } },
+  recurrenceOverrides: { [firstRoomTask.id]: "biweekly" },
+});
+assert.equal(configured.length, roomDefaults.length, "edits must not create duplicate tasks");
+assert.deepEqual(configured.find((task) => task.id === firstRoomTask.id), {
+  ...firstRoomTask, title: "Custom bathroom chore", difficulty: 1, frequency: "biweekly",
+});
+assert.deepEqual(configured.find((task) => task.id === secondRoomTask.id), secondRoomTask, "a per-chore edit must not change other rooms");
+assert.equal(firstRoomTask.title, roomDefaults[0]!.title, "generation must not mutate the defaults");
+assert.equal(buildConfiguredHouseholdTasks({ ...configuredProfile, removedGeneratedKeys: [firstRoomTask.id] }).some((task) => task.id === firstRoomTask.id), false);
+assert.notDeepEqual(buildBalancedChart(configured, members).memberLoads, buildBalancedChart(roomDefaults, members).memberLoads, "edited difficulty and frequency must feed the workload algorithm");

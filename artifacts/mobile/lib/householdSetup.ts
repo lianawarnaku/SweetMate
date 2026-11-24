@@ -49,3 +49,11 @@ export function normalizeHouseholdSetupStep(
     ? (value as HouseholdSetupStep)
     : null;
 }
+
+export type HouseholdSetupDestination = "chore-chart" | "app";
+export function householdSetupDestinationRoute(destination: HouseholdSetupDestination) {
+  return destination === "chore-chart" ? "/planning?type=chore-chart" : "/(tabs)";
+}
+export function householdSetupDestinationKey(userId: string) {
+  return `sweetmate:setup-destination:v1:${userId}`;
+}

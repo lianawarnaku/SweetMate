@@ -122,7 +122,10 @@ function buildWorkUnits(
       )
     );
     // A soft grouping must never override individual pins or exclusions.
-    const split = groupedTasks.length > 1 && (!commonIds.length || hasStrongAversion);
+    // Morning and night are independent turns, even in older saved task groups.
+    const spansMorningAndNight = groupedTasks.some((task) => task.timeOfDay === "morning") &&
+      groupedTasks.some((task) => task.timeOfDay === "night");
+    const split = groupedTasks.length > 1 && (!commonIds.length || hasStrongAversion || spansMorningAndNight);
     for (const unitTasks of split ? groupedTasks.map((task) => [task]) : [groupedTasks]) {
       const load = unitTasks.reduce((sum, task) => sum + taskLoad(task, options.frequencyWeighted), 0);
       const eligibleIds = split ? eligibility.get(unitTasks[0].id)! : commonIds;

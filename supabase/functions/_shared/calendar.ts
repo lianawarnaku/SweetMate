@@ -59,11 +59,12 @@ export function createCalendarService(admin: SupabaseClient, config: Configurati
   };
   const access = async (userId: string) => {
     const row = await connection(userId);
-    if (!row) throw new CalendarFailure("GOOGLE_RECONNECT_REQUIRED", 401, "Connect Google Calendar in Settings before adding chores.");
+    if (!row) throw new CalendarFailure("GOOGLE_RECONNECT_REQUIRED", 401, "Connect Google Calendar in Settings to use your calendar.");
     if (row.access_token && Date.parse(row.access_token_expires_at ?? "") > Date.now() + 60000) return row.access_token as string;
     const token = await refresh(row.refresh_token); await saveToken(userId, token); return token.access_token;
   };
   return {
+    accessToken: access,
     async connect(user: User, value: unknown) {
       const input = value as { refreshToken?: unknown } | null;
       if (typeof input?.refreshToken !== "string" || !input.refreshToken || input.refreshToken.length > 4096)

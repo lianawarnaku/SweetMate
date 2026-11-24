@@ -1,11 +1,16 @@
+import { upcomingHouseholdChores } from "./upcomingChores.ts";
+import { choreChartReviewState, choreChartReviewSubmission, parseChoreChartReviewSnapshot, type ChoreChartReviewDraft } from "./choreChartReview.ts";
+import { chartApprovalProgress } from "./chartApprovals.ts";
 import { strict as assert } from "node:assert";
 import type {
   Chore,
   GeneratedTask,
   MemberPreference,
+  ProposedChart,
 } from "../context/AppContext";
 import {
   buildHouseholdChart,
+  averageWeeklyWorkloads,
   difficultyForPoints,
   frequencyLabel,
   householdDateKey,
@@ -633,3 +638,174 @@ assert.deepEqual(
   "retained rotating work is shared once across its eligible members, rather than counted in full for each stored owner",
 );
 console.log("Household chart behavior tests passed");
+
+// A recurring task is shared over the full rotation, not charged only to its first assignee.
+const sampleTasks = [
+  task("dishwasher-night", { difficulty: 2, frequency: "daily", timeOfDay: "night", keepTogetherGroup: "legacy-dishwasher" }),
+  task("dishwasher-morning", { difficulty: 2, frequency: "daily", timeOfDay: "morning", keepTogetherGroup: "legacy-dishwasher" }),
+  task("filter", { difficulty: 2, frequency: "monthly" }),
+  task("kettle", { difficulty: 3, frequency: "monthly" }),
+  task("shelves", { difficulty: 4, frequency: "monthly" }),
+  task("basket", { difficulty: 2, frequency: "monthly" }),
+  task("vacuum", { difficulty: 3, frequency: "weekly" }),
+];
+const sample = build(sampleTasks);
+assert.notEqual(owner(sample, "dishwasher-morning"), owner(sample, "dishwasher-night"), "even neutral preferences must allow distinct starting assignees for the daily dishwasher chores");
+const weeklyFor = (payload: ChartPayload, extraChores: Chore[] = [], roster = twoMembers) => averageWeeklyWorkloads({ payload, chores: extraChores, members: roster, householdId, now, timezone });
+const sampleWeekly = weeklyFor(sample)!;
+approximately(sampleWeekly.a, (28 + 11 * 12 / 52 + 3) / 2, "Avery's average must include half of every rotating chore");
+approximately(sampleWeekly.b, sampleWeekly.a, "equally eligible members must have equal average shares regardless of starting turns");
+assert.deepEqual(weeklyFor({ ...sample, assignments: [...sample.assignments].reverse() }), sampleWeekly, "the display must not depend on who is listed first");
+
+const constrainedWeeklyBase = build([task("daily-share", { difficulty: 2, frequency: "daily" }), task("fixed-weekly", { difficulty: 3 })], { members });
+let weeklyRequests = withAssignmentRequest(constrainedWeeklyBase, "fixed-weekly", "c", "always");
+weeklyRequests = withAssignmentRequest(weeklyRequests, "daily-share", "c", "never");
+const constrainedWeekly = weeklyFor(weeklyRequests, [], members)!;
+approximately(constrainedWeekly.a, 7, "Never me must divide rotating effort only between eligible members");
+approximately(constrainedWeekly.b, 7, "remaining members must receive the excluded person's rotating share");
+approximately(constrainedWeekly.c, 3, "Always me must count the full task against its fixed assignee");
+
+const retainedWeeklyPayload = build([task("planned", { difficulty: 4 })]);
+const ongoing = [
+  chore("external-daily", { recurring: "daily", points: 10, recurrenceSeriesId: "external-series" }),
+  chore("external-daily-copy", { recurring: "daily", points: 10, recurrenceSeriesId: "external-series", scheduledDate: "2026-07-28" }),
+  chore("external-rotating", { recurring: "weekly", points: 25, assignmentMode: "round-robin", roundRobinParticipantIds: ["a", "b"] }),
+  chore("one-off-backlog", { points: 30 }),
+  chore("generated-backlog", { sourceKey: "old-source", points: 30, recurring: "daily" }),
+  chore("expired-recurring", { points: 30, recurring: "daily", recurrenceEndsOn: "2026-07-26" }),
+  chore("completed-recurring", { points: 30, recurring: "daily", completed: true }),
+  chore("other-household", { householdId: "other", points: 30, recurring: "daily" }),
+  chore("planned-anchor", { sourceKey: "planned", assignmentLocked: true, recurring: "weekly", points: 25 }),
+];
+const weeklyRetained = weeklyFor(retainedWeeklyPayload, ongoing)!;
+approximately(weeklyRetained.a, 18, "include retained recurring effort once, without one-off backlog or duplicate chart anchors");
+approximately(weeklyRetained.b, 4, "external recurring rotations must use their participant lists");
+assert.equal(weeklyFor({ ...sample, version: undefined }), null, "older non-rotating proposals must request a rebuild rather than relabel starting loads");
+assert.equal(weeklyFor({ ...sample, pinnedAssignments: { "dishwasher-night": "departed" } }), null, "stale membership constraints must not crash the workload display");
+
+const approvalRoster = [{ id: "a", name: "Avery" }, { id: "b", name: "Blake" }];
+const approvalRows = [
+  { id: "old", proposedChartId: "old", memberId: "a", approved: true, approvedAt: "" },
+  { id: "current", proposedChartId: "new", memberId: "b", approved: true, approvedAt: "" },
+  { id: "departed", proposedChartId: "new", memberId: "removed", approved: true, approvedAt: "" },
+];
+const approvalProgress = chartApprovalProgress("new", approvalRoster, approvalRows);
+assert.equal(approvalProgress.totalCount, 2, "departed members must not appear in the active approval list");
+assert.equal(approvalProgress.approvedCount, 1, "votes from previous versions must not count");
+assert.deepEqual(approvalProgress.rows.map((row) => row.approved), [false, true]);
+assert.equal(chartApprovalProgress("next-revision", approvalRoster, approvalRows).approvedCount, 0, "a new revision must show every member pending until its own votes arrive");
+
+
+// Reviewing an unchanged proposal must approve that version, rather than
+// replace it and silently reset the other Sweetmates' votes.
+const reviewSharedChart: ProposedChart = {
+  id: "new", householdId, createdBy: "a", status: "pending",
+  payload: sample, createdAt: now.toISOString(),
+};
+const reviewDraft: ChoreChartReviewDraft = {
+  householdId, payload: sample, baseChartId: "new", approvedChartId: null,
+};
+const reviewState = (draft = reviewDraft, currentChart: ProposedChart | null = reviewSharedChart, inputsChanged = false, activeHousehold: string | null = householdId) => choreChartReviewState({ draft, currentChart, householdId: activeHousehold, inputsChanged });
+assert.deepEqual(reviewState(), { kind: "pending", chartId: "new" });
+assert.equal(chartApprovalProgress(reviewState().chartId, approvalRoster, approvalRows).approvedCount, 1, "an unchanged preview must preserve the exact proposal's existing votes");
+const reorderedPayload = Object.fromEntries(Object.entries(sample).reverse()) as ChartPayload;
+assert.deepEqual(reviewState({ ...reviewDraft, payload: reorderedPayload }), { kind: "pending", chartId: "new" }, "jsonb key ordering must not reset approvals");
+const changedPayload = { ...sample, pinnedAssignments: { [sampleTasks[0].id]: "a" } };
+assert.deepEqual(reviewState({ ...reviewDraft, payload: changedPayload }), { kind: "draft", chartId: null });
+assert.equal(chartApprovalProgress(null, approvalRoster, approvalRows).approvedCount, 0, "an unsent revision must show everyone Pending instead of borrowing an old chart's votes");
+assert.deepEqual(reviewState({ ...reviewDraft, baseChartId: null }, null), { kind: "draft", chartId: null }, "a first preview must remain unsent until Approve");
+assert.equal(reviewState(reviewDraft, reviewSharedChart, true).kind, "stale", "changed creator inputs must require a fresh preview");
+assert.equal(reviewState(reviewDraft, { ...reviewSharedChart, id: "newer", payload: changedPayload }).kind, "stale", "a concurrent revision cannot be approved through the old preview");
+assert.equal(reviewState({ ...reviewDraft, payload: changedPayload }, { ...reviewSharedChart, id: "newer" }).kind, "stale", "a stale draft must not replace a newer shared version");
+assert.equal(reviewState(reviewDraft, { ...reviewSharedChart, status: "cancelled" }).kind, "stale", "cancelled proposals cannot be approved");
+assert.equal(reviewState(reviewDraft, reviewSharedChart, false, "other-household").kind, "stale", "a preview cannot approve chores in another household");
+assert.deepEqual(reviewState({ ...reviewDraft, approvedChartId: "new" }, { ...reviewSharedChart, status: "approved" }, true), { kind: "approved", chartId: "new" }, "applying a just-approved chart changes chores without closing the review");
+assert.equal(reviewState({ ...reviewDraft, approvedChartId: "new" }, { ...reviewSharedChart, id: "newer" }).kind, "stale", "a later shared version cannot inherit the local confirmed approval");
+console.log("Chore chart preview approval review tests passed");
+
+
+// Permanent preferences can be chosen before a first proposal exists. Both
+// setup-generated and custom tasks use the same constraint/rebuild path.
+const creatorRuleTasks = [
+  task("setup-generated", { difficulty: 2, frequency: "daily" }),
+  task("custom-task", { difficulty: 3 }),
+  task("preserved-rule"),
+];
+const creatorSeed = build(creatorRuleTasks);
+const creatorSeedSnapshot = structuredClone(creatorSeed);
+let creatorRequests = withAssignmentRequest(creatorSeed, "preserved-rule", "b", "always");
+creatorRequests = withAssignmentRequest(creatorRequests, "setup-generated", "a", "always");
+creatorRequests = withAssignmentRequest(creatorRequests, "custom-task", "a", "never");
+const creatorRulePreview = build(creatorRuleTasks, { previous: creatorRequests });
+assert.equal(owner(creatorRulePreview, "setup-generated"), "a", "Always me must affect the first generated preview");
+assert.equal(owner(creatorRulePreview, "custom-task"), "b", "Never me must also apply to custom tasks before a chart is published");
+assert.equal(creatorRulePreview.pinnedAssignments?.["preserved-rule"], "b", "editing one person's rules must retain other Sweetmates' rules");
+assert.deepEqual(weeklyFor(creatorRulePreview), { a: 14, b: 4 }, "the first preview's weekly workload must reflect the permanent rules");
+assert.deepEqual(creatorSeed, creatorSeedSnapshot, "editing rules must not change the shared payload before submission");
+const creatorRuleSnapshot = structuredClone(creatorRulePreview);
+assert.throws(() => build(creatorRuleTasks, { previous: withAssignmentRequest(creatorRulePreview, "custom-task", "b", "never") }), /No eligible member/, "a rule that excludes everyone must be rejected");
+assert.deepEqual(creatorRulePreview, creatorRuleSnapshot, "a rejected exclusion must leave the last valid preview intact");
+const creatorUnsent = reviewState({ ...reviewDraft, baseChartId: null, payload: creatorRulePreview }, null);
+assert.deepEqual(choreChartReviewSubmission(creatorUnsent, true), { replace: true, approveSelf: false }, "permanent rule changes may only send for approval, leaving their creator Pending");
+assert.deepEqual(choreChartReviewSubmission(creatorUnsent, false), { replace: true, approveSelf: true }, "ordinary chart approval must keep its existing creator-approval behavior");
+assert.deepEqual(choreChartReviewSubmission(reviewState(), false), { replace: false, approveSelf: true }, "approving an unchanged shared chart must preserve its other votes");
+assert.deepEqual(choreChartReviewSubmission(reviewState(), true), { replace: true, approveSelf: false }, "rule revisions must never self-approve, even when reviewing a shared version");
+assert.equal(choreChartReviewSubmission({ kind: "stale", chartId: null }, true), null);
+assert.equal(choreChartReviewSubmission({ kind: "approved", chartId: "new" }, false), null);
+const sentRules = reviewState({ ...reviewDraft, payload: creatorRulePreview, submittedChartId: "new-rules", approvedChartId: null }, { ...reviewSharedChart, id: "new-rules", payload: creatorRulePreview }, true);
+assert.deepEqual(sentRules, { kind: "pending", chartId: "new-rules" }, "a sent rule revision must remain visible after clearing the creator's local draft");
+assert.equal(chartApprovalProgress(sentRules.chartId, approvalRoster, approvalRows).approvedCount, 0, "earlier approvals must not carry into the revised chart");
+console.log("Creator permanent task preference tests passed");
+
+
+const restartedReview = { ...reviewSharedChart, id: "restarted", status: "pending" as const, appliedAt: null };
+const restartedState = reviewState({ ...reviewDraft, baseChartId: "restarted" }, restartedReview);
+assert.deepEqual(restartedState, { kind: "pending", chartId: "restarted" }, "a restarted chart must be reviewable even when its saved payload is unchanged");
+const restartedVotes = [
+  ...approvalRows,
+  { id: "restart-a", proposedChartId: "restarted", memberId: "a", approved: false, approvedAt: "" },
+  { id: "restart-b", proposedChartId: "restarted", memberId: "b", approved: false, approvedAt: "" },
+];
+assert.deepEqual(chartApprovalProgress(restartedState.chartId, approvalRoster, restartedVotes).rows.map((row) => row.approved), [false, false], "old approvals must never make either member appear approved after restart");
+assert.deepEqual(choreChartReviewSubmission(restartedState, false), { replace: false, approveSelf: true }, "both members must be allowed to approve the restarted review again");
+assert.equal(reviewState({ ...reviewDraft, approvedChartId: "new" }, restartedReview).kind, "stale", "an already-open approved preview must not carry its saved vote into a restarted review");
+console.log("Restarted chart approval state tests passed");
+
+
+const newlyApprovedTasks = [
+  task("upcoming-load", { frequency: "daily", timeOfDay: "night" }),
+  task("upcoming-unload", { frequency: "daily", timeOfDay: "morning" }),
+  task("upcoming-vacuum", { frequency: "weekly" }),
+  task("upcoming-filter", { frequency: "monthly" }),
+];
+const newlyApprovedPayload = build(newlyApprovedTasks);
+assert.equal(upcomingHouseholdChores([], householdId, now, timezone).length, 0, "an unsent or pending chart must not create Upcoming chores from its preview payload");
+const approvedUpcomingAnchors = materialize(newlyApprovedPayload);
+const approvedUpcomingSnapshot = structuredClone(approvedUpcomingAnchors);
+const reconciledUpcoming = materializeRecurringOccurrences(approvedUpcomingAnchors, now, now.toISOString(), timezone, twoMembers.map((member) => member.id));
+const visibleApprovedUpcoming = upcomingHouseholdChores(reconciledUpcoming, householdId, now, timezone);
+assert.equal(visibleApprovedUpcoming.length, newlyApprovedTasks.length, "every task must be immediately visible in Upcoming after approved chores are saved and reconciled");
+assert.deepEqual(visibleApprovedUpcoming.map((chore) => chore.scheduledDate), ["2026-07-28", "2026-07-28", "2026-08-03", "2026-08-27"], "Upcoming must keep the real daily, weekly, and monthly dates rather than bringing chores forward");
+assert(visibleApprovedUpcoming.every((chore) => chore.assignedTo === owner(newlyApprovedPayload, chore.sourceKey!)), "Upcoming must show each chore's approved starting assignee");
+assert.deepEqual(approvedUpcomingAnchors, approvedUpcomingSnapshot, "rendering Upcoming must not write or complete saved chores");
+console.log("Approved chart immediate Upcoming integration tests passed");
+
+
+const refreshedBlakeReview = parseChoreChartReviewSnapshot({
+  householdId,
+  chart: { id: "restart-current", household_id: householdId, created_by: "a", status: "pending", payload: sample, created_at: now.toISOString(), applied_at: null },
+  approvals: [
+    { id: "avery-fresh", household_id: householdId, proposed_chart_id: "restart-current", member_id: "a", approved: true },
+    { id: "blake-fresh", household_id: householdId, proposed_chart_id: "restart-current", member_id: "b", approved: false },
+    { id: "blake-old", household_id: householdId, proposed_chart_id: "old-applied", member_id: "b", approved: true },
+    { id: "foreign", household_id: "other-home", proposed_chart_id: "restart-current", member_id: "b", approved: true },
+  ],
+}, householdId);
+const blakeFreshState = reviewState({ ...reviewDraft, baseChartId: "restart-current" }, refreshedBlakeReview.chart);
+assert.deepEqual(blakeFreshState, { kind: "pending", chartId: "restart-current" }, "a fresh preview must review the restarted chart, never the older approved version");
+assert.deepEqual(chartApprovalProgress(blakeFreshState.chartId, approvalRoster, refreshedBlakeReview.approvals).rows.map((member) => member.approved), [true, false], "Blake must remain Pending while Avery's fresh approval is preserved");
+assert.deepEqual(choreChartReviewSubmission(blakeFreshState, false), { replace: false, approveSelf: true }, "Blake must be able to approve the exact new review without resetting Avery's approval");
+assert.equal(reviewState(reviewDraft, { ...reviewSharedChart, id: "another-generation", status: "approved" }).kind, "stale", "identical task payloads must not transfer approvals across chart generations");
+assert.throws(() => parseChoreChartReviewSnapshot({ householdId: "other-home", chart: null, approvals: [] }, householdId), /another household/);
+assert.deepEqual(parseChoreChartReviewSnapshot({ householdId, chart: null, approvals: [] }, householdId), { householdId, chart: null, approvals: [] });
+console.log("Blake restarted review freshness tests passed");

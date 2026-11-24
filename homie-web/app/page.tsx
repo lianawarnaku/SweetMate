@@ -25,6 +25,7 @@ export default function Home() {
         <Link className="text-link" href="/privacy">
           Privacy
         </Link>
+        <Link className="text-link" href="/support">Support</Link>
       </nav>
 
       <section className="hero">

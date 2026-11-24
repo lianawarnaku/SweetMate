@@ -1,40 +1,41 @@
 # SweetMate analytics and diagnostics
 
-Updated 2026-11-08. The single vendor boundary is
+Updated 2026-11-23. The single vendor boundary is
 `artifacts/mobile/lib/analytics.ts`. New behavior ships only in a new app build;
 this implementation does not release to TestFlight or change remote vendor configuration.
 
-## Consent and identity
+## Consent
 
-Product analytics (PostHog) and crash reporting (Sentry) are independently optional,
-initially off. After the black house launch animation, a versioned privacy notice
-appears **before signup or sign-in**. Authentication controls wait for a saved
-choice. `Share analytics` enables only product analytics. `Don't share` enables
-neither. The notice describes opens, visited screens, foreground time, setup
-progress, and feature actions. Version `2026-11-08` requires renewed consent for
-accounts holding the older, narrower notice; collection is paused until resolved.
+First-time signup presents an optional, initially unchecked checkbox directly
+beneath Create Account, with a link to the Privacy Statement. Checking it opts
+into both product analytics and sanitized crash reporting. Leaving it unchecked
+does not block signup and leaves both categories off. The former consent modal
+is no longer shown, and sign-in does not depend on a telemetry choice.
 
-The first custom event after opt-in is `analytics_consent_granted`, with fixed
-source `before_auth`, `privacy_notice`, or `settings`. No refusal event is sent.
-There is no pre-consent queue or historical backfill. A user who enables analytics
-mid-session starts measurement from that moment.
+The selection is persisted only for the successful signup attempt and account.
+Email-confirmation flows stage the account-scoped choice without initializing
+SDKs. Existing accounts retain their saved choices. Cancelled and failed OAuth
+attempts do not enable collection. A fresh signed-out screen discards legacy
+anonymous consent so another person cannot inherit it. Settings retains separate
+product-analytics and crash-reporting controls for later changes.
 
-Preferences and a random `sm_*` analytics ID live in user-scoped device storage.
-A fresh explicit pre-auth choice carries into the account on that device and
-supersedes its earlier saved choice, including a fresh opt-out. On a new account,
-the opted-in pre-auth ID carries through signup so the funnel remains continuous.
-An existing account keeps its saved opaque ID. Restored sessions with no fresh
-pre-auth choice use saved account preferences. Sign-out resets vendor identity
-and gives the next person a fresh pre-auth choice. Account deletion also removes
-local preferences, ID, and first-event markers. Vendor-side deletion remains an
-owner procedure; it is not implemented by local deletion.
+## Identity and measurement
 
-Transitions are serialized with revision guards. Captures pause immediately when
-consent/account changes, while storage and SDK operations finish. Auth success is
-tied to the active auth attempt so a late response cannot revive a signed-out user.
-These IDs are per account **per device**, not global account IDs. Multi-device use,
+Preferences and random `sm_*` analytics IDs remain scoped to the account on
+this device. Existing accounts retain their opaque IDs. Sign-out resets vendor
+identity; account deletion removes local preferences, IDs, and first-event
+markers. Vendor-side deletion remains an owner procedure, not a local deletion.
+
+There is no refusal event, pre-consent event queue, or historical backfill.
+Active-session opt-in records `analytics_consent_granted` with source `signup`
+or `settings`; legacy event sources remain recognized. Collection begins only
+once the saved choice permits it. SDK transitions remain serialized with revision
+guards, and auth success stays tied to the current attempt so a late response
+cannot reactivate a signed-out account.
+
+IDs are per account **per device**, not global account IDs. Multi-device use,
 reinstall/storage clearing, and consent coverage limit unique-user and retention
-interpretations. Household identifiers/group profiles are not sent.
+interpretations. Household identifiers and group profiles are not sent.
 
 ## What is recorded and why
 

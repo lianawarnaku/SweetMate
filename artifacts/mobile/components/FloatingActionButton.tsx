@@ -2,6 +2,7 @@ import { Feather } from "@expo/vector-icons";
 import React, { useRef } from "react";
 import { StyleSheet } from "react-native";
 
+import { GlassControlSurface } from "@/components/GlassControlSurface";
 import { SmoothPressable } from "@/components/SmoothPressable";
 import { useTheme } from "@/constants/colors";
 
@@ -41,7 +42,7 @@ export function FloatingActionButton({
       accessibilityLabel={accessibilityLabel}
       accessibilityHint={accessibilityHint ?? `Opens the ${accessibilityLabel.toLowerCase()} form`}
       containerStyle={[styles.container, { bottom }]}
-      style={[styles.button, { backgroundColor: colors.action, borderColor: colors.primary }]}
+      style={styles.button}
       onPress={() => {
         if (pressLocked.current) return;
         pressLocked.current = true;
@@ -51,7 +52,8 @@ export function FloatingActionButton({
         }, 450);
       }}
     >
-      <Feather name={icon} size={25} color={colors.actionForeground} />
+      <GlassControlSurface borderless pointerEvents="none" style={[StyleSheet.absoluteFill, { borderRadius: FAB_SIZE / 2 }]} />
+      <Feather name={icon} size={25} color={colors.foreground} />
     </SmoothPressable>
   );
 }
@@ -66,7 +68,7 @@ const styles = StyleSheet.create({
     elevation: 12,
   },
   button: {
-    borderWidth: 1,
+    borderWidth: 0,
     width: FAB_SIZE,
     height: FAB_SIZE,
     borderRadius: FAB_SIZE / 2,

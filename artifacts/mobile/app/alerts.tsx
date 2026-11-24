@@ -1,14 +1,17 @@
+import { useChoreChartReview } from "@/hooks/useChoreChartReview";
+import { ChoreChartApprovalSuccessModal } from "@/components/ChoreChartApprovalSuccess";
+import { ChartApprovalStatus } from "@/components/ChartApprovalStatus";
 import { Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useTheme } from "@/constants/colors";
 import { useAppContext } from "@/context/AppContext";
-import { buildHouseholdChart, frequencyLabel, withAssignmentRequest } from "@/lib/choreChart";
+import { averageWeeklyWorkloads, frequencyLabel } from "@/lib/choreChart";
 import { choreNow } from "@/lib/choreClock";
-import { error as hapticError, success as hapticSuccess } from "@/lib/haptics";
+import { error as hapticError } from "@/lib/haptics";
 import { useConfirm } from "@/hooks/useConfirm";
 
 function relativeTime(timestamp: string): string {
@@ -27,12 +30,24 @@ export default function AlertsScreen() {
   const colors = useTheme();
   const insets = useSafeAreaInsets();
   const {
-    currentProposedChart, chartApprovals, currentUserId, roommates,
-    memberPreferences, approveProposedChart, forceApproveProposedChart,
-    proposeChart, isHost, acknowledgeNudge, chores, householdTimezone, householdId,
+    currentUserId, roommates,
+    approveProposedChart, forceApproveProposedChart,
+    isHost, acknowledgeNudge, chores, householdTimezone, householdId,
     appAlerts, markAlertRead, markAllAlertsRead,
   } = useAppContext();
+  const sharedReview = useChoreChartReview(householdId);
+  const currentProposedChart = sharedReview.review?.chart ?? null;
+  const chartApprovals = sharedReview.review?.approvals ?? [];
   const [busy, setBusy] = useState(false);
+  const [approvalSuccess, setApprovalSuccess] = useState(false);
+  const approvalHouseholdRef = useRef(householdId);
+  approvalHouseholdRef.current = householdId;
+  useEffect(() => { setApprovalSuccess(false); }, [householdId]);
+  const returnToMySweet = useCallback(() => {
+    setApprovalSuccess(false);
+    router.dismissTo("/(tabs)" as never);
+  }, []);
+  const busyRef = useRef(false);
   const [overdueExpanded, setOverdueExpanded] = useState(false);
   const proposal = currentProposedChart?.status === "pending" ? currentProposedChart : null;
   const visibleAlerts = appAlerts.filter(
@@ -52,33 +67,31 @@ export default function AlertsScreen() {
       : []),
   ];
   const unreadCount = visibleAlerts.filter((alert) => !alert.readAt).length;
-  const myApproval = chartApprovals.find((approval) => approval.memberId === currentUserId);
-  const tasks = proposal?.payload.generatedTasks ?? [];
+  const myApproval = chartApprovals.find((approval) => approval.proposedChartId === proposal?.id && approval.memberId === currentUserId);
+  const previewPayload = proposal?.payload;
+  const weeklyWorkloads = previewPayload && householdId ? averageWeeklyWorkloads({
+    payload: previewPayload, members: roommates, chores, now: choreNow(), timezone: householdTimezone, householdId,
+  }) : null;
+  const tasks = previewPayload?.generatedTasks ?? [];
 
   const act = async (action: () => Promise<void>) => {
+    if (busyRef.current || approvalSuccess || sharedReview.loading) return;
+    const targetHouseholdId = householdId;
+    busyRef.current = true;
     setBusy(true);
     try {
       await action();
-      hapticSuccess();
+      if (approvalHouseholdRef.current !== targetHouseholdId) return;
+      setApprovalSuccess(true);
     } catch (error) {
       hapticError();
       info("chart_update_error", "Unable to update chart", error && typeof error === "object" && "message" in error ? String(error.message) : "Please try again.");
     } finally {
+      busyRef.current = false;
       setBusy(false);
     }
   };
 
-  const requestAssignment = (taskId: string, kind: "always" | "never") => {
-    if (!proposal || !householdId) return;
-    act(async () => {
-      const previous = withAssignmentRequest(proposal.payload, taskId, currentUserId, kind);
-      const payload = buildHouseholdChart({
-        tasks, members: roommates, preferences: memberPreferences, chores,
-        householdId, now: choreNow(), timezone: householdTimezone, previous,
-      });
-      await proposeChart(payload);
-    });
-  };
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
@@ -143,7 +156,7 @@ export default function AlertsScreen() {
                 feedItem.alert.type === "expense" ? "dollar-sign" :
                 feedItem.alert.type === "borrowing" ? "repeat" :
                 feedItem.alert.type === "nudge" ? "bell" :
-                feedItem.alert.type === "membership" ? "user-plus" : "info";
+                feedItem.alert.type === "membership" ? "user-plus" : feedItem.alert.id.startsWith("chart-restart:") ? "rotate-ccw" : "info";
               return (
                 <TouchableOpacity
                   key={`information:${feedItem.id}`}
@@ -156,6 +169,8 @@ export default function AlertsScreen() {
                       void acknowledgeNudge(nudgeId).catch(() => {
                         hapticError();
                       });
+                    } else if (feedItem.alert.relatedEntityType === "chore-chart") {
+                      router.push("/planning?type=chore-chart" as never);
                     }
                   }}
                   activeOpacity={0.78}
@@ -180,30 +195,26 @@ export default function AlertsScreen() {
               <View key={`proposal:${feedItem.id}`} style={styles.proposalGroup}>
                 <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
                   <Text style={[styles.cardTitle, { color: colors.foreground }]}>Proposed chore chart</Text>
-                  <Text style={[styles.meta, { color: colors.mutedForeground }]}>
-                    Review starting assignments and weighted workload. Recurring chores rotate among eligible Sweetmates. Always me fixes the assignee; Never me excludes you. Changes begin after approval.
-                  </Text>
+                  <ChartApprovalStatus chartId={proposal.id} members={roommates} approvals={chartApprovals} currentUserId={currentUserId} />
                   {proposal.payload.version !== 2 && <TouchableOpacity accessibilityRole="button" style={{ minHeight: 44, justifyContent: "center" }} onPress={() => router.push("/planning?type=chore-chart")}><Text style={[styles.request, { color: colors.primary }]}>Rebuild this older chart in the planner</Text></TouchableOpacity>}
-                  {proposal.payload.assignments.map((assignment) => {
+                  {previewPayload!.assignments.map((assignment) => {
                     const member = roommates.find((value) => value.id === assignment.memberId);
                     return (
                       <View key={assignment.memberId} style={[styles.assignment, { borderTopColor: colors.border }]}>
-                        <Text style={[styles.member, { color: colors.foreground }]}>{member?.name ?? "Member"} · {assignment.totalLoad.toFixed(1)} weighted workload</Text>
+                        <Text style={[styles.member, { color: colors.foreground }]}>{member?.name ?? "Member"} · {weeklyWorkloads ? `${(weeklyWorkloads[assignment.memberId] ?? 0).toFixed(1)} average weekly workload` : "Rebuild to calculate weekly workload"}</Text>
                         {assignment.taskIds.map((taskId) => {
                           const task = tasks.find((value) => value.id === taskId);
                           if (!task) return null;
-                          const manual = proposal.payload.manualAssignmentTaskIds?.includes(taskId);
-                          const exclusions = proposal.payload.excludedAssignments?.[taskId] ?? [];
+                          const manual = previewPayload!.manualAssignmentTaskIds?.includes(taskId);
+                          const exclusions = previewPayload!.excludedAssignments?.[taskId] ?? [];
                           return (
                             <View key={taskId} style={styles.taskRow}>
                               <View style={{ flex: 1 }}>
                                 <Text style={[styles.task, { color: colors.foreground }]}>{task.title}</Text>
-                                <Text style={[styles.meta, { color: colors.mutedForeground }]}>{task.difficulty}/5 · {frequencyLabel(task.frequency)} · {task.timeOfDay}{manual ? " · manual schedule" : proposal.payload.pinnedAssignments?.[taskId] ? " · fixed assignee" : " · rotates"}</Text>
+                                <Text style={[styles.meta, { color: colors.mutedForeground }]}>{task.difficulty}/5 · {frequencyLabel(task.frequency)} · {task.timeOfDay}{manual ? " · manual schedule" : previewPayload!.pinnedAssignments?.[taskId] ? " · fixed assignee" : " · rotates"}</Text>
                                 {exclusions.length > 0 && <Text style={[styles.meta, { color: colors.mutedForeground }]}>Excludes {exclusions.map((id) => roommates.find((person) => person.id === id)?.name ?? "Former Sweetmate").join(", ")}</Text>}
                                 {manual && <Text style={[styles.meta, { color: colors.mutedForeground }]}>Edit this manual assignment in Group.</Text>}
                               </View>
-                              <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Always assign ${task.title} to me`} style={{ minHeight: 44, justifyContent: "center", opacity: manual ? 0.4 : 1 }} disabled={busy || manual || proposal.payload.version !== 2} onPress={() => requestAssignment(taskId, "always")}><Text style={[styles.request, { color: colors.primary }]}>Always me</Text></TouchableOpacity>
-                              <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Never assign ${task.title} to me`} style={{ minHeight: 44, justifyContent: "center", opacity: manual ? 0.4 : 1 }} disabled={busy || manual || proposal.payload.version !== 2} onPress={() => requestAssignment(taskId, "never")}><Text style={[styles.request, { color: colors.destructive }]}>Never me</Text></TouchableOpacity>
                             </View>
                           );
                         })}
@@ -211,11 +222,11 @@ export default function AlertsScreen() {
                     );
                   })}
                 </View>
-                <TouchableOpacity disabled={busy || myApproval?.approved || proposal.payload.version !== 2} onPress={() => act(approveProposedChart)} style={[styles.primary, { backgroundColor: colors.action, opacity: busy || myApproval?.approved ? 0.55 : 1 }]}>
+                <TouchableOpacity disabled={busy || sharedReview.loading || myApproval?.approved || proposal.payload.version !== 2} onPress={() => act(() => approveProposedChart(proposal.id))} style={[styles.primary, { backgroundColor: colors.action, opacity: busy || myApproval?.approved ? 0.55 : 1 }]}>
                   <Text style={[styles.primaryText, { color: colors.actionForeground }]}>{myApproval?.approved ? "Approved" : "Approve chart"}</Text>
                 </TouchableOpacity>
                 {isHost && proposal.payload.version === 2 && (
-                  <TouchableOpacity disabled={busy} onPress={() => act(forceApproveProposedChart)} style={[styles.override, { borderColor: colors.primary }]}>
+                  <TouchableOpacity disabled={busy || sharedReview.loading} onPress={() => act(() => forceApproveProposedChart(proposal.id))} style={[styles.override, { borderColor: colors.primary }]}>
                     <Text style={[styles.overrideText, { color: colors.primary }]}>Create chart anyway</Text>
                   </TouchableOpacity>
                 )}
@@ -224,6 +235,8 @@ export default function AlertsScreen() {
           })
         )}
       </ScrollView>
+      <ChoreChartApprovalSuccessModal visible={approvalSuccess} onComplete={returnToMySweet} />
+
     </View>
   );
 }

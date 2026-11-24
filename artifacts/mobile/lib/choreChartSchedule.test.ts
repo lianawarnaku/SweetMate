@@ -1,3 +1,6 @@
+import { nextChartPreviewWeek, previewDateAfter, proposedChartPreviewAnchors, proposedChartPreviewWeek, proposedChartRotationWindow } from "./choreChartPreview.ts";
+import { buildHouseholdChart } from "./choreChart.ts";
+import type { GeneratedTask } from "../context/AppContext";
 import type { Chore } from "../context/AppContext";
 import {
   choreChartWeekStart,
@@ -414,3 +417,35 @@ for (const [date, start, end] of [
 const emptySelection = selectChoreChartWeek(selectableWeeks, "2027-01-01");
 assert(emptySelection.startsOn === "2026-12-28" && emptySelection.endsOn === "2027-01-03" && emptySelection.rows.length === 0, "an empty week across a year boundary must remain selected without falling back to other chores");
 console.log("group calendar week selection tests passed");
+
+const previewTask: GeneratedTask = { id: "daily-preview", title: "Dishes", item: "Dishwasher", itemCategory: "kitchen", difficulty: 2, frequency: "daily", timeOfDay: "night" };
+const previewNow = new Date("2026-11-08T12:00:00Z");
+const previewRoster = [{ id: "a" }, { id: "b" }];
+const previewPayload = buildHouseholdChart({ tasks: [previewTask], members: previewRoster, preferences: [], chores: [], now: previewNow, timezone: "America/New_York", householdId: "preview-house" });
+const beforePreview = JSON.stringify(previewPayload);
+const previewAnchors = proposedChartPreviewAnchors({ payload: previewPayload, members: previewRoster, chores: [], now: previewNow, timezone: "America/New_York", householdId: "preview-house" });
+const previewAnchorSnapshot = JSON.stringify(previewAnchors);
+const firstPreviewWeek = proposedChartPreviewWeek({ anchors: previewAnchors, memberIds: ["a", "b"], weekOf: "2026-11-09", now: previewNow, timezone: "America/New_York" });
+const secondPreviewWeek = proposedChartPreviewWeek({ anchors: previewAnchors, memberIds: ["a", "b"], weekOf: "2026-11-16", now: previewNow, timezone: "America/New_York" });
+assert(firstPreviewWeek.members.reduce((sum, member) => sum + member.workload, 0) === 14, "seven difficulty-two turns must total fourteen scheduled workload units");
+assert(firstPreviewWeek.members.map((member) => member.workload).sort().join(",") === "6,8", "daily rotation must split turns within a week");
+assert(firstPreviewWeek.members[0].workload === secondPreviewWeek.members[1].workload, "the extra daily turn must move to the other member the next week");
+assert(JSON.stringify(previewPayload) === beforePreview && JSON.stringify(previewAnchors) === previewAnchorSnapshot, "week browsing must not change proposal assignments or temporary anchors");
+
+const dailyRotationWindow = proposedChartRotationWindow({ anchors: previewAnchors, memberIds: ["a", "b"], firstWeek: "2026-11-09", now: previewNow, timezone: "America/New_York" });
+assert(dailyRotationWindow.complete && dailyRotationWindow.weekCount === 1, "the loop must finish once both members have taken a daily turn");
+assert(nextChartPreviewWeek(0, 9) === 1 && nextChartPreviewWeek(8, 9) === 9 && nextChartPreviewWeek(9, 9) === 0, "Next must visit every preview week before returning to the starting view");
+const monthlyPreviewNow = new Date("2026-01-31T12:00:00Z");
+const monthlyPreviewPayload = buildHouseholdChart({ tasks: [{ ...previewTask, frequency: "monthly" }], members: previewRoster, preferences: [], chores: [], now: monthlyPreviewNow, timezone: "America/New_York", householdId: "preview-house" });
+const monthlyPreviewAnchors = proposedChartPreviewAnchors({ payload: monthlyPreviewPayload, members: previewRoster, chores: [], now: monthlyPreviewNow, timezone: "America/New_York", householdId: "preview-house" });
+const monthlyWindow = proposedChartRotationWindow({ anchors: monthlyPreviewAnchors, memberIds: ["a", "b"], firstWeek: "2026-02-02", now: monthlyPreviewNow, timezone: "America/New_York" });
+assert(monthlyWindow.complete && monthlyWindow.weekCount === 9, "monthly chores must extend the preview until each participant has had a turn");
+const monthlyTurns = Array.from({ length: monthlyWindow.weekCount }, (_, index) => proposedChartPreviewWeek({ anchors: monthlyPreviewAnchors, memberIds: ["a", "b"], weekOf: previewDateAfter("2026-02-02", index * 7), now: monthlyPreviewNow, timezone: "America/New_York" }));
+assert(monthlyTurns[0].members.every((member) => member.workload === 0), "empty weeks must remain visible rather than moving monthly chores earlier");
+assert(monthlyTurns.flatMap((week) => week.members.flatMap((member) => member.tasks.flatMap((task) => task.dates))).sort().join(",") === "2026-02-28,2026-03-31", "monthly dates must recover the original day after a short month");
+assert(monthlyTurns.every((week) => week.endsOn === previewDateAfter(week.startsOn, 6)), "weeks crossing the spring DST change must retain seven calendar days");
+assert(monthlyTurns.reduce((sum, week) => sum + week.members.reduce((total, member) => total + member.workload, 0), 0) === 4, "two monthly difficulty-two turns must count once each across the complete rotation");
+const fixedPayload = buildHouseholdChart({ tasks: [previewTask], members: previewRoster, preferences: [], chores: [], now: previewNow, timezone: "America/New_York", householdId: "preview-house", previous: { ...previewPayload, pinnedAssignments: { [previewTask.id]: "b" } } });
+const fixedAnchors = proposedChartPreviewAnchors({ payload: fixedPayload, members: previewRoster, chores: [], now: previewNow, timezone: "America/New_York", householdId: "preview-house" });
+const fixedWeek = proposedChartPreviewWeek({ anchors: fixedAnchors, memberIds: ["a", "b"], weekOf: "2026-11-09", now: previewNow, timezone: "America/New_York" });
+assert(fixedWeek.members[0].workload === 0 && fixedWeek.members[1].workload === 14, "Always me must preserve the fixed assignee in every preview occurrence");
