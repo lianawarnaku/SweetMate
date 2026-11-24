@@ -69,3 +69,7 @@ await assert.rejects(()=>rejected.connect({id:'me'},{refreshToken:'private-refre
 const rejectedIdentity = createCalendarService(calendarDb(null),{clientId:'c',clientSecret:'s'},async url=>url.includes('/token')?{ok:true,json:async()=>({access_token:'private-token',scope:'https://www.googleapis.com/auth/calendar.events'})}:{ok:false,status:403});
 await assert.rejects(()=>rejectedIdentity.connect({id:'me'},{refreshToken:'refresh'}),e=>e.diagnostic.stage==='account_verification'&&e.diagnostic.upstreamStatus===403);
 console.log('Google OAuth2 identity, permission rejection, and sanitized provider diagnostics tests passed.');
+
+const invalidClient = createCalendarService(calendarDb(null),{clientId:'c',clientSecret:'s'},async()=>({ok:false,status:401,json:async()=>({error:'invalid_client'})}));
+await assert.rejects(()=>invalidClient.connect({id:'me'},{refreshToken:'refresh'}),e=>e.code==='GOOGLE_NOT_CONFIGURED'&&e.status===503&&e.diagnostic.reason==='invalid_client');
+console.log('Invalid Google client credentials are a server configuration error, not a user reconnect loop.');

@@ -44,6 +44,7 @@ export function createCalendarService(admin: SupabaseClient, config: Configurati
       const knownReasons = ["invalid_grant", "invalid_client", "invalid_request", "unauthorized_client"];
       const reason = typeof failure?.error === "string" && knownReasons.includes(failure.error) ? failure.error : "rejected";
       const diagnostic = { stage: "token_refresh" as const, upstreamStatus: response.status, reason };
+      if (reason === "invalid_client" || reason === "unauthorized_client") throw new CalendarFailure("GOOGLE_NOT_CONFIGURED", 503, "Google Calendar's server connection needs attention. Please try again later.", diagnostic);
       if (response.status >= 500 || response.status === 429) throw new CalendarFailure("GOOGLE_UNAVAILABLE", 503, "Google Calendar is temporarily unavailable. Please try again.", diagnostic);
       throw new CalendarFailure("GOOGLE_RECONNECT_REQUIRED", 401, "Reconnect Google Calendar and allow calendar access when Google asks.", diagnostic);
     }
