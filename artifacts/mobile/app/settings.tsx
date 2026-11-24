@@ -40,11 +40,7 @@ import {
   reportRuntimeError,
 } from "@/lib/runtimeDiagnostics";
 import { track } from "@/lib/analytics";
-import {
-  connectGoogleCalendar,
-  disconnectGoogleCalendar,
-  isGoogleCalendarConnected,
-} from "@/lib/googleCalendarConnection";
+import { useGoogleCalendarConnection } from "@/hooks/useGoogleCalendarConnection";
 import {
   findRoommateIdByEmail,
   getStoredEmail,
@@ -202,41 +198,19 @@ export default function SettingsScreen() {
   );
   const [deletingAccount, setDeletingAccount] = useState(false);
   const [householdSwitcherOpen, setHouseholdSwitcherOpen] = useState(false);
-  const [googleCalendarConnected, setGoogleCalendarConnected] = useState<boolean | null>(null);
-  const [googleCalendarBusy, setGoogleCalendarBusy] = useState(false);
-  useEffect(() => {
-    let active = true;
-    void isGoogleCalendarConnected()
-      .then((connected) => {
-        if (active) setGoogleCalendarConnected(connected);
-      })
-      .catch((error) => reportRuntimeError("check Google Calendar connection", error));
-    return () => {
-      active = false;
-    };
-  }, []);
+  const googleConnection = useGoogleCalendarConnection(session?.user.id ?? null);
+  const googleCalendarConnected = googleConnection.connected;
+  const googleCalendarBusy = googleConnection.busy;
   const toggleGoogleCalendar = async () => {
     if (googleCalendarBusy) return;
-    setGoogleCalendarBusy(true);
     try {
-      if (googleCalendarConnected) {
-        await disconnectGoogleCalendar();
-        setGoogleCalendarConnected(false);
-      } else {
-        await connectGoogleCalendar();
-        setGoogleCalendarConnected(true);
-      }
+      if (googleCalendarConnected) await googleConnection.disconnect();
+      else await googleConnection.connect();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error) {
       reportRuntimeError("toggle Google Calendar connection", error);
-      info(
-        "google-calendar-error",
-        "Google Calendar",
-        error instanceof Error ? error.message : "Something went wrong. Please try again.",
-      );
+      info("google-calendar-error", "Google Calendar", error instanceof Error ? error.message : "Something went wrong. Please try again.");
       hapticError();
-    } finally {
-      setGoogleCalendarBusy(false);
     }
   };
   const handleSignOut = async () => {
@@ -1378,7 +1352,7 @@ export default function SettingsScreen() {
                   numberOfLines={1}
                 >
                   {googleCalendarConnected === null
-                    ? "Checking connection…"
+                    ? googleConnection.error ? "Connection unavailable" : "Checking connection…"
                     : googleCalendarConnected
                       ? "Connected to your Google Calendar"
                       : "Not connected"}
@@ -1386,7 +1360,7 @@ export default function SettingsScreen() {
               </View>
             </View>
             <TouchableOpacity
-              disabled={googleCalendarBusy || googleCalendarConnected === null}
+              disabled={googleCalendarBusy || googleConnection.checking}
               accessibilityRole="button"
               accessibilityLabel={googleCalendarConnected ? "Disconnect Google Calendar" : "Connect Google Calendar"}
               style={[
@@ -1416,6 +1390,7 @@ export default function SettingsScreen() {
                 <Feather name="chevron-right" size={17} color={colors.mutedForeground} />
               )}
             </TouchableOpacity>
+            {googleConnection.error && <Text accessibilityRole="alert" style={{ color: colors.destructive, fontFamily: "Inter_400Regular", fontSize: 13, lineHeight: 19 }}>{googleConnection.error}</Text>}
           </View>
 
           <Text

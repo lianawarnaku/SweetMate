@@ -93,7 +93,7 @@ export function usePersonalSchedule(userId: string | null, householdId: string |
     await refresh();
   }, [refresh]);
   const sources = useCallback(async (): Promise<ScheduleSources> => googleScheduleRequest("sources"), []);
-  return { items: state?.userId === userId ? state.items : EMPTY, prefs: state?.userId === userId ? state.prefs : null,
+  return { userId, items: state?.userId === userId ? state.items : EMPTY, prefs: state?.userId === userId ? state.prefs : null,
     sharing: state?.userId === userId && state.householdId === householdId ? state.shareBusy : false,
     activity: showActivity && busyState?.householdId === householdId && busyState?.userId === userId ? busyState.rows : [],
     loading, error, ready: state?.userId === userId, refresh, sync, sources, configure, shareBusy, updateTask };

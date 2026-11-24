@@ -3,7 +3,7 @@ import type { SupabaseClient, User } from "npm:@supabase/supabase-js@2.110.0";
 const API = "https://www.googleapis.com/calendar/v3";
 const SCOPE = "https://www.googleapis.com/auth/calendar.events";
 export class CalendarFailure extends Error {
-  constructor(public code: string, public status: number, message: string) { super(message); }
+  constructor(public code: string, public status: number, message: string, public diagnostic?: { stage: "token_refresh" | "account_verification"; upstreamStatus: number; reason?: string }) { super(message); }
 }
 type Configuration = { clientId?: string; clientSecret?: string };
 type Token = { access_token: string; expires_in?: number; scope?: string };
@@ -40,8 +40,12 @@ export function createCalendarService(admin: SupabaseClient, config: Configurati
     const response = await call("https://oauth2.googleapis.com/token", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({ client_id: config.clientId, client_secret: config.clientSecret, refresh_token: refreshToken, grant_type: "refresh_token" }) });
     if (!response.ok) {
-      if (response.status >= 500 || response.status === 429) throw new CalendarFailure("GOOGLE_UNAVAILABLE", 503, "Google Calendar is temporarily unavailable. Please try again.");
-      throw new CalendarFailure("GOOGLE_RECONNECT_REQUIRED", 401, "Reconnect Google Calendar in Settings and allow calendar access.");
+      const failure = await response.json().catch(() => null) as { error?: unknown } | null;
+      const knownReasons = ["invalid_grant", "invalid_client", "invalid_request", "unauthorized_client"];
+      const reason = typeof failure?.error === "string" && knownReasons.includes(failure.error) ? failure.error : "rejected";
+      const diagnostic = { stage: "token_refresh" as const, upstreamStatus: response.status, reason };
+      if (response.status >= 500 || response.status === 429) throw new CalendarFailure("GOOGLE_UNAVAILABLE", 503, "Google Calendar is temporarily unavailable. Please try again.", diagnostic);
+      throw new CalendarFailure("GOOGLE_RECONNECT_REQUIRED", 401, "Reconnect Google Calendar and allow calendar access when Google asks.", diagnostic);
     }
     const token = await response.json() as Token;
     if (!token.access_token) throw new CalendarFailure("GOOGLE_RECONNECT_REQUIRED", 401, "Google did not return calendar access. Please reconnect.");
@@ -72,10 +76,14 @@ export function createCalendarService(admin: SupabaseClient, config: Configurati
       const token = await refresh(input.refreshToken);
       if (!token.scope?.split(" ").some(scope => scope === SCOPE || scope === "https://www.googleapis.com/auth/calendar"))
         throw new CalendarFailure("GOOGLE_PERMISSION_DENIED", 403, "Reconnect Google Calendar and allow calendar event access.");
-      const identityResponse = await call("https://openidconnect.googleapis.com/v1/userinfo", { headers: { Authorization: `Bearer ${token.access_token}` } });
-      if (!identityResponse.ok) throw new CalendarFailure("GOOGLE_RECONNECT_REQUIRED", 401, "Could not confirm your Google account. Please reconnect.");
+      // Match Supabase Auth's Google OAuth2 endpoint. Older native builds
+      // request email/profile without OpenID, so the OpenID-only endpoint can
+      // reject a valid Calendar grant after Google has returned to the app.
+      const identityResponse = await call("https://www.googleapis.com/userinfo/v2/me", { headers: { Authorization: `Bearer ${token.access_token}` } });
+      if (!identityResponse.ok) throw new CalendarFailure("GOOGLE_RECONNECT_REQUIRED", 401, "Could not confirm your Google account. Please reconnect.", { stage: "account_verification", upstreamStatus: identityResponse.status });
       const identity = await identityResponse.json();
-      if (typeof identity.sub !== "string" || !user.identities?.some(i => i.provider === "google" && (i.identity_data?.sub === identity.sub || i.id === identity.sub)))
+      const subject = typeof identity.id === "string" ? identity.id : identity.sub;
+      if (typeof subject !== "string" || !user.identities?.some(i => i.provider === "google" && (i.identity_data?.sub === subject || i.id === subject)))
         throw new CalendarFailure("GOOGLE_ACCOUNT_MISMATCH", 403, "Choose the Google account linked to your current SweetMate account.");
       const { error } = await admin.from("google_calendar_connections").upsert({ user_id: user.id, refresh_token: input.refreshToken,
         scope: token.scope, access_token: token.access_token, access_token_expires_at: new Date(Date.now() + (token.expires_in ?? 3600) * 1000).toISOString(), updated_at: new Date().toISOString() });

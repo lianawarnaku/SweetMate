@@ -6,6 +6,9 @@ import { authCallbackValue } from "./oauthCallback";
 import { calendarFetch } from "./calendarTransport";
 
 const CALENDAR_SCOPE = [
+  "openid",
+  "email",
+  "profile",
   "https://www.googleapis.com/auth/calendar.events",
   "https://www.googleapis.com/auth/calendar.calendarlist.readonly",
   "https://www.googleapis.com/auth/tasks.readonly",
@@ -13,15 +16,16 @@ const CALENDAR_SCOPE = [
 
 export class GoogleCalendarConnectionError extends Error {}
 
-async function authedFetch(path: string, init?: RequestInit) {
-  return calendarFetch(path, init);
+async function authedFetch(path: string, init?: RequestInit, userId?: string) {
+  return calendarFetch(path, init, userId);
 }
 
-export async function isGoogleCalendarConnected(): Promise<boolean> {
-  const response = await authedFetch("/calendar/connection");
+export async function isGoogleCalendarConnected(userId?: string): Promise<boolean> {
+  const response = await authedFetch("/calendar/connection", undefined, userId);
   if (!response.ok) throw new GoogleCalendarConnectionError("Could not check your Google Calendar connection. Please try again.");
   const data = (await response.json().catch(() => null)) as { connected?: boolean } | null;
-  return data?.connected === true;
+  if (typeof data?.connected !== "boolean") throw new GoogleCalendarConnectionError("Could not check your Google Calendar connection. Please try again.");
+  return data.connected;
 }
 
 /**
@@ -32,9 +36,9 @@ export async function isGoogleCalendarConnected(): Promise<boolean> {
  * server, which stores it per-user — Google is never given our server
  * directly; the mobile app only ever talks to Supabase and to our backend.
  */
-export async function connectGoogleCalendar(): Promise<void> {
+export async function connectGoogleCalendar(expectedUserId?: string): Promise<void> {
   const original = (await supabase.auth.getSession()).data.session;
-  if (!original) throw new GoogleCalendarConnectionError("Sign in before connecting Google Calendar.");
+  if (!original || (expectedUserId && original.user.id !== expectedUserId)) throw new GoogleCalendarConnectionError("Sign in before connecting Google Calendar.");
   const redirectTo = ExpoLinking.createURL("auth/callback");
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
@@ -90,15 +94,15 @@ export async function connectGoogleCalendar(): Promise<void> {
   const response = await authedFetch("/calendar/connect", {
     method: "POST",
     body: JSON.stringify({ refreshToken: providerRefreshToken, scope: CALENDAR_SCOPE }),
-  });
+  }, original.user.id);
   if (!response.ok) {
     const result = (await response.json().catch(() => null)) as { error?: string } | null;
     throw new GoogleCalendarConnectionError(result?.error ?? "Could not save your Google Calendar connection.");
   }
 }
 
-export async function disconnectGoogleCalendar(): Promise<void> {
-  const response = await authedFetch("/calendar/disconnect", { method: "POST" });
+export async function disconnectGoogleCalendar(userId?: string): Promise<void> {
+  const response = await authedFetch("/calendar/disconnect", { method: "POST" }, userId);
   if (!response.ok) {
     const result = (await response.json().catch(() => null)) as { error?: string } | null;
     throw new GoogleCalendarConnectionError(result?.error ?? "Could not disconnect Google Calendar.");

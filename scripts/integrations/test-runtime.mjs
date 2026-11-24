@@ -41,7 +41,7 @@ const row={refresh_token:'refresh',access_token:'cached',access_token_expires_at
 let refreshes=0;
 const network=async(url,init)=>{
  if(url.includes('/token')){refreshes++;return {ok:true,json:async()=>({access_token:'fresh',expires_in:3600,scope:'https://www.googleapis.com/auth/calendar.events'})}}
- if(url.includes('/userinfo'))return {ok:true,json:async()=>({sub:'google-me'})};
+ if(url.includes('/userinfo')){assert.equal(url,'https://www.googleapis.com/userinfo/v2/me');return {ok:true,json:async()=>({id:'google-me'})};}
  assert.equal(init.headers.Authorization,'Bearer cached');return {ok:false,status:409};
 };
 const db=calendarDb(row);
@@ -54,9 +54,18 @@ await assert.rejects(()=>service.connect({id:'other',identities:[{provider:'goog
 assert.equal(db.writes.length,1);
 const missingScope=createCalendarService(db,{clientId:'c',clientSecret:'s'},async()=>({ok:true,json:async()=>({access_token:'token',scope:'openid email'})}));
 await assert.rejects(()=>missingScope.connect({id:'me'},{refreshToken:'refresh'}),e=>e.code==='GOOGLE_PERMISSION_DENIED');
-const expired=createCalendarService(calendarDb({...row,access_token_expires_at:'2020-01-01'}),{clientId:'c',clientSecret:'s'},async()=>({ok:false,status:400}));
+const expired=createCalendarService(calendarDb({...row,access_token_expires_at:'2020-01-01'}),{clientId:'c',clientSecret:'s'},async()=>({ok:false,status:400,json:async()=>({error:'invalid_grant'})}));
 assert.equal((await expired.status('me')).reconnectRequired,true);
 const disconnected=createCalendarService(calendarDb(null),{},network);
 assert.equal((await disconnected.status('me')).connected,false);
 await assert.rejects(()=>disconnected.add('me',input),e=>e.code==='GOOGLE_RECONNECT_REQUIRED');
 console.log('Integration runtime tests passed: push retries/receipts, recipient payload, leases, Calendar identity/scope, expiry and duplicate events.');
+
+const rejected = createCalendarService(calendarDb(null),{clientId:'c',clientSecret:'s'},async()=>({ok:false,status:400,json:async()=>({error:'invalid_grant',error_description:'sensitive provider response'})}));
+await assert.rejects(()=>rejected.connect({id:'me'},{refreshToken:'private-refresh-token'}),e=>{
+ assert.equal(e.diagnostic.stage,'token_refresh');assert.equal(e.diagnostic.reason,'invalid_grant');assert.equal(e.diagnostic.upstreamStatus,400);
+ assert(!JSON.stringify(e.diagnostic).includes('private-refresh-token'));assert(!JSON.stringify(e.diagnostic).includes('sensitive'));return true;
+});
+const rejectedIdentity = createCalendarService(calendarDb(null),{clientId:'c',clientSecret:'s'},async url=>url.includes('/token')?{ok:true,json:async()=>({access_token:'private-token',scope:'https://www.googleapis.com/auth/calendar.events'})}:{ok:false,status:403});
+await assert.rejects(()=>rejectedIdentity.connect({id:'me'},{refreshToken:'refresh'}),e=>e.diagnostic.stage==='account_verification'&&e.diagnostic.upstreamStatus===403);
+console.log('Google OAuth2 identity, permission rejection, and sanitized provider diagnostics tests passed.');

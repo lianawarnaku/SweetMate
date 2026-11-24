@@ -18,7 +18,12 @@ Deno.serve(async request => {
     try { body = await readSmallJson(request); } catch { return json({ error: "Invalid request." }, 400); }
     return json(action === "connect" ? await service.connect(data.user, body) : await service.add(data.user.id, body));
   } catch (error) {
-    if (error instanceof CalendarFailure) return json({ code: error.code, error: error.message }, error.status);
+    if (error instanceof CalendarFailure) {
+      // Only fixed error codes and numeric statuses; never provider tokens,
+      // request bodies, identities or Google's free-form error descriptions.
+      console.warn("calendar_request_rejected", { action, code: error.code, ...error.diagnostic });
+      return json({ code: error.code, error: error.message }, error.status);
+    }
     console.error("calendar_request_failed");
     return json({ code: "GOOGLE_UNAVAILABLE", error: "Google Calendar is temporarily unavailable. Please try again." }, 503);
   }

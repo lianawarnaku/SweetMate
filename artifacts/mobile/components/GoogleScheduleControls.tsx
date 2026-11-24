@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { ActivityIndicator, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -9,10 +9,11 @@ import { useTheme } from "@/constants/colors";
 import { useAccessibilityPreferences } from "@/hooks/useAccessibilityPreferences";
 import type { usePersonalSchedule } from "@/hooks/usePersonalSchedule";
 import type { ScheduleSources } from "@/lib/personalSchedule";
-import { connectGoogleCalendar } from "@/lib/googleCalendarConnection";
+import { useGoogleCalendarConnection } from "@/hooks/useGoogleCalendarConnection";
 
 export function GoogleScheduleControls({ schedule, householdId, day }: { schedule: ReturnType<typeof usePersonalSchedule>; householdId: string | null; day: string }) {
   const colors = useTheme();
+  const connection = useGoogleCalendarConnection(schedule.userId);
   const insets = useSafeAreaInsets();
   const { reduceMotion } = useAccessibilityPreferences();
   const [visible, setVisible] = useState(false);
@@ -22,24 +23,25 @@ export function GoogleScheduleControls({ schedule, householdId, day }: { schedul
   const [shareBusy, setShareBusy] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const load = async () => {
-    setBusy(true); setError(null);
-    try { setSources(await schedule.sources()); }
-    catch (failure) { setError(failure && typeof failure === "object" && "message" in failure ? String(failure.message) : "Your Google calendars could not load."); }
-    finally { setBusy(false); }
-  };
-  useEffect(() => {
-    if (!visible) return;
-    setCalendarIds(schedule.prefs?.calendar_ids ?? []); setTaskIds(schedule.prefs?.task_list_ids ?? []); setShareBusy(schedule.sharing); setSources(null);
-    void load();
-  }, [visible]);
   const connect = async () => {
     setBusy(true); setError(null);
-    try { await connectGoogleCalendar(); setSources(await schedule.sources()); }
+    try { await connection.connect(); setSources(await schedule.sources()); }
     catch (failure) { setError(failure && typeof failure === "object" && "message" in failure ? String(failure.message) : "Google could not connect."); }
     finally { setBusy(false); }
   };
-  const close = () => { if (!busy) setVisible(false); };
+  const open = async () => {
+    if (busy || connection.busy) return;
+    setCalendarIds(schedule.prefs?.calendar_ids ?? []);
+    setTaskIds(schedule.prefs?.task_list_ids ?? []);
+    setShareBusy(schedule.sharing);
+    setSources(null); setError(null); setVisible(true); setBusy(true);
+    try {
+      if (!await connection.refresh()) await connection.connect();
+      setSources(await schedule.sources());
+    } catch (failure) { setError(failure && typeof failure === "object" && "message" in failure ? String(failure.message) : "Your Google calendars could not load."); }
+    finally { setBusy(false); }
+  };
+  const close = () => { if (!busy && !connection.busy) setVisible(false); };
   const save = async (enabled = true) => {
     if (busy) return;
     setBusy(true); setError(null);
@@ -58,13 +60,14 @@ export function GoogleScheduleControls({ schedule, householdId, day }: { schedul
   </TouchableOpacity>;
   return <View style={styles.controls}>
     <View style={styles.header}>
-      <TouchableOpacity accessibilityRole="button" accessibilityLabel={schedule.prefs?.enabled ? "Manage Google schedule" : "Connect your Google schedule"} disabled={!schedule.ready} onPress={() => setVisible(true)} style={styles.link}>
+      <TouchableOpacity accessibilityRole="button" accessibilityLabel={schedule.prefs?.enabled ? "Manage Google schedule" : "Connect your Google schedule"} disabled={!schedule.userId || busy || connection.busy} onPress={() => void open()} style={styles.link}>
         <Feather name="calendar" size={14} color={colors.mutedForeground} /><Text style={[styles.linkText, { color: colors.mutedForeground }]}>{schedule.prefs?.enabled ? "Manage Google schedule" : "Connect your Google schedule"}</Text>
       </TouchableOpacity>
       {schedule.prefs?.enabled && <TouchableOpacity accessibilityRole="button" accessibilityLabel="Refresh Google schedule" disabled={schedule.loading} onPress={() => void schedule.sync(day).catch(() => {})} style={styles.refresh}>
         {schedule.loading ? <ActivityIndicator size="small" color={colors.mutedForeground} /> : <Feather name="refresh-cw" size={15} color={colors.mutedForeground} />}
       </TouchableOpacity>}
     </View>
+    {!visible && connection.error && <Text accessibilityRole="alert" style={[styles.meta, { color: colors.destructive }]}>{connection.error}</Text>}
     {schedule.error && <Text accessibilityRole="alert" style={[styles.meta, { color: colors.destructive }]}>{schedule.error}</Text>}
     <Modal visible={visible} transparent animationType={reduceMotion ? "none" : "fade"} onRequestClose={close}>
       <View style={[styles.overlay, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 16 }]}>
