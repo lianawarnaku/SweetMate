@@ -72,7 +72,7 @@ import {
 import { reportRuntimeError } from "@/lib/runtimeDiagnostics";
 import { isActiveSweetMember, resolveChorePermissions } from "@/lib/chorePermissions";
 import { logChorePermissionCheck } from "@/lib/choreDiagnostics";
-import { selectUpNextChore } from "@/lib/homeFocus";
+import { isHomeCaughtUp, selectUpNextChore } from "@/lib/homeFocus";
 import { compactOverdueItems } from "@/lib/overdueDisplay";
 import { CHORE_RECURRENCE_LABELS } from "@/lib/choreSchedule";
 import {
@@ -83,6 +83,7 @@ import {
 } from "@/lib/calendarItems";
 import {
   choreLocalDateKey,
+  choreScheduledDate,
   isBeforeLocalCalendarDay,
   isChoreActiveOnDay,
 } from "@/lib/choreOccurrences";
@@ -951,10 +952,27 @@ export default function MyChoresScreen() {
 
 
   const focusKey = JSON.stringify([householdId, currentUserId, choreLocalDateKey(lifecycleNow)]);
-  const focusDismissed = todayIncompleteChores.length === 0 && dismissedFocusKey === focusKey;
+  const todayFocusDay = householdDateKey(lifecycleNow, householdTimezone);
+  const selectedFocusDay = filter === "day" ? choreLocalDateKey(selectedDate) : todayFocusDay;
+  const focusThroughDay = selectedFocusDay > todayFocusDay ? selectedFocusDay : todayFocusDay;
+  const focusChores = myChores.filter(chore => {
+    const scheduled = choreScheduledDate(chore, householdTimezone);
+    return (!chore.recurrenceEndsOn || scheduled < chore.recurrenceEndsOn)
+      && (filter === "done" || filter === "archived" || Boolean(scheduled && scheduled <= focusThroughDay));
+  });
+  const todayScheduleDay = scheduleDateKey(lifecycleNow, agendaTimezone);
+  const caughtUp = isHomeCaughtUp({
+    chores: focusChores,
+    shoppingItems: personalShoppingItems,
+    scheduleItems: personalSchedule.prefs?.enabled ? [
+      ...scheduleItemsForDay(personalSchedule.items, todayScheduleDay, agendaTimezone),
+      ...(filter === "day" ? scheduleItemsForDay(personalSchedule.items, agendaDay, agendaTimezone) : []),
+    ] : [],
+  });
+  const focusDismissed = caughtUp && dismissedFocusKey === focusKey;
   useEffect(() => {
-    if (todayIncompleteChores.length > 0) setDismissedFocusKey(null);
-  }, [focusKey, todayIncompleteChores.length]);
+    if (!caughtUp) setDismissedFocusKey(null);
+  }, [focusKey, caughtUp]);
   const dismissTodayFocus = () => {
     if (!reduceMotion) LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setDismissedFocusKey(focusKey);
@@ -1249,7 +1267,7 @@ export default function MyChoresScreen() {
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
           <>
-            {!listView && !focusDismissed && (
+            {!listView && !focusDismissed && (todayIncompleteChores.length > 0 || caughtUp) && (
               <TodayFocusCard
                 key={`${focusKey}:${todayIncompleteChores.length === 0}`}
                 chore={upNextChore}

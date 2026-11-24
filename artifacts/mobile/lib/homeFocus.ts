@@ -29,3 +29,14 @@ export function selectUpNextChore<T extends FocusCandidate>(chores: readonly T[]
   return selected;
 }
 
+
+/** Check current personal lists rather than remembering a previous completion. */
+export function isHomeCaughtUp({ chores, shoppingItems, scheduleItems }: {
+  chores: readonly { completed: boolean; skippedAt?: string }[];
+  shoppingItems: readonly { completed: boolean }[];
+  scheduleItems: readonly { source: "google-task" | "google-event"; app_completed_at: string | null }[];
+}): boolean {
+  return !chores.some(chore => !chore.completed && !chore.skippedAt)
+    && !shoppingItems.some(item => !item.completed)
+    && !scheduleItems.some(item => item.source === "google-task" && !item.app_completed_at);
+}

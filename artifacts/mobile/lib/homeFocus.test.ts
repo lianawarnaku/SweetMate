@@ -1,4 +1,4 @@
-import { selectUpNextChore } from "./homeFocus.ts";
+import { isHomeCaughtUp, selectUpNextChore } from "./homeFocus.ts";
 
 function assert(condition: boolean, message: string) {
   if (!condition) throw new Error(message);
@@ -28,3 +28,15 @@ assert(
 
 console.log("home focus tests passed");
 
+
+const checkedChore = { completed: true };
+const checkedShopping = { completed: true };
+const checkedTask = { source: "google-task" as const, app_completed_at: "2030-01-01T10:00:00Z" };
+const caughtUpState = { chores: [checkedChore], shoppingItems: [checkedShopping], scheduleItems: [checkedTask] };
+assert(isHomeCaughtUp(caughtUpState), "all checked personal lists can show the caught-up summary");
+assert(!isHomeCaughtUp({ ...caughtUpState, chores: [{ completed: false }] }), "unchecking a chore must immediately clear caught-up eligibility");
+assert(!isHomeCaughtUp({ ...caughtUpState, shoppingItems: [{ completed: false }] }), "unchecking assigned shopping must clear caught-up eligibility even with every chore checked");
+assert(!isHomeCaughtUp({ ...caughtUpState, scheduleItems: [{ ...checkedTask, app_completed_at: null }] }), "unchecking a personal task must clear caught-up eligibility");
+assert(isHomeCaughtUp(caughtUpState), "checking the reopened item again permits the summary again");
+assert(isHomeCaughtUp({ chores: [{ completed: false, skippedAt: "2030-01-01" }], shoppingItems: [], scheduleItems: [{ source: "google-event", app_completed_at: null }] }), "skipped chores and non-checkable calendar events must not block the summary");
+console.log("Caught-up summary completion/undo regression tests passed for chores, shopping and personal tasks.");
