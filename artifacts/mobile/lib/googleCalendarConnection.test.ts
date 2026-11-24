@@ -106,3 +106,22 @@ for (const flow of ["cancel", "denied", "exchange-error", "missing-provider", "w
 }
 strict((await fixture("server-error")).error);
 console.log("Google Calendar native OAuth runtime tests passed");
+
+// Export must send the chosen household date, not the date of its UTC instant.
+// The existing endpoint turns this date into start.date/end.date (all-day).
+const exportPosts: any[] = [];
+const exportModule: any = {};
+const exportJs = ts.transpileModule(externalTasks, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
+const exportImports: Record<string, any> = {
+  "./calendarTransport": { calendarFetch: async (path: string, init: any) => {
+    exportPosts.push({ path, body: JSON.parse(init.body) });
+    return { ok: true, json: async () => ({ success: true, alreadyAdded: false }) };
+  } },
+  "@react-native-async-storage/async-storage": {},
+  "expo-calendar": {}, "react-native": {}, "./supabase": {},
+};
+runInNewContext(exportJs, { exports: exportModule, require: (name: string) => { strict(name in exportImports); return exportImports[name]; } });
+await exportModule.addChoreToGoogleCalendar({ id: "new", title: "Dishes", dueDate: "2026-11-13T04:59:00.000Z", scheduledDate: "2026-11-12" });
+strict.equal(exportPosts[0].body.dueDate, "2026-11-12", "New York chore must appear as all-day on Nov 12, not Nov 13");
+strict.equal(exportPosts[0].path, "/calendar/add-chore");
+console.log("Google Calendar household-date export test passed");

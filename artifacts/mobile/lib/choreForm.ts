@@ -1,3 +1,5 @@
+import { householdDueDate } from "./choreTimezone.ts";
+
 export function dateInput(date: Date): string {
   return [
     date.getFullYear(),
@@ -16,7 +18,7 @@ export function tomorrowDateInput(now = new Date()): string {
   return dateInput(date);
 }
 
-export function parseDueDate(value: string): string | null {
+export function parseDueDate(value: string, timezone?: string): string | null {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim());
   if (!match) return null;
   const year = Number(match[1]);
@@ -30,5 +32,7 @@ export function parseDueDate(value: string): string | null {
   ) {
     return null;
   }
-  return due.toISOString();
+  return timezone
+    ? householdDueDate(value.trim(), 23, timezone, 59)
+    : due.toISOString();
 }

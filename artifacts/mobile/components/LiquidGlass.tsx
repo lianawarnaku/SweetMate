@@ -48,6 +48,7 @@ export function GlassSurface({ children, style, variant = "regular", material = 
   const shadow = level === "modal" ? elevation.modal : level === "elevated" ? elevation.floating : elevation.flat;
   const surfaceStyle = [
     styles.clip,
+    Platform.OS === "web" && material === "glass" ? styles.webStack : undefined,
     {
       borderColor: colors.divider,
       shadowColor: "#000000",
@@ -85,6 +86,7 @@ export function GlassSurface({ children, style, variant = "regular", material = 
         pointerEvents="none"
         style={[
           StyleSheet.absoluteFill,
+          Platform.OS === "web" ? styles.webBackground : undefined,
           { backgroundColor: fill },
           Platform.OS === "web" && !reduceTransparency
             ? styles.webFrost
@@ -131,6 +133,10 @@ export function GlassTabBar(props: ViewProps) {
 
 const styles = StyleSheet.create({
   clip: { overflow: "hidden", borderWidth: StyleSheet.hairlineWidth, shadowOffset: { width: 0, height: 10 } },
+  // Web text inputs are unpositioned DOM elements. Keep the glass background
+  // behind them inside its own stacking context instead of painting over text.
+  webStack: { zIndex: 0 },
+  webBackground: { zIndex: -1 },
   webFrost: { backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)" } as ViewStyle,
   button: { minHeight: interaction.comfortableTouchTarget, borderRadius: radii.pill, overflow: "hidden", borderWidth: StyleSheet.hairlineWidth, borderColor: "transparent" },
   buttonContent: { flex: 1, minHeight: interaction.comfortableTouchTarget, paddingHorizontal: spacing.lg, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm },

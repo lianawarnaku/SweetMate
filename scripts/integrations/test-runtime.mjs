@@ -32,7 +32,7 @@ assert.equal(writes[0].values.state,'receipt');assert(writes[0].filters.some(([k
 const {calendarEvent,createCalendarService}=load('calendar');
 const input={choreId:'one',title:'Dishes',dueDate:'2026-12-31',points:100};
 const event=await calendarEvent(input);
-assert.equal(event.end.date,'2027-01-01');assert.equal(event.id,(await calendarEvent(input)).id);assert(!event.description.includes('Points'));
+assert.equal(event.start.date,'2026-12-31');assert.equal(event.end.date,'2027-01-01');assert(!('dateTime' in event.start));assert(!('dateTime' in event.end));assert.equal(event.id,(await calendarEvent(input)).id);assert(!event.description.includes('Points'));
 await assert.rejects(()=>calendarEvent({...input,dueDate:'2026-02-31'}));
 function calendarDb(row){const writes=[];return {writes,from:table=>{
  const q={select:()=>q,eq:()=>q,maybeSingle:async()=>({data:row,error:null}),upsert:async data=>{writes.push(data);return {error:null}},update:()=>q,delete:()=>q,then:done=>Promise.resolve({error:null}).then(done)};return q;

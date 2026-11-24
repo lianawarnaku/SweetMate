@@ -1,48 +1,26 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+
+export const metadata: Metadata = {
+  title: "Support",
+  description: "Get help with SweetMate, Google Calendar connections, and account deletion.",
+  alternates: { canonical: "/support" },
+};
 
 export default function SupportPage() {
   return (
     <main className="legal-shell">
       <Link className="brand simple-brand" href="/">SweetMate</Link>
       <article className="legal-card">
-        <p className="eyebrow">Help</p>
-        <h1>SweetMate Support</h1>
-        <p>
-          Need help with your account, chores, shopping lists, shared expenses,
-          or borrowed items? Email{" "}
-          <a href="mailto:liana.warnaku@gmail.com">liana.warnaku@gmail.com</a>.
-          SweetMate is operated by Liana Warnakulasooriya.
-        </p>
-        <h2>Report a problem</h2>
-        <p>
-          Tell us what you were trying to do, what happened, your app version,
-          and your device model. You can also send feedback from Settings in
-          SweetMate. Please do not send passwords, sign-in codes, invite codes,
-          or screenshots containing another person&apos;s private information.
-        </p>
-        <h2>Account deletion and privacy requests</h2>
-        <p>
-          You can initiate account deletion from Settings. Apple-linked accounts
-          confirm their Apple account. Sweet ownership transfers automatically
-          when other active members remain. Shared financial and borrowing history
-          remains under “Deleted member.” If you need assistance, email us.
-          Do not include your password. See our{" "}
-          <Link href="/privacy">Privacy Policy</Link> for information about
-          shared records, exported items, and privacy requests.
-        </p>
-        <h2>Google Calendar during testing</h2>
-        <p>
-          Calendar access is currently limited to approved Google test users.
-          Use the Google account linked to your SweetMate account and allow
-          Calendar permissions. Google&apos;s testing authorizations expire after
-          seven days; reconnect in Settings when prompted. Contact us if you
-          are testing SweetMate and need help with access.
-        </p>
-        <h2>Shared expenses</h2>
-        <p>
-          SweetMate records expenses and repayments. It does not transfer money
-          or process payments between household members.
-        </p>
+        <p className="eyebrow">We’re here to help</p>
+        <h1>Support</h1>
+        <p>For SweetMate help, contact <a href="mailto:support@sweetmate.info">support@sweetmate.info</a>. Include your app version, device type, and what happened. Never send passwords, authorization tokens, or private household information you do not need to share.</p>
+        <h2>Google Calendar</h2>
+        <p>Google sign-in and Calendar connection are separate. Connect Calendar in Settings using the Google account linked to your SweetMate account, then select calendars and Google Tasks lists to sync privately to My Sweet. You can also export a chore with a due date as an all-day event to your primary calendar. Task checkmarks and times you add in SweetMate stay in SweetMate. Roommates see only Busy and its end time if you enable busy sharing. If access expires, reconnect in Settings.</p>
+        <p>Disconnect Calendar in Settings or remove SweetMate in your <a href="https://myaccount.google.com/connections">Google Account connections</a>. Disconnecting clears imported entries and stops busy sharing. Previously exported events remain in Google Calendar and can be deleted there.</p>
+        <h2>Account and privacy help</h2>
+        <p>Read the <Link href="/privacy">Privacy Policy</Link> or follow the <Link href="/delete-account">account deletion instructions</Link>. Email us if you cannot access your account or a privacy control does not work.</p>
+        <p><Link href="/">Return to SweetMate</Link></p>
       </article>
     </main>
   );
