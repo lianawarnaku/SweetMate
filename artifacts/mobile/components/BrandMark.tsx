@@ -1,4 +1,11 @@
 import Svg, { Path, Rect } from "react-native-svg";
+import {
+  HOUSE_MONITOR_BODY_SIZE,
+  HOUSE_MONITOR_ROOF_HEIGHT,
+  HOUSE_MONITOR_ROOF_PATH,
+  HOUSE_MONITOR_ROOF_TRANSFORM,
+  HOUSE_MONITOR_ROOF_WIDTH,
+} from "@/lib/houseMonitorRoof";
 
 export const HOMIE_MARK_DEFAULT = "#111111";
 
@@ -26,6 +33,20 @@ export function BrandMark({
       <Rect x="134" y="139" width="58" height="52" rx="13" fill={fill} />
       <Rect x="64" y="198" width="58" height="52" rx="13" fill={fill} />
       <Rect x="134" y="198" width="58" height="52" rx="13" fill={fill} />
+    </Svg>
+  );
+}
+
+/** A single square beneath the Group monitor's rounded triangular roof. */
+export function MiniHouseMark({ size = 28, color = HOMIE_MARK_DEFAULT }: { size?: number; color?: string }) {
+  const bodyY = HOUSE_MONITOR_ROOF_HEIGHT + 10;
+  const height = bodyY + HOUSE_MONITOR_BODY_SIZE;
+  return (
+    <Svg accessible={false} width={size * HOUSE_MONITOR_ROOF_WIDTH / height} height={size}
+      viewBox={`0 0 ${HOUSE_MONITOR_ROOF_WIDTH} ${height}`} fill="none">
+      <Path d={HOUSE_MONITOR_ROOF_PATH} transform={HOUSE_MONITOR_ROOF_TRANSFORM} fill={color} />
+      <Rect x={(HOUSE_MONITOR_ROOF_WIDTH - HOUSE_MONITOR_BODY_SIZE) / 2} y={bodyY}
+        width={HOUSE_MONITOR_BODY_SIZE} height={HOUSE_MONITOR_BODY_SIZE} rx={13} fill={color} />
     </Svg>
   );
 }

@@ -47,6 +47,7 @@ import { ActionMenuModal } from "@/components/ActionMenuModal";
 import { useAppPopup } from "@/components/AppPopupProvider";
 import { FloatingActionButton, useFloatingActionMetrics } from "@/components/FloatingActionButton";
 import { HeaderActions } from "@/components/HeaderActions";
+import { MiniHouseMark } from "@/components/BrandMark";
 import { ManualChoreForm } from "@/components/ManualChoreForm";
 import { GlassCheckCircle } from "@/components/GlassCheckCircle";
 import { usePinchListView } from "@/components/PinchListView";
@@ -1242,9 +1243,14 @@ export default function MyChoresScreen() {
         style={[styles.header, { paddingTop: topPad + 12, backgroundColor: colors.background }]}
       >
         <View style={styles.headerTopRow}>
-          <Text style={[styles.greeting, { color: colors.mutedForeground }]} numberOfLines={2}>
-            Welcome home, <Text style={[styles.username, { color: colors.foreground }]}>{currentUser?.name ?? "You"}</Text>
-          </Text>
+          <View style={styles.greetingGroup}>
+            <Text style={[styles.greeting, { color: colors.mutedForeground }]} numberOfLines={2}>
+              Welcome home, <Text style={[styles.username, { color: colors.foreground }]}>{currentUser?.name ?? "You"}</Text>
+            </Text>
+            <View pointerEvents="none" accessible={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={styles.greetingMark}>
+              <MiniHouseMark size={28} color={colors.foreground} />
+            </View>
+          </View>
           <View style={styles.headerActions}><HeaderActions /></View>
         </View>
         {pointsEnabled && <View style={[styles.totalPoints, { backgroundColor: colors.primary + "18", alignSelf: "flex-start", marginTop: 8 }]}>
@@ -1662,7 +1668,9 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   headerActions: { flexShrink: 0 },
-  greeting: { flex: 1, minWidth: 0, fontSize: 22, lineHeight: 28, fontFamily: "Inter_400Regular", includeFontPadding: false },
+  greetingGroup: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: 8 },
+  greetingMark: { flexShrink: 0, alignItems: "center", justifyContent: "center" },
+  greeting: { flexShrink: 1, minWidth: 0, fontSize: 22, lineHeight: 28, fontFamily: "Inter_400Regular", includeFontPadding: false },
   username: { fontSize: 22, lineHeight: 28, fontFamily: "Inter_700Bold", includeFontPadding: false },
   totalPoints: {
     flexDirection: "row",
