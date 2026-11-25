@@ -26,3 +26,12 @@ Preserve v2's existing light/dark appearance, semantic theme tokens, Inter fonts
 glass surfaces, and accessibility preferences. Use GlassModalSurface,
 GlassModalBackdrop, and GlassButton for new sheets. Do not overwrite v2 components
 with older v1 implementations; adapt only the intended behavior.
+
+# Public release reminder
+
+When the user starts final polishing or preparation for public release/publication,
+remind them to publish the Google OAuth app and complete branding and Calendar/Tasks
+permission verification. They explicitly requested this contextual reminder on
+November 25, 2026. Review the release-polish checklist in
+`docs/release/website-and-google-verification.md`. This reminder concerns public
+launch; it does not block continued internal TestFlight testing.

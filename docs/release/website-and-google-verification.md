@@ -2,6 +2,36 @@
 
 Prepared November 12, 2026 against canonical `homiev2/main`. GitHub redirects `lianawarnaku/homiev2` to the renamed `lianawarnaku/SweetMate` repository (same repository ID).
 
+## Release-polish reminder — November 25, 2026
+
+The owner asked to be reminded of Google OAuth publication and verification when
+starting final release/publication polishing. Raise this checklist during that
+work; it is a contextual reminder, not a scheduled notification.
+
+- [ ] Remind the owner to change Google Auth Platform project `homie-502522` from
+  **External / Testing** to **External / In production** and complete Google
+  verification for public Calendar/Tasks access. Publishing alone leaves the
+  unverified warning and lifetime user cap in place.
+- [ ] Check the live SweetMate homepage, privacy policy, domain ownership,
+  branding, support email, and developer contacts. Confirm the policy reflects
+  Calendar/Tasks imports and synchronization as well as chore export and optional
+  roommate Busy status sharing.
+- [ ] Review and declare the permissions used by the release build, currently
+  `calendar.events`, `calendar.calendarlist.readonly`, and `tasks.readonly`, plus
+  basic Google sign-in. Prepare a justification for each and assess narrower scopes.
+- [ ] Complete branding verification/publication and submit the relevant data
+  access scopes through Verification Center with a demonstration video covering
+  consent and each requested feature.
+- [ ] After approval, verify connection using an account outside the test-user
+  list and confirm the expected import/export behavior.
+
+The existing supplied Google client pair is working in TestFlight; see
+[the November 25 repair record](google-calendar-connection-repair.md). No new
+credentials or native build are needed merely to change Google's publishing
+settings. Google Workspace administrators can still restrict organizational access.
+The November 12 preparation notes below are historical and must be checked against
+current implementation and live website state during final release review.
+
 ## Prepared website changes
 
 - `/privacy`: operator Liana Amanthi Warnakulasooriya, Massachusetts, United States; monitored contact support@sweetmate.info (confirmed by owner). Documents Google sign-in separately from Calendar, event payload, backend credential storage, disconnection, Limited Use, optional telemetry, retention, and current deletion behavior.
