@@ -6,7 +6,7 @@ On November 24, the iPhone returned from Google successfully but `POST /function
 
 The deployed Calendar client secret matched the masked value returned by the Supabase Auth configuration API, rather than a usable full Google client secret. A deliberately invalid diagnostic refresh grant confirmed that these configured credentials are rejected with `invalid_client`. The owner's separate local QA client has valid credentials, but its client ID differs from production and cannot refresh production's grants.
 
-The repair requires a full active secret for the exact production Google OAuth client ID. Update only the server's `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET` after validating the matching pair. Do not copy masked Auth API values into Edge secrets. Do not change the production Google sign-in provider or replace it with the unrelated QA client. Credentials remain in private local files and server secrets.
+The original repair plan was to recover the full secret for the existing production OAuth client. On November 25, the owner instead explicitly requested that production use the complete working client ID/secret pair they supplied in a private local file. This requires changing both Supabase Google sign-in and the Calendar server together. Updating Edge secrets alone would leave newly issued Google refresh tokens tied to a different client. Masked Auth API values must never be reused as credentials.
 
 ## Changes prepared
 
@@ -22,4 +22,20 @@ Workspace type checks, the full mobile suite, backend integration tests, the Goo
 
 Commit `126f92f555a0306ac0b993551eb51e7b7a1bb272` was built as iOS 1.0.0 (49), EAS build `7afaa609-e421-402d-ace6-35c4503c9226`. The user then requested no further build yet. Its TestFlight submission `80dd3f67-ea64-4e2b-a5ee-b1df5afa0dc5` was canceled and independently verified `CANCELED`. The binary has not been released to TestFlight. Build 48 remains the published version.
 
-The server validation/diagnostic changes are deployed. The matching full production secret and a successful iPhone connection retry remain required before declaring the connection repaired. No household records, roommates, chore charts, or saved chores were modified during diagnosis.
+The server validation/diagnostic changes are deployed. A successful iPhone connection retry remains required before declaring the end-to-end connection repaired. No household records, roommates, chore charts, or saved chores were modified during diagnosis.
+
+## November 25: consolidate production onto the supplied pair
+
+The owner authorized using the existing **SweetMate Calendar Server** web client for production. It belongs to the same Google Cloud project (`homie-502522`) as the former production client.
+
+- Target public client ID: `653392398023-33rp4a9o7dhnrk9gabibl4jg9lit1j59.apps.googleusercontent.com`.
+- Added and saved `https://eqnogaftebuqfwwelbdx.supabase.co/auth/v1/callback` to that client's authorized redirect URIs. Existing local callbacks were retained.
+- Verified Google's token endpoint accepts the supplied pair using a deliberately invalid diagnostic refresh grant. The expected response was `invalid_grant`, rather than `invalid_client`; no real user grant was used.
+- Updated production `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET`, then redeployed the existing `calendar` and `google-schedule` functions to load them.
+- Updated only `external_google_client_id` and `external_google_secret` in Supabase Auth to use the same pair. Email/Apple authentication, session settings, native redirect allowlist, and user identities were retained.
+- Confirmed the live Supabase Google authorization endpoint redirects to Google using the target client and production callback. Verified the Edge secret digests against the private supplied values. Auth returns an opaque masked secret; its changed readback confirms the update, but is not a reusable credential or the Edge API's secret digest.
+- Confirmed Calendar API was enabled. Enabled the previously missing Google Tasks API and verified its Google Cloud status is **Enabled**.
+
+Before/after row fingerprints were identical for 16 Auth users, 18 linked identities, 15 households, 18 memberships, and 666 saved chores. Calendar connections and personal schedule preferences both remained empty during the configuration checks. No accounts or household data were migrated or recreated.
+
+The Google Cloud audience remains **External / Testing**, with the owner's Google account listed as the allowed tester. This consolidation does not publish the Google OAuth app or grant additional users access. Existing TestFlight build 48 can pick up the server configuration without a new native build. The owner was asked to retry Connect Google Calendar in that build; successful user consent and persisted connection still need to be observed.
