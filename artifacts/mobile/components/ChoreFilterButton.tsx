@@ -1,7 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import { StyleSheet, Text, TouchableOpacity, View, type StyleProp, type ViewStyle } from "react-native";
 
-import { useGlassFilterGroup } from "@/components/GlassFilterGroup";
+import { GlassControlSurface } from "@/components/GlassControlSurface";
 import { useTheme } from "@/constants/colors";
 
 type Props = {
@@ -17,43 +17,44 @@ type Props = {
 
 export function ChoreFilterButton({ label, selected, onPress, accessibilityLabel, icon, iconOnly = false, pill = false, style }: Props) {
   const colors = useTheme();
-  const grouped = useGlassFilterGroup();
-  const foreground = selected ? grouped ? colors.foreground : colors.primaryForeground : colors.mutedForeground;
-  const content = <>
-    {icon ? <Feather name={icon} size={13} color={foreground} /> : null}
-    {!iconOnly ? <Text style={[styles.text, { color: foreground }]}>{label}</Text> : null}
-  </>;
-  const fill = { backgroundColor: selected ? colors.primary : colors.secondary };
+  const foreground = selected ? colors.foreground : colors.mutedForeground;
+  const shape = pill ? styles.pill : styles.rounded;
+
   return (
     <TouchableOpacity
-      accessibilityRole="tab"
+      accessibilityRole="button"
       accessibilityState={{ selected }}
-      aria-selected={selected}
       accessibilityLabel={accessibilityLabel}
       onPress={onPress}
-      hitSlop={6}
-      style={grouped ? [styles.button, styles.grouped, style] : pill ? [styles.pillTouchTarget, style] : [styles.button, fill, style]}
+      activeOpacity={0.8}
+      hitSlop={4}
+      style={[styles.button, shape, style]}
     >
-      {pill && !grouped ? <View style={[styles.button, styles.pill, fill]}>{content}</View> : content}
+      <GlassControlSurface pointerEvents="none" style={[StyleSheet.absoluteFill, shape, { borderColor: colors.glassRim }]}>
+        {selected && <View style={[StyleSheet.absoluteFill, {
+          backgroundColor: colors.mode === "dark" ? "rgba(255,255,255,0.16)" : "rgba(255,255,255,0.90)",
+        }]} />}
+      </GlassControlSurface>
+      {icon ? <Feather name={icon} size={13} color={foreground} /> : null}
+      {!iconOnly ? <Text style={[styles.text, selected && styles.selectedText, { color: foreground }]}>{label}</Text> : null}
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
   button: {
-    minWidth: 0,
+    minWidth: 44,
+    minHeight: 44,
+    flexShrink: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 5,
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     paddingVertical: 7,
-    borderRadius: 10,
   },
-  // The visible pill is compact, while its transparent touch target stays easy
-  // to hit. Neither layer grows to consume unused row width.
-  pillTouchTarget: { minHeight: 44, minWidth: 44, alignSelf: "flex-start", alignItems: "center", justifyContent: "center" },
-  grouped: { minHeight: 44, minWidth: 44, borderRadius: 22, paddingHorizontal: 14, backgroundColor: "transparent" },
-  pill: { minHeight: 30, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 6 },
+  rounded: { borderRadius: 10 },
+  pill: { borderRadius: 22 },
   text: { fontFamily: "Inter_600SemiBold", includeFontPadding: false, fontSize: 13, flexShrink: 1, textAlign: "center" },
+  selectedText: { fontFamily: "Inter_700Bold" },
 });
