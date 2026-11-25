@@ -1,3 +1,5 @@
+import { GoogleScheduleControls } from "@/components/GoogleScheduleControls";
+import { householdDateKey } from "@/lib/choreTimezone";
 import { useHouseholdPlanningStatus } from "@/hooks/useHouseholdPlanningStatus";
 import { signOutWithPushCleanup } from "@/lib/pushRegistration";
 import { KEYBOARD_BEHAVIOR } from "@/lib/keyboard";
@@ -169,6 +171,9 @@ export default function SettingsScreen() {
     updateRoommate,
     setCurrentUser,
     householdName,
+    householdId,
+    householdTimezone,
+    personalSchedule,
     inviteCode,
     householdLoading,
     refreshHousehold,
@@ -1390,6 +1395,11 @@ export default function SettingsScreen() {
                 <Feather name="chevron-right" size={17} color={colors.mutedForeground} />
               )}
             </TouchableOpacity>
+            {googleCalendarConnected && <GoogleScheduleControls
+              key={`google-schedule-settings:${householdId}:${currentUserId}`}
+              placement="settings" schedule={personalSchedule} householdId={householdId}
+              day={householdDateKey(new Date(), householdTimezone)}
+            />}
             {googleConnection.error && <Text accessibilityRole="alert" style={{ color: colors.destructive, fontFamily: "Inter_400Regular", fontSize: 13, lineHeight: 19 }}>{googleConnection.error}</Text>}
           </View>
 

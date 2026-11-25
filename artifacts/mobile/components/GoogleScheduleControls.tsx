@@ -11,7 +11,7 @@ import type { usePersonalSchedule } from "@/hooks/usePersonalSchedule";
 import type { ScheduleSources } from "@/lib/personalSchedule";
 import { useGoogleCalendarConnection } from "@/hooks/useGoogleCalendarConnection";
 
-export function GoogleScheduleControls({ schedule, householdId, day }: { schedule: ReturnType<typeof usePersonalSchedule>; householdId: string | null; day: string }) {
+export function GoogleScheduleControls({ schedule, householdId, day, placement }: { schedule: ReturnType<typeof usePersonalSchedule>; householdId: string | null; day: string; placement: "home" | "settings" }) {
   const colors = useTheme();
   const connection = useGoogleCalendarConnection(schedule.userId);
   const insets = useSafeAreaInsets();
@@ -58,16 +58,24 @@ export function GoogleScheduleControls({ schedule, householdId, day }: { schedul
     onPress={() => set(selected.includes(id) ? selected.filter((value) => value !== id) : [...selected, id])} style={styles.choice}>
     <Feather name={selected.includes(id) ? "check-square" : "square"} size={20} color={colors.foreground} /><Text style={[styles.name, { color: colors.foreground }]}>{name}</Text>
   </TouchableOpacity>;
-  return <View style={styles.controls}>
-    <View style={styles.header}>
-      <TouchableOpacity accessibilityRole="button" accessibilityLabel={schedule.prefs?.enabled ? "Manage Google schedule" : "Connect your Google schedule"} disabled={!schedule.userId || busy || connection.busy} onPress={() => void open()} style={styles.link}>
-        <Feather name="calendar" size={14} color={colors.mutedForeground} /><Text style={[styles.linkText, { color: colors.mutedForeground }]}>{schedule.prefs?.enabled ? "Manage Google schedule" : "Connect your Google schedule"}</Text>
+  // Wait for the shared server status before offering connection on My Sweet.
+  // Keep an in-progress first-time picker mounted after OAuth succeeds so the
+  // user can finish choosing calendars/tasks before management moves to Settings.
+  const showLauncher = placement === "settings" || connection.connected === false;
+  const launcherLabel = placement === "settings" ? "Manage Google Calendar" : "Connect your Google schedule";
+  const connectionError = placement === "home" && !visible ? connection.error : null;
+  if (!showLauncher && !visible && !connectionError && !schedule.error) return null;
+
+  return <View style={[styles.controls, placement === "settings" && styles.settingsControls]}>
+    {showLauncher && <View style={styles.header}>
+      <TouchableOpacity accessibilityRole="button" accessibilityLabel={launcherLabel} disabled={!schedule.userId || busy || connection.busy} onPress={() => void open()} style={styles.link}>
+        <Feather name="calendar" size={14} color={colors.mutedForeground} /><Text style={[styles.linkText, { color: colors.mutedForeground }]}>{launcherLabel}</Text>
       </TouchableOpacity>
-      {schedule.prefs?.enabled && <TouchableOpacity accessibilityRole="button" accessibilityLabel="Refresh Google schedule" disabled={schedule.loading} onPress={() => void schedule.sync(day).catch(() => {})} style={styles.refresh}>
+      {placement === "settings" && schedule.prefs?.enabled && <TouchableOpacity accessibilityRole="button" accessibilityLabel="Refresh Google schedule" disabled={schedule.loading} onPress={() => void schedule.sync(day).catch(() => {})} style={styles.refresh}>
         {schedule.loading ? <ActivityIndicator size="small" color={colors.mutedForeground} /> : <Feather name="refresh-cw" size={15} color={colors.mutedForeground} />}
       </TouchableOpacity>}
-    </View>
-    {!visible && connection.error && <Text accessibilityRole="alert" style={[styles.meta, { color: colors.destructive }]}>{connection.error}</Text>}
+    </View>}
+    {connectionError && <Text accessibilityRole="alert" style={[styles.meta, { color: colors.destructive }]}>{connectionError}</Text>}
     {schedule.error && <Text accessibilityRole="alert" style={[styles.meta, { color: colors.destructive }]}>{schedule.error}</Text>}
     <Modal visible={visible} transparent animationType={reduceMotion ? "none" : "fade"} onRequestClose={close}>
       <View style={[styles.overlay, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 16 }]}>
@@ -101,7 +109,7 @@ export function GoogleScheduleControls({ schedule, householdId, day }: { schedul
   </View>;
 }
 const styles = StyleSheet.create({
-  controls: { marginHorizontal: 16, gap: 4 }, header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" }, link: { minHeight: 44, flexDirection: "row", alignItems: "center", gap: 6, flexShrink: 1 },
+  controls: { marginHorizontal: 16, gap: 4 }, settingsControls: { marginHorizontal: 0 }, header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" }, link: { minHeight: 44, flexDirection: "row", alignItems: "center", gap: 6, flexShrink: 1 },
   linkText: { fontFamily: "Inter_400Regular", fontSize: 12, textDecorationLine: "underline", flexShrink: 1 }, refresh: { width: 44, height: 44, alignItems: "center", justifyContent: "center" }, meta: { fontFamily: "Inter_400Regular", fontSize: 13, lineHeight: 19 },
   overlay: { flex: 1, paddingHorizontal: 16, justifyContent: "center" }, sheet: { width: "100%", maxWidth: 520, maxHeight: "100%", alignSelf: "center", borderRadius: 24, padding: 20, gap: 18 }, title: { fontFamily: "Inter_700Bold", fontSize: 21 },
   label: { fontFamily: "Inter_600SemiBold", fontSize: 11, letterSpacing: 1, marginTop: 8 }, choice: { flexDirection: "row", alignItems: "center", gap: 10, minHeight: 44 }, name: { fontFamily: "Inter_600SemiBold", fontSize: 14, flexShrink: 1 },

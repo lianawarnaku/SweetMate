@@ -1302,7 +1302,7 @@ export default function MyChoresScreen() {
               {floatingWeekCalendar ? <View style={{ height: floatingCalendar.height }} /> : calendarContent}
             </View>}
 
-            <GoogleScheduleControls key={`google-schedule:${householdId}:${currentUserId}`} schedule={personalSchedule} householdId={householdId} day={agendaDay} />
+            <GoogleScheduleControls key={`google-schedule:${householdId}:${currentUserId}`} placement="home" schedule={personalSchedule} householdId={householdId} day={agendaDay} />
 
             <CollapsibleSectionHeader
               title={showPersonalAgenda ? "My Day" : "My Chores"}
