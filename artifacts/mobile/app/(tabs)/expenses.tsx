@@ -1268,9 +1268,9 @@ export default function ExpensesScreen() {
               <Text style={[styles.iouHeaderTitle, { color: colors.foreground }]}>
                 {editingExpenseId ? "Edit IOU" : "New IOU"}
               </Text>
-              <Text style={[styles.iouHeaderSub, { color: colors.mutedForeground }]}>
-                {editingExpenseId ? "Update the details" : "Log a shared expense"}
-              </Text>
+              {editingExpenseId ? <Text style={[styles.iouHeaderSub, { color: colors.mutedForeground }]}>
+                Update the details
+              </Text> : null}
             </View>
             <TouchableOpacity
               disabled={submittingIou}
