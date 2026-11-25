@@ -34,11 +34,13 @@ export function ChoreFilterButton({ label, selected, onPress, accessibilityLabel
       hitSlop={4}
       style={[styles.button, shape, style]}
     >
-      <GlassControlSurface pointerEvents="none" style={[StyleSheet.absoluteFill, shape, { borderColor: rim }]}>
-        <View style={[StyleSheet.absoluteFill, { backgroundColor: wash }]} />
+      <GlassControlSurface borderless pointerEvents="none" style={[StyleSheet.absoluteFill, shape]}>
+        <View style={[StyleSheet.absoluteFill, shape, { backgroundColor: wash }]} />
       </GlassControlSurface>
       {icon ? <Feather name={icon} size={13} color={foreground} /> : null}
       {!iconOnly ? <Text style={[styles.text, selected && styles.selectedText, { color: foreground }]}>{label}</Text> : null}
+      {/* Keep one continuous outline above the glass and its tint layer. */}
+      <View pointerEvents="none" style={[StyleSheet.absoluteFill, shape, styles.rim, { borderColor: rim }]} />
     </TouchableOpacity>
   );
 }
@@ -48,6 +50,7 @@ const styles = StyleSheet.create({
     minWidth: 44,
     minHeight: 44,
     flexShrink: 1,
+    overflow: "hidden",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -55,6 +58,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 7,
   },
+  rim: { borderWidth: 1 },
   rounded: { borderRadius: 10 },
   pill: { borderRadius: 22 },
   text: { fontFamily: "Inter_600SemiBold", includeFontPadding: false, fontSize: 13, flexShrink: 1, textAlign: "center" },
