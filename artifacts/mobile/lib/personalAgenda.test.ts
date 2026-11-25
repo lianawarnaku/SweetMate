@@ -75,7 +75,7 @@ let tree = f.render();
 const eventCheck = action(tree, "Complete in SweetMate: Timed event");
 assert.equal(eventCheck.props.accessibilityRole, "checkbox");
 const arc = nodes(eventCheck).find(node => node.type === "Circle" && node.props.strokeDashoffset !== undefined);
-assert(arc && Math.abs(arc.props.strokeDashoffset - 21 * Math.PI) < 0.0001, "a half-elapsed event must draw a half white arc around its checkmark");
+assert(arc && Math.abs(arc.props.strokeDashoffset - arc.props.r * Math.PI) < 0.0001, "a half-elapsed event must draw a half white arc around its checkmark");
 eventCheck.props.onPress(); eventCheck.props.onPress(); await settle();
 assert.equal(f.updates.length, 1, "rapid checkbox taps must not submit duplicate mutations");
 assert.equal(f.updates[0].id, "event"); assert.equal(f.updates[0].update.completed, true);

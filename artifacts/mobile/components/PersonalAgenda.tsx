@@ -11,9 +11,11 @@ import { useTheme } from "@/constants/colors";
 import { useAccessibilityPreferences } from "@/hooks/useAccessibilityPreferences";
 import { KEYBOARD_BEHAVIOR } from "@/lib/keyboard";
 import { householdDueDate } from "@/lib/choreTimezone";
-import { withAlpha } from "@/lib/contrast";
 import { scheduleDateKey, scheduleDateLabel, scheduleItemCompletionProgress, scheduleItemPeriod, scheduleItemProgress, scheduleItemTimes, scheduleItemsForDay, scheduleTimeLabel, type PersonalScheduleItem, type TaskScheduleUpdate } from "@/lib/personalSchedule";
 import type { Chore } from "@/context/AppContext";
+
+const SCHEDULE_CHECK_SIZE = 22;
+const SCHEDULE_CHECK_STROKE = 1.7;
 
 function ScheduleCheck({ item, now, pending, disabled, onPress, style }: {
   item: PersonalScheduleItem; now: number; pending: boolean; disabled: boolean;
@@ -22,19 +24,20 @@ function ScheduleCheck({ item, now, pending, disabled, onPress, style }: {
   const colors = useTheme();
   const progress = scheduleItemCompletionProgress(item, now);
   const timed = Boolean(scheduleItemTimes(item).start && scheduleItemTimes(item).end);
-  const circumference = 2 * Math.PI * 21;
+  const center = SCHEDULE_CHECK_SIZE / 2;
+  const radius = (SCHEDULE_CHECK_SIZE - SCHEDULE_CHECK_STROKE) / 2;
+  const circumference = 2 * Math.PI * radius;
   return <TouchableOpacity accessibilityRole="checkbox"
     accessibilityLabel={`${item.app_completed_at ? "Mark incomplete" : "Complete"} in SweetMate: ${item.title}`}
     accessibilityHint={item.app_completed_at ? "Completed in SweetMate." : timed ? `Time block ${Math.round(progress * 100)} percent elapsed. Completion is tracked in SweetMate.` : "Completion is tracked in SweetMate."}
     aria-checked={Boolean(item.app_completed_at)} accessibilityState={{ checked: Boolean(item.app_completed_at), busy: pending, disabled }}
     disabled={disabled} onPress={onPress} activeOpacity={0.75} hitSlop={4} style={[styles.check, style]}>
     <View pointerEvents="none" style={styles.ring}>
-      <Svg width={48} height={48} style={StyleSheet.absoluteFill}>
-        <Circle cx={24} cy={24} r={21} fill="none" stroke={withAlpha(colors.foreground, 0.24)} strokeWidth={2.5} />
-        {progress > 0 && <Circle cx={24} cy={24} r={21} fill="none" stroke={colors.foreground} strokeWidth={2.5} strokeLinecap="round"
-          strokeDasharray={`${circumference} ${circumference}`} strokeDashoffset={circumference * (1 - progress)} rotation={-90} origin="24,24" />}
+      {pending ? <ActivityIndicator size="small" color={colors.foreground} /> : <GlassCheckCircle size={SCHEDULE_CHECK_SIZE} state={item.app_completed_at ? "checked" : "idle"} />}
+      <Svg width={SCHEDULE_CHECK_SIZE} height={SCHEDULE_CHECK_SIZE} style={StyleSheet.absoluteFill}>
+        {progress > 0 && <Circle cx={center} cy={center} r={radius} fill="none" stroke={colors.foreground} strokeWidth={SCHEDULE_CHECK_STROKE} strokeLinecap="round"
+          strokeDasharray={`${circumference} ${circumference}`} strokeDashoffset={circumference * (1 - progress)} rotation={-90} origin={`${center},${center}`} />}
       </Svg>
-      {pending ? <ActivityIndicator size="small" color={colors.foreground} /> : <GlassCheckCircle size={22} state={item.app_completed_at ? "checked" : "idle"} />}
     </View>
   </TouchableOpacity>;
 }
@@ -171,7 +174,7 @@ const styles = StyleSheet.create({
   period: { gap: 8, paddingBottom: 16 }, periodTitle: { marginHorizontal: 16, minHeight: 40, flexDirection: "row", alignItems: "center", gap: 8 }, heading: { fontFamily: "Inter_700Bold", fontSize: 17 },
   event: { marginHorizontal: 16, marginBottom: 4, borderRadius: 18 }, eventButton: { padding: 14, minHeight: 76 }, row: { flexDirection: "row", alignItems: "center", gap: 10 }, copy: { flex: 1, minWidth: 0, gap: 4 },
   title: { fontFamily: "Inter_600SemiBold", fontSize: 14 }, meta: { fontFamily: "Inter_400Regular", fontSize: 13, lineHeight: 19 }, live: { fontFamily: "Inter_600SemiBold", fontSize: 12 },
-  check: { width: 48, minHeight: 48, alignItems: "center", justifyContent: "center" }, checkSlot: { width: 48, minHeight: 48 }, checkOverlay: { position: "absolute", left: 14, top: 0, bottom: 0 }, ring: { width: 48, height: 48, justifyContent: "center", alignItems: "center" },
+  check: { width: 48, minHeight: 48, alignItems: "center", justifyContent: "center" }, checkSlot: { width: 48, minHeight: 48 }, checkOverlay: { position: "absolute", left: 14, top: 0, bottom: 0 }, ring: { width: SCHEDULE_CHECK_SIZE, height: SCHEDULE_CHECK_SIZE, justifyContent: "center", alignItems: "center" },
   empty: { marginHorizontal: 16, fontFamily: "Inter_400Regular", fontSize: 13, paddingBottom: 8 }, message: { marginHorizontal: 16, fontFamily: "Inter_400Regular", fontSize: 13 },
   overlay: { flex: 1, paddingHorizontal: 16, justifyContent: "center" }, sheet: { width: "100%", maxWidth: 520, maxHeight: "100%", alignSelf: "center", padding: 20, borderRadius: 24, gap: 18 }, modalTitle: { fontFamily: "Inter_700Bold", fontSize: 20 },
   input: { minHeight: 48, borderRadius: 12, paddingHorizontal: 12, fontFamily: "Inter_500Medium", fontSize: 16 }, button: { flex: 1, borderRadius: 12 }, googleLink: { minHeight: 44, justifyContent: "center" },
