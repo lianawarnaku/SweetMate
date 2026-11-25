@@ -373,20 +373,30 @@ const dismissCode = ts.transpileModule(`exports.dismiss = ${dismissCallback!.get
   compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS },
 }).outputText;
 for (const reducedMotion of [false, true]) {
-  for (const finished of [false, true]) {
+  for (const finished of [false, true, undefined]) {
+    const timers = new Map<number, () => void>();
     let commits = 0, haptics = 0, animationEnd: ((result: { finished: boolean }) => void) | undefined;
     const exports: any = {};
     runInNewContext(dismissCode, {
-      exports, allDone: true, dismissingRef: { current: false }, reduceMotion: reducedMotion,
+      exports, allDone: true, dismissingRef: { current: false }, dismissTimeout: { current: null }, reduceMotion: reducedMotion,
+      setTimeout: (callback: () => void, delay: number) => { assert(delay === 450, "dismissal fallback must follow the exit motion"); timers.set(1, callback); return 1; },
+      clearTimeout: (id: number) => timers.delete(id),
       setDismissing: () => {}, tapLight: () => { haptics++; },
       onDismiss: () => { commits++; }, jiggle: {}, visibility: {},
       Animated: { timing: () => ({}), sequence: () => ({ start: (callback: typeof animationEnd) => { animationEnd = callback; } }) },
     });
     exports.dismiss();
     exports.dismiss();
-    if (!reducedMotion) animationEnd?.({ finished });
+    if (!reducedMotion) {
+      if (finished === undefined) {
+        assert(commits === 0 && timers.size === 1, "a missing native completion must leave a pending fallback");
+        timers.get(1)?.();
+        animationEnd?.({ finished: true });
+      } else animationEnd?.({ finished });
+    }
+    assert(timers.size === 0, "completed dismissal must clear its fallback timer");
     assert(commits === 1 && haptics === 1,
       `summary dismissal must commit once even with native finished=${finished} and reduced motion=${reducedMotion}`);
   }
 }
-console.log("Caught-up dismissal callback passes completed/interrupted native animation, reduced-motion and repeated-tap checks.");
+console.log("Caught-up dismissal passes completed, interrupted and missing native callbacks, reduced motion and repeated taps.");

@@ -5,6 +5,7 @@ import { PersonalAgenda } from "@/components/PersonalAgenda";
 import { GoogleScheduleControls } from "@/components/GoogleScheduleControls";
 import { scheduleDateKey, scheduleItemsForDay } from "@/lib/personalSchedule";
 import { useFloatingWeekCalendar } from "@/hooks/useFloatingWeekCalendar";
+import { useHomeSummaryDismissal } from "@/hooks/useHomeSummaryDismissal";
 import { householdDateKey } from "@/lib/choreTimezone";
 import { isPointsVisible } from "@/constants/featureAvailability";
 import { GlassFilterGroup } from "@/components/GlassFilterGroup";
@@ -33,6 +34,7 @@ import {
   Text,
   TouchableOpacity,
   View,
+  type ViewStyle,
 } from "react-native";
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
@@ -139,8 +141,10 @@ function TodayFocusCard({
   const [dismissing, setDismissing] = useState(false);
   const jiggle = useRef(new Animated.Value(0)).current;
   const visibility = useRef(new Animated.Value(1)).current;
+  const dismissTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => () => {
+    if (dismissTimeout.current !== null) clearTimeout(dismissTimeout.current);
     jiggle.stopAnimation();
     visibility.stopAnimation();
   }, [jiggle, visibility]);
@@ -150,20 +154,28 @@ function TodayFocusCard({
     dismissingRef.current = true;
     setDismissing(true);
     tapLight();
-    if (reduceMotion) {
+    let committed = false;
+    const complete = () => {
+      if (committed) return;
+      committed = true;
+      if (dismissTimeout.current !== null) clearTimeout(dismissTimeout.current);
+      dismissTimeout.current = null;
       onDismiss();
+    };
+    if (reduceMotion) {
+      complete();
       return;
     }
+    // Some native sequences fade the card but never deliver their completion.
+    // The layout change must still happen, exactly once, after the exit motion.
+    dismissTimeout.current = setTimeout(complete, 450);
     Animated.sequence([
       Animated.timing(jiggle, { toValue: -1, duration: 45, useNativeDriver: true }),
       Animated.timing(jiggle, { toValue: 1, duration: 65, useNativeDriver: true }),
       Animated.timing(jiggle, { toValue: -0.5, duration: 55, useNativeDriver: true }),
       Animated.timing(jiggle, { toValue: 0, duration: 45, useNativeDriver: true }),
       Animated.timing(visibility, { toValue: 0, duration: 120, useNativeDriver: true }),
-    ]).start(() => {
-      // A canceled native animation must still honor the user's dismissal.
-      onDismiss();
-    });
+    ]).start(complete);
   };
 
   useEffect(() => {
@@ -499,7 +511,6 @@ export default function MyChoresScreen() {
   const [selectedDate, setSelectedDate] = useState(() => new Date());
   const [weekOffset, setWeekOffset] = useState(0);
   const [calendarExpanded, setCalendarExpanded] = useState(false);
-  const [dismissedFocusKey, setDismissedFocusKey] = useState<string | null>(null);
   const { expandedHomeSections, toggleSection } = useHomeSections(currentUserId);
   const choreFeedback = useCompletionFeedback(
     `home-chores:${householdId ?? ""}:${currentUserId}:${filter}:${selectedDate.toDateString()}:${Boolean(expandedHomeSections["my-chores"])}`,
@@ -971,23 +982,27 @@ export default function MyChoresScreen() {
       ...(filter === "day" ? scheduleItemsForDay(personalSchedule.items, agendaDay, agendaTimezone) : []),
     ] : [],
   });
-  const focusDismissed = caughtUp && dismissedFocusKey === focusKey;
-  useEffect(() => {
-    if (!caughtUp) setDismissedFocusKey(null);
-  }, [focusKey, caughtUp]);
+  const { dismissed: focusDismissed, dismiss: saveFocusDismissal } = useHomeSummaryDismissal({
+    householdId, userId: currentUserId, day: choreLocalDateKey(lifecycleNow),
+  });
   const dismissTodayFocus = () => {
     if (!reduceMotion) LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setDismissedFocusKey(focusKey);
+    setCalendarExpanded(false);
+    saveFocusDismissal();
   };
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const botPad = Platform.OS === "web" ? 34 : 0;
   const homeListRef = useRef<FlatList<Chore>>(null);
   const [homeHeaderHeight, setHomeHeaderHeight] = useState(0);
+  const [homeListHeight, setHomeListHeight] = useState(0);
   const floatingWeekCalendar = focusDismissed && !calendarExpanded;
   const floatingCalendar = useFloatingWeekCalendar({
     enabled: floatingWeekCalendar, reduceMotion, resetKey: focusKey,
   });
+  useEffect(() => {
+    if (focusDismissed) homeListRef.current?.scrollToOffset({ offset: 0, animated: false });
+  }, [focusDismissed, focusKey]);
   const editingChore = editingChoreId
     ? chores.find((chore) => chore.id === editingChoreId)
     : undefined;
@@ -1059,7 +1074,8 @@ export default function MyChoresScreen() {
   const calendarContent = (
     <Surface
       level={floatingWeekCalendar ? "elevated" : "card"}
-      style={[styles.calendarCard, { borderColor: colors.border }]}
+      style={[styles.calendarCard, { borderColor: colors.border }, floatingWeekCalendar && styles.attachedCalendar,
+        floatingWeekCalendar && { backgroundColor: colors.background }]}
     >
       <View style={styles.calendarTopRow}>
         <TouchableOpacity
@@ -1258,9 +1274,11 @@ export default function MyChoresScreen() {
           <Text style={[styles.totalPointsText, { color: colors.primary }]}>{currentUser?.points ?? 0} pts</Text>
         </View>}
       </View>
+      {/* Keep browser scroll anchoring from reversing the collapsing calendar. */}
       <Reanimated.FlatList
-        style={{ flex: 1 }}
+        style={[{ flex: 1 }, Platform.OS === "web" && { overflowAnchor: "none" } as ViewStyle]}
         ref={homeListRef}
+        onLayout={(event) => setHomeListHeight(event.nativeEvent.layout.height)}
         onScroll={floatingCalendar.onScroll}
         extraData={focusDismissed}
         scrollEventThrottle={16}
@@ -1269,7 +1287,8 @@ export default function MyChoresScreen() {
         keyExtractor={(item) => item.id}
         contentContainerStyle={[
           styles.listContent,
-          { paddingBottom: Math.max(scrollBottomPadding, 100 + botPad) },
+          { paddingBottom: Math.max(scrollBottomPadding, 100 + botPad),
+            minHeight: floatingWeekCalendar ? homeListHeight + floatingCalendar.height + 8 : undefined },
         ]}
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
@@ -1299,7 +1318,7 @@ export default function MyChoresScreen() {
             {(focusDismissed || expandedHomeSections.schedule) && <View onLayout={(event) => {
               if (!floatingWeekCalendar && !calendarExpanded) floatingCalendar.onCalendarLayout(event);
             }}>
-              {floatingWeekCalendar ? <View style={{ height: floatingCalendar.height }} /> : calendarContent}
+              {floatingWeekCalendar ? <Reanimated.View pointerEvents="none" style={floatingCalendar.spacerStyle} /> : calendarContent}
             </View>}
 
             <GoogleScheduleControls key={`google-schedule:${householdId}:${currentUserId}`} placement="home" schedule={personalSchedule} householdId={householdId} day={agendaDay} />
@@ -1755,7 +1774,8 @@ const styles = StyleSheet.create({
   todayQuietState: { paddingTop: spacing.lg },
   todayQuietCopy: { ...typography.caption, textAlign: "center" },
   floatingCalendarClip: { ...StyleSheet.absoluteFillObject, overflow: "hidden", zIndex: 20 },
-  floatingCalendarOverhang: { position: "absolute", top: 0, left: 16, right: 16 },
+  floatingCalendarOverhang: { position: "absolute", top: 0, left: 0, right: 0 },
+  attachedCalendar: { borderRadius: 0, borderWidth: 0, marginBottom: 0, paddingHorizontal: 16, shadowOpacity: 0, elevation: 0 },
   calendarCard: {
     borderRadius: radii.card,
     borderWidth: 1,

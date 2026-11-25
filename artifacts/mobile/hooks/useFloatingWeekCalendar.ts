@@ -29,7 +29,10 @@ export function useFloatingWeekCalendar({ enabled, reduceMotion, resetKey }: {
       return;
     }
     const previous = intent.value;
-    const next = nextCalendarScrollIntent(previous, offset, measuredHeight.value);
+    // Collapsing the spacer can clamp the offset at the end of a long list.
+    // That layout adjustment is not an upward gesture from the person.
+    const baseline = boundedCalendarScrollOffset(previous.offset, event.contentSize.height, event.layoutMeasurement.height);
+    const next = nextCalendarScrollIntent({ ...previous, offset: baseline }, offset, 0);
     intent.value = next;
     if (next.hidden !== previous.hidden) {
       progress.value = reduceMotion ? Number(next.hidden) : withTiming(Number(next.hidden), {
@@ -45,6 +48,10 @@ export function useFloatingWeekCalendar({ enabled, reduceMotion, resetKey }: {
     transform: [{ translateY: reduceMotion ? 0 : -progress.value * (measuredHeight.value + 16) }],
   }), [reduceMotion]);
 
+  const spacerStyle = useAnimatedStyle(() => ({
+    height: measuredHeight.value * (1 - progress.value),
+  }));
+
   const onCalendarLayout = (event: LayoutChangeEvent) => {
     const nextHeight = event.nativeEvent.layout.height;
     if (nextHeight <= 0) return;
@@ -53,6 +60,6 @@ export function useFloatingWeekCalendar({ enabled, reduceMotion, resetKey }: {
   };
 
   return {
-    onScroll, floatingStyle, height, hidden, onCalendarLayout,
+    onScroll, floatingStyle, spacerStyle, height, hidden, onCalendarLayout,
   };
 }
