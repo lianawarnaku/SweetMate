@@ -109,3 +109,26 @@ assert(partialAndVoid.length === 1 && partialAndVoid[0].sourceId === "partial", 
 assert(partialAndVoid[0].amountCents === 601, "calendar amounts use authoritative cents rather than stale dollar aliases");
 assert(partialAndVoid[0].completed === false, "a partial repayment does not mark the whole expense completed");
 assert(partialAndVoid[0].isRecurring === false, "partial repayment records never create projected expense occurrences");
+
+const scheduledShoppingSources = {
+  chores: [], expenses: [], roommates: members, currentUserId: "a", householdId: "home-a",
+  shoppingLists: [
+    { id: "trip", name: "Groceries", plannedDate: "2026-11-25", plannedTime: "15:45" },
+    { id: "legacy-trip", name: "Date only", plannedDate: "2026-11-25" },
+    { id: "no-trip", name: "Unscheduled" },
+  ],
+  shoppingItems: [
+    { id: "milk", listId: "trip", name: "Milk", quantity: "1", addedBy: "a", completed: false, neededByDate: "2026-11-25", neededByTime: "09:30" },
+    { id: "bread", listId: "trip", name: "Bread", quantity: "1", addedBy: "a", completed: false },
+    { id: "old", listId: "trip", name: "Old", quantity: "1", addedBy: "a", completed: true, neededByDate: "2026-11-01" },
+  ],
+};
+const shoppingEvents = deriveCalendarItems(scheduledShoppingSources, new Date(2026,10,23), new Date(2026,10,29));
+assert(shoppingEvents.length === 3, "only explicitly scheduled shopping in the selected week belongs on the Group calendar");
+assert(shoppingEvents.find(item=>item.sourceId==='trip')?.time==='15:45', "the list's chosen calendar time must be retained");
+assert(shoppingEvents.find(item=>item.sourceId==='milk')?.time==='09:30', "the item's chosen calendar time must be retained");
+assert(shoppingEvents.find(item=>item.sourceId==='legacy-trip')?.time===undefined, "existing date-only lists must stay all-day entries");
+assert(shoppingEvents.every(item=>item.date==='2026-11-25'), "choosing a time must never shift the saved shopping calendar day");
+const roommateShoppingEvents = deriveCalendarItems({...scheduledShoppingSources,currentUserId:'b'}, new Date(2026,10,23), new Date(2026,10,29));
+assert(roommateShoppingEvents.length === shoppingEvents.length, "all members must see shared scheduled shopping, not just its creator");
+console.log('Shopping calendar date/time, optional dates, shared visibility, selected-week and legacy all-day tests passed.');

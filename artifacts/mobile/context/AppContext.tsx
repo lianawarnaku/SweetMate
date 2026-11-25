@@ -288,6 +288,8 @@ export interface ShoppingList {
   pinned?: boolean;
   /** Optional local calendar day (YYYY-MM-DD) for a planned shopping trip. */
   plannedDate?: string;
+  /** Optional household wall-clock time (HH:MM) for the planned trip. */
+  plannedTime?: string;
   sourceType?: "sweet_essentials";
   sourceCategoryId?: string;
   sourceCategoryName?: string;
@@ -313,6 +315,8 @@ export interface ShoppingItem {
   convertedExpenseId?: string;
   /** Optional local calendar day (YYYY-MM-DD) by which the item is needed. */
   neededByDate?: string;
+  /** Optional household wall-clock time (HH:MM) for this calendar item. */
+  neededByTime?: string;
   /** Historical source marker retained for Shopping records created by older releases. */
   sourceEssentialItemId?: string;
   sourceType?: "sweet_essentials";
@@ -629,7 +633,7 @@ interface AppContextType {
   canEditExpense: (expense: Expense) => boolean;
   canManageExpense: (expense: Expense) => boolean;
   markPersonPaid: (expenseId: string, personId: string, amountCents?: number, date?: string) => Promise<boolean>;
-  addShoppingList: (name: string, plannedDate?: string) => string;
+  addShoppingList: (name: string, plannedDate?: string, plannedTime?: string) => string;
   reorderShoppingLists: (newIds: string[]) => void;
   pinShoppingList: (id: string, pinned: boolean) => void;
   deleteShoppingList: (id: string) => void;
@@ -3974,12 +3978,12 @@ export function AppProvider({
     setShoppingSyncMeta(next);
   }, [session?.user.id]);
 
-  const addShoppingList = useCallback((name: string, plannedDate?: string) => {
+  const addShoppingList = useCallback((name: string, plannedDate?: string, plannedTime?: string) => {
     const id = makeId();
     recordShoppingVersions("list", [id]);
     setShoppingLists((prev) => {
       // Insert at the TOP of the unpinned partition.
-      const newList: ShoppingList = { id, name, plannedDate };
+      const newList: ShoppingList = { id, name, plannedDate, plannedTime };
       const pinned = prev.filter((l) => l.pinned);
       const unpinned = prev.filter((l) => !l.pinned);
       return [...pinned, newList, ...unpinned];

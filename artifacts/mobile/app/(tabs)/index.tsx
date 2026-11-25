@@ -1,3 +1,4 @@
+import { formatShoppingTime } from "@/lib/shoppingSchedule";
 import { UpcomingChores } from "@/components/UpcomingChores";
 import { upcomingHouseholdChores } from "@/lib/upcomingChores";
 import { PersonalAgenda } from "@/components/PersonalAgenda";
@@ -1216,7 +1217,7 @@ export default function MyChoresScreen() {
                     <Feather name={item.type === "chore" ? "check-square" : item.type === "expense" ? "dollar-sign" : "shopping-bag"} size={13} color={markerColor(item.type, false)} />
                     <Text style={[styles.previewChore, { color: colors.foreground }]} numberOfLines={1}>{item.title}</Text>
                     <Text style={[styles.previewOwner, { color: colors.mutedForeground }]} numberOfLines={1}>
-                      {item.type.replace("-", " ")}
+                      {item.time ? `${formatShoppingTime(item.time)} · ` : ""}{item.type.replace("-", " ")}
                     </Text>
                     <Feather name={item.completed ? "check-circle" : "circle"} size={14} color={item.completed ? colors.success : colors.mutedForeground} />
                   </View>

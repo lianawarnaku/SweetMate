@@ -1,10 +1,8 @@
-import { KEYBOARD_BEHAVIOR } from "@/lib/keyboard";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
-  KeyboardAvoidingView,
   LayoutAnimation,
   Modal,
   Platform,
@@ -12,7 +10,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -22,6 +19,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { EmptyState } from "@/components/EmptyState";
 import { Surface } from "@/components/Surface";
+import { ShoppingEditorSheet } from "@/components/ShoppingEditorSheet";
+import { formatShoppingSchedule, type ShoppingSchedule } from "@/lib/shoppingSchedule";
 import { GlassCheckCircle } from "@/components/GlassCheckCircle";
 import { ActionMenuModal } from "@/components/ActionMenuModal";
 import { CompletionUndoMenu } from "@/components/CompletionUndoMenu";
@@ -87,6 +86,7 @@ export default function ShoppingScreen() {
     setPendingIouDraft,
     currentUserId,
     householdId,
+    householdTimezone,
   } = useAppContextSelector((context) => ({
     roommates: context.roommates,
     shoppingLists: context.shoppingLists,
@@ -105,6 +105,7 @@ export default function ShoppingScreen() {
     setPendingIouDraft: context.setPendingIouDraft,
     currentUserId: context.currentUserId,
     householdId: context.householdId,
+    householdTimezone: context.householdTimezone,
   }));
 
   const { reduceMotion } = useAccessibilityPreferences();
@@ -133,12 +134,12 @@ export default function ShoppingScreen() {
 
   const [shopName, setShopName] = useState("");
   const [shopQty, setShopQty] = useState("1");
-  const [shopNeededBy, setShopNeededBy] = useState("");
+  const [shopSchedule, setShopSchedule] = useState<ShoppingSchedule | undefined>();
   const [targetListId, setTargetListId] = useState<string | null>(null);
   const [showShoppingModal, setShowShoppingModal] = useState(false);
   const [showNewListModal, setShowNewListModal] = useState(false);
   const [newListName, setNewListName] = useState("");
-  const [newListDate, setNewListDate] = useState("");
+  const [newListSchedule, setNewListSchedule] = useState<ShoppingSchedule | undefined>();
   const [collapsedLists, setCollapsedLists] = useState<Set<string>>(new Set());
   const [assignPickerListId, setAssignPickerListId] = useState<string | null>(null);
   const [actionListId, setActionListId] = useState<string | null>(null);
@@ -146,7 +147,6 @@ export default function ShoppingScreen() {
   const [undoList, setUndoList] = useState<{ id: string; householdId: string | null } | null>(null);
   const shoppingScopeRef = useRef({ householdId, shoppingLists, shoppingItems });
   shoppingScopeRef.current = { householdId, shoppingLists, shoppingItems };
-  const [focusedInput, setFocusedInput] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const completedLongPressRef = useRef<string | null>(null);
   const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -172,16 +172,6 @@ export default function ShoppingScreen() {
     feedbackTimerRef.current = setTimeout(() => setFeedback(null), 3500);
   };
 
-  const inputStyle = (field: string) => [
-    styles.input,
-    {
-      backgroundColor: colors.cardElevated,
-      color: colors.textPrimary,
-      borderColor: focusedInput === field ? colors.focusRing : colors.divider,
-      borderWidth: focusedInput === field ? 2 : 1,
-    },
-  ];
-
   const toggleListCollapse = (id: string) => {
     setCollapsedLists((prev) => {
       const next = new Set(prev);
@@ -201,11 +191,12 @@ export default function ShoppingScreen() {
       addedBy: currentUserId,
       completed: false,
       listId: targetListId,
-      neededByDate: /^\d{4}-\d{2}-\d{2}$/.test(shopNeededBy.trim()) ? shopNeededBy.trim() : undefined,
+      neededByDate: shopSchedule?.date,
+      neededByTime: shopSchedule?.time,
     });
     setShopName("");
     setShopQty("1");
-    setShopNeededBy("");
+    setShopSchedule(undefined);
     setShowShoppingModal(false);
     setTargetListId(null);
     showFeedback(`${itemName} added${listName ? ` to ${listName}` : ""}.`);
@@ -217,10 +208,11 @@ export default function ShoppingScreen() {
     const listName = newListName.trim();
     addShoppingList(
       listName,
-      /^\d{4}-\d{2}-\d{2}$/.test(newListDate.trim()) ? newListDate.trim() : undefined,
+      newListSchedule?.date,
+      newListSchedule?.time,
     );
     setNewListName("");
-    setNewListDate("");
+    setNewListSchedule(undefined);
     setShowNewListModal(false);
     showFeedback(`${listName} created. Add your first item when you’re ready.`);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -711,7 +703,7 @@ export default function ShoppingScreen() {
                                     {item.quantity}
                                     {assigneeLabel ? ` · ${assigneeLabel}` : ""}
                                     {item.price != null ? ` · $${item.price.toFixed(2)}` : ""}
-                                    {item.neededByDate ? ` · Needed ${item.neededByDate}` : ""}
+                                    {item.neededByDate ? ` · ${formatShoppingSchedule({ date: item.neededByDate, time: item.neededByTime })}` : ""}
                                   </Text>
                                 </View>
 
@@ -923,142 +915,17 @@ export default function ShoppingScreen() {
         </Surface>
       </Modal>
 
-      {/* ── Add Item Modal ── */}
-      <Modal visible={showShoppingModal} transparent animationType="slide" onRequestClose={() => setShowShoppingModal(false)}>
-        <Pressable
-          style={styles.overlay}
-          onPress={() => { setShowShoppingModal(false); setTargetListId(null); }}
-        />
-        <KeyboardAvoidingView behavior={KEYBOARD_BEHAVIOR} pointerEvents="box-none">
-          <Surface
-            level="modal"
-            style={[
-              styles.sheet,
-              { paddingBottom: insets.bottom + 24 },
-            ]}
-          >
-            <View style={[styles.handle, { backgroundColor: colors.border }]} />
-            <Text style={[styles.sheetTitle, { color: colors.foreground }]}>
-              Add item
-              {targetListId ? (
-                <Text style={[styles.sheetSubtitle, { color: colors.mutedForeground }]}>
-                  {" "}· {shoppingLists.find((l) => l.id === targetListId)?.name}
-                </Text>
-              ) : null}
-            </Text>
-            <Text style={[styles.label, { color: colors.mutedForeground }]}>Item or ingredient name</Text>
-            <TextInput
-              style={inputStyle("item-name")}
-              accessibilityLabel="Item or ingredient name"
-              placeholder="e.g. Tomatoes or dish soap"
-              placeholderTextColor={colors.mutedForeground}
-              value={shopName}
-              onChangeText={setShopName}
-              onFocus={() => setFocusedInput("item-name")}
-              onBlur={() => setFocusedInput(null)}
-              autoFocus
-            />
-            <Text style={[styles.label, { color: colors.mutedForeground }]}>Quantity</Text>
-            <TextInput
-              accessibilityLabel="Item quantity"
-              style={inputStyle("item-quantity")}
-              placeholder="e.g. 2 or 1 bag"
-              placeholderTextColor={colors.mutedForeground}
-              value={shopQty}
-              onChangeText={setShopQty}
-              onFocus={() => setFocusedInput("item-quantity")}
-              onBlur={() => setFocusedInput(null)}
-            />
-            <Text style={[styles.label, { color: colors.mutedForeground }]}>Needed by (optional)</Text>
-            <TextInput
-              accessibilityLabel="Item needed by date"
-              style={inputStyle("item-date")}
-              placeholder="YYYY-MM-DD"
-              placeholderTextColor={colors.mutedForeground}
-              value={shopNeededBy}
-              onChangeText={setShopNeededBy}
-              onFocus={() => setFocusedInput("item-date")}
-              onBlur={() => setFocusedInput(null)}
-              keyboardType="numbers-and-punctuation"
-              accessibilityHint="Dated items appear on the in-app calendar"
-            />
-            <TouchableOpacity
-              style={[
-                styles.addBtn,
-                {
-                  backgroundColor: shopName.trim() ? colors.action : colors.muted,
-                  borderColor: shopName.trim() ? colors.primary : colors.border,
-                  marginTop: 8,
-                },
-              ]}
-              disabled={!shopName.trim()}
-              onPress={handleAddShopItem}
-            >
-              <Text style={[styles.addBtnText, { color: shopName.trim() ? colors.actionForeground : colors.mutedForeground }]}>
-                Add to list
-              </Text>
-            </TouchableOpacity>
-          </Surface>
-        </KeyboardAvoidingView>
-      </Modal>
-
-      {/* ── New List Modal ── */}
-      <Modal visible={showNewListModal} transparent animationType="slide" onRequestClose={() => setShowNewListModal(false)}>
-        <Pressable style={styles.overlay} onPress={() => setShowNewListModal(false)} />
-        <KeyboardAvoidingView behavior={KEYBOARD_BEHAVIOR} pointerEvents="box-none">
-          <Surface
-            level="modal"
-            style={[
-              styles.sheet,
-              { paddingBottom: insets.bottom + 24 },
-            ]}
-          >
-            <View style={[styles.handle, { backgroundColor: colors.border }]} />
-            <Text style={[styles.sheetTitle, { color: colors.foreground }]}>Create shopping list</Text>
-            <Text style={[styles.label, { color: colors.mutedForeground }]}>List name</Text>
-            <TextInput
-              style={inputStyle("list-name")}
-              accessibilityLabel="Shopping list name"
-              placeholder="e.g. Weekly groceries"
-              placeholderTextColor={colors.mutedForeground}
-              value={newListName}
-              onChangeText={setNewListName}
-              onFocus={() => setFocusedInput("list-name")}
-              onBlur={() => setFocusedInput(null)}
-              autoFocus
-            />
-            <Text style={[styles.label, { color: colors.mutedForeground }]}>Planned date (optional)</Text>
-            <TextInput
-              accessibilityLabel="Shopping list planned date"
-              style={inputStyle("list-date")}
-              placeholder="YYYY-MM-DD"
-              placeholderTextColor={colors.mutedForeground}
-              value={newListDate}
-              onChangeText={setNewListDate}
-              onFocus={() => setFocusedInput("list-date")}
-              onBlur={() => setFocusedInput(null)}
-              keyboardType="numbers-and-punctuation"
-              accessibilityHint="Dated lists appear on the in-app calendar"
-            />
-            <TouchableOpacity
-              style={[
-                styles.addBtn,
-                {
-                  backgroundColor: newListName.trim() ? colors.action : colors.muted,
-                  borderColor: newListName.trim() ? colors.primary : colors.border,
-                  marginTop: 8,
-                },
-              ]}
-              disabled={!newListName.trim()}
-              onPress={handleAddList}
-            >
-              <Text style={[styles.addBtnText, { color: newListName.trim() ? colors.actionForeground : colors.mutedForeground }]}>
-                Create list
-              </Text>
-            </TouchableOpacity>
-          </Surface>
-        </KeyboardAvoidingView>
-      </Modal>
+      <ShoppingEditorSheet
+        visible={showShoppingModal} name={shopName} onNameChange={setShopName}
+        quantity={shopQty} onQuantityChange={setShopQty}
+        schedule={shopSchedule} onScheduleChange={setShopSchedule} timezone={householdTimezone}
+        onSave={handleAddShopItem} onClose={() => { setShowShoppingModal(false); setTargetListId(null); }}
+      />
+      <ShoppingEditorSheet
+        visible={showNewListModal} name={newListName} onNameChange={setNewListName}
+        schedule={newListSchedule} onScheduleChange={setNewListSchedule} timezone={householdTimezone}
+        onSave={handleAddList} onClose={() => setShowNewListModal(false)}
+      />
 
     </View>
   );

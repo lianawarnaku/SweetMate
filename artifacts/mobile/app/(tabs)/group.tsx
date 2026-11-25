@@ -1,3 +1,5 @@
+import { deriveCalendarItems } from "@/lib/calendarItems";
+import { formatShoppingSchedule } from "@/lib/shoppingSchedule";
 import { BusyScheduleStatus } from "@/components/BusyScheduleStatus";
 import { RandomTaskSection } from "@/components/RandomTaskSection";
 import { currentHouseholdWeekChores } from "@/lib/groupChores";
@@ -151,11 +153,13 @@ export default function GroupChoresScreen() {
   const isFocused = useIsFocused();
   const { nudgeId } = useLocalSearchParams<{ nudgeId?: string }>();
   const insets = useSafeAreaInsets();
-  const { personalSchedule, randomTasks, randomTasksReady, randomTasksLoading, randomTasksError, randomTasksNow, createRandomTask, claimRandomTask, refreshRandomTasks, roommates, chores, householdLoading, currentUserId, householdId, householdTimezone, activeSweet, setChoreCompleted, pickUpChore, sendNudge, removeNudge, nudges, roommateStatuses, setRoommateStatus, pointsEnabled, plantEnabled, roommateActivityEnabled, isHost, deleteChore } =
+  const { shoppingItems, shoppingLists, personalSchedule, randomTasks, randomTasksReady, randomTasksLoading, randomTasksError, randomTasksNow, createRandomTask, claimRandomTask, refreshRandomTasks, roommates, chores, householdLoading, currentUserId, householdId, householdTimezone, activeSweet, setChoreCompleted, pickUpChore, sendNudge, removeNudge, nudges, roommateStatuses, setRoommateStatus, pointsEnabled, plantEnabled, roommateActivityEnabled, isHost, deleteChore } =
     useAppContextSelector((context) => ({
       roommates: context.roommates,
       personalSchedule: context.personalSchedule,
       chores: context.chores,
+      shoppingItems: context.shoppingItems,
+      shoppingLists: context.shoppingLists,
       randomTasks: context.randomTasks,
       randomTasksReady: context.randomTasksReady,
       randomTasksLoading: context.randomTasksLoading,
@@ -214,11 +218,14 @@ export default function GroupChoresScreen() {
       chores.filter((chore) => !chore.householdId || chore.householdId === householdId),
       roommates.map((roommate) => roommate.id), grid[0][0].date, grid[5][6].date, todayKey,
     ) : [];
+    const shopping = choreView === "calendar" ? deriveCalendarItems({
+      chores: [], expenses: [], shoppingItems, shoppingLists, roommates, currentUserId, householdId,
+    }, grid[0][0].date, grid[5][6].date) : [];
     return {
-      today, monthAnchor, grid, weeks: groupChoreChartWeeks(occurrences),
-      scheduledDays: new Set(occurrences.map((occurrence) => occurrence.scheduledDate)),
+      today, monthAnchor, grid, weeks: groupChoreChartWeeks(occurrences), shopping,
+      scheduledDays: new Set([...occurrences.map((occurrence) => occurrence.scheduledDate), ...shopping.map(item => item.date)]),
     };
-  }, [chores, roommates, householdId, householdTimezone, lifecycleNow, monthOffset, choreView]);
+  }, [chores, shoppingItems, shoppingLists, roommates, currentUserId, householdId, householdTimezone, lifecycleNow, monthOffset, choreView]);
   const [roommatesExpanded, setRoommatesExpanded] = useState(true);
   const [visibleChoreLimits, setVisibleChoreLimits] = useState<Record<string, number>>({});
   const [expandedOverdueSections, setExpandedOverdueSections] = useState<Set<string>>(new Set());
@@ -753,11 +760,12 @@ export default function GroupChoresScreen() {
 
       {choreView === "calendar" ? (
         (() => {
-          const { today, monthAnchor, grid, weeks, scheduledDays } = calendarData;
+          const { today, monthAnchor, grid, weeks, scheduledDays, shopping } = calendarData;
           const monthLabel = `${MONTHS[monthAnchor.getMonth()]} ${monthAnchor.getFullYear()}`;
           const todayKey = today.toDateString();
           const selectedDateKey = selectedCalendarDate ?? choreLocalDateKey(monthOffset === 0 ? today : monthAnchor);
           const week = selectChoreChartWeek(weeks, selectedDateKey);
+          const shoppingForWeek = shopping.filter(item => item.date >= week.startsOn && item.date <= week.endsOn);
           const fmt = (key: string) => new Date(`${key}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
           const weekRange = `${fmt(week.startsOn)} – ${fmt(week.endsOn)}`;
           const isCurrentWeek = choreLocalDateKey(today) >= week.startsOn && choreLocalDateKey(today) <= week.endsOn;
@@ -808,7 +816,7 @@ export default function GroupChoresScreen() {
                         <TouchableOpacity
                           key={ci}
                           accessibilityRole="button"
-                          accessibilityLabel={`${date.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}${isToday ? ", today" : ""}. Show this week's chores`}
+                          accessibilityLabel={`${date.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}${isToday ? ", today" : ""}. Show this week's chores and shopping`}
                           accessibilityState={{ selected: isSelected }}
                           onPress={() => setSelectedCalendarDate(dateKey)}
                           style={[
@@ -844,11 +852,23 @@ export default function GroupChoresScreen() {
                 ))}
               </Surface>
 
+              {shoppingForWeek.length > 0 && <View style={styles.calendarShopping}>
+                <Text accessibilityRole="header" style={[styles.selectedWeekLabel, { color: colors.foreground }]}>Shopping</Text>
+                {shoppingForWeek.map(item => <Surface key={item.id} style={styles.calendarShoppingRow}>
+                  <Feather name={item.type === "shopping-list" ? "shopping-cart" : "shopping-bag"} size={18} color={colors.foreground} />
+                  <View style={{ flex: 1, gap: 4 }}>
+                    <Text style={[styles.calendarShoppingTitle, { color: colors.foreground }]}>{item.title}</Text>
+                    <Text style={[styles.calendarNote, { color: colors.mutedForeground }]}>{formatShoppingSchedule({ date: item.date, time: item.time })}</Text>
+                  </View>
+                  {item.completed && <Feather name="check-circle" size={18} color={colors.mutedForeground} />}
+                </Surface>)}
+              </View>}
+
               <Text accessibilityLiveRegion="polite" style={[styles.selectedWeekLabel, { color: colors.foreground }]}>
                 Chores for {weekRange}
               </Text>
               <Text style={[styles.calendarNote, { color: colors.mutedForeground }]}>
-                Tap any date to show only its week’s chores (Monday–Sunday).
+                Tap any date to show its week’s chores and shopping (Monday–Sunday).
               </Text>
               <Text style={[styles.calendarNote, { color: colors.mutedForeground }]}>
                 Upcoming assignments follow your current rotation. Saved chores and past completions stay as assigned.
@@ -1356,6 +1376,9 @@ export default function GroupChoresScreen() {
 }
 
 const styles = StyleSheet.create({
+  calendarShopping: { gap: 10, marginTop: 14 },
+  calendarShoppingRow: { flexDirection: "row", alignItems: "center", gap: 12, padding: 14, borderRadius: 14 },
+  calendarShoppingTitle: { fontFamily: "Inter_600SemiBold", fontSize: 15 },
   container: { flex: 1 },
   header: {
     paddingHorizontal: 20,

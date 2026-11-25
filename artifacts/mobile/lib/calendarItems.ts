@@ -1,3 +1,4 @@
+import { validShoppingTime } from "./shoppingSchedule.ts";
 import type {
   Chore,
   Expense,
@@ -155,7 +156,7 @@ export function deriveCalendarItems(
     const key = occurrenceKey("shopping-list", list.id, date);
     result.set(key, {
       id: key, sourceId: list.id, occurrenceId: key, type: "shopping-list",
-      title: list.name, description: "Planned shopping list", date: localDateKey(date),
+      title: list.name, description: "Shopping list", date: localDateKey(date), time: validShoppingTime(list.plannedTime),
       isRecurring: false, assigneeId: list.assignedTo,
     });
   }
@@ -168,7 +169,7 @@ export function deriveCalendarItems(
     result.set(key, {
       id: key, sourceId: item.id, occurrenceId: key, type: "shopping-item",
       title: item.name, description: item.completed ? "Purchased" : "Needed by this date",
-      date: localDateKey(date), isRecurring: false, completed: item.completed,
+      date: localDateKey(date), time: validShoppingTime(item.neededByTime), isRecurring: false, completed: item.completed,
     });
   }
 
@@ -192,7 +193,7 @@ export function deriveCalendarItems(
   }
 
   return [...result.values()].sort((left, right) =>
-    left.date.localeCompare(right.date) || left.type.localeCompare(right.type) || left.title.localeCompare(right.title)
+    left.date.localeCompare(right.date) || (left.time ?? "").localeCompare(right.time ?? "") || left.type.localeCompare(right.type) || left.title.localeCompare(right.title)
   );
 }
 

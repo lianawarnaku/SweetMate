@@ -1,0 +1,15 @@
+import assert from "node:assert/strict";
+import { formatShoppingTime, shoppingTimeFromClock, shoppingMonthDays, validShoppingTime } from "./shoppingSchedule.ts";
+assert.equal(shoppingTimeFromClock("12","00","AM"),"00:00");
+assert.equal(shoppingTimeFromClock("12","00","PM"),"12:00");
+assert.equal(shoppingTimeFromClock("3","45","PM"),"15:45");
+assert.equal(shoppingTimeFromClock("9","5","AM"),"09:05");
+for(const [h,m] of [["0","0"],["13","0"],["9","60"],["","30"],["3","-1"]]) assert.equal(shoppingTimeFromClock(h,m,"AM"),null);
+assert.equal(formatShoppingTime("00:00"),"12:00 AM");
+assert.equal(formatShoppingTime("15:45"),"3:45 PM");
+assert.equal(formatShoppingTime(undefined),"All day");
+assert.equal(validShoppingTime("25:00"),undefined);
+const leap=shoppingMonthDays(new Date(2028,1,1));
+assert.equal(leap.length,42);assert.equal(leap[0].getDay(),1);
+assert(leap.some(day=>day.getFullYear()===2028&&day.getMonth()===1&&day.getDate()===29));
+console.log("Shopping date picker month grid, leap days, AM/PM conversion and invalid-time validation tests passed.");
