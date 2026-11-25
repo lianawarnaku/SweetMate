@@ -2191,8 +2191,9 @@ const styles = StyleSheet.create({
   },
   settingsIntroTitle: {
     fontFamily: "Inter_700Bold", includeFontPadding: false,
-    fontSize: 19,
-    letterSpacing: 1.4,
+    fontSize: 30,
+    lineHeight: 36,
+    letterSpacing: 0.4,
   },
   collapsibleSection: {
     marginTop: 20,
