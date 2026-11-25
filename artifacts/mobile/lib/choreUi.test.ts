@@ -1,3 +1,4 @@
+import ts from "typescript";
 import { boundedCalendarScrollOffset, initialCalendarScrollIntent, nextCalendarScrollIntent } from "./floatingCalendarScroll.ts";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -349,3 +350,43 @@ assert(!calendarIntent.hidden && calendarIntent.direction === 0, "returning to t
 assert(boundedCalendarScrollOffset(-20, 1000, 300) === 0 && boundedCalendarScrollOffset(720, 1000, 300) === 700, "elastic overscroll at either edge must not invent a reversed scroll direction");
 assert(boundedCalendarScrollOffset(10, 200, 500) === 0, "short pages must not hide the calendar when the content cannot scroll");
 assert(!initialCalendarScrollIntent(450).hidden, "changing household/day or leaving week mode must start with a visible overhang");
+
+// Execute the actual X-button callback with native animation results substituted.
+// A canceled native animation used to leave the Calendar heading in place even
+// after its progress card had visually faded. Repeated taps must still commit once.
+const homeSyntax = ts.createSourceFile("index.tsx", home, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+let dismissCallback: ts.Expression | undefined;
+function findDismissCallback(node: ts.Node) {
+  if (ts.isFunctionDeclaration(node) && node.name?.text === "TodayFocusCard") {
+    const find = (child: ts.Node) => {
+      if (ts.isVariableDeclaration(child) && ts.isIdentifier(child.name) && child.name.text === "dismiss") dismissCallback = child.initializer;
+      ts.forEachChild(child, find);
+    };
+    find(node);
+    return;
+  }
+  ts.forEachChild(node, findDismissCallback);
+}
+findDismissCallback(homeSyntax);
+assert(Boolean(dismissCallback), "the caught-up summary must expose its actual dismissal callback");
+const dismissCode = ts.transpileModule(`exports.dismiss = ${dismissCallback!.getText(homeSyntax)};`, {
+  compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS },
+}).outputText;
+for (const reducedMotion of [false, true]) {
+  for (const finished of [false, true]) {
+    let commits = 0, haptics = 0, animationEnd: ((result: { finished: boolean }) => void) | undefined;
+    const exports: any = {};
+    runInNewContext(dismissCode, {
+      exports, allDone: true, dismissingRef: { current: false }, reduceMotion: reducedMotion,
+      setDismissing: () => {}, tapLight: () => { haptics++; },
+      onDismiss: () => { commits++; }, jiggle: {}, visibility: {},
+      Animated: { timing: () => ({}), sequence: () => ({ start: (callback: typeof animationEnd) => { animationEnd = callback; } }) },
+    });
+    exports.dismiss();
+    exports.dismiss();
+    if (!reducedMotion) animationEnd?.({ finished });
+    assert(commits === 1 && haptics === 1,
+      `summary dismissal must commit once even with native finished=${finished} and reduced motion=${reducedMotion}`);
+  }
+}
+console.log("Caught-up dismissal callback passes completed/interrupted native animation, reduced-motion and repeated-tap checks.");

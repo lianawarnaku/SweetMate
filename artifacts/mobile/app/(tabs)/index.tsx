@@ -161,8 +161,9 @@ function TodayFocusCard({
       Animated.timing(jiggle, { toValue: -0.5, duration: 55, useNativeDriver: true }),
       Animated.timing(jiggle, { toValue: 0, duration: 45, useNativeDriver: true }),
       Animated.timing(visibility, { toValue: 0, duration: 120, useNativeDriver: true }),
-    ]).start(({ finished }) => {
-      if (finished) onDismiss();
+    ]).start(() => {
+      // A canceled native animation must still honor the user's dismissal.
+      onDismiss();
     });
   };
 
@@ -1263,6 +1264,7 @@ export default function MyChoresScreen() {
         style={{ flex: 1 }}
         ref={homeListRef}
         onScroll={floatingCalendar.onScroll}
+        extraData={focusDismissed}
         scrollEventThrottle={16}
         itemLayoutAnimation={reduceMotion ? undefined : HOME_COMPLETION_LAYOUT}
         data={expandedHomeSections["my-chores"] && !showPersonalAgenda ? displayedChores : []}
