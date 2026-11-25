@@ -870,9 +870,6 @@ export default function GroupChoresScreen() {
               <Text style={[styles.calendarNote, { color: colors.mutedForeground }]}>
                 Tap any date to show its week’s chores and shopping (Monday–Sunday).
               </Text>
-              <Text style={[styles.calendarNote, { color: colors.mutedForeground }]}>
-                Upcoming assignments follow your current rotation. Saved chores and past completions stay as assigned.
-              </Text>
 
               {/* Only the selected week, including weeks spanning two months. */}
               {!week.rows.length ? (
