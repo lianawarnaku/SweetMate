@@ -18,7 +18,7 @@ function nodes(node: Node): Node[] {
   return [node, ...children.flatMap((child) => nodes(host(child)))];
 }
 const opaque = (color: unknown) => typeof color === "string" && /^#[\da-f]{6}$/i.test(color);
-const sources: Record<string, string> = Object.fromEntries(["LiquidGlass", "Surface"].map((name) => [name,
+const sources: Record<string, string> = Object.fromEntries(["LiquidGlass", "Surface", "GlassControlSurface", "GlassModalSurface"].map((name) => [name,
   ts.transpileModule(readFileSync(resolve(process.cwd(), "components", `${name}.tsx`), "utf8"), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true },
   }).outputText,
@@ -56,6 +56,8 @@ function renderer(os: "ios" | "android" | "web", available = true, api = true, m
   const glass = evaluate("LiquidGlass");
   modules["@/components/LiquidGlass"] = glass;
   const surface = evaluate("Surface");
+  const controls = evaluate("GlassControlSurface");
+  const popups = evaluate("GlassModalSurface");
   return {
     colors, reduce: (value: boolean) => { reduced = value; }, calls: () => availabilityCalls,
     surface: (props: Record<string, any> = {}) => host(surface.Surface(props)),
@@ -63,6 +65,8 @@ function renderer(os: "ios" | "android" | "web", available = true, api = true, m
     sheet: (props: Record<string, any> = {}) => host(glass.GlassSheet(props)),
     tabBar: (props: Record<string, any> = {}) => host(glass.GlassTabBar(props)),
     chip: (props: Record<string, any> = {}) => host(glass.AccentChip(props)),
+    control: (props: Record<string, any> = {}) => host(controls.GlassControlSurface(props)),
+    popup: (props: Record<string, any> = {}) => host(popups.GlassModalSurface(props)),
   };
 }
 const child: Node = { type: "Text", props: { children: "Shopping fixture" } };
@@ -88,6 +92,10 @@ for (const [os, available, api] of platforms) {
     solid(view.surface({ level: "subtle", children: child }), view.colors.cardSubtle, `${context}: subtle`);
     solid(view.surface({ level: "elevated", children: child }), view.colors.cardElevated, `${context}: elevated`);
     solid(view.chip({ children: child }), view.colors.card, `${context}: chip`);
+    solid(view.surface({ level: "modal", children: child }), view.colors.surfaceModalOpaque, `${context}: modal`);
+    solid(view.sheet({ children: child }), view.colors.surfaceModalOpaque, `${context}: sheet`);
+    solid(view.popup({ children: child }), view.colors.surfaceModalOpaque, `${context}: popup`);
+    solid(view.popup({ destructive: true, children: child }), view.colors.destructiveSurfaceOpaque, `${context}: destructive popup`);
   }
   assert.equal(view.calls(), 0, "solid cards must never query native glass availability");
 }
@@ -114,8 +122,9 @@ assert.equal(custom.props.testID, "shopping");
 assert.equal(custom.props.accessibilityLabel, "Groceries");
 assert.equal(custom.props.onLayout, onLayout);
 assert.equal(custom.props.pointerEvents, "box-none");
-assert.equal(ios.surface({ material: "glass", children: child }).type, "GlassView", "explicit glass override remains available");
-assert.equal(ios.glass({ variant: "elevated", children: child }).type, "GlassView", "direct glass retains native navigation treatment");
+solid(ios.surface({ material: "glass", children: child }), ios.colors.card, "content cannot opt back into glass");
+solid(ios.glass({ variant: "elevated", children: child }), ios.colors.cardElevated, "generic surface defaults to solid");
+assert.equal(ios.control({ children: child }).type, "GlassView", "button controls retain native glass");
 assert.equal(ios.tabBar({ children: child }).type, "GlassView");
 solid(ios.surface({ level: "modal", material: "solid", children: child }), ios.colors.surfaceModalOpaque, "explicit solid modal");
 solid(ios.glass({ variant: "destructive", material: "solid", children: child }), ios.colors.destructiveSurfaceOpaque, "explicit solid destructive");
@@ -125,31 +134,24 @@ for (const [os, available, api] of platforms) {
   const view = renderer(os, available, api);
   for (const variant of ["modal", "destructive"] as const) {
     const fill = variant === "modal" ? view.colors.surfaceModalOpaque : view.colors.destructiveSurfaceOpaque;
-    const before = nodes(view.surface({ variant, children: child }));
-    assert(!before.some((node) => node.type === "GlassView"), "sheets must not use native interactive glass");
-    assert.equal(before.some((node) => node.type === "BlurView"), os === "ios", "iOS sheets retain blur");
-    if (os === "web") assert(before.some((node) => flatten(node.props.style).backdropFilter), "web sheets retain frost");
-    if (os === "android") assert(before.some((node) => flatten(node.props.style).backgroundColor === fill), "Android preserves semantic opaque fallback");
-    view.reduce(true);
-    const after = nodes(view.surface({ variant, children: child }));
-    assert(!after.some((node) => node.type === "GlassView" || node.type === "BlurView"), "reduced transparency removes native glass/blur");
-    assert(!after.some((node) => flatten(node.props.style).backdropFilter), "reduced transparency removes CSS frost");
-    assert(after.some((node) => flatten(node.props.style).backgroundColor === fill), "reduced transparency preserves semantic fill");
-    assert(opaque(fill));
-    view.reduce(false);
+    for (const reduced of [false, true]) {
+      view.reduce(reduced);
+      solid(view.surface({ variant, children: child }), fill, `${os}/${variant}/reduced=${reduced}: content sheet`);
+      solid(view.sheet({ variant, children: child }), fill, `${os}/${variant}/reduced=${reduced}: shared sheet`);
+    }
   }
 }
-assert(nodes(ios.sheet({ children: child })).some((node) => node.type === "BlurView"), "GlassSheet defaults to frosted modal");
+solid(ios.sheet({ children: child }), ios.colors.surfaceModalOpaque, "shared sheet defaults to solid");
 ios.reduce(true);
-assert.equal(ios.glass({ variant: "elevated", children: child }).type, "View", "reduced transparency disables native navigation glass");
+assert.equal(ios.control({ children: child }).type, "View", "reduced transparency disables native button glass");
 // Floating controls retain readable fallback fills on every supported platform.
 for (const [os, available, api] of platforms) {
   const view = renderer(os, available, api);
-  const control = nodes(view.glass({ variant: "elevated", pointerEvents: "none", children: child }));
+  const control = nodes(view.control({ pointerEvents: "none", children: child }));
   assert.equal(control.some(node => flatten(node.props.style).backdropFilter), os === "web", "web floating controls must blur behind sharp labels");
   view.reduce(true);
-  const fallback = nodes(view.glass({ variant: "elevated", pointerEvents: "none", children: child }));
+  const fallback = nodes(view.control({ pointerEvents: "none", children: child }));
   assert(!fallback.some(node => node.type === "GlassView" || node.type === "BlurView" || flatten(node.props.style).backdropFilter), "reducing transparency removes blur from floating controls");
   assert(fallback.some(node => flatten(node.props.style).backgroundColor === view.colors.cardElevated), "floating controls keep an opaque semantic fill when transparency is reduced");
 }
-console.log("surface appearance renderer tests passed");
+console.log("surface appearance renderer tests passed: all content/cards/sheets stay solid and button/navigation controls retain accessible glass.");

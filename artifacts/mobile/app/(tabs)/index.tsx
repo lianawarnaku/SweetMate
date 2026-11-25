@@ -22,7 +22,6 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   AccessibilityInfo,
   type FlatList,
-  type ViewStyle,
   Animated,
   Dimensions,
   KeyboardAvoidingView,
@@ -1060,8 +1059,7 @@ export default function MyChoresScreen() {
   const calendarContent = (
     <Surface
       level={floatingWeekCalendar ? "elevated" : "card"}
-      material={floatingWeekCalendar ? "glass" : undefined}
-      style={[styles.calendarCard, { borderColor: colors.border }, floatingWeekCalendar && styles.floatingCalendarCard]}
+      style={[styles.calendarCard, { borderColor: colors.border }]}
     >
       <View style={styles.calendarTopRow}>
         <TouchableOpacity
@@ -1758,7 +1756,6 @@ const styles = StyleSheet.create({
   todayQuietCopy: { ...typography.caption, textAlign: "center" },
   floatingCalendarClip: { ...StyleSheet.absoluteFillObject, overflow: "hidden", zIndex: 20 },
   floatingCalendarOverhang: { position: "absolute", top: 0, left: 16, right: 16 },
-  floatingCalendarCard: Platform.OS === "web" ? { backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)" } as ViewStyle : {},
   calendarCard: {
     borderRadius: radii.card,
     borderWidth: 1,

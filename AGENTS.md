@@ -23,9 +23,12 @@ changes. A browser build uses `pnpm --filter @workspace/mobile exec expo export
 
 Use `.agents/skills/apple-design/SKILL.md` and relevant references for UI work.
 Preserve v2's existing light/dark appearance, semantic theme tokens, Inter fonts,
-glass surfaces, and accessibility preferences. Use GlassModalSurface,
-GlassModalBackdrop, and GlassButton for new sheets. Do not overwrite v2 components
-with older v1 implementations; adapt only the intended behavior.
+and accessibility preferences. Task rows, lists, general cards, calendars, and
+popup/sheet containers use solid fills. Keep glass only on button surfaces and
+navigation controls; filter buttons follow the user's selected accent color.
+Use GlassModalSurface (a solid container), GlassModalBackdrop, and GlassButton for
+new sheets. Do not overwrite v2 components with older v1 implementations; adapt
+only the intended behavior.
 
 # Public release reminder
 

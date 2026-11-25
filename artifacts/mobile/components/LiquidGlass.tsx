@@ -18,11 +18,11 @@ const variantLevel: Record<Exclude<GlassVariant, "destructive">, GlassLevel> = {
   modal: "modal",
 };
 
-export function GlassSurface({ children, style, variant = "regular", material = "glass", interactive = false, ...props }: ViewProps & { variant?: GlassVariant; material?: SurfaceMaterial; interactive?: boolean }) {
+export function GlassSurface({ children, style, variant = "regular", material = "solid", interactive = false, ...props }: ViewProps & { variant?: GlassVariant; material?: SurfaceMaterial; interactive?: boolean }) {
   const colors = useTheme();
   const { reduceTransparency } = useAccessibilityPreferences();
-  // Sheets need a stable frosted fill; native interactive glass adds a bright
-  // specular highlight and does not honor our modal opacity.
+  // General surfaces default to solid. Only button/navigation controls opt
+  // into glass; sheets always avoid native interactive highlights.
   const isSheet = variant === "modal" || variant === "destructive";
   const nativeGlass = material === "glass" && Platform.OS === "ios" && !isSheet && !interactive && !reduceTransparency && isLiquidGlassAvailable() && isGlassEffectAPIAvailable();
   const level = variant === "destructive" ? "modal" : variantLevel[variant];
@@ -124,11 +124,11 @@ export function AccentChip({ children, style, ...props }: ViewProps) {
 }
 
 export function GlassSheet(props: ViewProps & { variant?: GlassVariant }) {
-  return <GlassSurface {...props} variant={props.variant ?? "modal"} />;
+  return <GlassSurface {...props} variant={props.variant ?? "modal"} material="solid" />;
 }
 
 export function GlassTabBar(props: ViewProps) {
-  return <GlassSurface {...props} variant="elevated" />;
+  return <GlassSurface {...props} variant="elevated" material="glass" />;
 }
 
 const styles = StyleSheet.create({

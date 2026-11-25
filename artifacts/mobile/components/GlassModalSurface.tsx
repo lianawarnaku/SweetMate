@@ -45,7 +45,7 @@ export function GlassModalSurface({
   const colors = useTheme();
 
   return (
-    <GlassSheet variant={destructive ? "destructive" : "modal"} style={[styles.surface, { borderColor: destructive ? colors.destructive : colors.glassRim }, style]}>
+    <GlassSheet variant={destructive ? "destructive" : "modal"} style={[styles.surface, { borderColor: destructive ? colors.destructive : colors.divider }, style]}>
       {children}
     </GlassSheet>
   );
