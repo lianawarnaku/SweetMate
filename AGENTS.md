@@ -38,3 +38,12 @@ permission verification. They explicitly requested this contextual reminder on
 November 25, 2026. Review the release-polish checklist in
 `docs/release/website-and-google-verification.md`. This reminder concerns public
 launch; it does not block continued internal TestFlight testing.
+
+# TestFlight release control
+
+On November 25, 2026, the owner explicitly stopped build 51 and said not to build
+for TestFlight unless they say so. Do not start EAS iOS release builds or submit
+or distribute TestFlight builds without an explicit user request for that release.
+A request to fix behavior in the current phone build authorizes code fixes and
+verification; it does not authorize another native release. Keep the correction
+prepared on main until the owner explicitly requests a build/submission.
