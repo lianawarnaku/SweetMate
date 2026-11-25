@@ -631,6 +631,183 @@ export default function SettingsScreen() {
     }
   };
 
+  const collapseHouseholdSection = Boolean(householdId) && planningStatus.setupReady && planningStatus.setupComplete;
+  const householdCard = (
+    <View
+      style={[
+        styles.card,
+        styles.householdCard,
+        { backgroundColor: colors.card, borderColor: colors.border },
+      ]}
+    >
+      <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
+        <Text style={[styles.householdSummaryText, { color: colors.mutedForeground }]}>
+          {householdComplete ? "Setup complete" : "Setup in progress"}
+        </Text>
+        {householdComplete && <Feather name="check-square" size={14} color={colors.mutedForeground} />}
+      </View>
+      <TouchableOpacity
+        accessibilityRole="button"
+        accessibilityLabel="Switch household"
+        accessibilityHint="View, switch, join, or create a household"
+        style={[
+          styles.householdSwitchButton,
+          { borderColor: colors.border },
+        ]}
+        onPress={() => setHouseholdSwitcherOpen(true)}
+      >
+        <Feather name="repeat" size={17} color={colors.primary} />
+        <Text
+          style={[
+            styles.householdSwitchButtonText,
+            { color: colors.foreground },
+          ]}
+        >
+          {memberships.length > 1
+            ? "Switch household"
+            : "Manage households"}
+        </Text>
+        <Feather
+          name="chevron-right"
+          size={17}
+          color={colors.mutedForeground}
+        />
+      </TouchableOpacity>
+      <View style={styles.accountRow}>
+        <RoommateAvatar
+          name={me?.name ?? "?"}
+          color={me?.color ?? colors.primary}
+          size={48}
+          imageUri={me?.avatarUri}
+        />
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.currentUserLabel, { color: colors.mutedForeground }]}>YOU</Text>
+          <Text
+            style={[styles.accountName, { color: colors.foreground }]}
+          >
+            {me?.name ?? "Unknown"}
+          </Text>
+          <Text
+            style={[
+              styles.accountUsername,
+              { color: colors.mutedForeground },
+            ]}
+          >
+            {isHost ? "Household host" : "Household member"}
+          </Text>
+        </View>
+      </View>
+      <View style={styles.householdTileGroup}>
+        <InviteCodeCard
+          compact
+          inviteCode={inviteCode}
+          loading={householdLoading}
+          onRetry={refreshHousehold}
+        />
+      </View>
+      {isHost &&
+      roommates.some((roommate) => roommate.id !== currentUserId) ? (
+        <View
+          style={[
+            styles.memberManagement,
+            { borderTopColor: colors.border },
+          ]}
+        >
+          <Text
+            style={[
+              styles.memberManagementTitle,
+              { color: colors.foreground },
+            ]}
+          >
+            HOUSEHOLD MEMBERS
+          </Text>
+          {roommates
+            .filter((roommate) => roommate.id !== currentUserId)
+            .map((roommate) => (
+              <View key={roommate.id} style={styles.memberManagementRow}>
+                <RoommateAvatar
+                  name={roommate.name}
+                  color={roommate.color}
+                  size={36}
+                  imageUri={roommate.avatarUri}
+                />
+                <Text
+                  style={[
+                    styles.memberManagementName,
+                    { color: colors.foreground },
+                  ]}
+                >
+                  {roommate.name}
+                </Text>
+                <Text style={[styles.memberRole, { color: colors.mutedForeground }]}>Member</Text>
+                <TouchableOpacity
+                  onPress={() =>
+                    confirmRemoveRoommate(roommate.id, roommate.name)
+                  }
+                  disabled={removingRoommateId !== null}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Remove ${roommate.name} from ${householdName ?? "this household"}`}
+                  style={[
+                    styles.memberRemoveBtn,
+                    {
+                      borderColor: colors.destructive,
+                      opacity: removingRoommateId !== null ? 0.55 : 1,
+                    },
+                  ]}
+                >
+                  <Feather
+                    name="user-minus"
+                    size={13}
+                    color={colors.destructive}
+                  />
+                  <Text
+                    style={[
+                      styles.memberRemoveText,
+                      { color: colors.destructive },
+                    ]}
+                  >
+                    {removingRoommateId === roommate.id
+                      ? "Removing…"
+                      : "Remove"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+        </View>
+      ) : null}
+      <TouchableOpacity
+        disabled={deletingHousehold}
+        onPress={confirmDeleteHousehold}
+        style={[
+          styles.switchUserBtn,
+          {
+            backgroundColor: colors.destructive,
+            opacity: deletingHousehold ? 0.6 : 1,
+          },
+        ]}
+      >
+        <Feather name="trash-2" size={15} color="#fff" />
+        <Text style={styles.switchUserBtnText}>
+          {deletingHousehold ? "Deleting household…" : "Delete household"}
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
+  const householdSection = collapseHouseholdSection ? (
+    <CollapsibleSettingsSection key={`household:${householdId}`} title="YOUR HOUSEHOLD" icon="home">
+      {householdCard}
+    </CollapsibleSettingsSection>
+  ) : (
+    <>
+        <Text
+          style={[styles.sectionLabel, { color: colors.mutedForeground }]}
+        >
+          YOUR HOUSEHOLD
+        </Text>
+      {householdCard}
+    </>
+  );
+
   const householdPreferencesSection = (
     <>
       {/* Planning section */}
@@ -822,172 +999,7 @@ export default function SettingsScreen() {
             </View>
           </View>
           {planningStatus.needsAttention && householdPreferencesSection}
-          {/* Profile section */}
-          {/* Account section — login / switch / logout */}
-          <Text
-            style={[styles.sectionLabel, { color: colors.mutedForeground }]}
-          >
-            YOUR HOUSEHOLD
-          </Text>
-          <View
-            style={[
-              styles.card,
-              styles.householdCard,
-              { backgroundColor: colors.card, borderColor: colors.border },
-            ]}
-          >
-            <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
-              <Text style={[styles.householdSummaryText, { color: colors.mutedForeground }]}>
-                {householdComplete ? "Setup complete" : "Setup in progress"}
-              </Text>
-              {householdComplete && <Feather name="check-square" size={14} color={colors.mutedForeground} />}
-            </View>
-            <TouchableOpacity
-              accessibilityRole="button"
-              accessibilityLabel="Switch household"
-              accessibilityHint="View, switch, join, or create a household"
-              style={[
-                styles.householdSwitchButton,
-                { borderColor: colors.border },
-              ]}
-              onPress={() => setHouseholdSwitcherOpen(true)}
-            >
-              <Feather name="repeat" size={17} color={colors.primary} />
-              <Text
-                style={[
-                  styles.householdSwitchButtonText,
-                  { color: colors.foreground },
-                ]}
-              >
-                {memberships.length > 1
-                  ? "Switch household"
-                  : "Manage households"}
-              </Text>
-              <Feather
-                name="chevron-right"
-                size={17}
-                color={colors.mutedForeground}
-              />
-            </TouchableOpacity>
-            <View style={styles.accountRow}>
-              <RoommateAvatar
-                name={me?.name ?? "?"}
-                color={me?.color ?? colors.primary}
-                size={48}
-                imageUri={me?.avatarUri}
-              />
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.currentUserLabel, { color: colors.mutedForeground }]}>YOU</Text>
-                <Text
-                  style={[styles.accountName, { color: colors.foreground }]}
-                >
-                  {me?.name ?? "Unknown"}
-                </Text>
-                <Text
-                  style={[
-                    styles.accountUsername,
-                    { color: colors.mutedForeground },
-                  ]}
-                >
-                  {isHost ? "Household host" : "Household member"}
-                </Text>
-              </View>
-            </View>
-            <View style={styles.householdTileGroup}>
-              <InviteCodeCard
-                compact
-                inviteCode={inviteCode}
-                loading={householdLoading}
-                onRetry={refreshHousehold}
-              />
-            </View>
-            {isHost &&
-            roommates.some((roommate) => roommate.id !== currentUserId) ? (
-              <View
-                style={[
-                  styles.memberManagement,
-                  { borderTopColor: colors.border },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.memberManagementTitle,
-                    { color: colors.foreground },
-                  ]}
-                >
-                  HOUSEHOLD MEMBERS
-                </Text>
-                {roommates
-                  .filter((roommate) => roommate.id !== currentUserId)
-                  .map((roommate) => (
-                    <View key={roommate.id} style={styles.memberManagementRow}>
-                      <RoommateAvatar
-                        name={roommate.name}
-                        color={roommate.color}
-                        size={36}
-                        imageUri={roommate.avatarUri}
-                      />
-                      <Text
-                        style={[
-                          styles.memberManagementName,
-                          { color: colors.foreground },
-                        ]}
-                      >
-                        {roommate.name}
-                      </Text>
-                      <Text style={[styles.memberRole, { color: colors.mutedForeground }]}>Member</Text>
-                      <TouchableOpacity
-                        onPress={() =>
-                          confirmRemoveRoommate(roommate.id, roommate.name)
-                        }
-                        disabled={removingRoommateId !== null}
-                        accessibilityRole="button"
-                        accessibilityLabel={`Remove ${roommate.name} from ${householdName ?? "this household"}`}
-                        style={[
-                          styles.memberRemoveBtn,
-                          {
-                            borderColor: colors.destructive,
-                            opacity: removingRoommateId !== null ? 0.55 : 1,
-                          },
-                        ]}
-                      >
-                        <Feather
-                          name="user-minus"
-                          size={13}
-                          color={colors.destructive}
-                        />
-                        <Text
-                          style={[
-                            styles.memberRemoveText,
-                            { color: colors.destructive },
-                          ]}
-                        >
-                          {removingRoommateId === roommate.id
-                            ? "Removing…"
-                            : "Remove"}
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                  ))}
-              </View>
-            ) : null}
-            <TouchableOpacity
-              disabled={deletingHousehold}
-              onPress={confirmDeleteHousehold}
-              style={[
-                styles.switchUserBtn,
-                {
-                  backgroundColor: colors.destructive,
-                  opacity: deletingHousehold ? 0.6 : 1,
-                },
-              ]}
-            >
-              <Feather name="trash-2" size={15} color="#fff" />
-              <Text style={styles.switchUserBtnText}>
-                {deletingHousehold ? "Deleting household…" : "Delete household"}
-              </Text>
-            </TouchableOpacity>
-          </View>
+          {!collapseHouseholdSection && householdSection}
 
           <Modal
             visible={householdSwitcherOpen}
@@ -1306,6 +1318,8 @@ export default function SettingsScreen() {
               })}
             </View>
           </View>
+
+          {collapseHouseholdSection && householdSection}
 
           {!planningStatus.needsAttention && householdPreferencesSection}
 
