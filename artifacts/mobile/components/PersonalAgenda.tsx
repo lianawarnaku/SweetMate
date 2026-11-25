@@ -98,7 +98,7 @@ export function PersonalAgenda({ items, chores, day, timezone, renderChore, onUp
         return (scheduleItemTimes(a).start ?? "z").localeCompare(scheduleItemTimes(b).start ?? "z") || a.title.localeCompare(b.title);
       });
       return <View key={part} style={styles.period}>
-        <View style={styles.periodTitle}><Feather name={part === "morning" ? "sunrise" : "moon"} size={17} color={colors.mutedForeground} /><Text accessibilityRole="header" style={[styles.heading, { color: colors.foreground }]}>{part === "morning" ? "Morning" : "Night"}</Text></View>
+        <View style={styles.periodTitle}><Feather name={part === "morning" ? "sunrise" : "moon"} size={17} color={colors.mutedForeground} /><Text accessibilityRole="header" style={[styles.heading, { color: colors.foreground }]}>{part === "morning" ? "Day" : "Night"}</Text></View>
         {dayChores.map((chore) => <React.Fragment key={chore.id}>{renderChore(chore)}</React.Fragment>)}
         {personal.map((item) => {
           const progress = scheduleItemProgress(item, now);
@@ -142,7 +142,7 @@ export function PersonalAgenda({ items, chores, day, timezone, renderChore, onUp
             {isTask && <>
               <View accessibilityRole="radiogroup" style={styles.row}>
                 {(["morning", "night"] as const).map((value) => <GlassButton key={value} tone={period === value ? "primary" : "neutral"} disabled={saving || Boolean(updating)} accessibilityRole="radio" aria-checked={period === value} accessibilityState={{ checked: period === value }} onPress={() => { setPeriod(value); setStart(""); setEnd(""); }} style={{ flex: 1, borderRadius: 12 }}>
-                  <Text style={[styles.title, { color: period === value ? colors.actionForeground : colors.foreground }]}>{value === "morning" ? "Morning" : "Night"}</Text>
+                  <Text style={[styles.title, { color: period === value ? colors.actionForeground : colors.foreground }]}>{value === "morning" ? "Day" : "Night"}</Text>
                 </GlassButton>)}
               </View>
               <Text style={[styles.meta, { color: colors.mutedForeground }]}>Optional time block · 24-hour time</Text>

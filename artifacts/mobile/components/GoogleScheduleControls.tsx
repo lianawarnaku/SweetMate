@@ -89,7 +89,7 @@ export function GoogleScheduleControls({ schedule, householdId, day, placement }
               {sources.calendars.map((item) => row(item.id, item.name, calendarIds, setCalendarIds))}
               <Text style={[styles.label, { color: colors.mutedForeground }]}>GOOGLE TASKS</Text>
               {sources.taskLists.map((item) => row(item.id, item.name, taskIds, setTaskIds))}
-              <Text style={[styles.meta, { color: colors.mutedForeground }]}>Selected calendars and task lists sync automatically. Morning is before noon; Night starts at noon.</Text>
+              <Text style={[styles.meta, { color: colors.mutedForeground }]}>Selected calendars and task lists sync automatically. Day is before noon; Night starts at noon.</Text>
               {householdId && <View style={styles.sharing}>
                 <View style={{ flex: 1, gap: 5 }}><Text style={[styles.name, { color: colors.foreground }]}>Share my busy status</Text><Text style={[styles.meta, { color: colors.mutedForeground }]}>Roommates see only “Busy” and the end time while an event is happening.</Text></View>
                 <AppSwitch value={shareBusy} onValueChange={setShareBusy} disabled={busy} accessibilityLabel="Share my calendar busy status with this household" />
