@@ -47,3 +47,28 @@ export function scheduleTimeLabel(item: PersonalScheduleItem, timezone: string) 
   const format = (stamp: string) => new Date(stamp).toLocaleTimeString("en-US", { timeZone: timezone, hour: "numeric", minute: "2-digit" });
   return `${format(start)} – ${format(end)}`;
 }
+
+/** Time elapsed is separate from the person's explicit completion checkmark. */
+export function scheduleItemCompletionProgress(item: PersonalScheduleItem, now: number): number {
+  if (item.app_completed_at) return 1;
+  const { start, end } = scheduleItemTimes(item);
+  if (!start || !end) return 0;
+  const begins = Date.parse(start), ends = Date.parse(end);
+  if (!Number.isFinite(begins) || !Number.isFinite(ends) || ends <= begins) return 0;
+  return Math.min(1, Math.max(0, (now - begins) / (ends - begins)));
+}
+
+export function scheduleDateLabel(item: PersonalScheduleItem, timezone: string): string {
+  const { start, end } = scheduleItemTimes(item);
+  const first = start ? scheduleDateKey(new Date(start), timezone) : item.starts_on;
+  if (!first) return "No date";
+  let last = first;
+  if (start && end) last = scheduleDateKey(new Date(Math.max(Date.parse(start), Date.parse(end) - 1)), timezone);
+  else if (item.source === "google-event" && item.ends_on) {
+    const inclusiveEnd = new Date(`${item.ends_on}T12:00:00Z`);
+    inclusiveEnd.setUTCDate(inclusiveEnd.getUTCDate() - 1);
+    last = inclusiveEnd.toISOString().slice(0, 10);
+  }
+  const format = (day: string) => new Date(`${day}T12:00:00Z`).toLocaleDateString("en-US", { timeZone: "UTC", month: "short", day: "numeric", year: "numeric" });
+  return last > first ? `${format(first)} – ${format(last)}` : format(first);
+}

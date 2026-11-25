@@ -1,6 +1,6 @@
 // Replay migration SQL in a disposable PostgreSQL-WASM database. The actual
 // Supabase Auth/API/Realtime services and cron/net extensions are not tested.
-// Usage: node scripts/qa-browser/check-migrations.mjs /path/to/pglite/dist/index.js
+// Usage: node scripts/qa-browser/check-migrations.mjs /path/to/pglite/dist/index.js [supabase/tests/example.sql ...]
 import assert from 'node:assert/strict';
 import { readFile, readdir } from 'node:fs/promises';
 import { resolve, dirname } from 'node:path';
@@ -119,4 +119,9 @@ try{
  await assert.rejects(()=>db.query('insert into public.household_preferences(household_id,updated_by) values($1,$2)',[hid,outsider]),/row-level security/);
  console.log('PASS: reproduced missing table grants; real owner/member fixture creation, preferences/chore/shopping access, private-record isolation, outsider RLS and protected column/service-table restrictions.');
  console.log(`PASS: fresh and legacy color migration paths; ${names.length} ordered migrations replayed statement-by-statement with explicit transaction boundaries (extension loading/scheduling substituted).`);
+ for(const test of process.argv.slice(3)) {
+   await db.exec("reset role; select set_config('request.jwt.claim.sub','',false);");
+   await db.exec(await readFile(resolve(root,test),'utf8'));
+   console.log('PASS SQL regression:',test);
+ }
 }finally{await db.close();}

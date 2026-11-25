@@ -38,5 +38,5 @@ export function isHomeCaughtUp({ chores, shoppingItems, scheduleItems }: {
 }): boolean {
   return !chores.some(chore => !chore.completed && !chore.skippedAt)
     && !shoppingItems.some(item => !item.completed)
-    && !scheduleItems.some(item => item.source === "google-task" && !item.app_completed_at);
+    && !scheduleItems.some(item => !item.app_completed_at);
 }

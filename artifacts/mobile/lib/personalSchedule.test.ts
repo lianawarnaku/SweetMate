@@ -1,4 +1,4 @@
-import { scheduleDateKey, scheduleItemPeriod, scheduleItemProgress, scheduleItemsForDay, scheduleItemTimes, type PersonalScheduleItem } from "./personalSchedule.ts";
+import { scheduleDateKey, scheduleDateLabel, scheduleItemCompletionProgress, scheduleItemPeriod, scheduleItemProgress, scheduleItemsForDay, scheduleItemTimes, type PersonalScheduleItem } from "./personalSchedule.ts";
 function assert(value: unknown, message: string): asserts value { if (!value) throw new Error(message); }
 const item: PersonalScheduleItem = { id: "event", user_id: "me", source: "google-event", resource_id: "calendar", provider_id: "event", title: "Private appointment",
   starts_at: "2026-11-24T16:00:00Z", ends_at: "2026-11-24T17:00:00Z", starts_on: null, ends_on: null, busy: true, link: null,
@@ -30,3 +30,16 @@ const timedTask = { ...task, override_start: "2026-11-24T19:00:00Z", override_en
 assert(scheduleItemTimes(timedTask).start === timedTask.override_start && scheduleItemPeriod(timedTask, zone) === "night", "an explicitly scheduled task must use its actual block time");
 assert(scheduleDateKey(new Date("2026-11-01T05:30:00Z"), zone) === "2026-11-01" && scheduleDateKey(new Date("2026-11-01T06:30:00Z"), zone) === "2026-11-01", "fall-back clock changes must keep the correct local day");
 console.log("Personal schedule noon grouping, full-block timers, time zones, overnight events, and task override tests passed");
+
+assert(scheduleItemCompletionProgress(item, Date.parse(item.starts_at!) - 1) === 0, "a future time block has an empty check ring");
+assert(scheduleItemCompletionProgress(item, Date.parse("2026-11-24T16:30:00Z")) === 0.5, "an active time block fills the checkbox ring halfway");
+assert(scheduleItemCompletionProgress(item, Date.parse(item.ends_at!)) === 1, "a finished time block fills its elapsed ring without automatically checking the item");
+assert(scheduleItemCompletionProgress({ ...item, app_completed_at: item.starts_at }, Date.parse(item.starts_at!)) === 1, "checking an item fills the ring immediately");
+assert(scheduleItemCompletionProgress(task, Date.now()) === 0 && scheduleItemCompletionProgress({ ...task, app_completed_at: item.starts_at }, Date.now()) === 1, "untimed items move from empty to full only when checked");
+assert(scheduleItemCompletionProgress(timedTask, Date.parse("2026-11-24T19:30:00Z")) === 0.5, "scheduled task rings use their local time override");
+assert(scheduleDateLabel(item, zone) === "Nov 24, 2026", "event details use the display time zone");
+assert(scheduleDateLabel(overnight, zone) === "Nov 24, 2026 – Nov 25, 2026", "overnight details show both dates");
+assert(scheduleDateLabel(midnight, zone) === "Nov 24, 2026", "an exclusive midnight ending does not add a date");
+assert(scheduleDateLabel(allDay, zone) === "Nov 24, 2026 – Nov 25, 2026", "all-day detail ranges respect exclusive Google end dates");
+assert(scheduleDateLabel({ ...task, starts_on: null }, zone) === "No date", "undated tasks still have useful details");
+console.log("Imported item details date ranges and checkbox time-progress rings passed.");

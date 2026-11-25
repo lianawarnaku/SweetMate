@@ -1336,7 +1336,7 @@ export default function MyChoresScreen() {
             </GlassFilterGroup>}
             {expandedHomeSections["my-chores"] && showPersonalAgenda && <PersonalAgenda
               key={`personal-agenda:${householdId}:${currentUserId}`} items={personalSchedule.items} chores={displayedChores}
-              day={agendaDay} timezone={agendaTimezone} onUpdateTask={personalSchedule.updateTask}
+              day={agendaDay} timezone={agendaTimezone} onUpdateItem={personalSchedule.updateTask}
               renderChore={(chore) => <ChoreRow chore={chore} onSetCompleted={updateHomeChoreCompletion}
                 departing={choreFeedback.completingIds.has(chore.id)} onManage={() => openChoreActions(chore)} />}
             />}
