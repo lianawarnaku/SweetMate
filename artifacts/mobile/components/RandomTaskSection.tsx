@@ -68,8 +68,7 @@ export function RandomTaskSection({ tasks, roommates, chores, currentUserId, tim
         <Text style={[styles.buttonText, { color: colors.foreground }]}>Add task</Text>
       </TouchableOpacity>
     </View>
-    {!ready && loading ? <ActivityIndicator color={colors.mutedForeground} style={{ paddingVertical: 12 }} /> : !tasks.length && !error ?
-      <Text style={[styles.meta, { color: colors.mutedForeground }]}>Add a one-time task for your household.</Text> : null}
+    {!ready && loading ? <ActivityIndicator color={colors.mutedForeground} style={{ paddingVertical: 12 }} /> : null}
     {visibleTasks.map((task) => {
       const chore = task.choreId ? chores.find((item) => item.id === task.choreId) : null;
       const completed = chore?.completed ?? task.completed;
