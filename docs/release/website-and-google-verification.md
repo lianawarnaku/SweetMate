@@ -6,18 +6,23 @@ Prepared November 12, 2026 against canonical `homiev2/main`. GitHub redirects `l
 
 - Live HTTP checks: homepage and `/privacy` returned 200; `/support` and
   `/delete-account` returned 404. The successful privacy response was a reachability
-  check, not a full current policy-content audit.
+  check. A later content audit confirmed the live policy omits the current
+  Calendar/Tasks imports, Limited Use and optional telemetry disclosures.
 - Read-only production secret-name checks confirmed `APPLE_OAUTH_CLIENT_ID` and
   `APPLE_OAUTH_CLIENT_SECRET` exist. This supersedes the older missing-secret
   note; it does not verify their values, expiry or physical-device revocation.
 - iOS 27 compilation is complete in signed build 54: `iphoneos27.2`, Xcode 27.2,
   scene lifecycle and callback scheme verified. See [build 54](testflight-54.md).
+- Google Search Console domain ownership was verified for sweetmate.info on
+  November 26 after owner approval. The existing SweetMate app logo was saved in
+  Google Auth Platform Branding. Audience remains Testing; no verification
+  submission has been made. See [the current evidence and review package](google-public-access-2026-11-26.md).
 - Remaining public-launch work: Google public access/branding/scope verification,
   publish missing support/deletion pages and review the live policy, physical
   iPhone auth/deletion/feature tests, analytics retention/erasure and matching
   App Store privacy/listing declarations.
 - The optional `auth.sweetmate.info` paid custom domain remains deferred at the
-  owner's request. No purchase or DNS change is authorized by this checklist.
+  owner's request. No purchase is authorized by this checklist.
 
 ## Release-polish reminder — November 25, 2026
 
@@ -69,9 +74,28 @@ current implementation and live website state during final release review.
 
 ## Publication blocker
 
-The checked-in `homie-web/.openai/hosting.json` identifies `appgprj_6a62bd55b224819188110603492229f2`. Sites get_site returns legacy Homie metadata and a homie-application.com live URL, but list_custom_domains and create_source_repository_write_credential return project_not_found. Owner and editor list_sites calls return no Sites. This does not establish that this project currently serves sweetmate.info. Do not deploy to a new site or repoint DNS on that assumption. Restore access to the Site that actually serves sweetmate.info and inspect its authoritative source before publication, preserving auth confirmation and production environment values.
+The checked-in `homie-web/.openai/hosting.json` identifies
+`appgprj_6a62bd55b224819188110603492229f2`. The original archived local Codex chat,
+**Add user preferences system** (`019f9015-05f7-7ad2-bded-867b829b68a0`, July 23),
+contains the successful creation, attachment of sweetmate.info, and version-2
+publication through OpenAI Sites. This resolves the earlier uncertainty about
+which project originally hosted the domain. The exact public OpenAI verification
+record also remains in Cloudflare DNS. The authenticated Cloudflare account has
+no Workers or Pages projects.
 
-No production publication, DNS mutation, OAuth configuration change, App Store Connect update, or verification submission was performed.
+Current Sites get_site returns legacy Homie metadata, but source credentials,
+version reads/listing and domain listing return project_not_found. Both owner and
+editor Site inventories are empty; the browser's Sites library is also empty.
+Finding the original chat does not restore current publication access. No working
+editor URL was returned. Restore access to this legacy Site and inspect its
+current source before publication, preserving auth confirmation and production
+environment values. Do not reuse expired historical credentials or silently move
+hosting/repoint DNS. Exact recovery identifiers are in the linked evidence file.
+
+The November 12 preparation did not publish or change external configuration.
+On November 26, the owner-approved Google TXT was added and Search Console
+ownership verified; Google branding now has the app logo. The prepared website update remains
+unpublished, and OAuth audience/scopes and verification submission remain unchanged.
 
 ## Public DNS observations
 
@@ -84,9 +108,13 @@ On November 12, public DNS showed Cloudflare nameservers, Cloudflare email-routi
 - Support: https://sweetmate.info/support (new source; not live yet)
 - Account deletion: https://sweetmate.info/delete-account (new source; not live yet)
 
-After publication, verify these are public without sign-in. Use identical homepage/privacy URLs and SweetMate branding in Google Cloud project homie-502522 and App Store Connect. These private console settings have not been inspected in this session.
+After publication, verify these are public without sign-in. Use identical homepage/privacy URLs and SweetMate branding in Google Cloud project homie-502522 and App Store Connect. The November 26 Google console audit confirmed the homepage and privacy URLs.
+The older App Store listing URL checks below remain separate from that audit.
 
-## Remaining Google steps
+## Historical November 12 next steps
+
+These build-47 notes are historical. Use the November 26 audit linked above for
+current scope requirements, completed domain verification and remaining gates.
 
 1. Verify Search Console ownership with an account that is owner/editor of the Google Cloud project. If DNS verification is needed, obtain the exact Google-provided TXT value; do not invent one or overwrite SPF/MX.
 2. Review calendar.events. The current primary-calendar insert may fit calendar.events.owned, but confirm against Google documentation and a real-account test before changing both mobile scope and backend scope validation. calendar.app.created would require a dedicated-calendar implementation, which does not exist today. No scopes changed here.

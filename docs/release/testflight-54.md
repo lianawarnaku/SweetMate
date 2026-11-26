@@ -34,7 +34,7 @@ were verified without accessing real users' Google accounts.
 ## Signed archive
 
 - EAS build: `1c2c457c-a301-4ebb-ba68-e8c58924d605` — FINISHED.
-- EAS submission: `50cbef55-2c5e-46ec-b15f-bd36d7d13b8c` — scheduled; processing is being checked.
+- EAS submission: `50cbef55-2c5e-46ec-b15f-bd36d7d13b8c` — uploaded successfully.
 - App Store Connect app: `6794171916`.
 - Signed IPA inspection: bundle `com.homieapplication.homie`, version `1.0.0`,
   build `54`, `DTSDKName=iphoneos27.2`, `DTXcode=2720`, minimum iOS `16.4`.
@@ -44,7 +44,16 @@ were verified without accessing real users' Google accounts.
   It was not submitted. The fix declares the matching preset and resolves it
   from the mobile package, including when Xcode invokes Metro from the workspace.
 
-External availability is recorded below after Apple processing and distribution
-are verified. Signing and IPA inspection do not replace physical iPhone testing.
-No public App Store release or Google OAuth audience/verification change is part
-of this TestFlight release.
+## Verified external availability
+
+At 2026-11-26 14:36 UTC, App Store Connect reported:
+
+- Apple build `f6bd4630-ca53-48b4-8f59-80c4bb64dff7`: VALID.
+- Beta review: APPROVED.
+- Internal and external state: IN_BETA_TESTING.
+- Assigned to existing external group **Sweet mate Tester**; automatic tester
+  notifications enabled.
+- Existing public invitation enabled: https://testflight.apple.com/join/Ee5PRBzr
+
+Signing and distribution do not replace physical iPhone testing. No public App
+Store release or Google OAuth audience change was part of this TestFlight release.
