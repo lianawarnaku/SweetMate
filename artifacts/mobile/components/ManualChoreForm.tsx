@@ -247,6 +247,7 @@ export function ManualChoreForm({
       <TouchableOpacity
         accessibilityRole="button"
         accessibilityState={{ expanded: showDetails }}
+        aria-expanded={showDetails}
         onPress={() => setShowDetails((current) => !current)}
         style={[styles.detailsToggle, { borderColor: colors.border }]}
       >

@@ -1,3 +1,4 @@
+import { backWithFallback } from "@/lib/navigation";
 import { GoogleScheduleControls } from "@/components/GoogleScheduleControls";
 import { householdDateKey } from "@/lib/choreTimezone";
 import { useHouseholdPlanningStatus } from "@/hooks/useHouseholdPlanningStatus";
@@ -122,6 +123,7 @@ function CollapsibleSettingsSection({
       <TouchableOpacity
         accessibilityRole="button"
         accessibilityState={{ expanded: open }}
+        aria-expanded={open}
         accessibilityLabel={`${title}, ${open ? "collapse" : "expand"}`}
         onPress={() => setOpen((current) => !current)}
         style={[styles.collapsibleToggle, headerAccessory ? styles.collapsibleToggleWithAccessory : undefined]}
@@ -623,7 +625,7 @@ export default function SettingsScreen() {
         avatarUri,
       });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      router.back();
+      backWithFallback(router, "/(tabs)");
     } catch (error) {
       reportRuntimeError("save Sweetmate profile", error);
       info("profile_save_error", "Unable to save profile", "Please check your connection and try again.");
@@ -965,7 +967,7 @@ export default function SettingsScreen() {
           SWEETMATE SETTINGS
         </Text>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={() => backWithFallback(router, "/(tabs)")}
           style={[styles.iconBtn, { backgroundColor: colors.muted }]}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           accessibilityLabel="Close settings"

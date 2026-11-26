@@ -1,3 +1,4 @@
+import assertStrict from "node:assert/strict";
 import type { ShoppingItem, ShoppingList } from "../context/AppContext.ts";
 import { rowToShoppingItem, rowToShoppingList, shoppingItemToRow, shoppingListToRow } from "./shoppingRow.ts";
 function assert(value: boolean, message: string) { if (!value) throw new Error(message); }
@@ -6,8 +7,8 @@ const item: ShoppingItem = { id: "item-1", listId: list.id, name: "Milk", quanti
 const listRow = shoppingListToRow(list, "home-1", 3);
 const itemRow = shoppingItemToRow(item, "home-1", 5);
 assert(listRow.sort_order === 3 && itemRow.sort_order === 5, "shopping row order must be explicit");
-assert(JSON.stringify(rowToShoppingList(listRow)) === JSON.stringify(list), "shopping lists must round-trip losslessly");
-assert(JSON.stringify(rowToShoppingItem(itemRow)) === JSON.stringify(item), "shopping items must round-trip losslessly");
+assertStrict.deepEqual(JSON.parse(JSON.stringify(rowToShoppingList(listRow))), { ...list, sortOrder: 3 }, "shopping lists and ranks round-trip");
+assertStrict.deepEqual(JSON.parse(JSON.stringify(rowToShoppingItem(itemRow))), { ...item, sortOrder: 5 }, "shopping items and ranks round-trip");
 assert(itemRow.list_id === listRow.id, "shopping items must retain their parent list id");
 console.log("shopping normalized row tests passed");
 

@@ -947,6 +947,7 @@ export default function GroupChoresScreen() {
                     delayLongPress={450}
                     accessibilityRole="button"
                     accessibilityState={{ expanded: isExpanded }}
+                    aria-expanded={isExpanded}
                     accessibilityLabel={`${roommate.name}'s chores`}
                     accessibilityHint="Tap to expand or collapse. Press and hold to undo a completed chore."
                     accessibilityActions={[{ name: "undo", label: "Undo a completed chore" }]}
@@ -1096,6 +1097,7 @@ export default function GroupChoresScreen() {
                           disabled={Boolean(chore.skippedAt)}
                           accessibilityRole={chore.skippedAt ? "text" : "checkbox"}
                           accessibilityState={{ checked: chore.completed }}
+                          aria-checked={chore.completed}
                           accessibilityLabel={`${chore.title}. ${chore.skippedAt ? "Skipped turn. No obligation." : chore.completed ? "Completed." : "Not completed."} ${canManageChore(chore) ? "Double tap to update completion, or use the more actions button to manage." : "Double tap to update completion."}`}
                           style={[
                             styles.choreRow,

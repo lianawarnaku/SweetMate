@@ -536,6 +536,7 @@ export default function ShoppingScreen() {
                     accessibilityRole="button"
                     accessibilityLabel={`${list.name}, ${items.length - doneCount} items remaining`}
                     accessibilityState={{ expanded: !collapsed }}
+                    aria-expanded={!collapsed}
                     accessibilityHint="Tap to expand or collapse. Use the more actions button for list options."
                   >
                     <TouchableOpacity
@@ -686,6 +687,7 @@ export default function ShoppingScreen() {
                                   }}
                                   accessibilityRole="checkbox"
                                   accessibilityState={{ checked: item.completed }}
+                                  aria-checked={item.completed}
                                   accessibilityLabel={`${item.completed ? "Mark needed" : "Mark purchased"}: ${item.name}`}
                                 >
                                   <GlassCheckCircle state={item.completed ? "checked" : "idle"} />

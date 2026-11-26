@@ -61,7 +61,10 @@ import type { ExpenseSyncStatus } from "@/hooks/useExpenseSync";
 import { allExpenseSharesPaid, expensePaidCents, expenseRemainingCents, expenseOutstandingCents, canonicalExpense, canEditExpense as mayEditExpense, canManageExpense as mayManageExpense, expenseFinancialSignature, hasExpensePayments } from "@/lib/expensePolicy";
 import { saveBorrowRecord } from "@/lib/borrowPersistence";
 import { useNormalizedCollection } from "@/hooks/useNormalizedCollection";
+import { useVersionedCustomTasks, type CustomTaskSyncMeta } from "@/hooks/useVersionedCustomTasks";
 import {
+  compareShoppingListRows,
+  withShoppingOrder,
   rowToShoppingItem,
   rowToShoppingList,
   shoppingItemToRow,
@@ -298,12 +301,12 @@ export interface ShoppingList {
   sourceCategoryId?: string;
   sourceCategoryName?: string;
   updatedAt?: string;
-  // NOTE: no `order` field — the array position in `shoppingLists` IS the
-  // display order. Mutators below preserve the invariant "pinned lists first,
-  // then unpinned lists" so consumers can render `shoppingLists` directly.
+  /** Persisted ordering rank; the array remains in display order. */
+  sortOrder?: number;
 }
 
 export interface ShoppingItem {
+  sortOrder?: number;
   id: string;
   listId: string;
   name: string;
@@ -647,7 +650,7 @@ interface AppContextType {
   addShoppingItem: (item: Omit<ShoppingItem, "id">) => void;
   addSelectedEssentialsToShopping: (
     selection: EssentialShortlist,
-  ) => EssentialShoppingTransferResult;
+  ) => Promise<EssentialShoppingTransferResult>;
   toggleShoppingItem: (id: string) => void;
   setShoppingItemCompleted: (id: string, completed: boolean) => void;
   deleteShoppingItem: (id: string) => void;
@@ -833,6 +836,7 @@ interface SharedHouseholdState {
   homeProfile: HomeProfile | null;
   liveChart: Assignment[] | null;
   customTasks: CustomTask[];
+  customTaskSyncMeta?: CustomTaskSyncMeta;
 }
 
 export function AppProvider({
@@ -901,7 +905,7 @@ export function AppProvider({
   const [choreChartStartedAt, setChoreChartStartedAtState] = useState<string | null>(null);
   const [homeProfile, setHomeProfileState] = useState<HomeProfile | null>(null);
   const [liveChart, setLiveChartState] = useState<Assignment[] | null>(null);
-  const [customTasks, setCustomTasks] = useState<CustomTask[]>([]);
+  const { items: customTasks, meta: customTaskSyncMeta, restore: restoreCustomTasks, applyRemote: applyRemoteCustomTasks, mutate: mutateCustomTask } = useVersionedCustomTasks();
   const [itemDifficulties, setItemDifficulties] = useState<ItemDifficulty[]>([]);
   const [memberPreferences, setMemberPreferences] = useState<MemberPreference[]>([]);
   const [currentProposedChart, setCurrentProposedChartState] = useState<ProposedChart | null>(null);
@@ -960,6 +964,7 @@ export function AppProvider({
   });
   const shoppingListsTableReadyRef = useNormalizedCollection<ShoppingList, ShoppingListRow>({
     table: "shopping_lists",
+    compareRows: compareShoppingListRows,
     bootstrapEntitiesRef: legacyShoppingListsRef,
     deletedIds: () => Object.keys(shoppingSyncMetaRef.current.deletedLists),
     householdId,
@@ -973,6 +978,7 @@ export function AppProvider({
   });
   const shoppingItemsTableReadyRef = useNormalizedCollection<ShoppingItem, ShoppingItemRow>({
     table: "shopping_items",
+    beforePersist: () => shoppingListsTableReadyRef.flush(),
     bootstrapEntitiesRef: legacyShoppingItemsRef,
     deletedIds: () => Object.keys(shoppingSyncMetaRef.current.deletedItems),
     householdId,
@@ -1576,7 +1582,7 @@ export function AppProvider({
         setHomeProfileState(null);
         setHouseholdCompleteState(false);
         setLiveChartState(null);
-        setCustomTasks([]);
+        restoreCustomTasks([]);
       }
       const cachedRaw = selected
         ? await AsyncStorage.getItem(sweetStateKey(userId, selected.sweetId))
@@ -1617,7 +1623,7 @@ export function AppProvider({
           setChoreChartStartedAtState(cached.choreChartStartedAt ?? null);
           setHomeProfileState(cached.homeProfile ?? null);
           setLiveChartState(cached.liveChart ?? null);
-          if (Array.isArray(cached.customTasks)) setCustomTasks(cached.customTasks);
+          if (Array.isArray(cached.customTasks)) restoreCustomTasks(cached.customTasks, cached.customTaskSyncMeta);
         } catch (cacheError) {
           reportRuntimeError("parse cached Sweet state", cacheError, { sweetId: selected.sweetId });
         }
@@ -1695,7 +1701,7 @@ export function AppProvider({
     setHomeProfileState(null);
     setHouseholdCompleteState(false);
     setLiveChartState(null);
-    setCustomTasks([]);
+    restoreCustomTasks([]);
     setItemDifficulties([]);
     setMemberPreferences([]);
     setCurrentProposedChartState(null);
@@ -1725,7 +1731,7 @@ export function AppProvider({
       setChoreChartStartedAtState(cached.choreChartStartedAt);
       setHomeProfileState(cached.homeProfile);
       setLiveChartState(cached.liveChart);
-      setCustomTasks(cached.customTasks);
+      restoreCustomTasks(cached.customTasks, cached.customTaskSyncMeta);
     }
     setCurrentMemberRole(membership.role);
     setHouseholdId(membership.sweetId);
@@ -2014,7 +2020,7 @@ export function AppProvider({
     setHomeProfileState(null);
     setHouseholdCompleteState(false);
     setLiveChartState(null);
-    setCustomTasks([]);
+    restoreCustomTasks([]);
     setItemDifficulties([]);
     setMemberPreferences([]);
     setCurrentProposedChartState(null);
@@ -2089,7 +2095,7 @@ export function AppProvider({
     setPrivateBorrowItems([]);
     setNudges([]);
     setLiveChartState(null);
-    setCustomTasks([]);
+    restoreCustomTasks([]);
     setItemDifficulties([]);
     setMemberPreferences([]);
     setCurrentProposedChartState(null);
@@ -2164,6 +2170,7 @@ export function AppProvider({
                 homeProfile,
                 liveChart,
                 customTasks,
+                customTaskSyncMeta,
               } satisfies SharedHouseholdState),
             ),
           );
@@ -2177,7 +2184,7 @@ export function AppProvider({
       clearTimeout(timer);
       interaction?.cancel();
     };
-  }, [appAlerts, borrowItems, choreChart, choreChartStartedAt, chores, currentUserId, customTasks, essentialOwned, essentialShortlist, essentialShortlistUpdatedBy, essentialsAssignees, expenses, homeLocation, homeProfile, householdId, liveChart, loaded, roommateStatuses, roommates, session?.user.id, shoppingItems, shoppingLists, shoppingSyncMeta, sleepStartedAt, suppressedAlerts]);
+  }, [appAlerts, borrowItems, choreChart, choreChartStartedAt, chores, currentUserId, customTasks, customTaskSyncMeta, essentialOwned, essentialShortlist, essentialShortlistUpdatedBy, essentialsAssignees, expenses, homeLocation, homeProfile, householdId, liveChart, loaded, roommateStatuses, roommates, session?.user.id, shoppingItems, shoppingLists, shoppingSyncMeta, sleepStartedAt, suppressedAlerts]);
 
   const upsertInformationalAlerts = useCallback((incoming: AppAlert[]) => {
     if (!incoming.length) return;
@@ -2419,7 +2426,8 @@ export function AppProvider({
     homeProfile,
     liveChart,
     customTasks,
-  }), [roommates, chores, expenses, shoppingLists, shoppingItems, shoppingSyncMeta, borrowItems, essentialOwned, essentialShortlistUpdatedBy, roommateStatuses, sleepStartedAt, homeLocation, choreChart, choreChartStartedAt, homeProfile, liveChart, customTasks]);
+    customTaskSyncMeta,
+  }), [roommates, chores, expenses, shoppingLists, shoppingItems, shoppingSyncMeta, borrowItems, essentialOwned, essentialShortlistUpdatedBy, roommateStatuses, sleepStartedAt, homeLocation, choreChart, choreChartStartedAt, homeProfile, liveChart, customTasks, customTaskSyncMeta]);
 
   const latestSharedStateRef = useRef(sharedState);
   latestSharedStateRef.current = sharedState;
@@ -2515,8 +2523,11 @@ export function AppProvider({
     // A remote snapshot normally suppresses the persistence echo. If it raced
     // with a newer local shopping mutation, however, the merged snapshot must
     // be written back so the other member receives the local addition too.
+    const hasNewerLocalCustomTasks = applyRemoteCustomTasks(
+      Array.isArray(next.customTasks) ? next.customTasks : undefined, next.customTaskSyncMeta,
+    );
     applyingRemoteRef.current =
-      !hasNewerLocalShoppingChange && !hasNewerLocalChoreChange;
+      !hasNewerLocalShoppingChange && !hasNewerLocalChoreChange && !hasNewerLocalCustomTasks;
     const maxVersions = (
       local: Record<string, string>,
       remote: Record<string, string>,
@@ -2576,8 +2587,8 @@ export function AppProvider({
     if ("choreChartStartedAt" in next) setChoreChartStartedAtState(next.choreChartStartedAt ?? null);
     if ("homeProfile" in next) setHomeProfileState(next.homeProfile ?? null);
     if ("liveChart" in next) setLiveChartState(next.liveChart ?? null);
-    if (Array.isArray(next.customTasks)) setCustomTasks(next.customTasks);
-  }, []);
+
+  }, [applyRemoteCustomTasks]);
 
   // Private borrowing records live outside the household-readable snapshot.
   // RLS returns only rows owned by the authenticated user, even if another
@@ -3922,7 +3933,7 @@ export function AppProvider({
       const newList: ShoppingList = { id, name, plannedDate, plannedTime };
       const pinned = prev.filter((l) => l.pinned);
       const unpinned = prev.filter((l) => !l.pinned);
-      return [...pinned, newList, ...unpinned];
+      return withShoppingOrder([...pinned, newList, ...unpinned]);
     });
     track.shoppingListCreated();
     return id;
@@ -3951,7 +3962,7 @@ export function AppProvider({
       // Enforce the pinned-first partition after the drag.
       const pinnedArr = reordered.filter((l) => l.pinned);
       const unpinnedArr = reordered.filter((l) => !l.pinned);
-      return [...pinnedArr, ...unpinnedArr];
+      return withShoppingOrder([...pinnedArr, ...unpinnedArr]);
     });
   }, [recordShoppingVersions]);
 
@@ -3966,9 +3977,9 @@ export function AppProvider({
       const unpinnedArr = others.filter((l) => !l.pinned);
       // Pin: move to the TOP of the pinned partition.
       // Unpin: move to the TOP of the unpinned partition.
-      return pinned
+      return withShoppingOrder(pinned
         ? [updated, ...pinnedArr, ...unpinnedArr]
-        : [...pinnedArr, updated, ...unpinnedArr];
+        : [...pinnedArr, updated, ...unpinnedArr]);
     });
   }, [recordShoppingVersions]);
 
@@ -3988,12 +3999,15 @@ export function AppProvider({
   const addShoppingItem = useCallback((item: Omit<ShoppingItem, "id">) => {
     const id = makeId();
     recordShoppingVersions("item", [id]);
-    setShoppingItems((prev) => [...prev, { ...item, id }]);
+    setShoppingItems((prev) => withShoppingOrder([...prev, { ...item, id }]));
     track.shoppingItemAdded();
   }, [recordShoppingVersions]);
 
   const addSelectedEssentialsToShopping = useCallback(
-    (selection: EssentialShortlist): EssentialShoppingTransferResult => {
+    async (selection: EssentialShortlist): Promise<EssentialShoppingTransferResult> => {
+      const transferScope = householdId;
+      if (!transferScope || !shoppingListsTableReadyRef.current || !shoppingItemsTableReadyRef.current)
+        throw new Error("Shopping is still loading. Please try again.");
       const transfer = transferEssentialsToShopping({
         selection,
         catalog: ESSENTIAL_CATALOG,
@@ -4012,18 +4026,22 @@ export function AppProvider({
         transfer.createdListIds.length ||
         transfer.createdItemIds.length
       ) {
-        shoppingListsRef.current = transfer.lists;
-        shoppingItemsRef.current = transfer.items;
-        setShoppingLists(transfer.lists);
-        setShoppingItems(transfer.items);
-        track.shortlistSentToShopping({
-          item_count_bucket: analyticsCountBucket(transfer.createdItemIds.length),
-          list_count_bucket: analyticsCountBucket(transfer.createdListIds.length),
-        });
+        shoppingListsRef.current = withShoppingOrder(transfer.lists);
+        shoppingItemsRef.current = withShoppingOrder(transfer.items);
+        setShoppingLists(shoppingListsRef.current);
+        setShoppingItems(shoppingItemsRef.current);
       }
+      await shoppingListsTableReadyRef.flush();
+      if (activeSetupHouseholdRef.current !== transferScope) throw new Error("Your household changed before saving finished.");
+      await shoppingItemsTableReadyRef.flush();
+      if (activeSetupHouseholdRef.current !== transferScope) throw new Error("Your household changed before saving finished.");
+      if (transfer.createdItemIds.length) track.shortlistSentToShopping({
+        item_count_bucket: analyticsCountBucket(transfer.createdItemIds.length),
+        list_count_bucket: analyticsCountBucket(transfer.createdListIds.length),
+      });
       return transfer.result;
     },
-    [currentUserId, recordShoppingVersions],
+    [currentUserId, householdId, recordShoppingVersions],
   );
 
   const setShoppingItemCompleted = useCallback((id: string, completed: boolean) => {
@@ -4073,11 +4091,11 @@ export function AppProvider({
       const firstIdx = prev.findIndex((s) => s.listId === listId);
       const others = prev.filter((s) => s.listId !== listId);
       if (firstIdx === -1) return prev;
-      return [
+      return withShoppingOrder([
         ...others.slice(0, firstIdx),
         ...finalListItems,
         ...others.slice(firstIdx),
-      ];
+      ]);
     });
   }, [recordShoppingVersions]);
 
@@ -4470,13 +4488,15 @@ export function AppProvider({
 
   const addCustomTask = useCallback((task: Omit<CustomTask, "id"> & { id?: string }) => {
     const id = task.id ?? makeId();
-    setCustomTasks((current) => [...current.filter((entry) => entry.id !== id), { ...task, id }]);
+    applyingRemoteRef.current = false;
+    mutateCustomTask(id, { ...task, id });
     return id;
-  }, []);
+  }, [mutateCustomTask]);
 
   const deleteCustomTask = useCallback((id: string) => {
-    setCustomTasks((current) => current.filter((task) => task.id !== id));
-  }, []);
+    applyingRemoteRef.current = false;
+    mutateCustomTask(id);
+  }, [mutateCustomTask]);
 
   const setHouseholdComplete = useCallback(async (complete: boolean) => {
     if (!complete) throw new Error("Completed household setup cannot be reset.");

@@ -77,7 +77,8 @@ export function GeneratedTasksSheet({ visible, tasks, onClose, onSave }: {
               <View accessibilityRole="radiogroup" style={styles.row}>
                 {([1, 2, 3, 4, 5] as const).map((difficulty) => <GlassButton
                   key={difficulty} disabled={saving} tone={draft.difficulty === difficulty ? "primary" : "neutral"}
-                  accessibilityRole="radio" accessibilityState={{ checked: draft.difficulty === difficulty }} accessibilityLabel={`Difficulty ${difficulty} of 5`}
+                  accessibilityRole="radio" accessibilityState={{ checked: draft.difficulty === difficulty }}
+                  aria-checked={draft.difficulty === difficulty} accessibilityLabel={`Difficulty ${difficulty} of 5`}
                   onPress={() => setDraft((current) => current ? { ...current, difficulty } : null)} style={{ flex: 1, borderRadius: 10 }}
                 >
                   <Text style={[styles.buttonText, { color: draft.difficulty === difficulty ? colors.actionForeground : colors.foreground }]}>{difficulty}</Text>
@@ -87,7 +88,8 @@ export function GeneratedTasksSheet({ visible, tasks, onClose, onSave }: {
               <View accessibilityRole="radiogroup" style={[styles.row, { flexWrap: "wrap" }]}>
                 {FREQUENCIES.map((frequency) => <GlassButton
                   key={frequency} disabled={saving} tone={draft.frequency === frequency ? "primary" : "neutral"}
-                  accessibilityRole="radio" accessibilityState={{ checked: draft.frequency === frequency }} accessibilityLabel={frequencyLabel(frequency)}
+                  accessibilityRole="radio" accessibilityState={{ checked: draft.frequency === frequency }}
+                  aria-checked={draft.frequency === frequency} accessibilityLabel={frequencyLabel(frequency)}
                   onPress={() => setDraft((current) => current ? { ...current, frequency } : null)} style={{ borderRadius: 10, maxWidth: "100%" }}
                 >
                   <Text style={[styles.buttonText, { flexShrink: 1, color: draft.frequency === frequency ? colors.actionForeground : colors.foreground }]}>{frequencyLabel(frequency)}</Text>

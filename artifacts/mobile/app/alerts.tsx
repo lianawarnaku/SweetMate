@@ -1,3 +1,4 @@
+import { backWithFallback } from "@/lib/navigation";
 import { useChoreChartReview } from "@/hooks/useChoreChartReview";
 import { ChoreChartApprovalSuccessModal } from "@/components/ChoreChartApprovalSuccess";
 import { ChartApprovalStatus } from "@/components/ChartApprovalStatus";
@@ -99,7 +100,7 @@ export default function AlertsScreen() {
         <TouchableOpacity
           accessibilityRole="button"
           accessibilityLabel="Back from alerts"
-          onPress={() => router.back()}
+          onPress={() => backWithFallback(router, "/(tabs)")}
           style={[styles.icon, { backgroundColor: colors.muted }]}
         >
           <Feather name="chevron-left" size={21} color={colors.foreground} />
@@ -127,6 +128,7 @@ export default function AlertsScreen() {
                   key={feedItem.id}
                   accessibilityRole="button"
                   accessibilityState={{ expanded: overdueExpanded }}
+                  aria-expanded={overdueExpanded}
                   accessibilityLabel={`${feedItem.alerts.length} overdue chores${unreadOverdue ? `, ${unreadOverdue} unread` : ""}`}
                   accessibilityHint={overdueExpanded ? "Collapses overdue chore alerts" : "Shows each overdue chore alert"}
                   onPress={() => setOverdueExpanded((value) => !value)}

@@ -57,3 +57,31 @@ render().props.onPress(); assert.equal(calls, 1, "rapid taps remain locked");
 while (timers.length) timers.shift()!();
 render().props.onPress(); assert.equal(calls, 2, "retry works after a throwing consumer");
 console.log("JSX modal identities and shared Add-button failure recovery passed");
+
+// Execute recovery controls without crashing the running preview or reloading a device.
+{
+  const fallbackModule: any = {}, state: any[] = [];
+  let slot = 0, reloads = 0, resets = 0, rejectReload = false;
+  const code = ts.transpileModule(readFileSync("components/ErrorFallback.tsx", "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, esModuleInterop: false, jsx: ts.JsxEmit.ReactJSX } }).outputText;
+  runInNewContext(code, { exports: fallbackModule, __DEV__: true, console: { error() {} }, require: (name: string) => {
+    if (name === "react") return { useState: (initial: any) => { const index = slot++; if (!(index in state)) state[index] = initial; return [state[index], (next: any) => { state[index] = next; }]; } };
+    if (name === "react/jsx-runtime") return { jsx, jsxs: jsx };
+    if (name === "expo") return { reloadAppAsync: async () => { reloads++; if (rejectReload) throw Error("reload unavailable"); } };
+    if (name === "react-native") return { View: "View", Text: "Text", Modal: "Modal", Pressable: "Pressable", ScrollView: "ScrollView", Platform: { select: () => "monospace" }, StyleSheet: { create: (value: any) => value } };
+    if (name === "@expo/vector-icons") return { Feather: "Icon" };
+    if (name === "react-native-safe-area-context") return { useSafeAreaInsets: () => ({ top: 0, bottom: 0 }) };
+    if (name === "@/constants/colors") return { colorSchemes: { mono: {} } };
+    throw Error(name);
+  } });
+  const render = () => { slot = 0; return fallbackModule.ErrorFallback({ error: new Error("controlled fixture"), componentStack: "fixture stack", resetError: () => { resets++; } }); };
+  const nodes = (node: any): any[] => node && typeof node === "object" && node.props ? [node, ...[node.props.children].flat(Infinity).flatMap(nodes)] : [];
+  const text = (node: any): string => typeof node === "string" ? node : node?.props ? [node.props.children].flat(Infinity).map(text).join("") : "";
+  nodes(render()).find(node => node.props.accessibilityLabel === "View error details").props.onPress();
+  assert.equal(nodes(render()).find(node => node.type === "Modal").props.visible, true);
+  nodes(render()).find(node => node.props.accessibilityLabel === "Close error details").props.onPress();
+  assert.equal(nodes(render()).find(node => node.type === "Modal").props.visible, false);
+  const retry = () => nodes(render()).find(node => node.type === "Pressable" && text(node) === "Try Again").props.onPress();
+  await retry(); assert.equal(reloads, 1); assert.equal(resets, 0);
+  rejectReload = true; await retry(); assert.equal(resets, 1, "failed native reload still resets the error boundary for another attempt");
+}
+console.log("Error fallback detail controls, restart request and failed-restart recovery passed");

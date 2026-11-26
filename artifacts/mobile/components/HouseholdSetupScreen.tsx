@@ -666,7 +666,7 @@ export function HouseholdSetupScreen({
             <>
               {setupChores.unsupportedItems.length ? (
                 <Text style={[styles.reviewMeta, { color: colors.mutedForeground }]}>
-                  Add a custom chore below for: {setupChores.unsupportedItems.join(", ")}.
+                  {resumeExistingHousehold ? "Add a custom chore in Chore Chart for" : "Add a custom chore below for"}: {setupChores.unsupportedItems.join(", ")}.
                 </Text>
               ) : null}
               <View style={styles.reviewList}>
@@ -837,19 +837,22 @@ export function HouseholdSetupScreen({
             <Text style={[styles.reviewMeta, { color: colors.mutedForeground }]}>{frequencyTarget?.title}</Text>
             <ScrollView style={{ flexShrink: 1 }} contentContainerStyle={{ gap: 8, paddingVertical: 16 }}>
               {(["daily", "weekly", "biweekly", "monthly"] as PersistedRecurrence[]).map((frequency) => (
-                <GlassButton key={frequency} tone="neutral" accessibilityRole="radio" accessibilityState={{ checked: !showCustomFrequency && frequencyDraft === frequency }} onPress={() => { setFrequencyDraft(frequency); setShowCustomFrequency(false); }}>
+                <GlassButton key={frequency} tone="neutral" accessibilityRole="radio" accessibilityState={{ checked: !showCustomFrequency && frequencyDraft === frequency }}
+                aria-checked={!showCustomFrequency && frequencyDraft === frequency} onPress={() => { setFrequencyDraft(frequency); setShowCustomFrequency(false); }}>
                   <Text style={[styles.frequencyOption, { color: colors.foreground }]}>{CHORE_RECURRENCE_LABELS[frequency]}</Text>
                   {!showCustomFrequency && frequencyDraft === frequency ? <Feather name="check" size={18} color={colors.primary} /> : null}
                 </GlassButton>
               ))}
-              <GlassButton tone="neutral" accessibilityRole="radio" accessibilityState={{ checked: showCustomFrequency }} onPress={() => { setShowCustomFrequency(true); if (!["everyOtherDay", "everyThreeDays"].includes(frequencyDraft)) setFrequencyDraft("everyOtherDay"); }}>
+              <GlassButton tone="neutral" accessibilityRole="radio" accessibilityState={{ checked: showCustomFrequency }}
+              aria-checked={showCustomFrequency} onPress={() => { setShowCustomFrequency(true); if (!["everyOtherDay", "everyThreeDays"].includes(frequencyDraft)) setFrequencyDraft("everyOtherDay"); }}>
                 <Text style={[styles.frequencyOption, { color: colors.foreground }]}>Custom…</Text>
                 <Feather name={showCustomFrequency ? "check" : "chevron-down"} size={18} color={colors.primary} />
               </GlassButton>
               {showCustomFrequency ? <View style={{ gap: 8, paddingTop: 8 }}>
                 <Text style={[styles.reviewMeta, { color: colors.mutedForeground }]}>Choose a supported custom interval.</Text>
                 {(["everyOtherDay", "everyThreeDays"] as PersistedRecurrence[]).map((frequency) => (
-                  <GlassButton key={frequency} tone="neutral" accessibilityRole="radio" accessibilityState={{ checked: frequencyDraft === frequency }} onPress={() => setFrequencyDraft(frequency)}>
+                  <GlassButton key={frequency} tone="neutral" accessibilityRole="radio" accessibilityState={{ checked: frequencyDraft === frequency }}
+                  aria-checked={frequencyDraft === frequency} onPress={() => setFrequencyDraft(frequency)}>
                     <Text style={[styles.frequencyOption, { color: colors.foreground }]}>{CHORE_RECURRENCE_LABELS[frequency]}</Text>
                     {frequencyDraft === frequency ? <Feather name="check" size={18} color={colors.primary} /> : null}
                   </GlassButton>

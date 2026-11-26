@@ -43,6 +43,7 @@ export function SectionDivider({ title, icon, count, iconOnly = false, expanded,
       activeOpacity={0.7}
       accessibilityRole="button"
       accessibilityState={{ expanded }}
+      aria-expanded={expanded}
       accessibilityLabel={`${expanded ? "Collapse" : "Expand"} ${title}${count === undefined ? "" : `, ${count} ${count === 1 ? "item" : "items"}`}`}
     >{content}</TouchableOpacity>
   ) : <View style={[styles.row, style]}>{content}</View>;

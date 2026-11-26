@@ -7,6 +7,8 @@ import { expenseRemainingCents } from "./expensePolicy.ts";
 import { normalizeExpenseDate } from "./expenseDate.ts";
 import { isBorrowReturnOwner } from "./borrowValidation.ts";
 import { setShoppingCompletion } from "./shoppingCompletion.ts";
+import { withShoppingOrder } from "./shoppingRow.ts";
+import { transferEssentialsToShopping } from "./essentialShopping.ts";
 
 // Run actual AppContext callbacks with local state/vendor substitutes.
 const source = readFileSync(resolve(process.cwd(), "context/AppContext.tsx"), "utf8");
@@ -123,4 +125,41 @@ assert(!JSON.stringify(events).includes("private-title"), "task contents must st
 failProposal = true;
 await assert.rejects(() => propose({ generatedTasks: [] }));
 assert.equal(events.length, 1, "failed writes do not count as created charts");
-console.log("analytics action transition tests passed");
+// A shortlist success acknowledgement must wait for both parent and child writes.
+// Exercise the actual context callback, including retry and household-switch guards.
+const shortlistListsRef = { current: [] as any[] }, shortlistItemsRef = { current: [] as any[] };
+const transferOrder: string[] = [];
+let releaseParent!: () => void;
+let parentBarrier = new Promise<void>(resolve => { releaseParent = resolve; });
+let rejectItems = false;
+const activeSetupHouseholdRef = { current: "home" };
+let essentialId = 0;
+const transfer = callback("addSelectedEssentialsToShopping", {
+  householdId: "home", currentUserId: "a", shoppingListsRef: shortlistListsRef, shoppingItemsRef: shortlistItemsRef,
+  shoppingListsTableReadyRef: { current: true, flush: async () => { transferOrder.push("lists"); await parentBarrier; } },
+  shoppingItemsTableReadyRef: { current: true, flush: async () => { transferOrder.push("items"); if (rejectItems) throw new Error("offline"); } },
+  activeSetupHouseholdRef, transferEssentialsToShopping, withShoppingOrder,
+  ESSENTIAL_CATALOG: [{ id: "kitchen", title: "Kitchen", items: [{ id: "kettle", label: "Kettle" }] }],
+  makeId: () => `essential-${++essentialId}`, recordShoppingVersions: () => {},
+  setShoppingLists: () => {}, setShoppingItems: () => {}, track, analyticsCountBucket: String,
+});
+events.length = 0;
+let acknowledged = false;
+const pendingTransfer = transfer({ kitchen: { kettle: true } }).then((result: any) => { acknowledged = true; return result; });
+await Promise.resolve();
+assert.equal(acknowledged, false, "optimistic state is not a save acknowledgement");
+assert.deepEqual(transferOrder, ["lists"], "items wait for their parent list");
+assert.equal(events.length, 0);
+releaseParent();
+assert.equal((await pendingTransfer).itemsAdded, 1);
+assert.deepEqual(transferOrder, ["lists", "items"]);
+assert.deepEqual(names(), ["shortlistSentToShopping"]);
+rejectItems = true;
+await assert.rejects(() => transfer({ kitchen: { kettle: true } }), /offline/);
+assert.equal(events.length, 1, "failed persistence never emits a success event");
+rejectItems = false;
+assert.equal((await transfer({ kitchen: { kettle: true } })).itemsAlreadyActive, 1);
+assert.equal(shortlistItemsRef.current.length, 1, "retry flushes existing optimistic intent without duplicating it");
+activeSetupHouseholdRef.current = "another-home";
+await assert.rejects(() => transfer({ kitchen: { kettle: true } }), /household changed/);
+console.log("analytics action transition and shortlist acknowledgement tests passed");

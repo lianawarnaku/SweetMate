@@ -1621,6 +1621,7 @@ export default function ExpensesScreen() {
                           key={option.value}
                           accessibilityRole="radio"
                           accessibilityState={{ checked: selected }}
+                          aria-checked={selected}
                           style={[
                             styles.recurringChip,
                             {

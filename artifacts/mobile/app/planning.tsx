@@ -1,3 +1,4 @@
+import { backWithFallback } from "@/lib/navigation";
 import { useChoreChartReview } from "@/hooks/useChoreChartReview";
 import { GlassActionBar } from "@/components/GlassActionBar";
 import { GlassButton } from "@/components/GlassButton";
@@ -356,6 +357,7 @@ function EssentialItemRow({
         activeOpacity={0.7}
         accessibilityRole="checkbox"
         accessibilityState={{ checked }}
+        aria-checked={checked}
         accessibilityLabel={`${checked ? "Remove" : "Mark"} ${item} ${checked ? "from owned items" : "as owned"}`}
       >
         <View
@@ -415,6 +417,7 @@ function EssentialItemRow({
               checked: currentUserAssigned,
               disabled: assignmentPending,
             }}
+            aria-checked={currentUserAssigned}
             accessibilityLabel={
               currentUserAssigned
                 ? `Remove your assignment from ${item}`
@@ -819,13 +822,13 @@ export default function PlanningScreen() {
     return true;
   }
 
-  function addSelectedToShopping() {
+  async function addSelectedToShopping() {
     if (shortlistTransferPendingRef.current) return;
     shortlistTransferPendingRef.current = true;
     setShortlistTransferLoading(true);
     setShortlistTransferMessage(null);
     try {
-      const transfer = addSelectedEssentialsToShopping(shortlistDraft);
+      const transfer = await addSelectedEssentialsToShopping(shortlistDraft);
       const parts = [`${transfer.itemsAdded} added`];
       if (transfer.itemsAlreadyActive) {
         parts.push(`${transfer.itemsAlreadyActive} already in Shopping`);
@@ -1016,7 +1019,7 @@ export default function PlanningScreen() {
             onPress={() =>
               setupMode
                 ? router.replace("/sweet-setup" as never)
-                : router.back()
+                : backWithFallback(router, "/settings")
             }
             style={[styles.backBtn, { backgroundColor: colors.muted }]}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -1089,6 +1092,7 @@ export default function PlanningScreen() {
                 <TouchableOpacity
                   accessibilityRole="button"
                   accessibilityState={{ expanded: isExpanded }}
+                  aria-expanded={isExpanded}
                   accessibilityLabel={`${section.title}, ${ownedCoreCount} of ${coreItems.length} core items owned`}
                   style={[styles.sectionCardHeader, isExpanded && styles.sectionCardHeaderExpanded]}
                   onPress={() => toggleExpandSection(section.id)}
@@ -1519,6 +1523,7 @@ export default function PlanningScreen() {
                           onPress={() => setDraftItem(category.id, entry.id, !selected)}
                           accessibilityRole="checkbox"
                           accessibilityState={{ checked: selected }}
+                          aria-checked={selected}
                           accessibilityLabel={`${selected ? "Remove" : "Add"} ${entry.label} ${selected ? "from" : "to"} shortlist${owned ? ", already owned" : ""}`}
                         >
                           <Feather

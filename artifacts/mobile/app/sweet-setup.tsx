@@ -1,3 +1,4 @@
+import { backWithFallback } from "@/lib/navigation";
 import { requestHouseholdSetupRecovery } from "@/lib/householdSetupRecovery";
 import { HouseholdSetupScreen } from "@/components/HouseholdSetupScreen";
 import React, { useEffect } from "react";
@@ -42,7 +43,7 @@ export default function SweetSetupRoute() {
             ? router.dismissTo("/(tabs)" as never)
             : additionalHousehold
             ? router.dismissTo("/settings" as never)
-            : router.back();
+            : backWithFallback(router, "/(tabs)");
         }
       }}
     />

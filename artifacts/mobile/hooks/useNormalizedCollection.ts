@@ -6,13 +6,15 @@ import { applyNormalizedEvent, planNormalizedSync, type NormalizedRow } from "@/
 /** Synchronize current intent, never a queued render's stale collection. */
 export function useNormalizedCollection<T extends { id: string; updatedAt?: string }, R extends NormalizedRow>({
   table, householdId, userId, cloudReady, entities, entitiesRef, setEntities, toRow, fromRow,
-  bootstrapEntitiesRef, deletedIds,
+  bootstrapEntitiesRef, deletedIds, beforePersist, compareRows,
 }: {
   table: string; householdId: string | null; userId?: string; cloudReady: boolean;
   entities: T[]; entitiesRef: MutableRefObject<T[]>; setEntities: Dispatch<SetStateAction<T[]>>;
   toRow: (entity: T, householdId: string, index?: number) => R; fromRow: (row: R) => T;
   bootstrapEntitiesRef?: MutableRefObject<T[]>;
   deletedIds?: () => string[];
+  beforePersist?: () => Promise<void>;
+  compareRows?: (left: R, right: R) => number;
 }) {
   const [ready, setReady] = useState(false);
   const [retry, setRetry] = useState(0);
@@ -22,6 +24,8 @@ export function useNormalizedCollection<T extends { id: string; updatedAt?: stri
   const deletedSourceRef = useRef(deletedIds);
   deletedSourceRef.current = deletedIds;
   const queueRef = useRef<Promise<void>>(Promise.resolve());
+  const beforePersistRef = useRef(beforePersist);
+  beforePersistRef.current = beforePersist;
   const generationRef = useRef(0);
   const scope = cloudReady && householdId && userId ? `${userId}:${householdId}:${table}` : "";
   const scopeRef = useRef(scope);
@@ -54,14 +58,16 @@ export function useNormalizedCollection<T extends { id: string; updatedAt?: stri
       if (!isActive()) return;
       if (error) { reportSupabaseError(`load normalized ${table}`, error, { householdId }); return; }
       for (const id of deletedSourceRef.current?.() ?? []) deletedRef.current.add(id);
-      let rows = ((data ?? []) as R[]).sort((left, right) =>
-        ((left as R & { sort_order?: number }).sort_order ?? 0) - ((right as R & { sort_order?: number }).sort_order ?? 0));
+      let rows = ((data ?? []) as R[]).sort(compareRows ?? ((left, right) =>
+        ((left as R & { sort_order?: number }).sort_order ?? 0) - ((right as R & { sort_order?: number }).sort_order ?? 0)));
       if (!rows.length) {
         // A server legacy document can be migrated, but an old device cache
         // must never refill an intentionally empty canonical shopping table.
         const source = bootstrapEntitiesRef?.current ?? entitiesRef.current;
         const bootstrap = source.filter(entity => !deletedRef.current.has(entity.id)).map((entity, index) => toRow(entity, householdId, index));
         if (bootstrap.length) {
+          await beforePersistRef.current?.();
+          if (!isActive()) return;
           const { error: bootstrapError } = await supabase.from(table).upsert(bootstrap, { onConflict: "id" });
           if (!isActive()) return;
           if (bootstrapError) { reportSupabaseError(`bootstrap normalized ${table}`, bootstrapError, { householdId }); return; }
@@ -94,10 +100,17 @@ export function useNormalizedCollection<T extends { id: string; updatedAt?: stri
         for (const id of deletedSourceRef.current?.() ?? []) deletedRef.current.add(id);
         if (type === "DELETE") { persistedRef.current.delete(row.id); deletedRef.current.add(row.id); }
         else persistedRef.current.set(row.id, row);
-        const next = applyNormalizedEvent(before, type, row, fromRow, {
+        let next = applyNormalizedEvent(before, type, row, fromRow, {
           deletedIds: deletedRef.current, upsertIds: new Set(pending.upserts.map(entry => entry.id)),
         });
-        if (next !== before) { entitiesRef.current = next; setEntities(next); }
+        if (next !== before) {
+          // A transaction can deliver each row separately. Keep each received rank
+          // instead of deriving a new rank from the temporarily incomplete array.
+          const rank = (entity: T) => (toRow(entity, householdId) as R & { sort_order?: number }).sort_order ?? 0;
+          next = [...next].sort((left, right) => compareRows
+            ? compareRows(toRow(left, householdId), toRow(right, householdId)) : rank(left) - rank(right));
+          entitiesRef.current = next; setEntities(next);
+        }
         // A late update for a deleted row still needs its server copy removed.
         if (type !== "DELETE" && deletedRef.current.has(row.id)) setRetry(value => value + 1);
       };
@@ -115,42 +128,54 @@ export function useNormalizedCollection<T extends { id: string; updatedAt?: stri
     };
     void connect().catch(error => { if (isActive()) reportRuntimeError(`connect normalized ${table}`, error, { householdId }); });
     return () => { active = false; readyRef.current = false; ++generationRef.current; void supabase.removeChannel(channel); };
-  }, [scope, fromRow, toRow, householdId, userId, table, setEntities, entitiesRef, bootstrapEntitiesRef]);
+  }, [scope, fromRow, toRow, householdId, userId, table, setEntities, entitiesRef, bootstrapEntitiesRef, compareRows]);
 
-  useEffect(() => {
-    if (!ready || !readyRef.current || !householdId || !userId || loadedScopeRef.current !== scope) return;
+  const enqueuePersist = (): Promise<void> => {
+    if (!readyRef.current || !householdId || !userId || loadedScopeRef.current !== scope)
+      return Promise.reject(new Error("Shopping is still loading. Please try again."));
     const generation = generationRef.current;
     const isActive = () => readyRef.current && generationRef.current === generation && scopeRef.current === scope;
+    const assertActive = () => { if (!isActive()) throw new Error("Your household changed before saving finished."); };
     const persist = async () => {
-      if (!isActive()) return;
+      assertActive();
+      // Items cannot be inserted before their newly created parent lists exist.
+      // Read current intent after the barrier: a list may have been deleted meanwhile.
+      await beforePersistRef.current?.();
+      assertActive();
       const current = entitiesRef.current.filter(entity => !deletedRef.current.has(entity.id));
       const baseline = new Map(persistedRef.current);
       const plan = planNormalizedSync(current, baseline, entity => toRow(entity, householdId, current.indexOf(entity)), canonicalize);
       if (plan.upserts.length) {
         const { error } = await supabase.from(table).upsert(plan.upserts, { onConflict: "id" });
-        if (!isActive()) return;
-        if (error) { reportSupabaseError(`persist normalized ${table}`, error, { householdId, count: plan.upserts.length }); return; }
+        assertActive();
+        if (error) { reportSupabaseError(`persist normalized ${table}`, error, { householdId, count: plan.upserts.length }); throw new Error("This change could not be saved. Check your connection and try again."); }
         for (const row of plan.upserts) {
           const latest = persistedRef.current.get(row.id);
           if (!latest || latest === baseline.get(row.id)) persistedRef.current.set(row.id, row);
-          // Otherwise preserve the event received during this request.
         }
       }
-      if (!isActive()) return;
-      // Recalculate after an awaited write: the user may have just deleted a list.
+      assertActive();
       const remaining = entitiesRef.current.filter(entity => !deletedRef.current.has(entity.id));
       const deleteIds = planNormalizedSync(remaining, persistedRef.current, entity => toRow(entity, householdId, remaining.indexOf(entity)), canonicalize).deleteIds;
       if (deleteIds.length) {
         const { error } = await supabase.from(table).delete().eq("household_id", householdId).in("id", deleteIds);
-        if (!isActive()) return;
-        if (error) { reportSupabaseError(`delete normalized ${table}`, error, { householdId, count: deleteIds.length }); return; }
+        assertActive();
+        if (error) { reportSupabaseError(`delete normalized ${table}`, error, { householdId, count: deleteIds.length }); throw new Error("This deletion could not be saved. Please try again."); }
         for (const id of deleteIds) { persistedRef.current.delete(id); deletedRef.current.add(id); }
       }
     };
-    queueRef.current = queueRef.current.then(persist, persist).catch(error => {
-      if (isActive()) reportRuntimeError(`sync normalized ${table}`, error, { householdId });
+    const operation = queueRef.current.then(persist, persist);
+    // Keep the queue usable after failure, while flush callers receive the rejection.
+    queueRef.current = operation.catch(() => {});
+    return operation;
+  };
+
+  useEffect(() => {
+    if (!ready || !readyRef.current || !householdId || !userId || loadedScopeRef.current !== scope) return;
+    void enqueuePersist().catch(error => {
+      if (scopeRef.current === scope) reportRuntimeError(`sync normalized ${table}`, error, { householdId });
     });
   }, [entities, householdId, userId, ready, retry, scope, table, toRow, entitiesRef]);
 
-  return readyRef;
+  return Object.assign(readyRef, { flush: enqueuePersist });
 }

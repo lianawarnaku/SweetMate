@@ -1,0 +1,3815 @@
+{
+  "sourceInventory": {
+    "controls": [
+      {
+        "file": "app/(tabs)/_layout.tsx",
+        "line": 407,
+        "tag": "SmoothPressable",
+        "label": "{options.tabBarAccessibilityLabel ?? label}",
+        "onPress": "{onPress}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/borrow.tsx",
+        "line": 335,
+        "tag": "HistoryDisclosure",
+        "label": "",
+        "onPress": "{() => {\n                setHistoryPages(1);\n                setShowAllReturned(true);\n              }}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/borrow.tsx",
+        "line": 346,
+        "tag": "HistoryDisclosure",
+        "label": "",
+        "onPress": "{() => setShowAllReturned(false)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/borrow.tsx",
+        "line": 359,
+        "tag": "TouchableOpacity",
+        "label": "\"Load more borrowing history\"",
+        "onPress": "{() => setHistoryPages((page) => page + 1)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/borrow.tsx",
+        "line": 372,
+        "tag": "TouchableOpacity",
+        "label": "{`Hide borrowing history, ${returnedBorrows.length} records`}",
+        "onPress": "{() => setShowAllReturned(false)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/borrow.tsx",
+        "line": 440,
+        "tag": "HistoryDisclosure",
+        "label": "",
+        "onPress": "{() => setShowAllReturned(false)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/borrow.tsx",
+        "line": 456,
+        "tag": "TouchableOpacity",
+        "label": "{`${borrow.item}. ${borrowerName} borrowed from ${ownerName}. ${dueText}`}",
+        "onPress": "{canManage ? () => openBorrowActions(borrow.id) : undefined}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/borrow.tsx",
+        "line": 572,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{() => handleReturn(borrow.id)}",
+        "disabled": "{returnActionDisabled}",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/borrow.tsx",
+        "line": 605,
+        "tag": "FloatingActionButton",
+        "label": "\"Add borrowed item\"",
+        "onPress": "{openAdd}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/borrow.tsx",
+        "line": 646,
+        "tag": "Pressable",
+        "label": "\"Close borrowing editor\"",
+        "onPress": "{closeModal}",
+        "disabled": "{saving}",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/borrow.tsx",
+        "line": 661,
+        "tag": "TouchableOpacity",
+        "label": "\"Close borrowing editor\"",
+        "onPress": "{closeModal}",
+        "disabled": "{saving}",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/borrow.tsx",
+        "line": 696,
+        "tag": "TouchableOpacity",
+        "label": "{`Owner: ${r.name}`}",
+        "onPress": "{() => setBorrowedFrom(r.id)}",
+        "disabled": "{saving}",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/borrow.tsx",
+        "line": 727,
+        "tag": "TouchableOpacity",
+        "label": "\"Owner: Other\"",
+        "onPress": "{() => setBorrowedFrom(OTHER_BORROW_OWNER)}",
+        "disabled": "{saving}",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/borrow.tsx",
+        "line": 749,
+        "tag": "TouchableOpacity",
+        "label": "{`Borrower: ${r.name}`}",
+        "onPress": "{() => setBorrowedBy(r.id)}",
+        "disabled": "{saving}",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/borrow.tsx",
+        "line": 846,
+        "tag": "AppSwitch",
+        "label": "\"Private entry\"",
+        "onPress": "{setPrivateEntry}",
+        "disabled": "{editingId !== null || saving}",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/borrow.tsx",
+        "line": 860,
+        "tag": "TouchableOpacity",
+        "label": "\"Save borrowing transaction\"",
+        "onPress": "{handleSave}",
+        "disabled": "{\n              saving ||\n              !canSaveBorrowDraft({\n                item,\n                ownerId: borrowedFrom,\n                borrowerId: borrowedBy,\n                externalOwnerName,\n                householdMemberIds: roommates.map((member) => member.id),\n              })\n            }",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/expenses.tsx",
+        "line": 774,
+        "tag": "TouchableOpacity",
+        "label": "\"Retry saving expense changes\"",
+        "onPress": "{() => void retryExpenseSync()}",
+        "disabled": "{retryingExpenses}",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/expenses.tsx",
+        "line": 793,
+        "tag": "TouchableOpacity",
+        "label": "\"Show amounts you owe\"",
+        "onPress": "{() => scrollToExpense(\"owe\")}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/expenses.tsx",
+        "line": 822,
+        "tag": "TouchableOpacity",
+        "label": "\"Show amounts owed to you\"",
+        "onPress": "{() => scrollToExpense(\"owed\")}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/expenses.tsx",
+        "line": 911,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{() => openDetails(item.id)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/expenses.tsx",
+        "line": 977,
+        "tag": "TouchableOpacity",
+        "label": "{`Settle entire IOU for ${item.title}. This does not transfer money.`}",
+        "onPress": "{(event) => { event.stopPropagation(); void performExpenseAction({ expenseId: item.id, action: \"settle\", title: \"Settle entire IOU\", message: \"No money is transferred.\", label: \"Settle entire IOU\" }); }}",
+        "disabled": "{!expenseSync.ready || pendingExpenseSet.has(item.id) || runningExpenseIds.has(item.id)}",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/expenses.tsx",
+        "line": 1078,
+        "tag": "HistoryDisclosure",
+        "label": "",
+        "onPress": "{() => {\n                  setHistoryExpanded((value) => !value);\n                  setHistoryPages(1);\n                }}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/expenses.tsx",
+        "line": 1095,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{() => openDetails(expense.id)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/expenses.tsx",
+        "line": 1123,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{() => setHistoryPages((page) => page + 1)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/expenses.tsx",
+        "line": 1160,
+        "tag": "Pressable",
+        "label": "\"Close expense details\"",
+        "onPress": "{closeDetails}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/expenses.tsx",
+        "line": 1177,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{() => void retryExpenseSync()}",
+        "disabled": "{retryingExpenses}",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/expenses.tsx",
+        "line": 1190,
+        "tag": "GlassButton",
+        "label": "",
+        "onPress": "{() => setDetailConfirmation(null)}",
+        "disabled": "{busy}",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/expenses.tsx",
+        "line": 1191,
+        "tag": "GlassButton",
+        "label": "",
+        "onPress": "{() => void performExpenseAction()}",
+        "disabled": "{disabled || !!repaymentProblem}",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/expenses.tsx",
+        "line": 1196,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{() => { pendingEditRef.current = detailExp; closeDetails(); }}",
+        "disabled": "{disabled}",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/expenses.tsx",
+        "line": 1197,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{() => requestExpenseAction(detailExp, \"undo\", latestOwnPayment?.id)}",
+        "disabled": "{disabled}",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/expenses.tsx",
+        "line": 1199,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{() => requestExpenseAction(detailExp, \"restore\")}",
+        "disabled": "{disabled}",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/expenses.tsx",
+        "line": 1200,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{() => requestExpenseAction(detailExp, \"settle\")}",
+        "disabled": "{disabled}",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/expenses.tsx",
+        "line": 1200,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{() => requestExpenseAction(detailExp, \"reopen\")}",
+        "disabled": "{disabled}",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/expenses.tsx",
+        "line": 1201,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{() => requestExpenseAction(detailExp, \"void\")}",
+        "disabled": "{disabled}",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/expenses.tsx",
+        "line": 1221,
+        "tag": "TouchableOpacity",
+        "label": "\"Record a full or partial repayment. No money is transferred.\"",
+        "onPress": "{() => requestExpenseAction(detailExp, \"repay\")}",
+        "disabled": "{disabled}",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/expenses.tsx",
+        "line": 1229,
+        "tag": "TouchableOpacity",
+        "label": "{`Reverse your $${centsToDollars(payment.amountCents).toFixed(2)} repayment record`}",
+        "onPress": "{() => requestExpenseAction(detailExp, \"undo\", payment.id)}",
+        "disabled": "{disabled}",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/expenses.tsx",
+        "line": 1235,
+        "tag": "TouchableOpacity",
+        "label": "\"Close expense details\"",
+        "onPress": "{closeDetails}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/expenses.tsx",
+        "line": 1242,
+        "tag": "FloatingActionButton",
+        "label": "\"Add expense\"",
+        "onPress": "{() => {\n          resetModal();\n          setShowExpenseModal(true);\n        }}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/expenses.tsx",
+        "line": 1278,
+        "tag": "TouchableOpacity",
+        "label": "\"Close expense editor\"",
+        "onPress": "{closeIou}",
+        "disabled": "{submittingIou}",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/expenses.tsx",
+        "line": 1342,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{() => setExpCategory(cat.key)}",
+        "disabled": "{formBusy}",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/expenses.tsx",
+        "line": 1386,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{() => setExpPaidBy(r.id)}",
+        "disabled": "{financialFieldsLocked || formBusy}",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/expenses.tsx",
+        "line": 1455,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{recalcEvenSplit}",
+        "disabled": "{financialFieldsLocked || formBusy}",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/expenses.tsx",
+        "line": 1569,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{() => toggleParticipant(r.id)}",
+        "disabled": "{financialFieldsLocked || formBusy}",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/expenses.tsx",
+        "line": 1620,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{() => {\n                            if (option.value === \"equal\") recalcEvenSplit();\n                            else { setExpSplits(displayedSplits); setAllocationMode(\"exact\"); }\n                          }}",
+        "disabled": "{financialFieldsLocked || formBusy}",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/expenses.tsx",
+        "line": 1748,
+        "tag": "TouchableOpacity",
+        "label": "{`Assign remaining amount to ${person.name}`}",
+        "onPress": "{() => assignRemainder(id)}",
+        "disabled": "{financialFieldsLocked || formBusy}",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/expenses.tsx",
+        "line": 1772,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{() => void retryExpenseSync()}",
+        "disabled": "{retryingExpenses}",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/expenses.tsx",
+        "line": 1785,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{handleSendIOU}",
+        "disabled": "{!canSubmit || submittingIou}",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/group.tsx",
+        "line": 656,
+        "tag": "SectionDivider",
+        "label": "\"Roommates\"",
+        "onPress": "{toggleRoommates}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/group.tsx",
+        "line": 687,
+        "tag": "TouchableOpacity",
+        "label": "{`${rm.id === currentUserId ? \"Your\" : `${rm.name}'s`} status: ${status === \"asleep\" ? \"sleeping\" : status === \"away\" ? \"do not disturb\" : \"home\"}`}",
+        "onPress": "{() => cycleRoommateMood(rm.id)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/group.tsx",
+        "line": 709,
+        "tag": "ChoreFilterButton",
+        "label": "{option === \"active\" ? \"Show this week\u2019s group chores\" : option === \"calendar\" ? \"Show chore calendar and weekly assignments\" : `Show ${archivedHouseholdChores.length} archived group chores`}",
+        "onPress": "{() => {\n                setChoreView(option);\n                setExpandedOverdueSections(new Set());\n              }}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/group.tsx",
+        "line": 740,
+        "tag": "TouchableOpacity",
+        "label": "\"Previous month\"",
+        "onPress": "{() => { setMonthOffset((offset) => offset - 1); setSelectedCalendarDate(null); }}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/group.tsx",
+        "line": 750,
+        "tag": "TouchableOpacity",
+        "label": "\"Next month\"",
+        "onPress": "{() => { setMonthOffset((offset) => offset + 1); setSelectedCalendarDate(null); }}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/group.tsx",
+        "line": 780,
+        "tag": "TouchableOpacity",
+        "label": "{`${date.toLocaleDateString(\"en-US\", { weekday: \"long\", month: \"long\", day: \"numeric\", year: \"numeric\" })}${isToday ? \", today\" : \"\"}. Show this week's chores and shopping`}",
+        "onPress": "{() => setSelectedCalendarDate(dateKey)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/group.tsx",
+        "line": 936,
+        "tag": "TouchableOpacity",
+        "label": "{`${roommate.name}'s chores`}",
+        "onPress": "{() => {\n                      if (longPressedHeaderRef.current === roommate.id) return;\n                      toggleChoreSection(roommate.id);\n                    }}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/group.tsx",
+        "line": 984,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{() => openAddChoreFor(roommate.id)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/group.tsx",
+        "line": 1054,
+        "tag": "TouchableOpacity",
+        "label": "{`${overdueDisplay.hiddenCount} earlier chores hidden for ${roommate.name}`}",
+        "onPress": "{() => setExpandedOverdueSections((current) => new Set([...current, roommate.id]))}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/group.tsx",
+        "line": 1083,
+        "tag": "TouchableOpacity",
+        "label": "{`${chore.title}. ${chore.skippedAt ? \"Skipped turn. No obligation.\" : chore.completed ? \"Completed.\" : \"Not completed.\"} ${canManageChore(chore) ? \"Double tap to update completion, or use the more actions button to manage.\" : \"Double tap to update completion.\"}`}",
+        "onPress": "{() => {\n                            if (longPressedChoreRef.current === chore.id) {\n                              longPressedChoreRef.current = null;\n                              return;\n                            }\n                            handleChorePress(chore.id);\n                          }}",
+        "disabled": "{Boolean(chore.skippedAt)}",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/group.tsx",
+        "line": 1148,
+        "tag": "TouchableOpacity",
+        "label": "{`More actions for ${chore.title}`}",
+        "onPress": "{(event) => {\n                              event.stopPropagation();\n                              openChoreActions(chore);\n                            }}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/group.tsx",
+        "line": 1165,
+        "tag": "TouchableOpacity",
+        "label": "{`Show more chores for ${roommate.name}`}",
+        "onPress": "{() =>\n                            setVisibleChoreLimits((current) => ({\n                              ...current,\n                              [roommate.id]: visibleLimit + 20,\n                            }))\n                          }",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/group.tsx",
+        "line": 1293,
+        "tag": "TouchableOpacity",
+        "label": "\"Close chore editor\"",
+        "onPress": "{closeAddChoreSheet}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/index.tsx",
+        "line": 181,
+        "tag": "TouchableOpacity",
+        "label": "\"Dismiss caught-up summary\"",
+        "onPress": "{dismiss}",
+        "disabled": "{dismissing}",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/index.tsx",
+        "line": 238,
+        "tag": "TouchableOpacity",
+        "label": "{`Up next: ${chore.title}`}",
+        "onPress": "{() => onOpenChore(chore)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/index.tsx",
+        "line": 343,
+        "tag": "TouchableOpacity",
+        "label": "{`${chore.completed ? \"Mark incomplete\" : \"Mark complete\"}: ${chore.title}`}",
+        "onPress": "{handleCheckPress}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/index.tsx",
+        "line": 404,
+        "tag": "TouchableOpacity",
+        "label": "\"Task actions\"",
+        "onPress": "{onManage}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/index.tsx",
+        "line": 1026,
+        "tag": "TouchableOpacity",
+        "label": "\"Previous week\"",
+        "onPress": "{() => {\n            if (calendarExpanded) {\n              setSelectedDate((date) => new Date(date.getFullYear(), date.getMonth() - 1, 1, 12));\n            } else {\n              setWeekOffset((value) => value - 1);\n            }\n          }}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/index.tsx",
+        "line": 1039,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{() => {\n            setCalendarExpanded((value) => !value);\n            if (floatingWeekCalendar) homeListRef.current?.scrollToOffset({ offset: 0, animated: !reduceMotion });\n          }}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/index.tsx",
+        "line": 1056,
+        "tag": "TouchableOpacity",
+        "label": "\"Next week\"",
+        "onPress": "{() => {\n            if (calendarExpanded) {\n              setSelectedDate((date) => new Date(date.getFullYear(), date.getMonth() + 1, 1, 12));\n            } else {\n              setWeekOffset((value) => value + 1);\n            }\n          }}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/index.tsx",
+        "line": 1096,
+        "tag": "TouchableOpacity",
+        "label": "{`${date.toLocaleDateString(\"en-US\", { weekday: \"long\", month: \"long\", day: \"numeric\" })}, ${dayItems.length} scheduled ${dayItems.length === 1 ? \"item\" : \"items\"}${today ? \", today\" : \"\"}${selected ? \", selected\" : \"\"}`}",
+        "onPress": "{() => selectCalendarDate(date)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/index.tsx",
+        "line": 1147,
+        "tag": "TouchableOpacity",
+        "label": "{`${date.toLocaleDateString(\"en-US\", { month: \"long\", day: \"numeric\" })}, ${dayItems.length} scheduled items${today ? \", today\" : \"\"}${selected ? \", selected\" : \"\"}`}",
+        "onPress": "{() => selectCalendarDate(date)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/index.tsx",
+        "line": 1273,
+        "tag": "CollapsibleSectionHeader",
+        "label": "{showPersonalAgenda ? \"My Day\" : \"My Chores\"}",
+        "onPress": "{() => toggleHomeSection(\"my-chores\")}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/index.tsx",
+        "line": 1285,
+        "tag": "ChoreFilterButton",
+        "label": "{\n                    f === \"today\"\n                      ? \"Show today's chores\"\n                      : f === \"done\"\n                        ? \"Show chores completed in the last 7 days\"\n                        : `Show ${archivedPersonalChoreCount} archived chores`\n                  }",
+        "onPress": "{() => selectFilter(f)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/index.tsx",
+        "line": 1315,
+        "tag": "TouchableOpacity",
+        "label": "{`${hiddenEarlierChoreCount} earlier chores hidden`}",
+        "onPress": "{() => setShowEarlierChores(true)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/index.tsx",
+        "line": 1377,
+        "tag": "CollapsibleSectionHeader",
+        "label": "\"Shopping\"",
+        "onPress": "{() => toggleHomeSection(\"shopping\")}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/index.tsx",
+        "line": 1399,
+        "tag": "TouchableOpacity",
+        "label": "{`${item.completed ? \"Mark needed\" : \"Mark purchased\"}: ${item.name}`}",
+        "onPress": "{() => {\n                        if (heldShoppingItem.current) return;\n                        if (item.completed) {\n                          shoppingFeedback.cancelCompletion(item.id);\n                          tapLight();\n                        } else {\n                          shoppingFeedback.holdCompletion(item.id);\n                          hapticSuccess();\n                        }\n                        toggleShoppingItem(item.id);\n                      }}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/index.tsx",
+        "line": 1494,
+        "tag": "FloatingActionButton",
+        "label": "\"Add chore\"",
+        "onPress": "{() => {\n          setEditingChoreId(null);\n          setShowModal(true);\n        }}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/index.tsx",
+        "line": 1584,
+        "tag": "TouchableOpacity",
+        "label": "\"Close chore editor\"",
+        "onPress": "{closeAddChore}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/leaderboard.tsx",
+        "line": 115,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{() => setLeaderboardPeriod(p)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/shopping.tsx",
+        "line": 529,
+        "tag": "TouchableOpacity",
+        "label": "{`${list.name}, ${items.length - doneCount} items remaining`}",
+        "onPress": "{() => handleListHeaderPress(list.id)}",
+        "disabled": "{isActive}",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/shopping.tsx",
+        "line": 542,
+        "tag": "TouchableOpacity",
+        "label": "{`Reorder ${list.name}`}",
+        "onPress": "{Platform.OS === \"web\" ? (event) => { event.stopPropagation(); drag(); } : undefined}",
+        "disabled": "{isActive}",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/shopping.tsx",
+        "line": 576,
+        "tag": "TouchableOpacity",
+        "label": "{`Add item to ${list.name}`}",
+        "onPress": "{() => {\n                      setTargetListId(list.id);\n                      setShowShoppingModal(true);\n                    }}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/shopping.tsx",
+        "line": 588,
+        "tag": "TouchableOpacity",
+        "label": "{`More actions for ${list.name}`}",
+        "onPress": "{(event) => {\n                      event.stopPropagation();\n                      openListActions(list.id);\n                    }}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/shopping.tsx",
+        "line": 645,
+        "tag": "TouchableOpacity",
+        "label": "{item.name}",
+        "onPress": "{() => openItemActions(item.id)}",
+        "disabled": "{isActive}",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/shopping.tsx",
+        "line": 663,
+        "tag": "TouchableOpacity",
+        "label": "{`Reorder ${item.name}`}",
+        "onPress": "{Platform.OS === \"web\" ? (event) => { event.stopPropagation(); drag(); } : undefined}",
+        "disabled": "{isActive}",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/shopping.tsx",
+        "line": 674,
+        "tag": "TouchableOpacity",
+        "label": "{`${item.completed ? \"Mark needed\" : \"Mark purchased\"}: ${item.name}`}",
+        "onPress": "{(event) => {\n                                    event.stopPropagation();\n                                    if (item.completed) {\n                                      cancelCompletion(item.id);\n                                    } else {\n                                      completionOrderRef.current.set(list.id, items.map((entry) => entry.id));\n                                      holdCompletion(item.id);\n                                    }\n                                    toggleShoppingItem(item.id);\n                                    if (item.completed) tapLight();\n                                    else hapticSuccess();\n                                  }}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/shopping.tsx",
+        "line": 717,
+        "tag": "TouchableOpacity",
+        "label": "{`Delete ${item.name}`}",
+        "onPress": "{(event) => { event.stopPropagation(); deleteShoppingItem(item.id); }}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/shopping.tsx",
+        "line": 742,
+        "tag": "FloatingActionButton",
+        "label": "\"Add shopping list\"",
+        "onPress": "{() => setShowNewListModal(true)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/shopping.tsx",
+        "line": 860,
+        "tag": "Pressable",
+        "label": "",
+        "onPress": "{() => setAssignPickerListId(null)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/shopping.tsx",
+        "line": 873,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{() => {\n                    assignShoppingList(\n                      assignPickerListId!,\n                      selected ? null : r.id\n                    );\n                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);\n                    setAssignPickerListId(null);\n                  }}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/(tabs)/shopping.tsx",
+        "line": 912,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{() => {\n                assignShoppingList(assignPickerListId!, null);\n                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);\n                setAssignPickerListId(null);\n              }}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/alerts.tsx",
+        "line": 100,
+        "tag": "TouchableOpacity",
+        "label": "\"Back from alerts\"",
+        "onPress": "{() => backWithFallback(router, \"/(tabs)\")}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/alerts.tsx",
+        "line": 110,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{markAllAlertsRead}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/alerts.tsx",
+        "line": 127,
+        "tag": "TouchableOpacity",
+        "label": "{`${feedItem.alerts.length} overdue chores${unreadOverdue ? `, ${unreadOverdue} unread` : \"\"}`}",
+        "onPress": "{() => setOverdueExpanded((value) => !value)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/alerts.tsx",
+        "line": 163,
+        "tag": "TouchableOpacity",
+        "label": "{`${feedItem.alert.readAt ? \"\" : \"Unread \"}${feedItem.alert.title}`}",
+        "onPress": "{() => {\n                    markAlertRead(feedItem.id);\n                    if (feedItem.alert.type === \"nudge\") {\n                      const nudgeId = feedItem.alert.id.replace(/^nudge:/, \"\");\n                      void acknowledgeNudge(nudgeId).catch(() => {\n                        hapticError();\n                      });\n                    } else if (feedItem.alert.relatedEntityType === \"chore-chart\") {\n                      router.push(\"/planning?type=chore-chart\" as never);\n                    }\n                  }}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/alerts.tsx",
+        "line": 201,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{() => router.push(\"/planning?type=chore-chart\")}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/alerts.tsx",
+        "line": 227,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{() => act(() => approveProposedChart(proposal.id))}",
+        "disabled": "{busy || sharedReview.loading || myApproval?.approved || proposal.payload.version !== 2}",
+        "spread": false
+      },
+      {
+        "file": "app/alerts.tsx",
+        "line": 231,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{() => act(() => forceApproveProposedChart(proposal.id))}",
+        "disabled": "{busy || sharedReview.loading}",
+        "spread": false
+      },
+      {
+        "file": "app/planning.tsx",
+        "line": 83,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{onToggle}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/planning.tsx",
+        "line": 119,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{onToggle}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/planning.tsx",
+        "line": 197,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{() => onRemove(i)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/planning.tsx",
+        "line": 224,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{confirm}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/planning.tsx",
+        "line": 227,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{() => { setInputVisible(false); setText(\"\"); }}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/planning.tsx",
+        "line": 235,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{() => setInputVisible(true)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/planning.tsx",
+        "line": 354,
+        "tag": "TouchableOpacity",
+        "label": "{`${checked ? \"Remove\" : \"Mark\"} ${item} ${checked ? \"from owned items\" : \"as owned\"}`}",
+        "onPress": "{onToggle}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/planning.tsx",
+        "line": 380,
+        "tag": "Pressable",
+        "label": "",
+        "onPress": "{() => setShowAllAssignees((current) => !current)}",
+        "disabled": "{assignedMembers.length <= 3}",
+        "spread": false
+      },
+      {
+        "file": "app/planning.tsx",
+        "line": 412,
+        "tag": "TouchableOpacity",
+        "label": "{\n              currentUserAssigned\n                ? `Remove your assignment from ${item}`\n                : `Assign yourself to ${item}`\n            }",
+        "onPress": "{() => onToggleSelfAssignment(!currentUserAssigned)}",
+        "disabled": "{assignmentPending}",
+        "spread": false
+      },
+      {
+        "file": "app/planning.tsx",
+        "line": 1016,
+        "tag": "TouchableOpacity",
+        "label": "{isChoreChart ? \"Back from Chore Chart\" : \"Back from Sweet Essentials\"}",
+        "onPress": "{() =>\n              setupMode\n                ? router.replace(\"/sweet-setup\" as never)\n                : backWithFallback(router, \"/settings\")\n            }",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/planning.tsx",
+        "line": 1033,
+        "tag": "TouchableOpacity",
+        "label": "\"How does this work?\"",
+        "onPress": "{() => setHowItWorksOpen(true)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/planning.tsx",
+        "line": 1056,
+        "tag": "TouchableOpacity",
+        "label": "\"Finish household setup\"",
+        "onPress": "{() => router.push((!homeProfile ? `/sweet-setup?resume=1&household=${householdId}` : \"/settings\") as never)}",
+        "disabled": "{!householdSetupDataReady || membersLoading}",
+        "spread": false
+      },
+      {
+        "file": "app/planning.tsx",
+        "line": 1073,
+        "tag": "TouchableOpacity",
+        "label": "\"Retry loading chore settings\"",
+        "onPress": "{() => void retryChoreChartConfiguration().catch((error) => setError(error instanceof Error ? error.message : \"Unable to load chore settings.\"))}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/planning.tsx",
+        "line": 1092,
+        "tag": "TouchableOpacity",
+        "label": "{`${section.title}, ${ownedCoreCount} of ${coreItems.length} core items owned`}",
+        "onPress": "{() => toggleExpandSection(section.id)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/planning.tsx",
+        "line": 1188,
+        "tag": "PreferenceBar",
+        "label": "{dimension.key}",
+        "onPress": "",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/planning.tsx",
+        "line": 1206,
+        "tag": "GlassButton",
+        "label": "\"See current generated tasks\"",
+        "onPress": "{() => setGeneratedTasksOpen(true)}",
+        "disabled": "{!householdSetupDataReady || !choreChartConfigurationReady || !homeProfile}",
+        "spread": false
+      },
+      {
+        "file": "app/planning.tsx",
+        "line": 1223,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{() => router.push(\"/task-difficulty\")}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/planning.tsx",
+        "line": 1235,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{() => deleteCustomTask(task.id)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/planning.tsx",
+        "line": 1250,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{() => setCustomTaskDifficulty(value)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/planning.tsx",
+        "line": 1265,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{() => setCustomTaskFrequency(value)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/planning.tsx",
+        "line": 1276,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{() => setCustomTaskTime(value)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/planning.tsx",
+        "line": 1284,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{() => {\n              if (!customTaskTitle.trim()) return;\n              addCustomTask({\n                item: customTaskTitle.trim(),\n                title: customTaskTitle.trim(),\n                difficulty: customTaskDifficulty,\n                frequency: customTaskFrequency,\n                timeOfDay: customTaskTime,\n              });\n              setCustomTaskTitle(\"\");\n              setCustomTaskDifficulty(3);\n            }}",
+        "disabled": "{!customTaskTitle.trim()}",
+        "spread": false
+      },
+      {
+        "file": "app/planning.tsx",
+        "line": 1307,
+        "tag": "TouchableOpacity",
+        "label": "\"Click here to be the permanent owner of a task\"",
+        "onPress": "{() => void openAssignmentPreferences()}",
+        "disabled": "{!canGenerate || loading}",
+        "spread": false
+      },
+      {
+        "file": "app/planning.tsx",
+        "line": 1319,
+        "tag": "TouchableOpacity",
+        "label": "\"Discard unsent permanent preferences\"",
+        "onPress": "{() => { setAssignmentDraft(null); setError(null); }}",
+        "disabled": "{loading}",
+        "spread": false
+      },
+      {
+        "file": "app/planning.tsx",
+        "line": 1341,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{() => { setResult(null); }}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/planning.tsx",
+        "line": 1388,
+        "tag": "GlassModalBackdrop",
+        "label": "\"Close chore chart explanation\"",
+        "onPress": "{() => setHowItWorksOpen(false)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/planning.tsx",
+        "line": 1392,
+        "tag": "GlassButton",
+        "label": "\"Close chore chart explanation\"",
+        "onPress": "{() => setHowItWorksOpen(false)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/planning.tsx",
+        "line": 1428,
+        "tag": "GlassButton",
+        "label": "\"Done reading chore chart explanation\"",
+        "onPress": "{() => setHowItWorksOpen(false)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/planning.tsx",
+        "line": 1454,
+        "tag": "TouchableOpacity",
+        "label": "\"Close shortlist\"",
+        "onPress": "{() => setShortlistOpen(false)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/planning.tsx",
+        "line": 1473,
+        "tag": "TouchableOpacity",
+        "label": "\"Select recommended Sweet Essentials\"",
+        "onPress": "{selectRecommendedItems}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/planning.tsx",
+        "line": 1503,
+        "tag": "TouchableOpacity",
+        "label": "{`Select all ${category.title} ${ESSENTIAL_SUBSECTION_LABELS[subsection]}`}",
+        "onPress": "{() => setDraftSubsection(category.id, subsection, true)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/planning.tsx",
+        "line": 1509,
+        "tag": "TouchableOpacity",
+        "label": "{`Clear all ${category.title} ${ESSENTIAL_SUBSECTION_LABELS[subsection]}`}",
+        "onPress": "{() => setDraftSubsection(category.id, subsection, false)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/planning.tsx",
+        "line": 1520,
+        "tag": "TouchableOpacity",
+        "label": "{`${selected ? \"Remove\" : \"Add\"} ${entry.label} ${selected ? \"from\" : \"to\"} shortlist${owned ? \", already owned\" : \"\"}`}",
+        "onPress": "{() => setDraftItem(category.id, entry.id, !selected)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/planning.tsx",
+        "line": 1594,
+        "tag": "TouchableOpacity",
+        "label": "{\n                    setupMode\n                      ? \"Preview added essentials in Shopping\"\n                      : \"View added essentials in Shopping\"\n                  }",
+        "onPress": "{() => {\n                    if (setupMode) {\n                      setShoppingPreviewOpen(true);\n                      return;\n                    }\n                    setShortlistOpen(false);\n                    router.push(\"/(tabs)/shopping\" as never);\n                  }}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/planning.tsx",
+        "line": 1618,
+        "tag": "TouchableOpacity",
+        "label": "\"Add selected Sweet Essentials to Shopping\"",
+        "onPress": "{addSelectedToShopping}",
+        "disabled": "{shortlistTransferLoading || shortlistSaving || shortlistSelectedCount === 0}",
+        "spread": false
+      },
+      {
+        "file": "app/planning.tsx",
+        "line": 1642,
+        "tag": "TouchableOpacity",
+        "label": "\"Save selected essentials and continue household setup\"",
+        "onPress": "{() => void continueHouseholdSetup()}",
+        "disabled": "{shortlistSaving || shortlistTransferLoading}",
+        "spread": false
+      },
+      {
+        "file": "app/planning.tsx",
+        "line": 1652,
+        "tag": "TouchableOpacity",
+        "label": "\"Save shortlist\"",
+        "onPress": "{() => void saveShortlist()}",
+        "disabled": "{shortlistSaving || shortlistTransferLoading}",
+        "spread": false
+      },
+      {
+        "file": "app/planning.tsx",
+        "line": 1677,
+        "tag": "TouchableOpacity",
+        "label": "\"Back to Shortlist Items\"",
+        "onPress": "{() => setShoppingPreviewOpen(false)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/planning.tsx",
+        "line": 1780,
+        "tag": "TouchableOpacity",
+        "label": "\"Back to Shortlist Items\"",
+        "onPress": "{() => setShoppingPreviewOpen(false)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/planning.tsx",
+        "line": 1795,
+        "tag": "Pressable",
+        "label": "{isChoreChart ? \"Preview chore chart\" : \"Shortlist items\"}",
+        "onPress": "{generate}",
+        "disabled": "{!canGenerate || loading}",
+        "spread": false
+      },
+      {
+        "file": "app/settings.tsx",
+        "line": 123,
+        "tag": "TouchableOpacity",
+        "label": "{`${title}, ${open ? \"collapse\" : \"expand\"}`}",
+        "onPress": "{() => setOpen((current) => !current)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/settings.tsx",
+        "line": 650,
+        "tag": "TouchableOpacity",
+        "label": "\"Switch household\"",
+        "onPress": "{() => setHouseholdSwitcherOpen(true)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/settings.tsx",
+        "line": 744,
+        "tag": "TouchableOpacity",
+        "label": "{`Remove ${roommate.name} from ${householdName ?? \"this household\"}`}",
+        "onPress": "{() =>\n                    confirmRemoveRoommate(roommate.id, roommate.name)\n                  }",
+        "disabled": "{removingRoommateId !== null}",
+        "spread": false
+      },
+      {
+        "file": "app/settings.tsx",
+        "line": 779,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{confirmDeleteHousehold}",
+        "disabled": "{deletingHousehold}",
+        "spread": false
+      },
+      {
+        "file": "app/settings.tsx",
+        "line": 827,
+        "tag": "TouchableOpacity",
+        "label": "\"Open Chore Chart planning\"",
+        "onPress": "{() => router.push(\"/planning?type=chore-chart\" as never)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/settings.tsx",
+        "line": 858,
+        "tag": "TouchableOpacity",
+        "label": "\"Open Sweet Essentials\"",
+        "onPress": "{() => router.push(\"/planning?type=home-checklist\" as never)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/settings.tsx",
+        "line": 889,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{() => router.push(\"/task-difficulty\")}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/settings.tsx",
+        "line": 918,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{confirmRestartChart}",
+        "disabled": "{restartingChart}",
+        "spread": false
+      },
+      {
+        "file": "app/settings.tsx",
+        "line": 969,
+        "tag": "TouchableOpacity",
+        "label": "\"Close settings\"",
+        "onPress": "{() => backWithFallback(router, \"/(tabs)\")}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/settings.tsx",
+        "line": 1011,
+        "tag": "Pressable",
+        "label": "",
+        "onPress": "{() => setHouseholdSwitcherOpen(false)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/settings.tsx",
+        "line": 1047,
+        "tag": "TouchableOpacity",
+        "label": "\"Close household selector\"",
+        "onPress": "{() => setHouseholdSwitcherOpen(false)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/settings.tsx",
+        "line": 1081,
+        "tag": "TouchableOpacity",
+        "label": "{`${membership.name}, ${membership.role}, ${membership.memberCount ?? 1} members${selected ? \", selected\" : \"\"}`}",
+        "onPress": "{() => {\n                          if (!selected) switchSweet(membership.sweetId);\n                          setHouseholdSwitcherOpen(false);\n                        }}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/settings.tsx",
+        "line": 1144,
+        "tag": "TouchableOpacity",
+        "label": "{`Leave ${membership.name}`}",
+        "onPress": "{(event) => {\n                            event.stopPropagation();\n                            confirm(\"leave_household\", `Leave ${membership.name}?`, \"You will lose access to this household\u2019s shared data. Your other households are not affected.\", () =>\n                              leaveSweet(membership.sweetId), { confirmText: \"Leave\", destructive: true });\n                          }}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/settings.tsx",
+        "line": 1166,
+        "tag": "TouchableOpacity",
+        "label": "\"Create a household\"",
+        "onPress": "{() => {\n                  setHouseholdSwitcherOpen(false);\n                  router.push(\"/sweet-setup?mode=create&additional=1\" as never);\n                }}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/settings.tsx",
+        "line": 1188,
+        "tag": "TouchableOpacity",
+        "label": "\"Join a household\"",
+        "onPress": "{() => {\n                  setHouseholdSwitcherOpen(false);\n                  router.push(\"/sweet-setup?mode=join&additional=1\" as never);\n                }}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/settings.tsx",
+        "line": 1224,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{pickImage}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/settings.tsx",
+        "line": 1240,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{removePhoto}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/settings.tsx",
+        "line": 1297,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{() => {\n                      setColor(c);\n                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);\n                    }}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/settings.tsx",
+        "line": 1389,
+        "tag": "TouchableOpacity",
+        "label": "\"Disconnect Google account everywhere\"",
+        "onPress": "{toggleGoogleCalendar}",
+        "disabled": "{googleCalendarBusy || googleConnection.checking}",
+        "spread": false
+      },
+      {
+        "file": "app/settings.tsx",
+        "line": 1409,
+        "tag": "TouchableOpacity",
+        "label": "\"Open Quick guide\"",
+        "onPress": "{() => {\n              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);\n              track.quickGuideOpened({ source: \"settings\" });\n              openQuickGuide();\n            }}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/settings.tsx",
+        "line": 1486,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{handleSignOut}",
+        "disabled": "{signingOut}",
+        "spread": false
+      },
+      {
+        "file": "app/settings.tsx",
+        "line": 1502,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{confirmDeleteOwnAccount}",
+        "disabled": "{deletingAccount}",
+        "spread": false
+      },
+      {
+        "file": "app/settings.tsx",
+        "line": 1548,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{save}",
+        "disabled": "{!name.trim()}",
+        "spread": false
+      },
+      {
+        "file": "app/settings.tsx",
+        "line": 1592,
+        "tag": "Pressable",
+        "label": "",
+        "onPress": "{() => setAuthOpen(false)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/settings.tsx",
+        "line": 1624,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{() => pickRoommateForAuth(r.id)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/settings.tsx",
+        "line": 1757,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{startForgotFlow}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/settings.tsx",
+        "line": 1777,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{() => setAuthPhase(\"pick\")}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/settings.tsx",
+        "line": 1790,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{submitAuth}",
+        "disabled": "{authLoading}",
+        "spread": false
+      },
+      {
+        "file": "app/settings.tsx",
+        "line": 1856,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{() => setAuthPhase(\"creds\")}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/settings.tsx",
+        "line": 1869,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{submitForgot}",
+        "disabled": "{authLoading}",
+        "spread": false
+      },
+      {
+        "file": "app/settings.tsx",
+        "line": 1977,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{() => setAuthPhase(\"forgot\")}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/settings.tsx",
+        "line": 1990,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{submitReset}",
+        "disabled": "{authLoading}",
+        "spread": false
+      },
+      {
+        "file": "app/task-difficulty.tsx",
+        "line": 83,
+        "tag": "TouchableOpacity",
+        "label": "\"Back from Task Difficulty\"",
+        "onPress": "{() => backWithFallback(router, \"/settings\")}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/task-difficulty.tsx",
+        "line": 95,
+        "tag": "TouchableOpacity",
+        "label": "\"Reset task difficulties\"",
+        "onPress": "{reset}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "app/task-difficulty.tsx",
+        "line": 130,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{() => changeDifficulty(category, entry.item, level)}",
+        "disabled": "{savingKey === key}",
+        "spread": false
+      },
+      {
+        "file": "components/ActionMenuModal.tsx",
+        "line": 209,
+        "tag": "Pressable",
+        "label": "\"Close action menu\"",
+        "onPress": "{() => dismiss()}",
+        "disabled": "{running}",
+        "spread": false
+      },
+      {
+        "file": "components/ActionMenuModal.tsx",
+        "line": 242,
+        "tag": "Pressable",
+        "label": "\"Close action menu\"",
+        "onPress": "{() => dismiss()}",
+        "disabled": "{running}",
+        "spread": false
+      },
+      {
+        "file": "components/ActionMenuModal.tsx",
+        "line": 316,
+        "tag": "GlassButton",
+        "label": "",
+        "onPress": "{() => setConfirming(null)}",
+        "disabled": "{running}",
+        "spread": false
+      },
+      {
+        "file": "components/ActionMenuModal.tsx",
+        "line": 332,
+        "tag": "GlassButton",
+        "label": "{confirming.confirmation.confirmLabel}",
+        "onPress": "{() => {\n                        void confirmAction();\n                      }}",
+        "disabled": "{running}",
+        "spread": false
+      },
+      {
+        "file": "components/ActionMenuModal.tsx",
+        "line": 397,
+        "tag": "GlassButton",
+        "label": "{action.label}",
+        "onPress": "{() => {\n                          void runAction(action);\n                        }}",
+        "disabled": "{running}",
+        "spread": false
+      },
+      {
+        "file": "components/ActionMenuModal.tsx",
+        "line": 472,
+        "tag": "GlassButton",
+        "label": "",
+        "onPress": "{() => dismiss()}",
+        "disabled": "{running}",
+        "spread": false
+      },
+      {
+        "file": "components/AnalyticsConsentManager.tsx",
+        "line": 72,
+        "tag": "AppSwitch",
+        "label": "{`${row.title}: ${preferences[row.key] ? \"on\" : \"off\"}`}",
+        "onPress": "{(value) =>\n              void saveAnalyticsPreferences(userId, {\n                [row.key]: value,\n                noticeVersion: PRIVACY_NOTICE_VERSION,\n                // Renew only the choice being explicitly changed, never revive\n                // an older opt-in for the other category.\n                ...(preferences.noticeVersion !== PRIVACY_NOTICE_VERSION\n                  ? { [row.key === \"productAnalyticsEnabled\" ? \"crashReportingEnabled\" : \"productAnalyticsEnabled\"]: false }\n                  : {}),\n              }).catch(() => showPopup({ title: \"Choice couldn't be saved\", message: \"Please try again.\", actions: [{ label: \"Got it\", primary: true }] }))\n            }",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/AnalyticsConsentManager.tsx",
+        "line": 89,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{openPolicy}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/AppPopupProvider.tsx",
+        "line": 98,
+        "tag": "GlassModalBackdrop",
+        "label": "",
+        "onPress": "{popup?.dismissible === false ? undefined : dismissPopup}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/AppPopupProvider.tsx",
+        "line": 110,
+        "tag": "GlassButton",
+        "label": "{action.destructive ? `${action.label}, destructive action` : action.label}",
+        "onPress": "{() => void run(action, popup?.requestId)}",
+        "disabled": "{running}",
+        "spread": false
+      },
+      {
+        "file": "components/AuthGate.tsx",
+        "line": 82,
+        "tag": "Pressable",
+        "label": "",
+        "onPress": "{onRetry}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/ChoreAssignmentPreferencesSheet.tsx",
+        "line": 35,
+        "tag": "GlassModalBackdrop",
+        "label": "\"Close permanent task preferences\"",
+        "onPress": "{close}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/ChoreAssignmentPreferencesSheet.tsx",
+        "line": 39,
+        "tag": "GlassButton",
+        "label": "\"Close permanent task preferences\"",
+        "onPress": "{close}",
+        "disabled": "{busy}",
+        "spread": false
+      },
+      {
+        "file": "components/ChoreAssignmentPreferencesSheet.tsx",
+        "line": 57,
+        "tag": "GlassButton",
+        "label": "{`Always assign ${task.title} to me`}",
+        "onPress": "{() => change(task.id, \"always\")}",
+        "disabled": "{busy || Boolean(blocked)}",
+        "spread": false
+      },
+      {
+        "file": "components/ChoreAssignmentPreferencesSheet.tsx",
+        "line": 60,
+        "tag": "GlassButton",
+        "label": "{`Never assign ${task.title} to me`}",
+        "onPress": "{() => change(task.id, \"never\")}",
+        "disabled": "{busy || Boolean(blocked)}",
+        "spread": false
+      },
+      {
+        "file": "components/ChoreAssignmentPreferencesSheet.tsx",
+        "line": 68,
+        "tag": "GlassButton",
+        "label": "\"Done editing task preferences\"",
+        "onPress": "{close}",
+        "disabled": "{busy}",
+        "spread": false
+      },
+      {
+        "file": "components/ChoreChartApprovalSuccess.tsx",
+        "line": 74,
+        "tag": "Pressable",
+        "label": "\"Approval saved. Return to My Sweet\"",
+        "onPress": "{finish}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/ChoreChartPreview.tsx",
+        "line": 60,
+        "tag": "GlassButton",
+        "label": "{weekOffset === 1 ? \"Back to starting assignments\" : \"See previous week\"}",
+        "onPress": "{() => setWeekOffset((current) => Math.max(0, current - 1))}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/ChoreChartPreview.tsx",
+        "line": 64,
+        "tag": "GlassButton",
+        "label": "{atEnd ? \"Back to starting assignments\" : \"See next week\"}",
+        "onPress": "{nextWeek}",
+        "disabled": "{!projection}",
+        "spread": false
+      },
+      {
+        "file": "components/ChoreChartPreviewSheet.tsx",
+        "line": 59,
+        "tag": "GlassButton",
+        "label": "\"Back to chore chart creator\"",
+        "onPress": "{onBack}",
+        "disabled": "{busy}",
+        "spread": false
+      },
+      {
+        "file": "components/ChoreChartPreviewSheet.tsx",
+        "line": 62,
+        "tag": "GlassButton",
+        "label": "{sendForApproval ? actionLabel : approved ? \"Chore chart approved\" : \"Approve chore chart\"}",
+        "onPress": "{onApprove}",
+        "disabled": "{busy || blocked || actionComplete}",
+        "spread": false
+      },
+      {
+        "file": "components/ChoreFilterButton.tsx",
+        "line": 28,
+        "tag": "TouchableOpacity",
+        "label": "{accessibilityLabel}",
+        "onPress": "{onPress}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/DraggableListCompat.tsx",
+        "line": 93,
+        "tag": "GlassButton",
+        "label": "{`Move ${labelFor(item, index)} up`}",
+        "onPress": "{() => move(index, index - 1)}",
+        "disabled": "{index === 0}",
+        "spread": false
+      },
+      {
+        "file": "components/DraggableListCompat.tsx",
+        "line": 96,
+        "tag": "GlassButton",
+        "label": "{`Move ${labelFor(item, index)} down`}",
+        "onPress": "{() => move(index, index + 1)}",
+        "disabled": "{index === data.length - 1}",
+        "spread": false
+      },
+      {
+        "file": "components/DraggableListCompat.tsx",
+        "line": 99,
+        "tag": "GlassButton",
+        "label": "\"Done reordering\"",
+        "onPress": "{() => setMovingIndex(null)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/ErrorFallback.tsx",
+        "line": 64,
+        "tag": "Pressable",
+        "label": "\"View error details\"",
+        "onPress": "{() => setIsModalVisible(true)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/ErrorFallback.tsx",
+        "line": 106,
+        "tag": "Pressable",
+        "label": "",
+        "onPress": "{handleRestart}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/ErrorFallback.tsx",
+        "line": 151,
+        "tag": "Pressable",
+        "label": "\"Close error details\"",
+        "onPress": "{() => setIsModalVisible(false)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/ExpenseActivityPanel.tsx",
+        "line": 20,
+        "tag": "SectionDivider",
+        "label": "\"Recent activity\"",
+        "onPress": "{() => setExpanded((value) => !value)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/ExpenseActivityPanel.tsx",
+        "line": 24,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{onRetry}",
+        "disabled": "{loading}",
+        "spread": false
+      },
+      {
+        "file": "components/ExpenseActivityPanel.tsx",
+        "line": 25,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{() => onOpenExpense?.(event.expenseId)}",
+        "disabled": "{!onOpenExpense}",
+        "spread": false
+      },
+      {
+        "file": "components/ExpenseActivityPanel.tsx",
+        "line": 31,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{() => setLimit((value) => value + 10)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/ExpenseRequestPanel.tsx",
+        "line": 35,
+        "tag": "SectionDivider",
+        "label": "\"Saved requests\"",
+        "onPress": "{() => setExpanded((value) => !value)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/ExpenseRequestPanel.tsx",
+        "line": 44,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{onRetry}",
+        "disabled": "{busy}",
+        "spread": false
+      },
+      {
+        "file": "components/ExpenseRequestPanel.tsx",
+        "line": 48,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{() => onRecover(request.operationId)}",
+        "disabled": "{busy}",
+        "spread": false
+      },
+      {
+        "file": "components/ExpenseRequestPanel.tsx",
+        "line": 50,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{() => onOpenExpense(request.expenseId)}",
+        "disabled": "{busy}",
+        "spread": false
+      },
+      {
+        "file": "components/ExpenseRequestPanel.tsx",
+        "line": 53,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{() => setDiscarding(request.operationId)}",
+        "disabled": "{busy}",
+        "spread": false
+      },
+      {
+        "file": "components/ExpenseRequestPanel.tsx",
+        "line": 60,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{() => setDiscarding(null)}",
+        "disabled": "{busy}",
+        "spread": false
+      },
+      {
+        "file": "components/ExpenseRequestPanel.tsx",
+        "line": 61,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{() => { onDismiss(request.operationId); setDiscarding(null); }}",
+        "disabled": "{busy}",
+        "spread": false
+      },
+      {
+        "file": "components/ExpenseRequestPanel.tsx",
+        "line": 66,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{() => setLimit((value) => value + 3)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/FeedbackSection.tsx",
+        "line": 164,
+        "tag": "Pressable",
+        "label": "",
+        "onPress": "{() => {\n          reset();\n          setVisible(true);\n        }}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/FeedbackSection.tsx",
+        "line": 215,
+        "tag": "Pressable",
+        "label": "\"Close feedback form\"",
+        "onPress": "{close}",
+        "disabled": "{busy}",
+        "spread": false
+      },
+      {
+        "file": "components/FeedbackSection.tsx",
+        "line": 240,
+        "tag": "Pressable",
+        "label": "",
+        "onPress": "{close}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/FeedbackSection.tsx",
+        "line": 263,
+        "tag": "SmoothPressable",
+        "label": "{\n                          value[0].toUpperCase() + value.slice(1)\n                        }",
+        "onPress": "{() => setCategory(value)}",
+        "disabled": "{busy}",
+        "spread": false
+      },
+      {
+        "file": "components/FeedbackSection.tsx",
+        "line": 367,
+        "tag": "GlassButton",
+        "label": "{\n                      busy ? \"Sending feedback\" : \"Send Feedback\"\n                    }",
+        "onPress": "{submit}",
+        "disabled": "{busy}",
+        "spread": false
+      },
+      {
+        "file": "components/FloatingActionButton.tsx",
+        "line": 40,
+        "tag": "SmoothPressable",
+        "label": "{accessibilityLabel}",
+        "onPress": "{() => {\n        if (pressLocked.current) return;\n        pressLocked.current = true;\n        // Schedule unlocking before invoking consumer code: an exception must\n        // not permanently turn every subsequent press into a no-op.\n        setTimeout(() => {\n          pressLocked.current = false;\n        }, 450);\n        onPress();\n      }}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/GeneratedTasksSheet.tsx",
+        "line": 58,
+        "tag": "GlassModalBackdrop",
+        "label": "{draft ? \"Cancel editing generated chore\" : \"Close generated tasks\"}",
+        "onPress": "{close}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/GeneratedTasksSheet.tsx",
+        "line": 62,
+        "tag": "GlassButton",
+        "label": "{draft ? \"Cancel editing generated chore\" : \"Close generated tasks\"}",
+        "onPress": "{close}",
+        "disabled": "{saving}",
+        "spread": false
+      },
+      {
+        "file": "components/GeneratedTasksSheet.tsx",
+        "line": 78,
+        "tag": "GlassButton",
+        "label": "{`Difficulty ${difficulty} of 5`}",
+        "onPress": "{() => setDraft((current) => current ? { ...current, difficulty } : null)}",
+        "disabled": "{saving}",
+        "spread": false
+      },
+      {
+        "file": "components/GeneratedTasksSheet.tsx",
+        "line": 89,
+        "tag": "GlassButton",
+        "label": "{frequencyLabel(frequency)}",
+        "onPress": "{() => setDraft((current) => current ? { ...current, frequency } : null)}",
+        "disabled": "{saving}",
+        "spread": false
+      },
+      {
+        "file": "components/GeneratedTasksSheet.tsx",
+        "line": 103,
+        "tag": "TouchableOpacity",
+        "label": "{`Edit ${task.title}`}",
+        "onPress": "{() => { setDraft({ id: task.id, title: task.title, difficulty: task.difficulty, frequency: task.frequency }); setError(null); }}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/GeneratedTasksSheet.tsx",
+        "line": 110,
+        "tag": "GlassButton",
+        "label": "",
+        "onPress": "{close}",
+        "disabled": "{saving}",
+        "spread": false
+      },
+      {
+        "file": "components/GeneratedTasksSheet.tsx",
+        "line": 111,
+        "tag": "GlassButton",
+        "label": "\"Save generated chore changes\"",
+        "onPress": "{() => void save()}",
+        "disabled": "{saving || !draft.title.trim()}",
+        "spread": false
+      },
+      {
+        "file": "components/GeneratedTasksSheet.tsx",
+        "line": 114,
+        "tag": "GlassButton",
+        "label": "",
+        "onPress": "{onClose}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/GlassButton.tsx",
+        "line": 29,
+        "tag": "AccentButton",
+        "label": "",
+        "onPress": "",
+        "disabled": "{disabled}",
+        "spread": true
+      },
+      {
+        "file": "components/GlassButton.tsx",
+        "line": 42,
+        "tag": "Pressable",
+        "label": "",
+        "onPress": "",
+        "disabled": "{disabled}",
+        "spread": true
+      },
+      {
+        "file": "components/GlassModalSurface.tsx",
+        "line": 25,
+        "tag": "Pressable",
+        "label": "{onPress ? accessibilityLabel : undefined}",
+        "onPress": "{onPress}",
+        "disabled": "{!onPress}",
+        "spread": false
+      },
+      {
+        "file": "components/GoogleScheduleControls.tsx",
+        "line": 57,
+        "tag": "TouchableOpacity",
+        "label": "{name}",
+        "onPress": "{() => set(selected.includes(id) ? selected.filter((value) => value !== id) : [...selected, id])}",
+        "disabled": "{busy}",
+        "spread": false
+      },
+      {
+        "file": "components/GoogleScheduleControls.tsx",
+        "line": 72,
+        "tag": "TouchableOpacity",
+        "label": "{launcherLabel}",
+        "onPress": "{() => void open()}",
+        "disabled": "{!schedule.userId || !schedule.ready || busy || connection.busy}",
+        "spread": false
+      },
+      {
+        "file": "components/GoogleScheduleControls.tsx",
+        "line": 75,
+        "tag": "TouchableOpacity",
+        "label": "\"Refresh Google schedule\"",
+        "onPress": "{() => void schedule.sync(day).catch(() => {})}",
+        "disabled": "{schedule.loading}",
+        "spread": false
+      },
+      {
+        "file": "components/GoogleScheduleControls.tsx",
+        "line": 83,
+        "tag": "GlassModalBackdrop",
+        "label": "\"Close Google schedule settings\"",
+        "onPress": "{close}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/GoogleScheduleControls.tsx",
+        "line": 96,
+        "tag": "AppSwitch",
+        "label": "\"Share my calendar busy status with this household\"",
+        "onPress": "{setShareBusy}",
+        "disabled": "{busy}",
+        "spread": false
+      },
+      {
+        "file": "components/GoogleScheduleControls.tsx",
+        "line": 100,
+        "tag": "GlassButton",
+        "label": "",
+        "onPress": "{() => void connect()}",
+        "disabled": "{busy}",
+        "spread": false
+      },
+      {
+        "file": "components/GoogleScheduleControls.tsx",
+        "line": 101,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{() => void save(false)}",
+        "disabled": "{busy}",
+        "spread": false
+      },
+      {
+        "file": "components/GoogleScheduleControls.tsx",
+        "line": 104,
+        "tag": "GlassButton",
+        "label": "",
+        "onPress": "{close}",
+        "disabled": "{busy}",
+        "spread": false
+      },
+      {
+        "file": "components/GoogleScheduleControls.tsx",
+        "line": 105,
+        "tag": "GlassButton",
+        "label": "",
+        "onPress": "{() => void save()}",
+        "disabled": "{busy || calendarIds.length + taskIds.length === 0}",
+        "spread": false
+      },
+      {
+        "file": "components/HeaderActions.tsx",
+        "line": 29,
+        "tag": "SmoothPressable",
+        "label": "{hasPendingAlert ? \"Open household alerts, unread alerts available\" : \"Open household alerts\"}",
+        "onPress": "{() => router.push(\"/alerts\")}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/HeaderActions.tsx",
+        "line": 51,
+        "tag": "SmoothPressable",
+        "label": "\"Open settings\"",
+        "onPress": "{() => router.push(\"/settings\")}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/HistoryDisclosure.tsx",
+        "line": 19,
+        "tag": "SectionDivider",
+        "label": "\"History\"",
+        "onPress": "{onToggle}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/HomeCalendarPresentation.tsx",
+        "line": 19,
+        "tag": "SectionDivider",
+        "label": "\"Calendar\"",
+        "onPress": "{onToggle}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/HouseholdCompletionControl.tsx",
+        "line": 89,
+        "tag": "SmoothPressable",
+        "label": "{householdSetupDataReady ? complete ? \"Household setup complete\" : \"Household setup incomplete\" : \"Checking household setup\"}",
+        "onPress": "{() => {\n            const targetHouseholdId = householdId;\n            showPopup({\n              title: \"Edit household setup?\",\n              message: \"Review and change your home type, shared items, and chore settings. Your current settings will be loaded for you to edit.\",\n              icon: \"home\",\n              actions: [\n                { label: \"Cancel\" },\n                { label: \"Edit setup\", primary: true, onPress: () => {\n                  if (activeHouseholdRef.current !== targetHouseholdId) return;\n                  router.push(`/sweet-setup?resume=1&household=${targetHouseholdId}` as never);\n                } },\n              ],\n            });\n          }}",
+        "disabled": "{disabled}",
+        "spread": false
+      },
+      {
+        "file": "components/HouseholdCompletionControl.tsx",
+        "line": 116,
+        "tag": "SmoothPressable",
+        "label": "{chartStatus.ready ? chartStatus.complete ? \"Chore chart complete\" : \"Chore chart incomplete\" : chartStatus.error ? \"Chore chart status unavailable\" : \"Checking chore chart\"}",
+        "onPress": "{() => router.push(\"/planning?type=chore-chart\" as never)}",
+        "disabled": "{!householdId}",
+        "spread": false
+      },
+      {
+        "file": "components/HouseholdCompletionControl.tsx",
+        "line": 155,
+        "tag": "SmoothPressable",
+        "label": "\"Mark household setup complete\"",
+        "onPress": "{completeHousehold}",
+        "disabled": "{checkingMembers || !householdId || !householdSetupDataReady}",
+        "spread": false
+      },
+      {
+        "file": "components/HouseholdSetupScreen.tsx",
+        "line": 496,
+        "tag": "Pressable",
+        "label": "\"Cancel household setup\"",
+        "onPress": "{cancelAdditionalSetup}",
+        "disabled": "{loading}",
+        "spread": false
+      },
+      {
+        "file": "components/HouseholdSetupScreen.tsx",
+        "line": 522,
+        "tag": "Pressable",
+        "label": "",
+        "onPress": "{() => changeMode(item)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/HouseholdSetupScreen.tsx",
+        "line": 550,
+        "tag": "Pressable",
+        "label": "",
+        "onPress": "{() => setTimezone(option.value)}",
+        "disabled": "{!(!householdId || (additionalHousehold && !createdAdditionalHouseholdId))}",
+        "spread": false
+      },
+      {
+        "file": "components/HouseholdSetupScreen.tsx",
+        "line": 568,
+        "tag": "SelectionCard",
+        "label": "{option.label}",
+        "onPress": "{() => setHousingType(option.key)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/HouseholdSetupScreen.tsx",
+        "line": 580,
+        "tag": "Pressable",
+        "label": "\"Browse Sweet Essentials\"",
+        "onPress": "{() => {\n                  if (navigationPendingRef.current) return;\n                  navigationPendingRef.current = true;\n                  router.push(`/planning?type=home-checklist&setup=household&housingType=${housingType}` as never);\n                }}",
+        "disabled": "{loading}",
+        "spread": false
+      },
+      {
+        "file": "components/HouseholdSetupScreen.tsx",
+        "line": 594,
+        "tag": "Pressable",
+        "label": "\"Skip Sweet Essentials for now\"",
+        "onPress": "{() => void goToStep(\"items\", \"essentials\", \"skipped\")}",
+        "disabled": "{loading}",
+        "spread": false
+      },
+      {
+        "file": "components/HouseholdSetupScreen.tsx",
+        "line": 620,
+        "tag": "Chip",
+        "label": "{`${count} ${count === 1 ? \"bathroom\" : \"bathrooms\"}`}",
+        "onPress": "{() => setBathroomCount(count)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/HouseholdSetupScreen.tsx",
+        "line": 633,
+        "tag": "Chip",
+        "label": "{`${count} ${count === 1 ? \"bedroom\" : \"bedrooms\"}`}",
+        "onPress": "{() => setBedroomCount(count)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/HouseholdSetupScreen.tsx",
+        "line": 646,
+        "tag": "Chip",
+        "label": "{item}",
+        "onPress": "{() => toggle(key, items, setItems)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/HouseholdSetupScreen.tsx",
+        "line": 658,
+        "tag": "Pressable",
+        "label": "",
+        "onPress": "{() => addCustomItem(section.key)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/HouseholdSetupScreen.tsx",
+        "line": 678,
+        "tag": "Pressable",
+        "label": "{`Rename ${chore.title}`}",
+        "onPress": "{() => openRename({ kind: \"generated\", sourceKey: chore.sourceKey, title: chore.title })}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/HouseholdSetupScreen.tsx",
+        "line": 682,
+        "tag": "Pressable",
+        "label": "{`Change recurrence for ${chore.title}`}",
+        "onPress": "{() => {\n                          setFrequencyTarget({ sourceKey: chore.sourceKey, title: chore.title });\n                          setFrequencyDraft(chore.persistedRecurrence);\n                          setShowCustomFrequency([\"everyOtherDay\", \"everyThreeDays\"].includes(chore.persistedRecurrence));\n                        }}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/HouseholdSetupScreen.tsx",
+        "line": 698,
+        "tag": "Pressable",
+        "label": "{`Remove ${chore.title}`}",
+        "onPress": "{() => setRemovedGeneratedKeys((current) => new Set([...current, chore.sourceKey]))}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/HouseholdSetupScreen.tsx",
+        "line": 712,
+        "tag": "Chip",
+        "label": "{`${category.charAt(0).toUpperCase()}${category.slice(1)}`}",
+        "onPress": "{() => setCustomCategory(category)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/HouseholdSetupScreen.tsx",
+        "line": 718,
+        "tag": "Chip",
+        "label": "{CHORE_RECURRENCE_LABELS[recurrence]}",
+        "onPress": "{() => setCustomRecurrence(recurrence)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/HouseholdSetupScreen.tsx",
+        "line": 733,
+        "tag": "Chip",
+        "label": "{LEADERBOARD_ENABLED ? `${points} pts` : label}",
+        "onPress": "{() => setCustomPoints(points)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/HouseholdSetupScreen.tsx",
+        "line": 738,
+        "tag": "Pressable",
+        "label": "",
+        "onPress": "{addCustomChore}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/HouseholdSetupScreen.tsx",
+        "line": 746,
+        "tag": "Pressable",
+        "label": "{`Rename ${chore}`}",
+        "onPress": "{() => openRename({ kind: \"custom\", title: chore })}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/HouseholdSetupScreen.tsx",
+        "line": 754,
+        "tag": "Pressable",
+        "label": "{`Remove ${chore}`}",
+        "onPress": "{() => setChores(chores.filter((item) => item !== chore))}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/HouseholdSetupScreen.tsx",
+        "line": 765,
+        "tag": "Pressable",
+        "label": "",
+        "onPress": "{() => {\n              const previous = step === 2 ? \"details\" : step === 3 ? \"home\" : step === 4 ? (resumeExistingHousehold ? \"home\" : \"essentials\") : \"items\";\n              void goToStep(previous);\n              setError(null);\n            }}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/HouseholdSetupScreen.tsx",
+        "line": 772,
+        "tag": "GlassButton",
+        "label": "\"Set up chore chart now\"",
+        "onPress": "{() => void submitCreate(\"chore-chart\")}",
+        "disabled": "{loading}",
+        "spread": false
+      },
+      {
+        "file": "components/HouseholdSetupScreen.tsx",
+        "line": 775,
+        "tag": "Pressable",
+        "label": "\"Skip and do later\"",
+        "onPress": "{() => void submitCreate(\"app\")}",
+        "disabled": "{loading}",
+        "spread": false
+      },
+      {
+        "file": "components/HouseholdSetupScreen.tsx",
+        "line": 780,
+        "tag": "Pressable",
+        "label": "",
+        "onPress": "{mode === \"join\" ? submitJoin : step === 5 ? () => void submitCreate() : next}",
+        "disabled": "{loading}",
+        "spread": false
+      },
+      {
+        "file": "components/HouseholdSetupScreen.tsx",
+        "line": 786,
+        "tag": "Pressable",
+        "label": "",
+        "onPress": "{async () => {\n            try {\n              const { error: signOutError } = await signOutWithPushCleanup();\n              if (signOutError) {\n                reportSupabaseError(\"sign out from household setup\", signOutError);\n                setError(signOutError.message);\n              }\n            } catch (signOutError) {\n              reportRuntimeError(\"sign out from household setup\", signOutError);\n              setError(\"We couldn't sign you out. Please try again.\");\n            }\n          }}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/HouseholdSetupScreen.tsx",
+        "line": 804,
+        "tag": "GlassModalBackdrop",
+        "label": "\"Cancel chore rename\"",
+        "onPress": "{closeRename}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/HouseholdSetupScreen.tsx",
+        "line": 808,
+        "tag": "GlassButton",
+        "label": "\"Close chore name editor\"",
+        "onPress": "{closeRename}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/HouseholdSetupScreen.tsx",
+        "line": 821,
+        "tag": "GlassButton",
+        "label": "",
+        "onPress": "{closeRename}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/HouseholdSetupScreen.tsx",
+        "line": 822,
+        "tag": "GlassButton",
+        "label": "\"Save chore name\"",
+        "onPress": "{saveRename}",
+        "disabled": "{!renameDraft.trim()}",
+        "spread": false
+      },
+      {
+        "file": "components/HouseholdSetupScreen.tsx",
+        "line": 829,
+        "tag": "GlassModalBackdrop",
+        "label": "\"Cancel frequency changes\"",
+        "onPress": "{() => setFrequencyTarget(null)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/HouseholdSetupScreen.tsx",
+        "line": 833,
+        "tag": "GlassButton",
+        "label": "\"Close frequency picker\"",
+        "onPress": "{() => setFrequencyTarget(null)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/HouseholdSetupScreen.tsx",
+        "line": 840,
+        "tag": "GlassButton",
+        "label": "",
+        "onPress": "{() => { setFrequencyDraft(frequency); setShowCustomFrequency(false); }}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/HouseholdSetupScreen.tsx",
+        "line": 846,
+        "tag": "GlassButton",
+        "label": "",
+        "onPress": "{() => { setShowCustomFrequency(true); if (![\"everyOtherDay\", \"everyThreeDays\"].includes(frequencyDraft)) setFrequencyDraft(\"everyOtherDay\"); }}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/HouseholdSetupScreen.tsx",
+        "line": 854,
+        "tag": "GlassButton",
+        "label": "",
+        "onPress": "{() => setFrequencyDraft(frequency)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/HouseholdSetupScreen.tsx",
+        "line": 863,
+        "tag": "GlassButton",
+        "label": "",
+        "onPress": "{() => setFrequencyTarget(null)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/HouseholdSetupScreen.tsx",
+        "line": 864,
+        "tag": "GlassButton",
+        "label": "",
+        "onPress": "{() => {\n                if (!frequencyTarget) return;\n                setRecurrenceOverrides((current) => ({ ...current, [frequencyTarget.sourceKey]: frequencyDraft }));\n                setFrequencyTarget(null);\n              }}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/HouseholdSetupScreen.tsx",
+        "line": 901,
+        "tag": "Pressable",
+        "label": "",
+        "onPress": "{() => onChange(item)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/HouseholdSetupScreen.tsx",
+        "line": 902,
+        "tag": "Pressable",
+        "label": "",
+        "onPress": "{onPress}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/HouseholdSetupScreen.tsx",
+        "line": 903,
+        "tag": "Pressable",
+        "label": "",
+        "onPress": "{onPress}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/InviteCodeCard.tsx",
+        "line": 111,
+        "tag": "SmoothPressable",
+        "label": "\"Copy invite code\"",
+        "onPress": "{copyCode}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/InviteCodeCard.tsx",
+        "line": 122,
+        "tag": "SmoothPressable",
+        "label": "\"Share invite with Sweetmates\"",
+        "onPress": "{shareInvite}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/InviteCodeCard.tsx",
+        "line": 141,
+        "tag": "SmoothPressable",
+        "label": "",
+        "onPress": "{onRetry}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/LiquidGlass.tsx",
+        "line": 106,
+        "tag": "Pressable",
+        "label": "",
+        "onPress": "",
+        "disabled": "{disabled}",
+        "spread": true
+      },
+      {
+        "file": "components/LiquidGlass.tsx",
+        "line": 115,
+        "tag": "Pressable",
+        "label": "",
+        "onPress": "",
+        "disabled": "{disabled}",
+        "spread": true
+      },
+      {
+        "file": "components/ManualChoreForm.tsx",
+        "line": 247,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{() => setShowDetails((current) => !current)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/ManualChoreForm.tsx",
+        "line": 263,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{() => setAssignmentMode(mode)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/ManualChoreForm.tsx",
+        "line": 278,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{() => setAssigneeId(member.id)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/ManualChoreForm.tsx",
+        "line": 291,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{() => setAllMembers((current) => !current)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/ManualChoreForm.tsx",
+        "line": 305,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{() => toggleParticipant(member.id)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/ManualChoreForm.tsx",
+        "line": 327,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{() => setRecurrence(option.value)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/ManualChoreForm.tsx",
+        "line": 350,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{() => {\n              setDueDateInput(option.value);\n              setError(null);\n            }}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/ManualChoreForm.tsx",
+        "line": 389,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{() => setCategory(option.key)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/ManualChoreForm.tsx",
+        "line": 407,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{() => setPoints(value)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/ManualChoreForm.tsx",
+        "line": 434,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{submit}",
+        "disabled": "{!title.trim()}",
+        "spread": false
+      },
+      {
+        "file": "components/NudgeToast.tsx",
+        "line": 144,
+        "tag": "Pressable",
+        "label": "\"Dismiss nudge\"",
+        "onPress": "{(event) => {\n          event.stopPropagation();\n          animateDismissal(current.id, 1);\n        }}",
+        "disabled": "{dismissingId === current.id}",
+        "spread": false
+      },
+      {
+        "file": "components/PersonalAgenda.tsx",
+        "line": 33,
+        "tag": "TouchableOpacity",
+        "label": "{`${item.app_completed_at ? \"Mark incomplete\" : \"Complete\"} in SweetMate: ${item.title}`}",
+        "onPress": "{onPress}",
+        "disabled": "{disabled}",
+        "spread": false
+      },
+      {
+        "file": "components/PersonalAgenda.tsx",
+        "line": 151,
+        "tag": "ScheduleCheck",
+        "label": "",
+        "onPress": "{() => void update(item, { completed: !item.app_completed_at })}",
+        "disabled": "{saving}",
+        "spread": false
+      },
+      {
+        "file": "components/PersonalAgenda.tsx",
+        "line": 153,
+        "tag": "TouchableOpacity",
+        "label": "{`View details: ${item.title}`}",
+        "onPress": "{() => open(item)}",
+        "disabled": "{saving}",
+        "spread": false
+      },
+      {
+        "file": "components/PersonalAgenda.tsx",
+        "line": 173,
+        "tag": "GlassModalBackdrop",
+        "label": "\"Close item details\"",
+        "onPress": "{close}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/PersonalAgenda.tsx",
+        "line": 181,
+        "tag": "ScheduleCheck",
+        "label": "",
+        "onPress": "{() => void update(selectedItem, { completed: !selectedItem.app_completed_at })}",
+        "disabled": "{saving}",
+        "spread": false
+      },
+      {
+        "file": "components/PersonalAgenda.tsx",
+        "line": 187,
+        "tag": "GlassButton",
+        "label": "",
+        "onPress": "{() => { if (!hasTimeBlock) setPeriod(value); }}",
+        "disabled": "{saving || selectedPending || hasTimeBlock}",
+        "spread": false
+      },
+      {
+        "file": "components/PersonalAgenda.tsx",
+        "line": 199,
+        "tag": "TouchableOpacity",
+        "label": "{`Open ${selectedItem.title} in Google`}",
+        "onPress": "{() => void Linking.openURL(selectedItem.link!).catch(() => setError(\"This Google item could not open.\"))}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/PersonalAgenda.tsx",
+        "line": 206,
+        "tag": "GlassButton",
+        "label": "",
+        "onPress": "{close}",
+        "disabled": "{saving}",
+        "spread": false
+      },
+      {
+        "file": "components/PersonalAgenda.tsx",
+        "line": 207,
+        "tag": "GlassButton",
+        "label": "",
+        "onPress": "{() => void save()}",
+        "disabled": "{saving || selectedPending}",
+        "spread": false
+      },
+      {
+        "file": "components/PreferencesOnboardingScreen.tsx",
+        "line": 84,
+        "tag": "GlassButton",
+        "label": "\"Set up chore chart now\"",
+        "onPress": "{() => void finish(\"chore-chart\")}",
+        "disabled": "{saving}",
+        "spread": false
+      },
+      {
+        "file": "components/PreferencesOnboardingScreen.tsx",
+        "line": 87,
+        "tag": "Pressable",
+        "label": "\"Skip and do later\"",
+        "onPress": "{() => void finish(\"app\")}",
+        "disabled": "{saving}",
+        "spread": false
+      },
+      {
+        "file": "components/QuickGuideModal.tsx",
+        "line": 122,
+        "tag": "GlassModalBackdrop",
+        "label": "\"Close Quick guide\"",
+        "onPress": "{close}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/QuickGuideModal.tsx",
+        "line": 178,
+        "tag": "GlassButton",
+        "label": "\"Got it, close Quick guide\"",
+        "onPress": "{acknowledge}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/RandomTaskSection.tsx",
+        "line": 64,
+        "tag": "TouchableOpacity",
+        "label": "\"Add a random task\"",
+        "onPress": "{() => { setDraft({ id: Crypto.randomUUID(), title: \"\", mode: \"up-for-grabs\" }); setFormError(null); }}",
+        "disabled": "{!ready || saving || Boolean(claiming)}",
+        "spread": false
+      },
+      {
+        "file": "components/RandomTaskSection.tsx",
+        "line": 85,
+        "tag": "GlassButton",
+        "label": "{`Claim ${task.title}`}",
+        "onPress": "{() => void claim(task.id)}",
+        "disabled": "{expired || Boolean(claiming) || saving}",
+        "spread": false
+      },
+      {
+        "file": "components/RandomTaskSection.tsx",
+        "line": 89,
+        "tag": "TouchableOpacity",
+        "label": "{`View ${task.title}, ${completed ? \"completed\" : `assigned to ${name}`}`}",
+        "onPress": "{() => { if (chore) onOpenChore(chore); }}",
+        "disabled": "{!chore}",
+        "spread": false
+      },
+      {
+        "file": "components/RandomTaskSection.tsx",
+        "line": 100,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{() => setShowAll((value) => !value)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/RandomTaskSection.tsx",
+        "line": 105,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{() => { void onRefresh().catch(() => {}); }}",
+        "disabled": "{loading}",
+        "spread": false
+      },
+      {
+        "file": "components/RandomTaskSection.tsx",
+        "line": 109,
+        "tag": "GlassModalBackdrop",
+        "label": "\"Cancel random task\"",
+        "onPress": "{close}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/RandomTaskSection.tsx",
+        "line": 120,
+        "tag": "GlassButton",
+        "label": "{`${mode.title}. ${mode.detail}`}",
+        "onPress": "{() => setDraft((value) => value ? { ...value, mode: mode.value } : null)}",
+        "disabled": "{saving}",
+        "spread": false
+      },
+      {
+        "file": "components/RandomTaskSection.tsx",
+        "line": 136,
+        "tag": "GlassButton",
+        "label": "",
+        "onPress": "{close}",
+        "disabled": "{saving}",
+        "spread": false
+      },
+      {
+        "file": "components/RandomTaskSection.tsx",
+        "line": 137,
+        "tag": "GlassButton",
+        "label": "",
+        "onPress": "{() => void create()}",
+        "disabled": "{saving || !draft?.title.trim()}",
+        "spread": false
+      },
+      {
+        "file": "components/SectionDivider.tsx",
+        "line": 32,
+        "tag": "TouchableOpacity",
+        "label": "{`${expanded ? \"Collapse\" : \"Expand\"} ${title}${count === undefined ? \"\" : `, ${count} ${count === 1 ? \"item\" : \"items\"}`}`}",
+        "onPress": "{() => { if (!held.current) onToggle(); }}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/ShoppingEditorSheet.tsx",
+        "line": 32,
+        "tag": "GlassModalBackdrop",
+        "label": "\"Close shopping editor\"",
+        "onPress": "{close}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/ShoppingEditorSheet.tsx",
+        "line": 38,
+        "tag": "TouchableOpacity",
+        "label": "\"Close shopping editor\"",
+        "onPress": "{close}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/ShoppingEditorSheet.tsx",
+        "line": 51,
+        "tag": "GlassButton",
+        "label": "",
+        "onPress": "{save}",
+        "disabled": "{!name.trim() || editingDate}",
+        "spread": false
+      },
+      {
+        "file": "components/ShoppingScheduleField.tsx",
+        "line": 42,
+        "tag": "GlassButton",
+        "label": "{value ? \"Change shopping calendar date and time\" : \"Add shopping to calendar\"}",
+        "onPress": "{edit}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/ShoppingScheduleField.tsx",
+        "line": 47,
+        "tag": "TouchableOpacity",
+        "label": "\"Remove shopping calendar date and time\"",
+        "onPress": "{() => { onChange(undefined); close(); }}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/ShoppingScheduleField.tsx",
+        "line": 53,
+        "tag": "TouchableOpacity",
+        "label": "\"Previous shopping month\"",
+        "onPress": "{() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1, 12))}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/ShoppingScheduleField.tsx",
+        "line": 55,
+        "tag": "TouchableOpacity",
+        "label": "\"Next shopping month\"",
+        "onPress": "{() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1, 12))}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/ShoppingScheduleField.tsx",
+        "line": 61,
+        "tag": "TouchableOpacity",
+        "label": "{`Schedule shopping on ${day.toLocaleDateString(\"en-US\", { month: \"long\", day: \"numeric\", year: \"numeric\" })}`}",
+        "onPress": "{() => setDate(key)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/ShoppingScheduleField.tsx",
+        "line": 72,
+        "tag": "TouchableOpacity",
+        "label": "{value}",
+        "onPress": "{() => setPeriod(value)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/ShoppingScheduleField.tsx",
+        "line": 78,
+        "tag": "GlassButton",
+        "label": "",
+        "onPress": "{close}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/ShoppingScheduleField.tsx",
+        "line": 79,
+        "tag": "GlassButton",
+        "label": "",
+        "onPress": "{save}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/SignInScreen.tsx",
+        "line": 323,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{resendConfirmation}",
+        "disabled": "{busy}",
+        "spread": false
+      },
+      {
+        "file": "components/SignInScreen.tsx",
+        "line": 341,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{submit}",
+        "disabled": "{!canSubmit}",
+        "spread": false
+      },
+      {
+        "file": "components/SignInScreen.tsx",
+        "line": 360,
+        "tag": "Pressable",
+        "label": "\"Share optional product analytics and crash reports\"",
+        "onPress": "{() => setShareOptionalData((current) => !current)}",
+        "disabled": "{busy}",
+        "spread": true
+      },
+      {
+        "file": "components/SignInScreen.tsx",
+        "line": 384,
+        "tag": "Text",
+        "label": "",
+        "onPress": "{openPolicy}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/SignInScreen.tsx",
+        "line": 394,
+        "tag": "TouchableOpacity",
+        "label": "\"Continue with Google\"",
+        "onPress": "{() => void signInWithSocialProvider(\"google\")}",
+        "disabled": "{busy}",
+        "spread": false
+      },
+      {
+        "file": "components/SignInScreen.tsx",
+        "line": 412,
+        "tag": "TouchableOpacity",
+        "label": "\"Continue with Apple\"",
+        "onPress": "{() => void signInWithSocialProvider(\"apple\")}",
+        "disabled": "{busy}",
+        "spread": false
+      },
+      {
+        "file": "components/SignInScreen.tsx",
+        "line": 431,
+        "tag": "TouchableOpacity",
+        "label": "",
+        "onPress": "{() => {\n              setMode(mode === \"signin\" ? \"signup\" : \"signin\");\n              setShareOptionalData(false);\n              setError(null);\n              setInfo(null);\n              setConfirmationEmail(null);\n            }}",
+        "disabled": "{busy}",
+        "spread": false
+      },
+      {
+        "file": "components/SmoothPressable.tsx",
+        "line": 49,
+        "tag": "Pressable",
+        "label": "",
+        "onPress": "{(event) => {\n          if (haptic) tapLight();\n          onPress?.(event);\n        }}",
+        "disabled": "{disabled}",
+        "spread": true
+      },
+      {
+        "file": "components/UpcomingChores.tsx",
+        "line": 21,
+        "tag": "TouchableOpacity",
+        "label": "{`${expanded ? \"Collapse\" : \"Expand\"} Upcoming`}",
+        "onPress": "{() => setExpanded((current) => !current)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/UpcomingChores.tsx",
+        "line": 52,
+        "tag": "TouchableOpacity",
+        "label": "{`Show more upcoming chores, ${chores.length - visibleLimit} remaining`}",
+        "onPress": "{() => setVisibleLimit((current) => current + 20)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/UserPreferencesPanel.tsx",
+        "line": 43,
+        "tag": "SmoothPressable",
+        "label": "",
+        "onPress": "{() => setColorScheme(scheme)}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/UserPreferencesPanel.tsx",
+        "line": 78,
+        "tag": "AppSwitch",
+        "label": "",
+        "onPress": "{setRoommateActivityEnabled}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/UserPreferencesPanel.tsx",
+        "line": 88,
+        "tag": "AppSwitch",
+        "label": "",
+        "onPress": "{setPointsEnabled}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/UserPreferencesPanel.tsx",
+        "line": 98,
+        "tag": "AppSwitch",
+        "label": "",
+        "onPress": "{setPlantEnabled}",
+        "disabled": "",
+        "spread": false
+      },
+      {
+        "file": "components/UserPreferencesPanel.tsx",
+        "line": 104,
+        "tag": "SmoothPressable",
+        "label": "{`${tab.label} hidden`}",
+        "onPress": "{() => setTabHidden(tab.id, false)}",
+        "disabled": "",
+        "spread": false
+      }
+    ],
+    "modals": [
+      {
+        "file": "app/(tabs)/borrow.tsx",
+        "line": 644,
+        "visible": "{showModal}",
+        "onRequestClose": "{closeModal}",
+        "onDismiss": "",
+        "animationType": "\"slide\""
+      },
+      {
+        "file": "app/(tabs)/expenses.tsx",
+        "line": 1158,
+        "visible": "{detailVisible}",
+        "onRequestClose": "{closeDetails}",
+        "onDismiss": "{finishDetailDismiss}",
+        "animationType": "{Platform.OS === \"ios\" ? \"slide\" : \"none\"}"
+      },
+      {
+        "file": "app/(tabs)/expenses.tsx",
+        "line": 1251,
+        "visible": "{showExpenseModal}",
+        "onRequestClose": "{closeIou}",
+        "onDismiss": "",
+        "animationType": "\"none\""
+      },
+      {
+        "file": "app/(tabs)/group.tsx",
+        "line": 1269,
+        "visible": "{showAddChoreModal}",
+        "onRequestClose": "{closeAddChoreSheet}",
+        "onDismiss": "",
+        "animationType": "\"none\""
+      },
+      {
+        "file": "app/(tabs)/index.tsx",
+        "line": 1560,
+        "visible": "{showModal}",
+        "onRequestClose": "{closeAddChore}",
+        "onDismiss": "",
+        "animationType": "\"none\""
+      },
+      {
+        "file": "app/(tabs)/shopping.tsx",
+        "line": 854,
+        "visible": "{!!assignPickerListId}",
+        "onRequestClose": "{() => setAssignPickerListId(null)}",
+        "onDismiss": "",
+        "animationType": "\"slide\""
+      },
+      {
+        "file": "app/planning.tsx",
+        "line": 1381,
+        "visible": "{isChoreChart && howItWorksOpen}",
+        "onRequestClose": "{() => setHowItWorksOpen(false)}",
+        "onDismiss": "",
+        "animationType": "{reduceMotion ? \"none\" : \"fade\"}"
+      },
+      {
+        "file": "app/planning.tsx",
+        "line": 1435,
+        "visible": "{shortlistOpen}",
+        "onRequestClose": "{() => setShortlistOpen(false)}",
+        "onDismiss": "",
+        "animationType": "\"slide\""
+      },
+      {
+        "file": "app/planning.tsx",
+        "line": 1669,
+        "visible": "{shoppingPreviewOpen}",
+        "onRequestClose": "{() => setShoppingPreviewOpen(false)}",
+        "onDismiss": "",
+        "animationType": "\"slide\""
+      },
+      {
+        "file": "app/settings.tsx",
+        "line": 1005,
+        "visible": "{householdSwitcherOpen}",
+        "onRequestClose": "{() => setHouseholdSwitcherOpen(false)}",
+        "onDismiss": "",
+        "animationType": "\"slide\""
+      },
+      {
+        "file": "app/settings.tsx",
+        "line": 1586,
+        "visible": "{authOpen}",
+        "onRequestClose": "{() => setAuthOpen(false)}",
+        "onDismiss": "",
+        "animationType": "\"slide\""
+      },
+      {
+        "file": "components/ActionMenuModal.tsx",
+        "line": 186,
+        "visible": "{visible}",
+        "onRequestClose": "{() => dismiss()}",
+        "onDismiss": "{modalDismissal.onDismiss}",
+        "animationType": "\"none\""
+      },
+      {
+        "file": "components/AppPopupProvider.tsx",
+        "line": 89,
+        "visible": "{Boolean(popup)}",
+        "onRequestClose": "{popup?.dismissible === false ? undefined : dismissPopup}",
+        "onDismiss": "",
+        "animationType": "\"fade\""
+      },
+      {
+        "file": "components/ChoreAssignmentPreferencesSheet.tsx",
+        "line": 33,
+        "visible": "{visible}",
+        "onRequestClose": "{close}",
+        "onDismiss": "",
+        "animationType": "{reduceMotion ? \"none\" : \"fade\"}"
+      },
+      {
+        "file": "components/ChoreChartApplyingOverlay.tsx",
+        "line": 19,
+        "visible": "true",
+        "onRequestClose": "{() => {}}",
+        "onDismiss": "",
+        "animationType": "\"none\""
+      },
+      {
+        "file": "components/ChoreChartApprovalSuccess.tsx",
+        "line": 95,
+        "visible": "{visible}",
+        "onRequestClose": "{onComplete}",
+        "onDismiss": "",
+        "animationType": "{reduceMotion ? \"none\" : \"fade\"}"
+      },
+      {
+        "file": "components/ChoreChartPreviewSheet.tsx",
+        "line": 45,
+        "visible": "{visible}",
+        "onRequestClose": "{approvalSuccess ? onSuccessComplete : onBack}",
+        "onDismiss": "",
+        "animationType": "{reduceMotion ? \"none\" : \"fade\"}"
+      },
+      {
+        "file": "components/ErrorFallback.tsx",
+        "line": 129,
+        "visible": "{isModalVisible}",
+        "onRequestClose": "{() => setIsModalVisible(false)}",
+        "onDismiss": "",
+        "animationType": "\"slide\""
+      },
+      {
+        "file": "components/FeedbackSection.tsx",
+        "line": 180,
+        "visible": "{visible}",
+        "onRequestClose": "{close}",
+        "onDismiss": "",
+        "animationType": "{reducedMotion ? \"none\" : \"slide\"}"
+      },
+      {
+        "file": "components/GeneratedTasksSheet.tsx",
+        "line": 56,
+        "visible": "{visible}",
+        "onRequestClose": "{close}",
+        "onDismiss": "",
+        "animationType": "{reduceMotion ? \"none\" : \"fade\"}"
+      },
+      {
+        "file": "components/GoogleScheduleControls.tsx",
+        "line": 81,
+        "visible": "{visible}",
+        "onRequestClose": "{close}",
+        "onDismiss": "",
+        "animationType": "{reduceMotion ? \"none\" : \"fade\"}"
+      },
+      {
+        "file": "components/HouseholdSetupScreen.tsx",
+        "line": 802,
+        "visible": "{renameTarget !== null}",
+        "onRequestClose": "{closeRename}",
+        "onDismiss": "",
+        "animationType": "{reduceMotion ? \"none\" : \"fade\"}"
+      },
+      {
+        "file": "components/HouseholdSetupScreen.tsx",
+        "line": 827,
+        "visible": "{frequencyTarget !== null}",
+        "onRequestClose": "{() => setFrequencyTarget(null)}",
+        "onDismiss": "",
+        "animationType": "\"fade\""
+      },
+      {
+        "file": "components/PersonalAgenda.tsx",
+        "line": 171,
+        "visible": "{selectedItem !== null}",
+        "onRequestClose": "{close}",
+        "onDismiss": "",
+        "animationType": "{reduceMotion ? \"none\" : \"fade\"}"
+      },
+      {
+        "file": "components/QuickGuideModal.tsx",
+        "line": 105,
+        "visible": "{quickGuideOpen}",
+        "onRequestClose": "{close}",
+        "onDismiss": "",
+        "animationType": "\"fade\""
+      },
+      {
+        "file": "components/RandomTaskSection.tsx",
+        "line": 107,
+        "visible": "{draft !== null}",
+        "onRequestClose": "{close}",
+        "onDismiss": "",
+        "animationType": "{reduceMotion ? \"none\" : \"fade\"}"
+      },
+      {
+        "file": "components/ShoppingEditorSheet.tsx",
+        "line": 29,
+        "visible": "{visible}",
+        "onRequestClose": "{close}",
+        "onDismiss": "",
+        "animationType": "{reduceMotion ? \"none\" : \"slide\"}"
+      }
+    ],
+    "popups": [
+      {
+        "file": "app/(tabs)/_layout.tsx",
+        "line": 190,
+        "text": "showPopup({\n        title: \"Keep one tab visible\",\n        message: \"Restore another tab in Settings \u2192 App Preferences \u2192 App Appearance before hiding this one.\",\n        icon: \"eye\",\n        actions: [{ label: \"Got it\" }"
+      },
+      {
+        "file": "app/(tabs)/_layout.tsx",
+        "line": 198,
+        "text": "showPopup({\n      title: `Hide ${label}?`,\n      message: \"You can restore this tab in Settings \u2192 App Preferences \u2192 App Appearance.\",\n      icon: \"eye-off\",\n      actions: [\n        { label: \"Hide tab\", primary: true, on"
+      },
+      {
+        "file": "app/(tabs)/group.tsx",
+        "line": 377,
+        "text": "showPopup({ title: \"Not allowed\", message: \"Only the chore creator or Sweet host can delete this chore.\", actions: [{ label: \"Got it\", primary: true }] })"
+      },
+      {
+        "file": "app/(tabs)/group.tsx",
+        "line": 381,
+        "text": "showPopup({ title: \"Delete recurring chore?\", message: \"Completed chores are preserved unless you delete the entire series.\", actions: [\n        { label: \"Cancel\" }, { label: \"This occurrence\", onPress: () => remove(\"occ"
+      },
+      {
+        "file": "app/(tabs)/group.tsx",
+        "line": 387,
+        "text": "showPopup({ title: \"Delete chore?\", message: \"This will remove the chore for everyone in your Sweet.\", actions: [{ label: \"Cancel\" }, { label: \"Delete\", destructive: true, onPress: () => remove(\"occurrence\") }] })"
+      },
+      {
+        "file": "app/(tabs)/group.tsx",
+        "line": 426,
+        "text": "showPopup({ title: \"Couldn't save your choice\", message: \"Please check your connection and try again.\", actions: [{ label: \"Got it\", primary: true }] })"
+      },
+      {
+        "file": "app/(tabs)/group.tsx",
+        "line": 431,
+        "text": "showPopup({ title: \"Where should this chore go?\", message: ios ? \"Choose Google Calendar, Apple Reminders, or both. Your choice is saved.\" : \"SweetMate can open this chore in Google Calendar.\", dismissible: false, action"
+      },
+      {
+        "file": "app/(tabs)/group.tsx",
+        "line": 474,
+        "text": "showPopup({\n          title: \"Couldn't add to calendar\",\n          message: error instanceof Error\n            ? error.message\n            : \"Google Calendar could not create the event. Please try again.\",\n          acti"
+      },
+      {
+        "file": "app/(tabs)/index.tsx",
+        "line": 611,
+        "text": "showPopup({\n        title: \"Where should this chore go?\",\n        message: ios ? \"Choose Google Calendar, Apple Reminders, or both. Your choice is saved.\" : \"SweetMate can open this chore in Google Calendar.\",\n        di"
+      },
+      {
+        "file": "app/(tabs)/index.tsx",
+        "line": 675,
+        "text": "showPopup({\n          title: \"Couldn't add to calendar\",\n          message: error instanceof Error\n            ? error.message\n            : \"Google Calendar could not create the event. Please try again.\",\n          acti"
+      },
+      {
+        "file": "app/(tabs)/index.tsx",
+        "line": 996,
+        "text": "showPopup({ title: \"Not allowed\", message: \"Only the chore creator or Sweet host can delete this chore.\", actions: [{ label: \"Got it\", primary: true }] })"
+      },
+      {
+        "file": "app/(tabs)/index.tsx",
+        "line": 1000,
+        "text": "showPopup({ title: \"Delete recurring chore?\", message: \"Choose how much to remove. Completed chores are preserved unless you delete the entire series.\", actions: [\n        { label: \"Cancel\" }, { label: \"This occurrence\","
+      },
+      {
+        "file": "app/(tabs)/index.tsx",
+        "line": 1006,
+        "text": "showPopup({ title: \"Delete chore?\", message: \"This will remove the chore for everyone in your Sweet.\", actions: [{ label: \"Cancel\" }, { label: \"Delete\", destructive: true, onPress: () => remove(\"occurrence\") }] })"
+      },
+      {
+        "file": "components/ActionMenuModal.tsx",
+        "line": 116,
+        "text": "showPopup({\n    title: \"Couldn't complete action\",\n    message: error instanceof Error ? error.message : \"Please try again.\",\n    actions: [{ label: \"OK\" }],\n  })"
+      },
+      {
+        "file": "components/AnalyticsConsentManager.tsx",
+        "line": 40,
+        "text": "showPopup({ title: \"Privacy Policy unavailable\", message: \"Check your connection and try again, or visit sweetmate.info/privacy in a browser.\", actions: [{ label: \"Got it\", primary: true }] })"
+      },
+      {
+        "file": "components/AnalyticsConsentManager.tsx",
+        "line": 83,
+        "text": "showPopup({ title: \"Choice couldn't be saved\", message: \"Please try again.\", actions: [{ label: \"Got it\", primary: true }] })"
+      },
+      {
+        "file": "components/AnalyticsConsentManager.tsx",
+        "line": 106,
+        "text": "showPopup({ title: \"Privacy choices unavailable\", message: \"Optional analytics and crash reporting remain paused. You can retry from Settings.\", actions: [{ label: \"Got it\", primary: true }] })"
+      },
+      {
+        "file": "components/HouseholdCompletionControl.tsx",
+        "line": 51,
+        "text": "showPopup({\n        title: \"No roommates added yet\",\n        message: \"You are the only active member of this household. You can finish setup now and add roommates later.\",\n        icon: \"alert-triangle\",\n        actions"
+      },
+      {
+        "file": "components/HouseholdCompletionControl.tsx",
+        "line": 63,
+        "text": "showPopup({ title: \"Couldn't finish setup\", message: \"Your setup wasn't saved. Please check your connection and try again.\", actions: [{ label: \"OK\" }] })"
+      },
+      {
+        "file": "components/HouseholdCompletionControl.tsx",
+        "line": 71,
+        "text": "showPopup({\n        title: \"Couldn't finish household setup\",\n        message: \"Please check your connection and try again.\",\n        icon: \"alert-triangle\",\n        actions: [{ label: \"OK\" }],\n      })"
+      },
+      {
+        "file": "components/HouseholdCompletionControl.tsx",
+        "line": 96,
+        "text": "showPopup({\n              title: \"Edit household setup?\",\n              message: \"Review and change your home type, shared items, and chore settings. Your current settings will be loaded for you to edit.\",\n              "
+      },
+      {
+        "file": "components/PreferencesOnboardingScreen.tsx",
+        "line": 52,
+        "text": "showPopup({ title: \"Couldn't finish setup\", message: \"Your household is saved. Please try choosing what to do next again.\", actions: [{ label: \"OK\" }] })"
+      }
+    ]
+  },
+  "liveObservations": [
+    {
+      "area": "My Sweet",
+      "scenario": "Blank chore cannot be saved",
+      "result": "pass",
+      "detail": ""
+    },
+    {
+      "area": "Chores",
+      "scenario": "Create with notes, category, recurrence and due-date controls",
+      "result": "pass",
+      "detail": ""
+    },
+    {
+      "area": "Chores",
+      "scenario": "No stale caught-up summary after a new incomplete chore",
+      "result": "pass",
+      "detail": ""
+    },
+    {
+      "area": "Chores",
+      "scenario": "Completion reaches Completed and peer Group",
+      "result": "pass",
+      "detail": "Observed peer house monitor at 1/1 complete."
+    },
+    {
+      "area": "Chores",
+      "scenario": "Edit handoff and reassignment reaches the other roommate",
+      "result": "pass",
+      "detail": ""
+    },
+    {
+      "area": "Chores",
+      "scenario": "Reassignment survives reopening",
+      "result": "pass",
+      "detail": ""
+    },
+    {
+      "area": "My Sweet",
+      "scenario": "Progress after completing one chore",
+      "result": "fail",
+      "detail": "Displays 0/0 instead of 1/1; traced to incomplete-only total."
+    },
+    {
+      "area": "Accessibility",
+      "scenario": "Completed checkbox reports its checked state in browser",
+      "result": "fail",
+      "detail": "aria-checked is absent although the visual check is present."
+    },
+    {
+      "area": "Random tasks",
+      "scenario": "Blank task validation",
+      "result": "pass",
+      "detail": ""
+    },
+    {
+      "area": "Random tasks",
+      "scenario": "Claim by another roommate removes the top-board entry in both sessions",
+      "result": "pass",
+      "detail": ""
+    },
+    {
+      "area": "Group",
+      "scenario": "Calendar filter, month navigation and weekly date selection",
+      "result": "pass",
+      "detail": ""
+    },
+    {
+      "area": "Random tasks",
+      "scenario": "Immediate draw creates an assignee and completion removes it from top board",
+      "result": "pass",
+      "detail": ""
+    },
+    {
+      "area": "Shopping",
+      "scenario": "Blank list validation",
+      "result": "pass",
+      "detail": ""
+    },
+    {
+      "area": "Shopping",
+      "scenario": "List/item create, quantity and shared assignment",
+      "result": "pass",
+      "detail": ""
+    },
+    {
+      "area": "Shopping",
+      "scenario": "Check and two-step undo",
+      "result": "pass",
+      "detail": ""
+    },
+    {
+      "area": "Expenses",
+      "scenario": "Shopping handoff, equal/custom allocations and IOU save",
+      "result": "pass",
+      "detail": "Saved $24.60 with $10.00/$14.60 allocations; no money moved."
+    },
+    {
+      "area": "Expenses",
+      "scenario": "Repayment rejects overpayment",
+      "result": "pass",
+      "detail": ""
+    },
+    {
+      "area": "Expenses",
+      "scenario": "Partial repayment updates remaining amount",
+      "result": "pass",
+      "detail": "14.60 -> 9.60 after recording 5.00."
+    },
+    {
+      "area": "Expenses",
+      "scenario": "Edit, repayment reversal, settlement/reopen, void/history/restore and reopening",
+      "result": "pass",
+      "detail": ""
+    },
+    {
+      "area": "Borrowing",
+      "scenario": "Self borrowing and invalid-date recovery",
+      "result": "pass",
+      "detail": ""
+    },
+    {
+      "area": "Borrowing",
+      "scenario": "Other owner requires name",
+      "result": "pass",
+      "detail": ""
+    },
+    {
+      "area": "Borrowing",
+      "scenario": "Private Other-owner record hidden from member",
+      "result": "pass",
+      "detail": ""
+    },
+    {
+      "area": "Borrowing",
+      "scenario": "Approved permanent delete reaches the peer",
+      "result": "pass",
+      "detail": ""
+    },
+    {
+      "area": "Shopping",
+      "scenario": "Approved list/child deletion survives cross-member sync and reopening",
+      "result": "pass",
+      "detail": "Both lists and milk item absent after reload."
+    },
+    {
+      "area": "Expenses",
+      "scenario": "Deleting linked shopping list preserves the IOU",
+      "result": "pass",
+      "detail": ""
+    },
+    {
+      "area": "My Sweet",
+      "scenario": "Corrected progress after one completed chore",
+      "result": "pass",
+      "detail": "Live screen now shows 1/1 done after reload."
+    },
+    {
+      "area": "Settings",
+      "scenario": "Profile rename/save and return navigation",
+      "result": "pass",
+      "detail": ""
+    },
+    {
+      "area": "Household setup",
+      "scenario": "Regular member edits Other home, room counts, custom item, generated name and custom recurrence; saves with skip",
+      "result": "pass",
+      "detail": ""
+    },
+    {
+      "area": "Planner",
+      "scenario": "Morning slider keyboard range saves to 100",
+      "result": "pass",
+      "detail": ""
+    },
+    {
+      "area": "Planner",
+      "scenario": "Custom task erased by a late household update",
+      "result": "fail",
+      "detail": "First task disappeared; stable retry persisted. Adding versioned merge protection."
+    },
+    {
+      "area": "Planner",
+      "scenario": "Nine-week rotation preview loops back to starting assignments",
+      "result": "pass",
+      "detail": ""
+    },
+    {
+      "area": "Planner",
+      "scenario": "Always me/Never me rebuild and send resets both members to Pending",
+      "result": "pass",
+      "detail": ""
+    },
+    {
+      "area": "Planner",
+      "scenario": "Both approvals, checkmark return and pending-member preview",
+      "result": "pass",
+      "detail": ""
+    },
+    {
+      "area": "Planner",
+      "scenario": "Restart clears both approvals and alerts the other roommate",
+      "result": "pass",
+      "detail": ""
+    },
+    {
+      "area": "Planner",
+      "scenario": "Reapproval after restart works from Alerts and creator",
+      "result": "pass",
+      "detail": ""
+    },
+    {
+      "area": "Essentials",
+      "scenario": "Ownership, custom item, recommendations, shortlist save and Shopping navigation",
+      "result": "superseded",
+      "detail": "Ownership, custom item and navigation worked. The transfer success message was insufficient evidence; later found empty child rows. See failure and corrected transfer retest."
+    },
+    {
+      "area": "Task difficulty",
+      "scenario": "Change difficulty and reset household defaults",
+      "result": "pass",
+      "detail": ""
+    },
+    {
+      "area": "Settings",
+      "scenario": "Four accent choices and activity/house-monitor toggles",
+      "result": "pass",
+      "detail": ""
+    },
+    {
+      "area": "Privacy",
+      "scenario": "Analytics/crash toggles can change and return to off",
+      "result": "pass",
+      "detail": "Local export has blank telemetry keys; no vendor delivery tested."
+    },
+    {
+      "area": "Help",
+      "scenario": "Quick Guide close and feedback required/email validation/cancel",
+      "result": "pass",
+      "detail": "No feedback transmitted."
+    },
+    {
+      "area": "Essentials",
+      "scenario": "Transfer acknowledges before items persist",
+      "result": "fail",
+      "detail": "Seven items reported added, but four lists reopened empty; local database confirmed zero items. Fix awaiting retest."
+    },
+    {
+      "area": "Borrowing",
+      "scenario": "Owner undo return",
+      "result": "pass",
+      "detail": "Returned record returns to active with due date and Mark returned."
+    },
+    {
+      "area": "Settings",
+      "scenario": "Invite copy and destructive-action cancellation",
+      "result": "pass",
+      "detail": "Copy confirms Code copied; remove-member and delete-household prompts cancel without changing household. Actual destructive actions excluded."
+    },
+    {
+      "area": "Households",
+      "scenario": "Create, Other defaults, skip Essentials and skip chart",
+      "result": "pass",
+      "detail": "Empty-name validation works; second household created with kettle suggestion, setup saved, empty household opens with Connect schedule link."
+    },
+    {
+      "area": "Borrowing",
+      "scenario": "Edit persisted to other roommate",
+      "result": "pass",
+      "detail": "Edited notes visible in Blake session."
+    },
+    {
+      "area": "Households",
+      "scenario": "Join validation and independent chart status",
+      "result": "pass",
+      "detail": "Blank name and short code rejected; Blake joins second household. Household setup complete and chart incomplete shown correctly."
+    },
+    {
+      "area": "Chore creator",
+      "scenario": "Custom task survives real stale server replay",
+      "result": "pass",
+      "detail": "Injected pre-add snapshot via authenticated local API; task stayed visible, reached Blake, persisted in database and survived Blake reload."
+    },
+    {
+      "area": "Navigation",
+      "scenario": "Back after direct Chore Chart reload",
+      "result": "fail",
+      "detail": "Back had no destination when browser refresh removed navigation history. Fallback added; live retest pending."
+    },
+    {
+      "area": "Essentials",
+      "scenario": "Transfer, duplicate retry, reload and peer visibility",
+      "result": "pass",
+      "detail": "Eight items in five lists, including a newly created Food Staples parent; database confirms eight child rows; second transfer reports eight already present; Avery reload and Blake session retain items."
+    },
+    {
+      "area": "Shopping",
+      "scenario": "Pin and reorder lists/items",
+      "result": "superseded",
+      "detail": "Initial observation was premature; subsequent reload exposed the order bug. See failure and corrected two-client retest."
+    },
+    {
+      "area": "Shopping",
+      "scenario": "Immediate reload after pin/reorder",
+      "result": "fail",
+      "detail": "Earlier pass entry was premature: reload currently restores old list/item order. Investigating confirmation timing versus persistence."
+    },
+    {
+      "area": "Authentication",
+      "scenario": "Sign out, invalid-email validation and password sign-in",
+      "result": "pass",
+      "detail": "Local QA account signs out to auth screen; invalid email rejected; existing QA credentials restore Blake and household data. Google/Apple provider sign-in excluded."
+    },
+    {
+      "area": "Alerts",
+      "scenario": "Read all removes unread markers",
+      "result": "pass",
+      "detail": "Read all disappears and unread label clears."
+    },
+    {
+      "area": "Calendar",
+      "scenario": "Dismiss summary removes Calendar heading; narrow browser layout",
+      "result": "pass",
+      "detail": "Blake dismisses summary and heading count becomes zero; Avery saved dismissal also has no Calendar heading at verified 390x844 CSS viewport. Native iPhone animation remains unverified."
+    },
+    {
+      "area": "Navigation",
+      "scenario": "Chore Chart Back after direct reload, corrected",
+      "result": "pass",
+      "detail": "Refreshing the creator then tapping Back now reaches Settings."
+    },
+    {
+      "area": "Navigation",
+      "scenario": "Settings close after direct reload",
+      "result": "pass",
+      "detail": "Once session hydration completes, Close reaches My Sweet with no prior screen."
+    },
+    {
+      "area": "Shopping",
+      "scenario": "Assign list and schedule calendar handoff",
+      "result": "pass",
+      "detail": "Kitchen assignment to Blake appears and database confirms it. New shopping trip selected Nov 27 at 7:30 PM and appears with that time in Group calendar."
+    },
+    {
+      "area": "Shopping",
+      "scenario": "Corrected reorder, peer sync and both reloads",
+      "result": "pass",
+      "detail": "Pinned Food Staples first; moved Kitchen above Room; Sponges above Dish soap. Blake receives same order; both sessions retain it after reload."
+    },
+    {
+      "area": "Accessibility",
+      "scenario": "Browser checked/expanded states after correction",
+      "result": "pass",
+      "detail": "Live completed chore checkboxes, shortlist checkboxes, generated-task radios and settings accordions expose checked/expanded state. Full assistive-technology audit excluded."
+    }
+  ]
+}

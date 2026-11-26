@@ -119,6 +119,7 @@ export function RandomTaskSection({ tasks, roommates, chores, currentUserId, tim
                 const foreground = selected ? colors.actionForeground : colors.foreground;
                 return <GlassButton key={mode.value} tone={selected ? "primary" : "neutral"} disabled={saving} accessibilityRole="radio"
                   accessibilityLabel={`${mode.title}. ${mode.detail}`} accessibilityState={{ checked: selected }}
+                  aria-checked={selected}
                   onPress={() => setDraft((value) => value ? { ...value, mode: mode.value } : null)} style={styles.mode}>
                   <View style={styles.modeContent}>
                     <Feather name={mode.icon} size={18} color={foreground} />

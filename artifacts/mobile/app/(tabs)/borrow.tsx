@@ -373,6 +373,7 @@ export default function BorrowScreen() {
                 style={[styles.hideReturnedBtn, { borderColor: colors.border }]}
                 accessibilityRole="button"
                 accessibilityState={{ expanded: true }}
+                aria-expanded={true}
                 accessibilityLabel={`Hide borrowing history, ${returnedBorrows.length} records`}
                 hitSlop={{ top: 6, bottom: 6 }}
                 onPress={() => setShowAllReturned(false)}

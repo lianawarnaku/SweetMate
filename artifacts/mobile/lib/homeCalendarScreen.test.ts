@@ -2,6 +2,10 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
 import ts from "typescript";
+import { isChoreActiveOnDay, choreLocalDateKey, choreScheduledDate } from "./choreOccurrences.ts";
+import { householdDateKey } from "./choreTimezone.ts";
+import * as choreLifecycle from "./choreLifecycle.ts";
+import * as chorePermissions from "./chorePermissions.ts";
 
 type Element = { type: any; key?: string; props: Record<string, any> };
 const children = (node: any): Element[] => !node || typeof node !== "object" || !node.props ? [] : [node, ...[node.props.children, node.props.ListHeaderComponent].flat(Infinity).flatMap(children)];
@@ -21,7 +25,7 @@ function fixture(savedList = false, savedDismissal = false, reduceMotion = false
   const motion: any = { duration: () => motion, delay: () => motion, easing: () => motion, reduceMotion: () => motion };
   const animation = { start: () => {}, stop: () => {} };
   class Value { value: number; constructor(value: number) { this.value = value; } setValue(value: number) { this.value = value; } addListener() { return "listener"; } removeListener() {} interpolate() { return 0; } }
-  const context = { personalSchedule: { prefs: null, items: [], ready: true, loading: false, configured: false }, currentUserId: "avery", householdId: "home", householdTimezone: "UTC", activeSweet: {}, chores: [], roommates: [{ id: "avery", name: "Avery" }], expenses: [], shoppingLists: [], shoppingItems: [], pointsEnabled: false, isHost: true };
+  const context = { personalSchedule: { prefs: null, items: [], ready: true, loading: false, configured: false }, currentUserId: "avery", householdId: "home", householdTimezone: "UTC", activeSweet: {}, chores: [] as any[], roommates: [{ id: "avery", name: "Avery" }], expenses: [], shoppingLists: [], shoppingItems: [], pointsEnabled: false, isHost: true };
   const passthrough = (items: any) => items;
   const empty = () => [];
   const modules: Record<string, any> = {
@@ -47,9 +51,10 @@ function fixture(savedList = false, savedDismissal = false, reduceMotion = false
     "@/hooks/useDraggableSheet": { useDraggableSheet: () => ({}) },
     "@/lib/homeFocus": { isHomeCaughtUp: () => true, selectUpNextChore: () => undefined },
     "@/lib/upcomingChores": { upcomingHouseholdChores: empty },
-    "@/lib/choreLifecycle": { activeChores: passthrough, choresActiveOnSelectedDay: passthrough },
-    "@/lib/choreOccurrences": { choreLocalDateKey: (date: Date) => date.toISOString().slice(0, 10) },
-    "@/lib/choreTimezone": { householdDateKey: (date: Date) => date.toISOString().slice(0, 10) },
+    "@/lib/choreLifecycle": choreLifecycle,
+    "@/lib/chorePermissions": chorePermissions,
+    "@/lib/choreOccurrences": { isChoreActiveOnDay, choreLocalDateKey, choreScheduledDate },
+    "@/lib/choreTimezone": { householdDateKey },
     "@/lib/personalSchedule": { scheduleDateKey: (date: Date) => date.toISOString().slice(0, 10) },
     "@/lib/calendarItems": { deriveCalendarItems: empty, groupCalendarItemsByDate: () => new Map(), localDateKey: (date: Date) => date.toISOString().slice(0, 10) },
     "@/lib/overdueDisplay": { compactOverdueItems: (items: any) => ({ visibleItems: items }) },
@@ -120,4 +125,20 @@ async function settle() { for (let i = 0; i < 20; i++) await Promise.resolve(); 
   f.context.householdId = "home"; f.render(); await settle();
   assert.equal(f.attached().length, 1, "returning to the first household restores its saved header");
 }
-console.log("Full home screen passes X transition, native header identity, saved compact mode, cold launch, reduced motion and household switching.");
+{
+  const f = fixture();
+  const now = new Date(), yesterday = new Date(now.getTime() - 86400000);
+  const finished = { id: "finished-today", title: "Finished today", assignedTo: "avery", householdId: "home", completed: true, completedAt: now.toISOString(), dueDate: now.toISOString(), scheduledDate: householdDateKey(now, "UTC") };
+  f.context.chores = [finished]; f.render(); await settle();
+  assert.equal(f.summary()!.props.completedCount, 1, "completed work must remain in today's progress numerator");
+  assert.equal(f.summary()!.props.totalCount, 1, "checking off the last chore must show 1/1, not 0/0");
+  f.context.chores = [{ ...finished, completed: false, completedAt: undefined }];
+  assert.equal(f.summary()!.props.remainingCount, 1);
+  assert.equal(f.summary()!.props.completedCount, 0);
+  assert.equal(f.summary()!.props.totalCount, 1, "undoing completion keeps the total stable");
+  f.context.chores = [{ ...finished, completedAt: yesterday.toISOString() }];
+  assert.equal(f.summary()!.props.totalCount, 0, "yesterday's completion must not inflate today's progress");
+  f.context.chores = [{ ...finished, skippedAt: now.toISOString() }];
+  assert.equal(f.summary()!.props.totalCount, 0, "skipped occurrences are not completed work");
+}
+console.log("Full home screen passes calendar transitions, saved preferences, household switching and stable completed/undone progress totals.");

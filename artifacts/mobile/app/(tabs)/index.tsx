@@ -345,6 +345,7 @@ function ChoreRow({
         onPress={handleCheckPress}
         accessibilityRole="checkbox"
         accessibilityState={{ checked: chore.completed }}
+        aria-checked={chore.completed}
         accessibilityLabel={`${chore.completed ? "Mark incomplete" : "Mark complete"}: ${chore.title}`}
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       >
@@ -569,10 +570,17 @@ export default function MyChoresScreen() {
   );
   const todayChores = useMemo(
     () =>
-      activePersonalChores.filter(
-        (chore) => isChoreActiveOnDay(chore, lifecycleNow),
-      ),
-    [activePersonalChores, lifecycleNow],
+      activePersonalChores.filter((chore) => {
+        if (chore.skippedAt) return false;
+        if (isChoreActiveOnDay(chore, lifecycleNow)) return true;
+        // The active-day selector intentionally excludes completed chores. Keep
+        // work finished today in the progress denominator after checking it off.
+        const today = householdDateKey(lifecycleNow, householdTimezone);
+        return chore.completed && (chore.completedAt
+          ? householdDateKey(new Date(chore.completedAt), householdTimezone) === today
+          : choreScheduledDate(chore, householdTimezone) === today);
+      }),
+    [activePersonalChores, householdTimezone, lifecycleNow],
   );
   const todayIncompleteChores = todayChores.filter((chore) => !chore.completed);
   const upNextChore = selectUpNextChore(todayIncompleteChores);
@@ -1412,6 +1420,7 @@ export default function MyChoresScreen() {
                       }}
                       accessibilityRole="checkbox"
                       accessibilityState={{ checked: item.completed }}
+                      aria-checked={item.completed}
                       accessibilityLabel={`${item.completed ? "Mark needed" : "Mark purchased"}: ${item.name}`}
                       accessibilityHint="Press and hold to undo a checked-off shopping item"
                       activeOpacity={0.7}

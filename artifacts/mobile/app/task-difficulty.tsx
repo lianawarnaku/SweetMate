@@ -1,3 +1,4 @@
+import { backWithFallback } from "@/lib/navigation";
 import { Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React, { useMemo, useState } from "react";
@@ -82,7 +83,7 @@ export default function TaskDifficultyScreen() {
         <TouchableOpacity
           accessibilityRole="button"
           accessibilityLabel="Back from Task Difficulty"
-          onPress={() => router.back()}
+          onPress={() => backWithFallback(router, "/settings")}
           style={[styles.iconButton, { backgroundColor: colors.muted }]}
         >
           <Feather name="chevron-left" size={21} color={colors.foreground} />
