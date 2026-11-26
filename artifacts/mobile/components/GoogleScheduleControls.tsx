@@ -58,17 +58,18 @@ export function GoogleScheduleControls({ schedule, householdId, day, placement }
     onPress={() => set(selected.includes(id) ? selected.filter((value) => value !== id) : [...selected, id])} style={styles.choice}>
     <Feather name={selected.includes(id) ? "check-square" : "square"} size={20} color={colors.foreground} /><Text style={[styles.name, { color: colors.foreground }]}>{name}</Text>
   </TouchableOpacity>;
-  // Wait for the shared server status before offering connection on My Sweet.
-  // Keep an in-progress first-time picker mounted after OAuth succeeds so the
-  // user can finish choosing calendars/tasks before management moves to Settings.
-  const showLauncher = placement === "settings" || connection.connected === false;
-  const launcherLabel = placement === "settings" ? "Manage Google Calendar" : "Connect your Google schedule";
+  // Google authorization belongs to the person; import setup belongs to the
+  // household. A connection in another home must not hide first-time setup.
+  const showLauncher = placement === "settings" || connection.connected === false || (schedule.ready && !schedule.configured);
+  const launcherLabel = placement === "settings"
+    ? schedule.configured ? "Manage Google Calendar" : "Connect Google Calendar"
+    : "Connect your Google schedule";
   const connectionError = placement === "home" && !visible ? connection.error : null;
   if (!showLauncher && !visible && !connectionError && !schedule.error) return null;
 
   return <View style={[styles.controls, placement === "settings" && styles.settingsControls]}>
     {showLauncher && <View style={styles.header}>
-      <TouchableOpacity accessibilityRole="button" accessibilityLabel={launcherLabel} disabled={!schedule.userId || busy || connection.busy} onPress={() => void open()} style={styles.link}>
+      <TouchableOpacity accessibilityRole="button" accessibilityLabel={launcherLabel} disabled={!schedule.userId || !schedule.ready || busy || connection.busy} onPress={() => void open()} style={styles.link}>
         <Feather name="calendar" size={14} color={colors.mutedForeground} /><Text style={[styles.linkText, { color: colors.mutedForeground }]}>{launcherLabel}</Text>
       </TouchableOpacity>
       {placement === "settings" && schedule.prefs?.enabled && <TouchableOpacity accessibilityRole="button" accessibilityLabel="Refresh Google schedule" disabled={schedule.loading} onPress={() => void schedule.sync(day).catch(() => {})} style={styles.refresh}>
@@ -89,7 +90,7 @@ export function GoogleScheduleControls({ schedule, householdId, day, placement }
               {sources.calendars.map((item) => row(item.id, item.name, calendarIds, setCalendarIds))}
               <Text style={[styles.label, { color: colors.mutedForeground }]}>GOOGLE TASKS</Text>
               {sources.taskLists.map((item) => row(item.id, item.name, taskIds, setTaskIds))}
-              <Text style={[styles.meta, { color: colors.mutedForeground }]}>Selected calendars and task lists sync automatically. Day is before noon; Night starts at noon.</Text>
+              <Text style={[styles.meta, { color: colors.mutedForeground }]}>Selected calendars and task lists sync automatically. Day is before 6 PM; Night starts at 6 PM.</Text>
               {householdId && <View style={styles.sharing}>
                 <View style={{ flex: 1, gap: 5 }}><Text style={[styles.name, { color: colors.foreground }]}>Share my busy status</Text><Text style={[styles.meta, { color: colors.mutedForeground }]}>Roommates see only “Busy” and the end time while an event is happening.</Text></View>
                 <AppSwitch value={shareBusy} onValueChange={setShareBusy} disabled={busy} accessibilityLabel="Share my calendar busy status with this household" />

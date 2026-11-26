@@ -1,5 +1,5 @@
 import { Feather } from "@expo/vector-icons";
-import React, { createContext, ReactNode, useCallback, useContext, useMemo, useState } from "react";
+import React, { createContext, ReactNode, useCallback, useContext, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -32,38 +32,54 @@ const PopupContext = createContext<PopupApi | null>(null);
 export function AppPopupProvider({ children }: { children: ReactNode }) {
   const colors = useTheme();
   const insets = useSafeAreaInsets();
-  const [popup, setPopup] = useState<PopupRequest | null>(null);
+  const requestSequence = useRef(0);
+  const activeRequest = useRef<number | null>(null);
+  const actionLock = useRef<number | null>(null);
+  const [popup, setPopup] = useState<(PopupRequest & { requestId: number }) | null>(null);
   const [running, setRunning] = useState(false);
   const [runningActionLabel, setRunningActionLabel] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const dismissPopup = useCallback(() => {
-    if (running) return;
+    if (actionLock.current !== null) return;
+    activeRequest.current = null;
     setPopup(null);
     setError(null);
     setRunningActionLabel(null);
-  }, [running]);
+  }, []);
   const showPopup = useCallback((request: PopupRequest) => {
+    const requestId = ++requestSequence.current;
+    activeRequest.current = requestId;
+    actionLock.current = null;
     setRunning(false);
     setRunningActionLabel(null);
     setError(null);
-    setPopup(request);
+    setPopup({ ...request, requestId });
   }, []);
   const api = useMemo(() => ({ showPopup, dismissPopup }), [dismissPopup, showPopup]);
 
-  const run = async (action: AppPopupAction) => {
-    if (running) return;
+  const run = async (action: AppPopupAction, requestId: number | undefined) => {
+    if (requestId === undefined || activeRequest.current !== requestId || actionLock.current !== null) return;
+    actionLock.current = requestId;
     setRunning(true);
     setRunningActionLabel(action.label);
     setError(null);
     try {
       await action.onPress?.();
-      setPopup(null);
+      // The action may intentionally open a follow-up popup. Its completion
+      // belongs only to the request that was pressed, never the new popup.
+      if (activeRequest.current === requestId) {
+        activeRequest.current = null;
+        setPopup(null);
+      }
     } catch {
-      setError("That action could not be completed. Please try again.");
+      if (activeRequest.current === requestId) setError("That action could not be completed. Please try again.");
     } finally {
-      setRunning(false);
-      setRunningActionLabel(null);
+      if (actionLock.current === requestId) {
+        actionLock.current = null;
+        setRunning(false);
+        setRunningActionLabel(null);
+      }
     }
   };
 
@@ -97,7 +113,7 @@ export function AppPopupProvider({ children }: { children: ReactNode }) {
                   accessibilityLabel={action.destructive ? `${action.label}, destructive action` : action.label}
                   accessibilityState={{ disabled: running, busy: runningActionLabel === action.label }}
                   disabled={running}
-                  onPress={() => void run(action)}
+                  onPress={() => void run(action, popup?.requestId)}
                   tone={action.destructive ? "destructive" : action.primary ? "primary" : "neutral"}
                   style={styles.action}
                 >

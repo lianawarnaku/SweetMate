@@ -3,7 +3,7 @@ import {
   type EssentialCategoryDefinition,
 } from "../constants/essentialCatalog.ts";
 
-export type SupportedHousingType = "traditional" | "suite" | "apartment";
+export type SupportedHousingType = "traditional" | "suite" | "apartment" | "other";
 
 export type EssentialRecommendation = {
   categoryId: string;
@@ -11,7 +11,7 @@ export type EssentialRecommendation = {
 };
 
 const RECOMMENDATIONS_BY_HOUSING_TYPE: Record<
-  SupportedHousingType,
+  Exclude<SupportedHousingType, "other">,
   readonly EssentialRecommendation[]
 > = {
   traditional: [
@@ -40,6 +40,7 @@ const RECOMMENDATIONS_BY_HOUSING_TYPE: Record<
 export function essentialRecommendationsForHousingType(
   housingType: string | null | undefined,
 ): readonly EssentialRecommendation[] {
+  if (housingType === "other") return RECOMMENDATIONS_BY_HOUSING_TYPE.apartment;
   if (
     housingType !== "traditional" &&
     housingType !== "suite" &&

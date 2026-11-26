@@ -71,7 +71,7 @@ import {
 import { rowToSharedBorrow, sharedBorrowToRow, type SharedBorrowRow } from "@/lib/sharedBorrowRow";
 import { withoutNormalizedCollections } from "@/lib/householdStatePayload";
 import { choreToRow, rowToChore, type ChoreRow } from "@/lib/choreRow";
-import { applyChoreRowEvent, planChoreSync } from "@/lib/choreSync";
+import { applyChoreRowEvent, mergeChoreSnapshot, planChoreSync } from "@/lib/choreSync";
 import { removeMappedReminderIfPresent } from "@/lib/externalTasks";
 import { choreNow } from "@/lib/choreClock";
 import { householdDateKey, householdDueDate } from "@/lib/choreTimezone";
@@ -81,6 +81,7 @@ import type {
   ExpenseSplitMode,
   StoredExpenseAllocation,
 } from "@/lib/money";
+import { changeHiddenTab, type AppTabId } from "@/lib/tabVisibility";
 import {
   resolveDisplayPreferenceDefaults,
   USER_PREFERENCES_VERSION,
@@ -412,7 +413,7 @@ export interface ChoreChartData {
   fairness_note?: string;
 }
 
-export type HousingType = "traditional" | "suite" | "apartment";
+export type HousingType = "traditional" | "suite" | "apartment" | "other";
 
 export interface HomeProfile {
   housingType: HousingType;
@@ -572,6 +573,8 @@ interface AppContextType {
   setPointsEnabled: (enabled: boolean) => void;
   plantEnabled: boolean;
   setPlantEnabled: (enabled: boolean) => void;
+  hiddenTabs: AppTabId[];
+  setTabHidden: (tab: AppTabId, hidden: boolean) => boolean;
   roommateActivityEnabled: boolean;
   setRoommateActivityEnabled: (enabled: boolean) => void;
   leaderboardPeriod: LeaderboardPeriod;
@@ -1040,6 +1043,8 @@ export function AppProvider({
   const [appearanceMode, setAppearanceMode] = useState<AppearanceMode>("dark");
   const [pointsEnabled, setPointsEnabled] = useState(false);
   const [plantEnabled, setPlantEnabled] = useState(true);
+  const [hiddenTabs, setHiddenTabs] = useState<AppTabId[]>([]);
+  const hiddenTabsRef = useRef<AppTabId[]>([]);
   const [roommateActivityEnabled, setRoommateActivityEnabled] = useState(false);
   const [leaderboardPeriod, setLeaderboardPeriod] =
     useState<LeaderboardPeriod>("weekly");
@@ -1180,6 +1185,18 @@ export function AppProvider({
   const personalSchedule = usePersonalSchedule(loaded ? session?.user.id ?? null : null, householdId, roommateActivityEnabled);
 
   const preferenceUserId = session?.user.id;
+  const preferenceOwnerRef = useRef(preferenceUserId);
+  preferenceOwnerRef.current = preferenceUserId;
+
+  const setTabHidden = useCallback((tab: AppTabId, hidden: boolean) => {
+    // A popup opened by a previous account must never edit the next account.
+    if (!preferenceUserId || preferenceOwnerRef.current !== preferenceUserId || !localPreferencesLoaded) return false;
+    const next = changeHiddenTab(hiddenTabsRef.current, tab, hidden, pointsEnabled);
+    if (!next) return false;
+    hiddenTabsRef.current = next;
+    setHiddenTabs(next);
+    return true;
+  }, [localPreferencesLoaded, pointsEnabled, preferenceUserId]);
 
   // Reset before paint when accounts change so the previous user's theme is
   // never rendered while the next user's record is loading.
@@ -1189,6 +1206,8 @@ export function AppProvider({
     setAppearanceMode("dark");
     setPointsEnabled(false);
     setPlantEnabled(true);
+    hiddenTabsRef.current = [];
+    setHiddenTabs([]);
     setRoommateActivityEnabled(false);
     setLeaderboardPeriod("weekly");
     setPreferencesOnboardingPending(false);
@@ -1214,6 +1233,7 @@ export function AppProvider({
         appearanceMode: unknown;
         pointsEnabled: boolean;
         plantEnabled: boolean;
+        hiddenTabs: unknown;
         roommateActivityEnabled: boolean;
         preferencesVersion: number;
         leaderboardPeriod: LeaderboardPeriod;
@@ -1264,6 +1284,8 @@ export function AppProvider({
       setAppearanceMode(displayPreferences.appearanceMode);
       setPointsEnabled(displayPreferences.pointsEnabled);
       setPlantEnabled(displayPreferences.plantEnabled);
+      hiddenTabsRef.current = displayPreferences.hiddenTabs;
+      setHiddenTabs(displayPreferences.hiddenTabs);
       setRoommateActivityEnabled(displayPreferences.roommateActivityEnabled);
       if (
         preferences.leaderboardPeriod === "weekly" ||
@@ -1310,6 +1332,7 @@ export function AppProvider({
           appearanceMode,
           pointsEnabled,
           plantEnabled,
+          hiddenTabs,
           roommateActivityEnabled,
           preferencesVersion: USER_PREFERENCES_VERSION,
           leaderboardPeriod,
@@ -1330,6 +1353,7 @@ export function AppProvider({
     appearanceMode,
     leaderboardPeriod,
     localPreferencesLoaded,
+    hiddenTabs,
     plantEnabled,
     pointsEnabled,
     roommateActivityEnabled,
@@ -3342,6 +3366,7 @@ export function AppProvider({
     let active = true;
     let requestVersion = 0;
     let deferredApply = false;
+    let hydratedAppliedChartId: string | null = null;
     const channel = supabase.channel(`chore-foundation:${householdId}`);
 
     const refresh = async () => {
@@ -3416,7 +3441,24 @@ export function AppProvider({
 
       if (chart?.status === "approved") {
         setLiveChartState(chart.payload.assignments);
-        if (chart.appliedAt || !choresTableReadyRef.current || !roommatesRef.current.length) return;
+        if (!choresTableReadyRef.current || !roommatesRef.current.length) return;
+        if (chart.appliedAt) {
+          // Another member may have applied the chart while this connection
+          // missed its chore events. "Already applied" must still hydrate it.
+          if (hydratedAppliedChartId !== chart.id) {
+            const baseline = new Map(persistedChoreRowsRef.current);
+            const { data, error } = await supabase.from("chores").select("*").eq("household_id", householdId);
+            if (error) throw error;
+            if (!active || version !== requestVersion) return;
+            const rows = (data ?? []) as ChoreRow[];
+            const merged = mergeChoreSnapshot(choresRef.current, baseline, rows);
+            persistedChoreRowsRef.current = new Map(rows.map(record => [record.id, record]));
+            choresRef.current = merged;
+            setChores(merged);
+            hydratedAppliedChartId = chart.id;
+          }
+          return;
+        }
         if (applyingChartRef.current) { deferredApply = true; return; }
         if (chart.payload.version !== 2) return; // Legacy charts require an explicit rebuild.
         applyingChartRef.current = true;
@@ -3446,6 +3488,7 @@ export function AppProvider({
           persistedChoreRowsRef.current = new Map(rows.map((record) => [record.id, record]));
           choresRef.current = rows.map(rowToChore);
           setChores(choresRef.current);
+          hydratedAppliedChartId = chart.id;
           // This is a successful apply RPC on this device, rather than a
           // unique household-wide chart count (the RPC is idempotent).
           if (!trackedChartApplicationsRef.current.has(chart.id)) {
@@ -3481,7 +3524,9 @@ export function AppProvider({
       }
     };
 
+    const refreshSafely = () => { void refresh().catch(error => reportRuntimeError("refresh chore settings", error, { householdId })); };
     refreshChartStateRef.current = refresh;
+    if (Platform.OS === "web" && typeof window !== "undefined") window.addEventListener("focus", refreshSafely);
     const chartAppStateSubscription = AppState.addEventListener("change", (state) => {
       if (state === "active") void refresh().catch((error) => reportRuntimeError("refresh chore settings", error, { householdId }));
     });
@@ -3503,6 +3548,7 @@ export function AppProvider({
       );
     }
     channel.subscribe((status, error) => {
+      if (status === "SUBSCRIBED") refreshSafely();
       if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
         reportSupabaseError("subscribe to deterministic chart state", error ?? new Error(status), {
           householdId,
@@ -3513,6 +3559,7 @@ export function AppProvider({
     return () => {
       active = false;
       chartAppStateSubscription.remove();
+      if (Platform.OS === "web" && typeof window !== "undefined") window.removeEventListener("focus", refreshSafely);
       if (refreshChartStateRef.current === refresh) refreshChartStateRef.current = null;
       supabase.removeChannel(channel);
     };
@@ -3619,7 +3666,7 @@ export function AppProvider({
     };
     if (updates.dueDate && updates.dueDate !== current.dueDate) {
       const previousScheduledDate = choreScheduledDate(current);
-      candidate.scheduledDate = choreLocalDateKey(updates.dueDate);
+      candidate.scheduledDate = updates.scheduledDate ?? householdDateKey(new Date(updates.dueDate), resolvedHouseholdTimezone);
       // Moving a recurring occurrence to a different calendar date orphans
       // it from the series' regular walk: the next materialization pass
       // would otherwise see the original slot as still empty and generate
@@ -3655,11 +3702,9 @@ export function AppProvider({
       const next = chore.id === id ? candidate : chore;
       return { ...next, choreDefinitionId: candidate.choreDefinitionId,
         choreDefinition: candidate.choreDefinition,
-        // Editing a schedule cannot move an existing obligation to somebody else.
-        ...(chore.id === id && current.assignedTo && activeMemberIds.has(current.assignedTo) ? {
-          assignedTo: current.assignedTo, assignmentMode: current.assignmentMode,
-          dueDate: current.dueDate, scheduledDate: current.scheduledDate,
-        } : {}), updatedAt: candidate.updatedAt };
+        // This is an explicit manual edit of the selected obligation. Preserve
+        // other occurrences; do not silently undo its requested assignee/date.
+        updatedAt: candidate.updatedAt };
     });
     const next = materializeRecurringOccurrences(merged, choreNow(), candidate.updatedAt, resolvedHouseholdTimezone, [...activeMemberIds]);
     choresRef.current = next;
@@ -4952,6 +4997,8 @@ export function AppProvider({
     setPointsEnabled,
     plantEnabled,
     setPlantEnabled,
+    hiddenTabs,
+    setTabHidden,
     roommateActivityEnabled,
     setRoommateActivityEnabled,
     leaderboardPeriod,
@@ -5071,7 +5118,7 @@ export function AppProvider({
     completeHouseholdSetup, quickGuideOpen, quickGuideSource, openQuickGuide,
     dismissQuickGuide, visibleAppAlerts, markAlertRead, markAllAlertsRead,
     householdComplete, setHouseholdComplete,
-    colorScheme, appearanceMode, pointsEnabled, plantEnabled, roommateActivityEnabled, leaderboardPeriod, householdId, memberships, activeSweet, householdName,
+    colorScheme, appearanceMode, pointsEnabled, plantEnabled, hiddenTabs, setTabHidden, roommateActivityEnabled, leaderboardPeriod, householdId, memberships, activeSweet, householdName,
     inviteCode, householdLoading, householdError, membersLoading, currentMemberRole, householdPreferencesReady, cloudReady,
     refreshMembers, refreshHousehold, createHousehold, joinHousehold, switchSweet, leaveSweet,
     deleteHousehold, removeRoommate, deleteOwnAccount, currentUserId,

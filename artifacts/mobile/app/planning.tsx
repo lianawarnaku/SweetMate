@@ -1358,7 +1358,7 @@ export default function PlanningScreen() {
     />}
 
     <ChoreAssignmentPreferencesSheet
-      key={householdId ?? "no-household"}
+      key={`assignment-preferences:${householdId ?? "no-household"}`}
       visible={isChoreChart && assignmentPreferencesOpen}
       payload={assignmentDraft?.payload ?? null}
       members={roommates} currentUserId={currentUserId} busy={loading}
@@ -1367,7 +1367,7 @@ export default function PlanningScreen() {
     />
 
     <GeneratedTasksSheet
-      key={householdId ?? "no-household"}
+      key={`generated-tasks:${householdId ?? "no-household"}`}
       visible={isChoreChart && generatedTasksOpen}
       tasks={generatedTasks}
       onClose={() => setGeneratedTasksOpen(false)}

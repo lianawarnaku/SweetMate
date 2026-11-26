@@ -6,7 +6,7 @@
 // Must render inside AppProvider — `useTheme()` reads the selected scheme from
 // AppContext.
 
-import { DefaultTheme, ThemeProvider, type Theme } from "@react-navigation/native";
+import { DefaultTheme, ThemeProvider, type Theme } from "expo-router";
 import React, { useMemo } from "react";
 
 import { useTheme } from "@/constants/colors";

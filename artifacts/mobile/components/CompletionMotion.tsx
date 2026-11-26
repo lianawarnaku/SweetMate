@@ -27,15 +27,12 @@ import { useTheme } from "@/constants/colors";
 type CompletionMotionProps = ViewProps & {
   completed: boolean;
   departing?: boolean;
-  /** Expenses use a gentler version of the same response. */
-  subtle?: boolean;
 };
 
 /** Local feedback follows data changes; mounting completed history stays still. */
 export function CompletionMotion({
   completed,
   departing = false,
-  subtle = false,
   children,
   style,
   ...props
@@ -44,7 +41,6 @@ export function CompletionMotion({
   const previousCompleted = useRef(completed);
   const wobble = useSharedValue(1);
   const departure = useSharedValue(0);
-  const strength = subtle ? 0.55 : 1;
   const styleOpacity = StyleSheet.flatten(style)?.opacity;
   const baseOpacity = typeof styleOpacity === "number" ? styleOpacity : 1;
   const layout = useMemo(
@@ -85,20 +81,20 @@ export function CompletionMotion({
 
   const motionStyle = useAnimatedStyle(() => {
     const phases = [0, 0.32, 0.5, 0.69, 0.84, 1];
-    const angle = interpolate(wobble.value, phases, [0, -0.65, 0.45, -0.24, 0.1, 0]) * strength;
-    const x = interpolate(wobble.value, phases, [1, 1.014, 0.994, 1.005, 0.998, 1]);
+    const angle = interpolate(wobble.value, phases, [0, -1.2, 0.85, -0.45, 0.18, 0]);
+    const x = interpolate(wobble.value, phases, [1, 1.02, 0.99, 1.008, 0.997, 1]);
     const y = interpolate(wobble.value, phases, [1, 0.94, 1.04, 0.98, 1.009, 1]);
     return {
       opacity: baseOpacity * interpolate(departure.value, [0, 0.18, 1], [1, 1, 0]),
       transform: [
-        { translateX: interpolate(departure.value, [0, 0.35, 1], [0, -3, 38]) },
-        { translateY: interpolate(wobble.value, phases, [0, -1.5, 0.8, -0.4, 0.15, 0]) * strength - departure.value * 6 },
+        { translateX: interpolate(wobble.value, phases, [0, -2, 1.5, -0.8, 0.3, 0]) + interpolate(departure.value, [0, 0.35, 1], [0, -3, 38]) },
+        { translateY: interpolate(wobble.value, phases, [0, -2, 1, -0.5, 0.2, 0]) - departure.value * 6 },
         { rotate: (angle + interpolate(departure.value, [0, 0.4, 1], [0, -0.5, 1.6])) + "deg" },
-        { scaleX: (1 + (x - 1) * strength) * interpolate(departure.value, [0, 0.25, 1], [1, 1.015, 0.82]) },
-        { scaleY: (1 + (y - 1) * strength) * interpolate(departure.value, [0, 0.25, 1], [1, 1.025, 0.8]) },
+        { scaleX: x * interpolate(departure.value, [0, 0.25, 1], [1, 1.015, 0.82]) },
+        { scaleY: y * interpolate(departure.value, [0, 0.25, 1], [1, 1.025, 0.8]) },
       ],
     };
-  }, [strength, baseOpacity]);
+  }, [baseOpacity]);
 
   return (
     <Animated.View {...props} layout={layout} style={[style, motionStyle]}>

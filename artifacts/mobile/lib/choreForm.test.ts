@@ -97,7 +97,7 @@ const imports: Record<string, any> = {
 };
 imports.react.default = imports.react;
 const exports: any = {};
-const compiled = ts.transpileModule(formSource, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.React } }).outputText;
+const compiled = ts.transpileModule(formSource, { compilerOptions: { module: ts.ModuleKind.CommonJS, esModuleInterop: false, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.React } }).outputText;
 runInNewContext(compiled, { exports, require: (name: string) => { strict(name in imports, name); return imports[name]; } });
 const renderForm = () => { cursor = 0; return exports.ManualChoreForm({ onCreated: (chore: any) => created.push(chore) }); };
 function nodes(tree: any): any[] {

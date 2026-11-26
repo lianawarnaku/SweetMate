@@ -1,3 +1,4 @@
+import { borrowDateInput, borrowDaysUntil } from "@/lib/borrowDates";
 import { AppSwitch } from "@/components/AppSwitch";
 import { HistoryDisclosure } from "@/components/HistoryDisclosure";
 import { CompletionMotion, CompletionText } from "@/components/CompletionMotion";
@@ -31,6 +32,7 @@ import { RoommateAvatar } from "@/components/RoommateAvatar";
 import { Surface } from "@/components/Surface";
 import { useAppContextSelector, type BorrowItem } from "@/context/AppContext";
 import { useTheme } from "@/constants/colors";
+import { success as hapticSuccess, tapLight } from "@/lib/haptics";
 import { historyPage, isHistoricalResolution } from "@/lib/resolutionHistory";
 import { isBeforeLocalCalendarDay } from "@/lib/choreOccurrences";
 import {
@@ -38,16 +40,10 @@ import {
   canSaveBorrowDraft,
 } from "@/lib/borrowValidation";
 
-function daysBetween(a: string, b: string) {
-  return Math.round(
-    (new Date(b).getTime() - new Date(a).getTime()) / 86400000
-  );
-}
-
 // Due date for borrowing function
 function formatDue(dueDate: string) {
-  const now = new Date().toISOString();
-  const diff = daysBetween(now, dueDate);
+  const diff = borrowDaysUntil(dueDate);
+  if (!Number.isFinite(diff)) return "Due date unavailable";
   if (diff < -1) return `${Math.abs(diff)}d overdue`;
   if (diff === -1) return "Due yesterday";
   if (diff === 0) return "Due today";
@@ -56,9 +52,7 @@ function formatDue(dueDate: string) {
 }
 
 function dateInput(daysFromToday = 0) {
-  const date = new Date();
-  date.setDate(date.getDate() + daysFromToday);
-  return date.toISOString().slice(0, 10);
+  return borrowDateInput(new Date(), daysFromToday);
 }
 
 function parseDateInput(value: string, endOfDay = false) {
@@ -183,8 +177,8 @@ export default function BorrowScreen() {
     setItem(b.item);
     setBorrowedFrom(b.borrowedFrom);
     setBorrowedBy(b.borrowedBy ?? currentUserId);
-    setBorrowedDate(new Date(b.borrowedAt).toISOString().slice(0, 10));
-    setDueDate(new Date(b.dueDate).toISOString().slice(0, 10));
+    setBorrowedDate(borrowDateInput(b.borrowedAt));
+    setDueDate(borrowDateInput(b.dueDate));
     setNotes(b.notes ?? "");
     setPrivateEntry(b.visibility === "private");
     setShowModal(true);
@@ -276,8 +270,11 @@ export default function BorrowScreen() {
   };
 
   const handleReturn = (id: string) => {
+    const borrow = borrowItems.find((item) => item.id === id);
+    if (!borrow) return;
     returnBorrowItem(id);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    if (borrow.returned) tapLight();
+    else hapticSuccess();
   };
 
   return (
@@ -324,7 +321,7 @@ export default function BorrowScreen() {
             <EmptyState
               icon="repeat"
             title="Nothing borrowed"
-            subtitle="Track an item between any two Sweetmates"
+            subtitle="Privately or publicly track any item between any two Sweetmates"
             />
           )
         }
@@ -466,6 +463,7 @@ export default function BorrowScreen() {
                   style={styles.cardContent}
                   activeOpacity={canManage ? 0.7 : 1}
                   delayLongPress={450}
+                  onPress={canManage ? () => openBorrowActions(borrow.id) : undefined}
                   onLongPress={
                     canManage
                       ? () => openBorrowActions(borrow.id)
@@ -476,7 +474,7 @@ export default function BorrowScreen() {
                   accessibilityLabel={`${borrow.item}. ${borrowerName} borrowed from ${ownerName}. ${dueText}`}
                   accessibilityHint={
                     canManage
-                      ? "Long press for Edit and Delete actions"
+                      ? "Tap for Edit and Delete actions"
                       : undefined
                   }
                   accessibilityActions={
@@ -627,6 +625,7 @@ export default function BorrowScreen() {
                   key: "edit",
                   label: "Edit",
                   icon: "edit-2",
+                  runAfterDismiss: true,
                   onPress: () => openEdit(actionBorrow),
                 },
                 {
@@ -649,7 +648,7 @@ export default function BorrowScreen() {
       />
 
       <Modal visible={showModal} transparent animationType="slide" onRequestClose={closeModal}>
-        <Pressable style={styles.overlay} onPress={() => setShowModal(false)} />
+        <Pressable style={styles.overlay} onPress={closeModal} accessibilityRole="button" accessibilityLabel="Close borrowing editor" />
         <KeyboardAvoidingView behavior={KEYBOARD_BEHAVIOR} pointerEvents="box-none">
         <Surface
           level="modal"
@@ -666,9 +665,14 @@ export default function BorrowScreen() {
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.sheetContent}
           >
-          <Text style={[styles.sheetTitle, { color: colors.foreground }]}>
-            {editingId ? "Edit Borrowing Record" : "Log Borrowing Transaction"}
-          </Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+            <Text style={[styles.sheetTitle, { color: colors.foreground, flex: 1 }]}>
+              {editingId ? "Edit Borrowing Record" : "Log Borrowing Transaction"}
+            </Text>
+            <TouchableOpacity onPress={closeModal} accessibilityRole="button" accessibilityLabel="Close borrowing editor" style={{ minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" }}>
+              <Feather name="x" size={20} color={colors.mutedForeground} />
+            </TouchableOpacity>
+          </View>
 
           <Text style={[styles.label, { color: colors.mutedForeground }]}>
             Item
@@ -835,6 +839,8 @@ export default function BorrowScreen() {
           )}
 
           <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel="Save borrowing transaction"
             style={[
               styles.saveBtn,
               {

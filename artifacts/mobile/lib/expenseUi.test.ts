@@ -113,7 +113,8 @@ function fixture() {
   const exports: Record<string, (...args: any[]) => any> = {};
   bindings.exports = exports;
   const code = callbackNames.map(name => `const ${name} = ${initializers.get(name)!.getText(parsed)}; exports.${name} = ${name};`).join("\n") + `\nexports.beginEdit = ${actualBeginEdit.getText(parsed)};`;
-  runInNewContext(ts.transpileModule(code, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, bindings);
+  bindings.detailVisibilityRef = { get current() { return bindings.detailVisible; } };
+  runInNewContext(ts.transpileModule(code, { compilerOptions: { module: ts.ModuleKind.CommonJS, esModuleInterop: false, target: ts.ScriptTarget.ES2022 } }).outputText, bindings);
   return {
     bindings, original, calls, edits, recoveredDrafts, transitions, callbacks: exports,
     set write(value: () => Promise<boolean>) { write = value; },
@@ -349,7 +350,7 @@ for (const [amount, date] of [["0", "2026-11-08"], ["-1", "2026-11-08"], ["15.01
   const exports: Record<string, (...args: any[]) => void> = {};
   runInNewContext(ts.transpileModule(
     `const openEditModal = ${initializers.get("openEditModal")!.getText(parsed)}; exports.openEditModal = openEditModal; exports.openRecoveredDraft = ${initializers.get("openRecoveredDraft")!.getText(parsed)};`,
-    { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } },
+    { compilerOptions: { module: ts.ModuleKind.CommonJS, esModuleInterop: false, target: ts.ScriptTarget.ES2022 } },
   ).outputText, Object.assign(bindings, { exports }));
   const expense = { id: "rejected-id", title: "Dinner", amount: 30, amountCents: 3000, paidBy: "payer", sharedWith: ["debtor"], splits: { debtor: 30 }, category: "other", date: "2026-11-08", version: 9 };
   exports.openRecoveredDraft({ operationId: "failed", expenseId: "rejected-id", action: "create", expense });
@@ -394,7 +395,7 @@ function formFixture() {
   };
   const exports: { send?: () => Promise<void> } = {};
   runInNewContext(ts.transpileModule(`exports.send = ${initializers.get("doSendIOU")!.getText(parsed)};`, {
-    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+    compilerOptions: { module: ts.ModuleKind.CommonJS, esModuleInterop: false, target: ts.ScriptTarget.ES2022 },
   }).outputText, Object.assign(bindings, { exports }));
   return {
     bindings, creates, updates, links, send: exports.send!,
@@ -483,7 +484,7 @@ console.log("expense UI callback and modal-handoff state tests passed (native iP
     Haptics: { ImpactFeedbackStyle: { Light: "light" }, impactAsync: () => {} },
   };
   runInNewContext(ts.transpileModule(`exports.select = ${initializers.get("scrollToExpense")!.getText(parsed)};`, {
-    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+    compilerOptions: { module: ts.ModuleKind.CommonJS, esModuleInterop: false, target: ts.ScriptTarget.ES2022 },
   }).outputText, bindings);
   bindings.exports.select("owe"); assert.equal(filter, "owe");
   bindings.exports.select("owed"); assert.equal(filter, "owed");

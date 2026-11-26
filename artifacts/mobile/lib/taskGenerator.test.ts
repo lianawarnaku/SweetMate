@@ -295,3 +295,6 @@ assert.deepEqual(configured.find((task) => task.id === secondRoomTask.id), secon
 assert.equal(firstRoomTask.title, roomDefaults[0]!.title, "generation must not mutate the defaults");
 assert.equal(buildConfiguredHouseholdTasks({ ...configuredProfile, removedGeneratedKeys: [firstRoomTask.id] }).some((task) => task.id === firstRoomTask.id), false);
 assert.notDeepEqual(buildBalancedChart(configured, members).memberLoads, buildBalancedChart(roomDefaults, members).memberLoads, "edited difficulty and frequency must feed the workload algorithm");
+
+assert.deepEqual(buildHouseholdTasks(amenities, "other"), buildHouseholdTasks(amenities, "apartment"), "Other homes must use exactly the apartment chore names, difficulty, frequency and timing defaults");
+assert.deepEqual(buildConfiguredHouseholdTasks({ ...configuredProfile, housingType: "other" }), buildConfiguredHouseholdTasks(configuredProfile), "Other homes retain the apartment room-count and generated-task behavior");

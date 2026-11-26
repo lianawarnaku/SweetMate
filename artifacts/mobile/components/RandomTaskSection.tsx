@@ -11,7 +11,7 @@ import { useTheme } from "@/constants/colors";
 import { useAccessibilityPreferences } from "@/hooks/useAccessibilityPreferences";
 import { error as hapticError, success as hapticSuccess } from "@/lib/haptics";
 import { KEYBOARD_BEHAVIOR } from "@/lib/keyboard";
-import { randomTaskClaimTime, type RandomTask, type RandomTaskInput, type RandomTaskMode } from "@/lib/randomTasks";
+import { randomTaskClaimTime, unclaimedRandomTasks, type RandomTask, type RandomTaskInput, type RandomTaskMode } from "@/lib/randomTasks";
 import type { Chore, Roommate } from "@/context/AppContext";
 
 const MODES: { value: RandomTaskMode; title: string; detail: string; icon: "clock" | "shuffle" }[] = [
@@ -35,7 +35,7 @@ export function RandomTaskSection({ tasks, roommates, chores, currentUserId, tim
   const [claimError, setClaimError] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
   const busy = useRef(false);
-  const sorted = [...tasks].sort((a, b) => Number(Boolean(a.assignedAt)) - Number(Boolean(b.assignedAt)) || b.createdAt.localeCompare(a.createdAt));
+  const sorted = unclaimedRandomTasks(tasks);
   const visibleTasks = showAll ? sorted : sorted.slice(0, 6);
   const close = () => { if (!busy.current) { setDraft(null); setFormError(null); } };
   const create = async () => {
@@ -80,7 +80,7 @@ export function RandomTaskSection({ tasks, roommates, chores, currentUserId, tim
       return <Surface key={task.id} style={styles.task}>
         <Text style={[styles.taskTitle, { color: colors.foreground, textDecorationLine: completed ? "line-through" : "none" }]}>{chore?.title ?? task.title}</Text>
         {open ? <>
-          <View style={styles.statusRow}><Feather name="clock" size={13} color={colors.mutedForeground} /><Text style={[styles.meta, { color: colors.mutedForeground }]}>Up for grabs</Text></View>
+          <View style={styles.statusRow}><Text style={[styles.meta, { color: colors.mutedForeground }]}>Up for grabs</Text></View>
           <Text style={[styles.meta, { color: colors.mutedForeground }]}>{randomTaskClaimTime(task, now)}</Text>
           <GlassButton tone="neutral" disabled={expired || Boolean(claiming) || saving} accessibilityLabel={`Claim ${task.title}`} accessibilityState={{ busy: claiming === task.id }}
             onPress={() => void claim(task.id)} style={styles.claim}>
@@ -97,8 +97,8 @@ export function RandomTaskSection({ tasks, roommates, chores, currentUserId, tim
         </TouchableOpacity>}
       </Surface>;
     })}
-    {tasks.length > 6 && <TouchableOpacity accessibilityRole="button" onPress={() => setShowAll((value) => !value)} style={styles.more}>
-      <Text style={[styles.meta, { color: colors.mutedForeground, textDecorationLine: "underline" }]}>{showAll ? "Show less" : `See all ${tasks.length} tasks`}</Text>
+    {sorted.length > 6 && <TouchableOpacity accessibilityRole="button" onPress={() => setShowAll((value) => !value)} style={styles.more}>
+      <Text style={[styles.meta, { color: colors.mutedForeground, textDecorationLine: "underline" }]}>{showAll ? "Show less" : `See all ${sorted.length} tasks`}</Text>
     </TouchableOpacity>}
     {(error || claimError) && <View style={{ gap: 4 }}>
       <Text accessibilityRole="alert" style={[styles.meta, { color: colors.destructive }]}>{claimError || error}</Text>

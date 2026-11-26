@@ -5,6 +5,8 @@ import {
   type ColorScheme,
 } from "../constants/themeTokens.ts";
 
+import { normalizeHiddenTabs, type AppTabId } from "./tabVisibility.ts";
+
 export const USER_PREFERENCES_VERSION = 3;
 
 export interface StoredDisplayPreferences {
@@ -13,6 +15,7 @@ export interface StoredDisplayPreferences {
   pointsEnabled?: boolean;
   roommateActivityEnabled?: boolean;
   plantEnabled?: boolean;
+  hiddenTabs?: unknown;
   preferencesVersion?: number;
 }
 
@@ -22,6 +25,7 @@ export interface ResolvedDisplayPreferences {
   pointsEnabled: boolean;
   roommateActivityEnabled: boolean;
   plantEnabled: boolean;
+  hiddenTabs: AppTabId[];
   preferencesVersion: number;
 }
 
@@ -39,6 +43,7 @@ export function resolveDisplayPreferenceDefaults(
         : false,
     plantEnabled:
       typeof stored.plantEnabled === "boolean" ? stored.plantEnabled : true,
+    hiddenTabs: normalizeHiddenTabs(stored.hiddenTabs, stored.pointsEnabled),
     preferencesVersion: USER_PREFERENCES_VERSION,
   };
 }

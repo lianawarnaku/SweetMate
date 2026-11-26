@@ -582,12 +582,12 @@ const styles = StyleSheet.create({
   gridRow: { width: BODY_SIZE, flexDirection: "row", justifyContent: "center" },
   squareContainer: { flex: 1, position: "relative", overflow: "visible" },
   squareOutline: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     borderRadius: TILE_CORNER_RADIUS,
     borderWidth: 1,
   },
-  squareFill: { ...StyleSheet.absoluteFillObject, borderWidth: 1 },
-  squareHalo: { ...StyleSheet.absoluteFillObject, borderWidth: 1 },
+  squareFill: { ...StyleSheet.absoluteFill, borderWidth: 1 },
+  squareHalo: { ...StyleSheet.absoluteFill, borderWidth: 1 },
   progress: {
     fontFamily: "Inter_700Bold",
     includeFontPadding: false,

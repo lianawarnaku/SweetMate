@@ -4,7 +4,7 @@ export interface PersonalScheduleItem {
   busy: boolean; link: string | null; app_completed_at: string | null;
   override_start: string | null; override_end: string | null; period_override: "morning" | "night" | null;
 }
-export interface SchedulePreferences { user_id: string; enabled: boolean; calendar_ids: string[]; task_list_ids: string[]; timezone: string; synced_at: string | null; sync_error: string | null }
+export interface SchedulePreferences { user_id: string; household_id: string; enabled: boolean; calendar_ids: string[]; task_list_ids: string[]; timezone: string; synced_at: string | null; sync_error: string | null }
 export interface ScheduleSources { calendars: { id: string; name: string }[]; taskLists: { id: string; name: string }[] }
 export interface BusyActivity { member_id: string; ends_at: string }
 export type TaskScheduleUpdate = { completed?: boolean; period?: "morning" | "night"; start?: string; end?: string; clearTime?: boolean };
@@ -37,7 +37,7 @@ export function scheduleItemPeriod(item: PersonalScheduleItem, timezone: string,
   if (start) {
     if (day && scheduleDateKey(new Date(start), timezone) < day) return "morning";
     const hour = Number(new Intl.DateTimeFormat("en-US", { timeZone: timezone, hour: "numeric", hourCycle: "h23" }).format(new Date(start)));
-    return hour < 12 ? "morning" : "night";
+    return hour < 18 ? "morning" : "night";
   }
   return item.period_override ?? "morning";
 }

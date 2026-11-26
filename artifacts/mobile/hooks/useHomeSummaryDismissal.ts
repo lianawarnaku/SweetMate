@@ -22,9 +22,10 @@ export function useHomeSummaryDismissal({ householdId, userId, day }: {
   }, [key, day, scope]);
 
   const dismiss = () => {
-    if (!key) return;
     revision.current++;
+    // Storage/session readiness must not veto an already-pressed X.
     setState({ scope, dismissed: true });
+    if (!key) return;
     writes.current = writes.current.then(() => AsyncStorage.setItem(key, day))
       .catch((error) => reportRuntimeError("save summary dismissal", error));
   };

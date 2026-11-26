@@ -1,4 +1,4 @@
-import { parseRandomTasksSnapshot, randomTaskClaimTime } from "./randomTasks.ts";
+import { parseRandomTasksSnapshot, randomTaskClaimTime, unclaimedRandomTasks } from "./randomTasks.ts";
 import { rowToChore, choreToRow, type ChoreRow } from "./choreRow.ts";
 import { applyChoreRowEvent, planChoreSync } from "./choreSync.ts";
 
@@ -42,5 +42,16 @@ const persisted = new Map([[chore.id, choreToRow(latest[0])!]]);
 const sync = planChoreSync(latest, persisted);
 assert(sync.deleteIds.length === 0 && sync.upserts.length === 0, "a server-assigned chore must not be deleted or redrawn by local synchronization");
 const completed = parse([{ ...row, chore_id: chore.id, assigned_at: chore.created_at, completed: true }], [{ ...chore, completed: true }]);
-assert(completed.tasks[0].completed, "completed random tasks must retain completion in the shared section");
-console.log("Random task scoping, deadline, and chore integration tests passed");
+assert(completed.tasks[0].completed, "completed random-task records must remain available for normal chore history");
+const newerOpen = { ...open, id: "newer-open", createdAt: new Date(now + 1000).toISOString() };
+const randomAssignment = { ...assigned.tasks[0], id: "random-assignment", mode: "random" as const, assignmentKind: "random" as const };
+const records = [assigned.tasks[0], open, completed.tasks[0], randomAssignment, newerOpen];
+const originalOrder = records.map(task => task.id).join(",");
+const board = unclaimedRandomTasks(records);
+assert(board.map(task => task.id).join(",") === "newer-open,task", "only unassigned, unfinished tasks belong at the top of Group, newest first");
+assert(records.map(task => task.id).join(",") === originalOrder, "hiding board cards cannot reorder or delete saved task records");
+assert(unclaimedRandomTasks([{ ...open, completed: true }]).length === 0, "a completed snapshot must disappear even when assignment metadata is missing");
+assert(unclaimedRandomTasks([assigned.tasks[0]]).length === 0, "claimed tasks leave the board before completion");
+assert(unclaimedRandomTasks([randomAssignment]).length === 0, "randomly assigned tasks continue in regular chores instead of the claim board");
+assert(completed.chores.length === 1, "hiding completed cards must preserve their linked chore and history");
+console.log("Random task scoping, deadlines, chore integration and unclaimed-only Group board tests passed");

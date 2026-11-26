@@ -29,19 +29,19 @@ export default function SweetSetupRoute() {
       resumeExistingHousehold={resumeExistingHousehold}
       additionalHousehold={additionalHousehold}
       initialMode={initialMode}
-      onCancel={() => router.replace("/settings" as never)}
+      onCancel={() => router.dismissTo("/settings" as never)}
       onComplete={(destination) => {
         if (destination === "essentials") {
           router.replace("/planning?type=home-checklist" as never);
         } else if (destination === "chore-chart") {
           router.replace("/planning?type=chore-chart" as never);
         } else if (destination === "app") {
-          router.replace("/(tabs)" as never);
+          router.dismissTo("/(tabs)" as never);
         } else {
           initialMode === "create"
-            ? router.replace("/(tabs)" as never)
+            ? router.dismissTo("/(tabs)" as never)
             : additionalHousehold
-            ? router.replace("/settings" as never)
+            ? router.dismissTo("/settings" as never)
             : router.back();
         }
       }}

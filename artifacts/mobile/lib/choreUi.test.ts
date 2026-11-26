@@ -61,11 +61,11 @@ assert(
 
 assert(
   actionMenu.includes("runAfterDismiss?: boolean") &&
-    actionMenu.includes("setTimeout(afterDismiss, 0)") &&
+    actionMenu.includes("onDismiss={modalDismissal.onDismiss}") &&
     home.includes("runAfterDismiss: true") &&
-    home.includes("runAfterDismiss: calendarDestination == null") &&
+    !home.includes("runAfterDismiss: calendarDestination == null") &&
     group.includes("runAfterDismiss: true") &&
-    group.includes("runAfterDismiss: calendarDestination == null"),
+    !group.includes("runAfterDismiss: calendarDestination == null"),
   "chore actions that present editors, alerts, or pickers must run after the shared menu dismisses",
 );
 assert(
@@ -107,7 +107,7 @@ assert(
     home.includes("borderColor: colors.border") &&
     home.includes("overdue ? colors.primary + \"16\" : colors.muted") &&
     home.includes("<CompletionText") && home.includes("completed={chore.completed}") &&
-    group.includes('return `Overdue · originally due ${d.toLocaleDateString("en-US", {') &&
+    group.includes("const formatDueDate = choreDueLabel;") &&
     group.includes("state={chore.completed ? \"checked\" : overdue ? \"overdue\" : \"idle\"}") &&
     borrowing.includes("backgroundColor: colors.primary + \"12\"") &&
     borrowing.includes("borderColor: colors.border") &&
@@ -122,14 +122,13 @@ assert(
 );
 assert(
   home.includes('const selectedTint = colors.primary + "22"') &&
-    group.includes("slotVisualFor(row.category, colors.primary)") &&
     planning.includes("backgroundColor: colors.action") &&
     !group.includes("#72503A") &&
     !planning.includes("#72503A") &&
     planning.includes("errorColor={colors.destructive}") &&
     nudgeToast.includes("{ color: colors.destructive }") &&
     rootLayout.includes("launching ? BRAND_BASE_DARK : colors.background"),
-  "selected filters, chore decorations, errors, and the mounted root must follow the active theme",
+  "selected filters, errors, and the mounted root must follow the active theme",
 );
 
 assert(
@@ -141,8 +140,8 @@ assert(
   "My Home and Group must retain icon-only archive filters with accessible counts",
 );
 assert(
-  home.includes("{chore.points} pts") && home.includes("pointsEnabled ?"),
-  "My Home must replace the leading category visual with chore points when enabled",
+  home.includes("{chore.points} pts") && home.includes("{pointsEnabled && ("),
+  "My Home must preserve the optional points badge when enabled",
 );
 assert(
   !home.includes("Done!") && !group.includes("Done!"),
@@ -180,12 +179,13 @@ assert(
   "borrowing actions must remain accessible without nesting the return control in the long-press target",
 );
 assert(
-  home.includes("style={styles.categoryVisual}") &&
+  !home.includes("styles.categoryVisual") &&
     home.includes(
       "style={[styles.pointsVisual, { backgroundColor: colors.secondary }]}",
     ) &&
-    !home.includes("styles.categoryIcon"),
-  "My Chores must keep category icons unboxed and render points in their compact badge",
+    !home.includes("styles.categoryIcon") && !home.includes("name={dueIcon}") &&
+    !group.includes("styles.slotIconWrap"),
+  "task rows must omit decorative category/date icons and preserve the optional points badge",
 );
 const sectionDivider = readFileSync(resolve(process.cwd(), "components/SectionDivider.tsx"), "utf8");
 assert(
@@ -196,8 +196,8 @@ assert(
   "My Sweet section headings must use accessible divider controls",
 );
 assert(
-  home.includes('title="Calendar"') &&
-    home.includes('{(focusDismissed || expandedHomeSections.schedule) && <View') && home.includes('const calendarContent = (') &&
+  home.includes('<HomeCalendarSection') && home.includes('dismissed={focusDismissed}') &&
+    home.includes('expanded={expandedHomeSections.schedule}') && home.includes('const calendarContent = (') &&
     !home.includes('!listView && expandedHomeSections.schedule'),
   "calendar must remain available in saved list view as well as dashboard view",
 );
@@ -370,7 +370,7 @@ function findDismissCallback(node: ts.Node) {
 findDismissCallback(homeSyntax);
 assert(Boolean(dismissCallback), "the caught-up summary must expose its actual dismissal callback");
 const dismissCode = ts.transpileModule(`exports.dismiss = ${dismissCallback!.getText(homeSyntax)};`, {
-  compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS },
+  compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS, esModuleInterop: false },
 }).outputText;
 for (const reducedMotion of [false, true]) {
   for (const finished of [false, true, undefined]) {
@@ -379,24 +379,19 @@ for (const reducedMotion of [false, true]) {
     const exports: any = {};
     runInNewContext(dismissCode, {
       exports, allDone: true, dismissingRef: { current: false }, dismissTimeout: { current: null }, reduceMotion: reducedMotion,
-      setTimeout: (callback: () => void, delay: number) => { assert(delay === 450, "dismissal fallback must follow the exit motion"); timers.set(1, callback); return 1; },
+      setTimeout: (callback: () => void) => { timers.set(1, callback); return 1; },
       clearTimeout: (id: number) => timers.delete(id),
       setDismissing: () => {}, tapLight: () => { haptics++; },
       onDismiss: () => { commits++; }, jiggle: {}, visibility: {},
       Animated: { timing: () => ({}), sequence: () => ({ start: (callback: typeof animationEnd) => { animationEnd = callback; } }) },
     });
     exports.dismiss();
+    assert(commits === 1, "the X must commit the attached calendar immediately, before native animation callbacks or fallback timers");
     exports.dismiss();
-    if (!reducedMotion) {
-      if (finished === undefined) {
-        assert(commits === 0 && timers.size === 1, "a missing native completion must leave a pending fallback");
-        timers.get(1)?.();
-        animationEnd?.({ finished: true });
-      } else animationEnd?.({ finished });
-    }
-    assert(timers.size === 0, "completed dismissal must clear its fallback timer");
+    if (finished !== undefined) animationEnd?.({ finished });
+    for (const timer of timers.values()) timer();
     assert(commits === 1 && haptics === 1,
-      `summary dismissal must commit once even with native finished=${finished} and reduced motion=${reducedMotion}`);
+      `repeated X presses and late native callbacks cannot duplicate dismissal; finished=${finished}, reduced motion=${reducedMotion}`);
   }
 }
-console.log("Caught-up dismissal passes completed, interrupted and missing native callbacks, reduced motion and repeated taps.");
+console.log("Caught-up dismissal commits before native animations, including missing/interrupted callbacks, reduced motion and repeated taps.");

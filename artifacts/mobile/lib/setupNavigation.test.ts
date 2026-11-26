@@ -1,0 +1,26 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { runInNewContext } from "node:vm";
+import ts from "typescript";
+const code = ts.transpileModule(readFileSync("app/sweet-setup.tsx", "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, esModuleInterop: false, jsx: ts.JsxEmit.ReactJSX } }).outputText;
+const routes: Array<[string, string?]> = [];
+const params: Record<string, string> = { mode: "join", additional: "1" };
+const exports: any = {};
+const jsx = (type: any, props: any) => ({ type, props });
+runInNewContext(code, { exports, require: (name: string) => {
+  if (name === "react") return { useEffect() {} };
+  if (name === "react/jsx-runtime") return { jsx, jsxs: jsx };
+  if (name === "react-native") return {};
+  if (name === "@/components/HouseholdSetupScreen") return { HouseholdSetupScreen: "Setup" };
+  if (name === "@/lib/householdSetupRecovery") return {};
+  if (name === "@/context/AppContext") return { useAppContext: () => ({ memberships: [], householdId: "home" }) };
+  if (name === "expo-router") return { useLocalSearchParams: () => params, router: { replace: (path: string) => routes.push(["replace", path]), dismissTo: (path: string) => routes.push(["dismissTo", path]), back: () => routes.push(["back"]) } };
+  throw Error(name);
+} });
+let setup = exports.default();
+setup.props.onCancel(); assert.deepEqual(routes.pop(), ["dismissTo", "/settings"], "Cancel returns to the existing Settings route instead of creating a duplicate");
+setup.props.onComplete(); assert.deepEqual(routes.pop(), ["dismissTo", "/settings"], "Joining an additional household returns to the existing Settings page");
+setup.props.onComplete("app"); assert.deepEqual(routes.pop(), ["dismissTo", "/(tabs)"], "Skip returns to the existing app tabs");
+params.mode = "create"; setup = exports.default(); setup.props.onComplete(); assert.deepEqual(routes.pop(), ["dismissTo", "/(tabs)"]);
+setup.props.onComplete("chore-chart"); assert.deepEqual(routes.pop(), ["replace", "/planning?type=chore-chart"]);
+console.log("Household setup cancel/complete/skip navigation avoids duplicate Settings and tabs");

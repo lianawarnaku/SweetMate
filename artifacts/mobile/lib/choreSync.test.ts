@@ -1,6 +1,6 @@
 import type { Chore } from "../context/AppContext.ts";
 import { choreToRow } from "./choreRow.ts";
-import { applyChoreRowEvent, choreParity, planChoreSync } from "./choreSync.ts";
+import { applyChoreRowEvent, choreParity, mergeChoreSnapshot, planChoreSync } from "./choreSync.ts";
 
 function assert(condition: boolean, message: string) {
   if (!condition) throw new Error(message);
@@ -81,3 +81,14 @@ const older = { ...sameInstantEdit, updated_at: "2026-08-26T12:00:00Z", title: "
 assert(applyChoreRowEvent(firstDevice, "UPDATE", older) === firstDevice, "older events must retain the newer local snapshot");
 assert(applyChoreRowEvent(firstDevice, "DELETE", { ...databaseRow, id: "already-gone" }) === firstDevice, "replayed deletes must not trigger another save");
 console.log("Chore database round-trip and two-device sync feedback regression tests passed");
+
+// Chart applied on another device; recover missed rows while keeping local work.
+const pendingEdit = { ...base, title: "Edited while loading", updatedAt: "2026-08-27T14:00:00.000Z" };
+const freshChart = { ...base, id: "new-chart-anchor", title: "New chart task" };
+const baseline = new Map([base, unrelated].map(chore => [chore.id, choreToRow(chore)!]));
+const recovered = mergeChoreSnapshot([pendingEdit], baseline, [baseRow, choreToRow(unrelated)!, choreToRow(freshChart)!]);
+assert(recovered.some(chore => chore.id === freshChart.id), "an already-applied chart must recover its missed chore rows");
+assert(recovered.find(chore => chore.id === base.id)?.title === pendingEdit.title, "refresh must preserve edits made during a read");
+assert(!recovered.some(chore => chore.id === unrelated.id), "refresh must preserve a pending local deletion");
+assert(mergeChoreSnapshot([base], new Map([[base.id, baseRow]]), [choreToRow(freshChart)!]).length === 1, "retired chart rows must leave the local snapshot");
+console.log("Missed chart event recovery preserves local edits, deletions and retired rows");

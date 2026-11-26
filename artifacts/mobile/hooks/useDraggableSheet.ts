@@ -1,3 +1,4 @@
+import { useModalDismissal } from "@/hooks/useModalDismissal";
 import { useEffect, useMemo, useRef } from "react";
 import { Animated, Dimensions, PanResponder } from "react-native";
 
@@ -8,9 +9,11 @@ const DISMISS_OFFSET = SCREEN_HEIGHT * 0.7;
 /** Adds expanded, partial, and dismissed snap behavior to a vertical sheet. */
 export function useDraggableSheet(
   translateY: Animated.Value,
-  onDismiss: () => void
+  onDismiss: () => void,
+  visible = true,
 ) {
   const dismissRef = useRef(onDismiss);
+  const modalDismissal = useModalDismissal(visible, () => dismissRef.current());
   const dragStartRef = useRef(0);
 
   useEffect(() => {
@@ -23,6 +26,7 @@ export function useDraggableSheet(
         onMoveShouldSetPanResponder: (_, gesture) =>
           Math.abs(gesture.dy) > 6 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
         onPanResponderGrant: () => {
+          modalDismissal.cancel();
           translateY.stopAnimation((value) => {
             dragStartRef.current = value;
           });
@@ -38,11 +42,9 @@ export function useDraggableSheet(
           const projected =
             dragStartRef.current + gesture.dy + gesture.vy * 110;
           if (projected >= DISMISS_OFFSET) {
-            Animated.timing(translateY, {
-              toValue: SCREEN_HEIGHT,
-              duration: 220,
-              useNativeDriver: true,
-            }).start(({ finished }) => finished && dismissRef.current());
+            modalDismissal.dismiss(Animated.timing(translateY, {
+              toValue: SCREEN_HEIGHT, duration: 220, useNativeDriver: true,
+            }), 220);
             return;
           }
 
@@ -65,6 +67,6 @@ export function useDraggableSheet(
           }).start();
         },
       }).panHandlers,
-    [translateY]
+    [translateY, modalDismissal.dismiss, modalDismissal.cancel]
   );
 }

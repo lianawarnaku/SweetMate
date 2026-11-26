@@ -6,6 +6,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { colorSchemes, resolveThemeTokens, type ColorScheme, useTheme } from "@/constants/colors";
 import { LEADERBOARD_ENABLED } from "@/constants/featureAvailability";
 import { useAppContext } from "@/context/AppContext";
+import { availableAppTabs } from "@/lib/tabVisibility";
 import { SmoothPressable } from "@/components/SmoothPressable";
 
 const SCHEME_LABELS: Record<ColorScheme, string> = {
@@ -24,6 +25,8 @@ export function UserPreferencesPanel() {
     setPointsEnabled,
     plantEnabled,
     setPlantEnabled,
+    hiddenTabs,
+    setTabHidden,
     roommateActivityEnabled,
     setRoommateActivityEnabled,
   } = useAppContext();
@@ -97,6 +100,23 @@ export function UserPreferencesPanel() {
           onValueChange={setPlantEnabled}
         />
       </View>
+      {availableAppTabs(pointsEnabled).filter((tab) => hiddenTabs.includes(tab.id)).map((tab) => (
+        <SmoothPressable
+          key={tab.id}
+          accessibilityRole="checkbox"
+          accessibilityLabel={`${tab.label} hidden`}
+          accessibilityState={{ checked: true }}
+          aria-checked={true}
+          accessibilityHint={`Uncheck to restore the ${tab.label} tab`}
+          onPress={() => setTabHidden(tab.id, false)}
+          style={[styles.preferenceRow, { borderTopColor: colors.border }]}
+        >
+          <Text style={[styles.preferenceLabel, { color: colors.foreground }]}>
+            {tab.label} hidden
+          </Text>
+          <Feather name="check-square" size={23} color={colors.foreground} />
+        </SmoothPressable>
+      ))}
     </View>
   );
 }

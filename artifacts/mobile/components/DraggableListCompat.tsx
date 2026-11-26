@@ -1,8 +1,12 @@
-import React from "react";
+import React, { useRef, useState } from "react";
+import { GlassButton } from "@/components/GlassButton";
+import { useTheme } from "@/constants/colors";
 import {
   type FlatListProps,
   Platform,
   ScrollView,
+  Text,
+  View,
   type ScrollViewProps,
 } from "react-native";
 import {
@@ -34,24 +38,68 @@ export function DraggableListCompat<T>({
   itemLayoutAnimation,
   ...props
 }: DraggableListCompatProps<T>) {
+  const colors = useTheme();
+  const [movingIndex, setMovingIndex] = useState<number | null>(null);
+  const dragFrom = useRef<number | null>(null);
   if (Platform.OS === "web") {
-    return (
-      <Animated.FlatList
-        {...props}
-        itemLayoutAnimation={itemLayoutAnimation}
-        data={data}
-        keyExtractor={keyExtractor}
-        scrollEnabled={false}
-        renderItem={({ item, index }) =>
-          renderItem({
-            item,
-            drag: () => undefined,
-            isActive: false,
-            getIndex: () => index,
-          })
-        }
-      />
-    );
+    const labelFor = (item: T, index: number) => {
+      const value = item as Record<string, unknown> | null;
+      return typeof value?.name === "string" ? value.name : typeof value?.title === "string" ? value.title : `item ${index + 1}`;
+    };
+    const move = (from: number, to: number, started = false) => {
+      if (from < 0 || to < 0 || from >= data.length || to >= data.length) return;
+      if (!started) onDragBegin?.(from);
+      const reordered = [...data];
+      const [item] = reordered.splice(from, 1);
+      reordered.splice(to, 0, item);
+      setMovingIndex(null);
+      onDragEnd?.({ data: reordered, from, to });
+    };
+    return <Animated.FlatList
+      {...props}
+      itemLayoutAnimation={itemLayoutAnimation}
+      data={data}
+      keyExtractor={keyExtractor}
+      scrollEnabled={false}
+      renderItem={({ item, index }) => <div
+        draggable
+        onDragStart={(event) => {
+          event.stopPropagation();
+          dragFrom.current = index;
+          onDragBegin?.(index);
+          event.dataTransfer.effectAllowed = "move";
+          event.dataTransfer.setData("text/plain", keyExtractor(item, index));
+        }}
+        onDragOver={(event) => { if (dragFrom.current !== null) { event.preventDefault(); event.stopPropagation(); } }}
+        onDrop={(event) => {
+          if (dragFrom.current === null) return;
+          event.preventDefault(); event.stopPropagation();
+          const from = dragFrom.current;
+          dragFrom.current = null;
+          move(from, index, true);
+        }}
+        onDragEnd={(event) => {
+          event.stopPropagation();
+          if (dragFrom.current !== null) {
+            const from = dragFrom.current;
+            dragFrom.current = null;
+            onDragEnd?.({ data: [...data], from, to: from });
+          }
+        }}
+        style={{ display: "flex", flexDirection: "column" }}
+      >
+        {renderItem({ item, drag: () => setMovingIndex(index), isActive: false, getIndex: () => index })}
+        {movingIndex === index && <View style={{ flexDirection: "row", gap: 8, paddingVertical: 8 }}>
+          <GlassButton tone="neutral" disabled={index === 0} accessibilityLabel={`Move ${labelFor(item, index)} up`} onPress={() => move(index, index - 1)} style={{ flex: 1 }}>
+            <Text style={{ color: colors.foreground }}>Move up</Text>
+          </GlassButton>
+          <GlassButton tone="neutral" disabled={index === data.length - 1} accessibilityLabel={`Move ${labelFor(item, index)} down`} onPress={() => move(index, index + 1)} style={{ flex: 1 }}>
+            <Text style={{ color: colors.foreground }}>Move down</Text>
+          </GlassButton>
+          <GlassButton tone="neutral" accessibilityLabel="Done reordering" onPress={() => setMovingIndex(null)}><Text style={{ color: colors.foreground }}>Done</Text></GlassButton>
+        </View>}
+      </div>}
+    />;
   }
 
   return (

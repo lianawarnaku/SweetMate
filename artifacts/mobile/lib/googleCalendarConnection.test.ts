@@ -87,7 +87,7 @@ async function fixture(flow: string) {
     "./oauthCallback": { authCallbackValue: readCallback },
     "./calendarTransport": { calendarFetch: async (path: string, init: any) => { posts.push({ path, init }); return { ok: flow !== "server-error", json: async () => ({ error: "server-error" }) }; } },
   };
-  const js = ts.transpileModule(connection, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
+  const js = ts.transpileModule(connection, { compilerOptions: { module: ts.ModuleKind.CommonJS, esModuleInterop: false, target: ts.ScriptTarget.ES2022 } }).outputText;
   runInNewContext(js, { exports, require: (name: string) => { strict(name in imports); return imports[name]; } });
   let error: any;
   try { await exports.connectGoogleCalendar(); } catch (cause) { error = cause; }
@@ -111,14 +111,14 @@ console.log("Google Calendar native OAuth runtime tests passed");
 // The existing endpoint turns this date into start.date/end.date (all-day).
 const exportPosts: any[] = [];
 const exportModule: any = {};
-const exportJs = ts.transpileModule(externalTasks, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
+const exportJs = ts.transpileModule(externalTasks, { compilerOptions: { module: ts.ModuleKind.CommonJS, esModuleInterop: false, target: ts.ScriptTarget.ES2022 } }).outputText;
 const exportImports: Record<string, any> = {
   "./calendarTransport": { calendarFetch: async (path: string, init: any) => {
     exportPosts.push({ path, body: JSON.parse(init.body) });
     return { ok: true, json: async () => ({ success: true, alreadyAdded: false }) };
   } },
   "@react-native-async-storage/async-storage": {},
-  "expo-calendar": {}, "react-native": {}, "./supabase": {},
+  "expo-calendar/legacy": {}, "react-native": {}, "./supabase": {},
 };
 runInNewContext(exportJs, { exports: exportModule, require: (name: string) => { strict(name in exportImports); return exportImports[name]; } });
 await exportModule.addChoreToGoogleCalendar({ id: "new", title: "Dishes", dueDate: "2026-11-13T04:59:00.000Z", scheduledDate: "2026-11-12" });

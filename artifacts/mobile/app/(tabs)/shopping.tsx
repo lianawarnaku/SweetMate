@@ -51,7 +51,7 @@ function normalizeAssignees(item: ShoppingItem): string[] {
   return [];
 }
 import { useTheme } from "@/constants/colors";
-import { tapLight } from "@/lib/haptics";
+import { success as hapticSuccess, tapLight } from "@/lib/haptics";
 import { localDateKey } from "@/lib/calendarItems";
 import { buildEvenSplitCents, centsToDollars } from "@/lib/money";
 import {
@@ -539,12 +539,13 @@ export default function ShoppingScreen() {
                     accessibilityHint="Tap to expand or collapse. Use the more actions button for list options."
                   >
                     <TouchableOpacity
+                      onPress={Platform.OS === "web" ? (event) => { event.stopPropagation(); drag(); } : undefined}
                       onLongPress={drag}
                       delayLongPress={220}
                       disabled={isActive}
                       accessibilityRole="button"
                       accessibilityLabel={`Reorder ${list.name}`}
-                      accessibilityHint="Press and hold, then drag to reorder this list"
+                      accessibilityHint={Platform.OS === "web" ? "Tap for move controls, or drag to reorder this list" : "Press and hold, then drag to reorder this list"}
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                       style={styles.dragHandle}
                     >
@@ -642,12 +643,13 @@ export default function ShoppingScreen() {
                               <CompletionMotion completed={item.completed}>
                               <TouchableOpacity
                                 activeOpacity={1}
+                                onPress={() => openItemActions(item.id)}
                                 onLongPress={() => openItemActions(item.id)}
                                 delayLongPress={450}
                                 disabled={isActive}
                                 accessibilityRole="button"
                                 accessibilityLabel={item.name}
-                                accessibilityHint="Press and hold for Shopping item actions"
+                                accessibilityHint="Tap for Shopping item actions"
                                 style={[
                                   styles.shopItem,
                                   {
@@ -658,6 +660,7 @@ export default function ShoppingScreen() {
                                 ]}
                               >
                                 <TouchableOpacity
+                                  onPress={Platform.OS === "web" ? (event) => { event.stopPropagation(); drag(); } : undefined}
                                   onLongPress={drag}
                                   delayLongPress={220}
                                   disabled={isActive}
@@ -669,7 +672,8 @@ export default function ShoppingScreen() {
                                 </TouchableOpacity>
                                 <TouchableOpacity
                                   style={styles.shopCheck}
-                                  onPress={() => {
+                                  onPress={(event) => {
+                                    event.stopPropagation();
                                     if (item.completed) {
                                       cancelCompletion(item.id);
                                     } else {
@@ -677,7 +681,8 @@ export default function ShoppingScreen() {
                                       holdCompletion(item.id);
                                     }
                                     toggleShoppingItem(item.id);
-                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                    if (item.completed) tapLight();
+                                    else hapticSuccess();
                                   }}
                                   accessibilityRole="checkbox"
                                   accessibilityState={{ checked: item.completed }}
@@ -708,7 +713,7 @@ export default function ShoppingScreen() {
                                 </View>
 
                                 <TouchableOpacity
-                                  onPress={() => deleteShoppingItem(item.id)}
+                                  onPress={(event) => { event.stopPropagation(); deleteShoppingItem(item.id); }}
                                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                                   accessibilityRole="button"
                                   accessibilityLabel={`Delete ${item.name}`}
@@ -777,6 +782,7 @@ export default function ShoppingScreen() {
                   icon: "dollar-sign",
                   badge: "$$$",
                   accentColor: colors.success,
+                  runAfterDismiss: true,
                   onPress: () => createListExpenseDraft(actionList.id),
                 },
                 {
@@ -825,6 +831,7 @@ export default function ShoppingScreen() {
                       : "Create item expense",
                     icon: "dollar-sign",
                     accentColor: colors.success,
+                    runAfterDismiss: true,
                     onPress: () => createItemExpenseDraft(actionItem.id),
                   },
                 ]

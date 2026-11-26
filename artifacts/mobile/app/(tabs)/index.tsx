@@ -1,3 +1,5 @@
+import { choreDueLabel } from "@/lib/choreDueLabel";
+import { useModalDismissal } from "@/hooks/useModalDismissal";
 import { formatShoppingTime } from "@/lib/shoppingSchedule";
 import { UpcomingChores } from "@/components/UpcomingChores";
 import { upcomingHouseholdChores } from "@/lib/upcomingChores";
@@ -6,12 +8,14 @@ import { GoogleScheduleControls } from "@/components/GoogleScheduleControls";
 import { scheduleDateKey, scheduleItemsForDay } from "@/lib/personalSchedule";
 import { useFloatingWeekCalendar } from "@/hooks/useFloatingWeekCalendar";
 import { useHomeSummaryDismissal } from "@/hooks/useHomeSummaryDismissal";
+import { HomeCalendarBody, HomeCalendarSection } from "@/components/HomeCalendarPresentation";
 import { householdDateKey } from "@/lib/choreTimezone";
 import { isPointsVisible } from "@/constants/featureAvailability";
 import { GlassFilterGroup } from "@/components/GlassFilterGroup";
 import { ChoreFilterButton } from "@/components/ChoreFilterButton";
 import { CompletionUndoMenu } from "@/components/CompletionUndoMenu";
 import { CompletionMotion, CompletionText } from "@/components/CompletionMotion";
+import { MyDayRow, myDayRowStyles } from "@/components/MyDayRow";
 import { useCompletionFeedback } from "@/hooks/useCompletionFeedback";
 import { useHomeSections, type HomeSectionId } from "@/hooks/useHomeSections";
 import { SectionDivider as CollapsibleSectionHeader } from "@/components/SectionDivider";
@@ -40,7 +44,7 @@ import {
 const SCREEN_HEIGHT = Dimensions.get("window").height;
 const SCREEN_WIDTH = Dimensions.get("window").width;
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Reanimated, { Easing as ReanimatedEasing, LinearTransition } from "react-native-reanimated";
+import Reanimated, { Easing as ReanimatedEasing, FadeIn, Keyframe, LinearTransition, ReduceMotion } from "react-native-reanimated";
 import { GestureDetector } from "react-native-gesture-handler";
 
 import { EmptyState } from "@/components/EmptyState";
@@ -103,6 +107,18 @@ const HOME_COMPLETION_LAYOUT = LinearTransition.duration(240).easing(
   ReanimatedEasing.out(ReanimatedEasing.cubic),
 );
 
+// Exit motion is visual only: the X commits the calendar layout first, even
+// if iOS interrupts or never reports the animation's completion.
+const SUMMARY_DISMISS_EXIT = new Keyframe({
+  0: { opacity: 1, transform: [{ rotate: "0deg" }] },
+  14: { transform: [{ rotate: "-1deg" }] },
+  34: { transform: [{ rotate: "1deg" }] },
+  50: { transform: [{ rotate: "-0.5deg" }] },
+  64: { opacity: 1, transform: [{ rotate: "0deg" }] },
+  100: { opacity: 0, transform: [{ rotate: "0deg" }] },
+}).duration(330).reduceMotion(ReduceMotion.System);
+const ATTACHED_CALENDAR_ENTER = FadeIn.delay(210).duration(120).reduceMotion(ReduceMotion.System);
+
 const CATEGORIES: { key: ChoreCategory; label: string; icon: keyof typeof Feather.glyphMap }[] = [
   { key: "cleaning", label: "Cleaning", icon: "wind" },
   { key: "kitchen", label: "Kitchen", icon: "coffee" },
@@ -139,43 +155,12 @@ function TodayFocusCard({
   const allDone = remainingCount === 0;
   const dismissingRef = useRef(false);
   const [dismissing, setDismissing] = useState(false);
-  const jiggle = useRef(new Animated.Value(0)).current;
-  const visibility = useRef(new Animated.Value(1)).current;
-  const dismissTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => () => {
-    if (dismissTimeout.current !== null) clearTimeout(dismissTimeout.current);
-    jiggle.stopAnimation();
-    visibility.stopAnimation();
-  }, [jiggle, visibility]);
-
   const dismiss = () => {
     if (!allDone || dismissingRef.current) return;
     dismissingRef.current = true;
     setDismissing(true);
+    onDismiss();
     tapLight();
-    let committed = false;
-    const complete = () => {
-      if (committed) return;
-      committed = true;
-      if (dismissTimeout.current !== null) clearTimeout(dismissTimeout.current);
-      dismissTimeout.current = null;
-      onDismiss();
-    };
-    if (reduceMotion) {
-      complete();
-      return;
-    }
-    // Some native sequences fade the card but never deliver their completion.
-    // The layout change must still happen, exactly once, after the exit motion.
-    dismissTimeout.current = setTimeout(complete, 450);
-    Animated.sequence([
-      Animated.timing(jiggle, { toValue: -1, duration: 45, useNativeDriver: true }),
-      Animated.timing(jiggle, { toValue: 1, duration: 65, useNativeDriver: true }),
-      Animated.timing(jiggle, { toValue: -0.5, duration: 55, useNativeDriver: true }),
-      Animated.timing(jiggle, { toValue: 0, duration: 45, useNativeDriver: true }),
-      Animated.timing(visibility, { toValue: 0, duration: 120, useNativeDriver: true }),
-    ]).start(complete);
   };
 
   useEffect(() => {
@@ -191,10 +176,7 @@ function TodayFocusCard({
   }, [progress, progressAnimation, reduceMotion]);
 
   return (
-    <Animated.View style={{
-      opacity: visibility,
-      transform: [{ rotate: jiggle.interpolate({ inputRange: [-1, 1], outputRange: ["-1deg", "1deg"] }) }],
-    }}>
+    <Reanimated.View exiting={reduceMotion ? undefined : SUMMARY_DISMISS_EXIT}>
       <Surface level="elevated" style={[styles.todayFocusCard, { borderColor: colors.border }]}>
         {allDone && <TouchableOpacity
           accessibilityRole="button"
@@ -284,7 +266,7 @@ function TodayFocusCard({
           </View>
         )}
       </Surface>
-    </Animated.View>
+    </Reanimated.View>
   );
 }
 
@@ -314,21 +296,7 @@ function isOverdue(dateStr: string, completed: boolean) {
   return isBeforeLocalCalendarDay(dateStr);
 }
 
-function formatDueDate(dateStr: string) {
-  const d = new Date(dateStr);
-  const now = new Date();
-  const diff = Math.round((d.getTime() - now.getTime()) / 86400000);
-  if (choreLocalDateKey(d) < choreLocalDateKey(now)) {
-    return `Overdue · originally due ${d.toLocaleDateString("en-US", {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-    })}`;
-  }
-  if (isToday(dateStr)) return "Today";
-  if (diff === 1) return "Tomorrow";
-  return `${diff}d left`;
-}
+const formatDueDate = choreDueLabel;
 
 interface ChoreRowProps {
   chore: {
@@ -356,12 +324,9 @@ function ChoreRow({
   const pointsEnabled = useAppContextSelector(
     (context) => isPointsVisible(context.pointsEnabled),
   );
-  const cat = CATEGORIES.find((c) => c.key === chore.category) ?? CATEGORIES[5];
   const overdue = isOverdue(chore.dueDate, chore.completed);
   const handleCheckPress = () => {
     onSetCompleted(chore.id, !chore.completed);
-    if (chore.completed) tapLight();
-    else hapticSuccess();
   };
 
   const dueDateColor = chore.completed
@@ -371,30 +336,10 @@ function ChoreRow({
     : isToday(chore.dueDate)
     ? colors.primary
     : colors.mutedForeground;
-  const dueIcon = chore.completed
-    ? "check-circle"
-    : overdue
-      ? "alert-circle"
-      : isToday(chore.dueDate)
-        ? "clock"
-        : "calendar";
+
 
   return (
-    <CompletionMotion
-      completed={chore.completed}
-      departing={departing}
-      style={{ borderRadius: 12, overflow: "hidden", position: "relative" }}
-    >
-      <Surface
-        level="subtle"
-        style={[
-          styles.choreRow,
-          {
-            borderColor: colors.border,
-            overflow: "hidden",
-          },
-        ]}
-      >
+    <MyDayRow completed={chore.completed} departing={departing}>
       <TouchableOpacity
         style={styles.checkBox}
         onPress={handleCheckPress}
@@ -406,7 +351,7 @@ function ChoreRow({
         <GlassCheckCircle state={chore.completed ? "checked" : overdue ? "overdue" : "idle"} />
       </TouchableOpacity>
 
-      {pointsEnabled ? (
+      {pointsEnabled && (
         <View
           accessible
           accessibilityRole="text"
@@ -414,10 +359,6 @@ function ChoreRow({
           style={[styles.pointsVisual, { backgroundColor: colors.secondary }]}
         >
           <Text style={[styles.leftPointsText, { color: colors.primary }]}>{chore.points} pts</Text>
-        </View>
-      ) : (
-        <View style={styles.categoryVisual}>
-          <Feather name={cat.icon} size={14} color={colors.primary} />
         </View>
       )}
 
@@ -441,7 +382,6 @@ function ChoreRow({
               { backgroundColor: overdue ? colors.primary + "16" : colors.muted },
             ]}
           >
-            <Feather name={dueIcon} size={11} color={dueDateColor} />
             <Text style={[styles.dueDateText, { color: dueDateColor }]} numberOfLines={1}>
             {formatDueDate(chore.dueDate)}
             </Text>
@@ -471,8 +411,7 @@ function ChoreRow({
           <Feather name="more-vertical" size={19} color={colors.mutedForeground} />
         </TouchableOpacity>
       </View>
-      </Surface>
-    </CompletionMotion>
+    </MyDayRow>
   );
 }
 
@@ -540,22 +479,19 @@ export default function MyChoresScreen() {
       }).start();
     }
   }, [showModal, addChoreTranslateY]);
+  const choreDismissal = useModalDismissal(showModal, () => {
+      setShowModal(false);
+      setEditingChoreId(null);
+  });
   const closeAddChore = () => {
-    Animated.timing(addChoreTranslateY, {
-      toValue: SCREEN_HEIGHT,
-      duration: 260,
-      useNativeDriver: true,
-    }).start(({ finished }) => {
-      if (finished) {
-        setShowModal(false);
-        setEditingChoreId(null);
-      }
-    });
+    choreDismissal.dismiss(Animated.timing(addChoreTranslateY, {
+      toValue: SCREEN_HEIGHT, duration: 260, useNativeDriver: true,
+    }), 260);
   };
   const addChoreDragHandlers = useDraggableSheet(addChoreTranslateY, () => {
     setShowModal(false);
     setEditingChoreId(null);
-  });
+  }, showModal);
   const [calendarDestination, setCalendarDestinationState] =
     useState<ExternalTaskDestination | null | undefined>(undefined);
 
@@ -958,10 +894,10 @@ export default function MyChoresScreen() {
   const showPersonalAgenda = personalSchedule.prefs?.enabled === true && (filter === "today" || filter === "day");
   const requestedAgendaDay = useRef<string | null>(null);
   useEffect(() => {
-    if (!showPersonalAgenda || personalSchedule.loading || requestedAgendaDay.current === `${currentUserId}:${agendaDay}`) return;
-    requestedAgendaDay.current = `${currentUserId}:${agendaDay}`;
+    if (!showPersonalAgenda || personalSchedule.loading || requestedAgendaDay.current === `${householdId}:${currentUserId}:${agendaDay}`) return;
+    requestedAgendaDay.current = `${householdId}:${currentUserId}:${agendaDay}`;
     void personalSchedule.sync(agendaDay).catch(() => {});
-  }, [showPersonalAgenda, personalSchedule.loading, personalSchedule.sync, agendaDay, currentUserId]);
+  }, [showPersonalAgenda, personalSchedule.loading, personalSchedule.sync, agendaDay, currentUserId, householdId]);
 
 
   const focusKey = JSON.stringify([householdId, currentUserId, choreLocalDateKey(lifecycleNow)]);
@@ -986,7 +922,6 @@ export default function MyChoresScreen() {
     householdId, userId: currentUserId, day: choreLocalDateKey(lifecycleNow),
   });
   const dismissTodayFocus = () => {
-    if (!reduceMotion) LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setCalendarExpanded(false);
     saveFocusDismissal();
   };
@@ -1018,7 +953,9 @@ export default function MyChoresScreen() {
   const canManageChore = (chore: Chore) => permissionsForChore(chore).canEdit;
   const updateHomeChoreCompletion = (id: string, completed: boolean) => {
     const chore = myChores.find((entry) => entry.id === id);
-    if (!chore || !permissionsForChore(chore).canComplete) return;
+    if (!chore || chore.completed === completed || !permissionsForChore(chore).canComplete) return;
+    if (completed) hapticSuccess();
+    else tapLight();
     if (completed && filter !== "done") {
       choreFeedback.holdCompletion(id);
     } else {
@@ -1072,11 +1009,7 @@ export default function MyChoresScreen() {
   };
 
   const calendarContent = (
-    <Surface
-      level={floatingWeekCalendar ? "elevated" : "card"}
-      style={[styles.calendarCard, { borderColor: colors.border }, floatingWeekCalendar && styles.attachedCalendar,
-        floatingWeekCalendar && { backgroundColor: colors.background }]}
-    >
+    <HomeCalendarBody attached={floatingWeekCalendar}>
       <View style={styles.calendarTopRow}>
         <TouchableOpacity
           style={[styles.calendarNavButton, { backgroundColor: colors.muted }]}
@@ -1229,7 +1162,7 @@ export default function MyChoresScreen() {
             {selectedCalendarItems.slice(0, 5).map((item) => {
                 return (
                   <View key={item.id} style={styles.previewRow}>
-                    <Feather name={item.type === "chore" ? "check-square" : item.type === "expense" ? "dollar-sign" : "shopping-bag"} size={13} color={markerColor(item.type, false)} />
+                    {item.type !== "chore" && <Feather name={item.type === "expense" ? "dollar-sign" : "shopping-bag"} size={13} color={markerColor(item.type, false)} />}
                     <Text style={[styles.previewChore, { color: colors.foreground }]} numberOfLines={1}>{item.title}</Text>
                     <Text style={[styles.previewOwner, { color: colors.mutedForeground }]} numberOfLines={1}>
                       {item.time ? `${formatShoppingTime(item.time)} · ` : ""}{item.type.replace("-", " ")}
@@ -1248,7 +1181,7 @@ export default function MyChoresScreen() {
       <Text style={[styles.selectedDateLabel, { color: colors.foreground }]}>
         {selectedDate.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}
       </Text>
-    </Surface>
+    </HomeCalendarBody>
   );
 
   return (
@@ -1292,7 +1225,7 @@ export default function MyChoresScreen() {
         ]}
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
-          <>
+          <View collapsable={false}>
             {!listView && !focusDismissed && (todayIncompleteChores.length > 0 || caughtUp) && (
               <TodayFocusCard
                 key={`${focusKey}:${todayIncompleteChores.length === 0}`}
@@ -1307,19 +1240,17 @@ export default function MyChoresScreen() {
               />
             )}
 
-            {!focusDismissed && <CollapsibleSectionHeader
-              title="Calendar"
-              count={selectedCalendarItems.length}
-              icon="calendar"
+            <HomeCalendarSection
+              dismissed={focusDismissed}
               expanded={expandedHomeSections.schedule}
+              count={selectedCalendarItems.length}
               onToggle={() => toggleHomeSection("schedule")}
-            />}
-
-            {(focusDismissed || expandedHomeSections.schedule) && <View onLayout={(event) => {
-              if (!floatingWeekCalendar && !calendarExpanded) floatingCalendar.onCalendarLayout(event);
-            }}>
+              onLayout={(event) => {
+                if (!floatingWeekCalendar && !calendarExpanded) floatingCalendar.onCalendarLayout(event);
+              }}
+            >
               {floatingWeekCalendar ? <Reanimated.View pointerEvents="none" style={floatingCalendar.spacerStyle} /> : calendarContent}
-            </View>}
+            </HomeCalendarSection>
 
             <GoogleScheduleControls key={`google-schedule:${householdId}:${currentUserId}`} placement="home" schedule={personalSchedule} householdId={householdId} day={agendaDay} />
 
@@ -1384,7 +1315,7 @@ export default function MyChoresScreen() {
                 <Text style={[styles.earlierChoresAction, { color: colors.primary }]}>Show all</Text>
               </TouchableOpacity>
             ) : null}
-          </>
+          </View>
         }
         ListEmptyComponent={expandedHomeSections["my-chores"] && !showPersonalAgenda ? (
           <EmptyState
@@ -1423,6 +1354,7 @@ export default function MyChoresScreen() {
         ListFooterComponent={
           <>
             {expandedHomeSections["my-chores"] && filter === "today" && <UpcomingChores
+              key={`upcoming:${householdId}:${currentUserId}`}
               chores={upcomingPersonalChores} roommates={roommates} timezone={householdTimezone} showAssignee={false}
             />}
             {showPersonalShopping ? <>
@@ -1504,6 +1436,9 @@ export default function MyChoresScreen() {
 
       {floatingWeekCalendar && <View pointerEvents="box-none" style={[styles.floatingCalendarClip, { top: homeHeaderHeight }]}>
         <Reanimated.View
+          testID="home-attached-week-calendar"
+          collapsable={false}
+          entering={reduceMotion ? undefined : ATTACHED_CALENDAR_ENTER}
           onLayout={floatingCalendar.onCalendarLayout}
           pointerEvents={floatingCalendar.hidden ? "none" : "auto"}
           accessibilityElementsHidden={floatingCalendar.hidden}
@@ -1564,7 +1499,7 @@ export default function MyChoresScreen() {
             label: `Add to ${calendarDestinationLabel}`,
             icon: "calendar" as const,
             successMessage: "Added to Google Calendar",
-            runAfterDismiss: calendarDestination == null,
+            runAfterDismiss: true,
             onPress: () => {
               return addChoreToCalendar(actionChore.id);
             },
@@ -1633,7 +1568,7 @@ export default function MyChoresScreen() {
               onPress={closeAddChore}
               style={[styles.addChoreCloseBtn, { backgroundColor: colors.muted }]}
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-            >
+             accessibilityRole="button" accessibilityLabel="Close chore editor">
               <Feather name="x" size={22} color={colors.foreground} />
             </TouchableOpacity>
           </View>
@@ -1773,15 +1708,8 @@ const styles = StyleSheet.create({
   },
   todayQuietState: { paddingTop: spacing.lg },
   todayQuietCopy: { ...typography.caption, textAlign: "center" },
-  floatingCalendarClip: { ...StyleSheet.absoluteFillObject, overflow: "hidden", zIndex: 20 },
+  floatingCalendarClip: { ...StyleSheet.absoluteFill, overflow: "hidden", zIndex: 20 },
   floatingCalendarOverhang: { position: "absolute", top: 0, left: 0, right: 0 },
-  attachedCalendar: { borderRadius: 0, borderWidth: 0, marginBottom: 0, paddingHorizontal: 16, shadowOpacity: 0, elevation: 0 },
-  calendarCard: {
-    borderRadius: radii.card,
-    borderWidth: 1,
-    padding: spacing.md,
-    marginBottom: spacing.lg,
-  },
   calendarTopRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   calendarNavButton: {
     width: 32,
@@ -1858,41 +1786,12 @@ const styles = StyleSheet.create({
   earlierChoresSubtitle: { fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 11, lineHeight: 15, marginTop: 1 },
   earlierChoresAction: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 12 },
   listContent: { paddingHorizontal: 16, gap: 12 },
-  choreRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: spacing.md,
-    paddingLeft: spacing.sm,
-    paddingRight: spacing.md,
-    borderRadius: radii.card,
-    borderWidth: 1,
-    gap: spacing.sm,
-  },
-  checkBox: {
-    width: 44,
-    height: 44,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  categoryVisual: {
-    width: 28,
-    height: 28,
-    borderRadius: radii.small,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  pointsVisual: {
-    minWidth: 42,
-    height: 30,
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 5,
-  },
+  checkBox: myDayRowStyles.check,
+  pointsVisual: myDayRowStyles.visual,
   leftPointsText: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 10 },
-  choreInfo: { flex: 1, minWidth: 0 },
-  choreTitle: { ...typography.label },
-  choreMeta: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginTop: spacing.xs, overflow: "hidden" },
+  choreInfo: myDayRowStyles.copy,
+  choreTitle: myDayRowStyles.title,
+  choreMeta: myDayRowStyles.meta,
   dueStatus: {
     minHeight: 24,
     maxWidth: "68%",

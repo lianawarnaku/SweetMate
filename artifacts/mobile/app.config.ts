@@ -50,11 +50,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   plugins: withBrandSplash(config.plugins),
   // Match the temporary dark-only app policy in native sheets and controls.
   userInterfaceStyle: "dark",
-  androidNavigationBar: {
-    ...config.androidNavigationBar,
-    backgroundColor: BRAND_BASE_DARK,
-    barStyle: "light-content",
-  },
   // The OS paints these behind the launch screen and behind the root view
   // before the first JS frame, so they must already be the brand dark base
   // rather than the platform default white.

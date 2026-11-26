@@ -1,0 +1,26 @@
+import assert from "node:assert/strict";
+import { APP_TABS, availableAppTabs, changeHiddenTab, normalizeHiddenTabs, tabAfterHiding } from "./tabVisibility.ts";
+import { resolveDisplayPreferenceDefaults } from "./userPreferenceDefaults.ts";
+
+assert.deepEqual(resolveDisplayPreferenceDefaults({}).hiddenTabs, [], "fresh users see every available tab");
+assert.deepEqual(normalizeHiddenTabs(["shopping", "bogus", "borrow", "shopping", 42]), ["shopping", "borrow"]);
+for (const malformed of [null, undefined, {}, "shopping", 42]) assert.deepEqual(normalizeHiddenTabs(malformed), []);
+assert.deepEqual(normalizeHiddenTabs(APP_TABS.map(tab => tab.id)), ["group", "expenses", "shopping", "borrow", "leaderboard"], "malformed saved choices cannot hide the entire bar");
+const available = availableAppTabs().map(tab => tab.id);
+let hidden: typeof available = [];
+for (const id of available.slice(0, -1)) hidden = changeHiddenTab(hidden, id, true)!;
+assert.equal(changeHiddenTab(hidden, available.at(-1)!, true), null, "even My Sweet may be hidden, but the last available tab must stay");
+hidden = changeHiddenTab(hidden, "shopping", false)!;
+assert(!hidden.includes("shopping"), "unchecking restores the tab");
+assert(changeHiddenTab(hidden, "borrow", true), "restoring a tab makes another tab hideable");
+const saved = JSON.stringify({ hiddenTabs: ["shopping", "expenses"], plantEnabled: false, colorScheme: "blueWhite" });
+const restored = resolveDisplayPreferenceDefaults(JSON.parse(saved));
+assert.deepEqual(restored.hiddenTabs, ["expenses", "shopping"], "reload restores hidden tabs in canonical order");
+assert.equal(restored.plantEnabled, false);
+assert.equal(restored.colorScheme, "blueWhite");
+assert.deepEqual(resolveDisplayPreferenceDefaults({}).hiddenTabs, [], "another user with no saved choices starts independently");
+const routes = available.map(name => ({ name }));
+assert.equal(tabAfterHiding(routes, "index")?.name, "group");
+assert.equal(tabAfterHiding(routes, "shopping")?.name, "borrow");
+assert.equal(tabAfterHiding(routes, "borrow")?.name, "shopping");
+console.log("Hidden-tab defaults, persistence, validation, last-tab protection and navigation fallback passed");

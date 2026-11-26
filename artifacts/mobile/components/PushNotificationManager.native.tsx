@@ -47,7 +47,7 @@ export function PushNotificationManager({ userId }: { userId: string | null }) {
       if (!response || !active) return;
       const id = response.notification.request.identifier;
       const data = response.notification.request.content.data;
-      if (id === handled || data.type !== "nudge" || typeof data.nudgeId !== "string") return;
+      if (id === handled || !data || data.type !== "nudge" || typeof data.nudgeId !== "string") return;
       // Confirm this signed-in user owns the alert; never route arbitrary payload URLs.
       const { data: nudge, error } = await supabase.from("nudges").select("id,to_member_id,household_id")
         .eq("id", data.nudgeId).eq("to_member_id", userId).maybeSingle();

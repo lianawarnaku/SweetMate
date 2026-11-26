@@ -9,7 +9,7 @@ function assert(condition: boolean, message: string) {
 
 assert(recommendationsUseCatalogIds(), "every recommendation must use a real catalog ID");
 
-for (const housingType of ["traditional", "suite", "apartment"] as const) {
+for (const housingType of ["traditional", "suite", "apartment", "other"] as const) {
   const first = essentialRecommendationsForHousingType(housingType);
   const second = essentialRecommendationsForHousingType(housingType);
   assert(first === second, `${housingType} recommendations must be deterministic`);
@@ -28,3 +28,5 @@ assert(
   essentialRecommendationsForHousingType("unsupported").length === 0,
   "unknown housing types must not receive guessed defaults",
 );
+
+assert(essentialRecommendationsForHousingType("other") === essentialRecommendationsForHousingType("apartment"), "Other homes must reuse the apartment essentials defaults");

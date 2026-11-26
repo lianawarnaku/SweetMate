@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { runInNewContext } from "node:vm";
 import ts from "typescript";
-const compile = (path: string) => ts.transpileModule(readFileSync(resolve(process.cwd(), path), "utf8"), { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText;
+const compile = (path: string) => ts.transpileModule(readFileSync(resolve(process.cwd(), path), "utf8"), { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS, esModuleInterop: false } }).outputText;
 
 // Verify the actual singleton client uses persistent storage and token renewal.
 const storage = { marker: "device-storage" }, client = { marker: "singleton" };

@@ -28,7 +28,7 @@ function callback(parsed: ts.SourceFile, name: string, bindings: Record<string, 
   assert(expression, `missing real callback ${name}`);
   const exports: { action?: (...args: any[]) => any } = {};
   runInNewContext(ts.transpileModule(`exports.action = ${expression.getText(parsed)};`, {
-    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+    compilerOptions: { module: ts.ModuleKind.CommonJS, esModuleInterop: false, target: ts.ScriptTarget.ES2022 },
   }).outputText, { Error, Set, ...bindings, exports });
   return exports.action!;
 }

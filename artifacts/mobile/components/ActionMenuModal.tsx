@@ -1,3 +1,5 @@
+import { useModalDismissal } from "@/hooks/useModalDismissal";
+import { useAppPopup } from "@/components/AppPopupProvider";
 import { KEYBOARD_BEHAVIOR } from "@/lib/keyboard";
 import { Feather } from "@expo/vector-icons";
 import React, { useEffect, useRef, useState } from "react";
@@ -63,6 +65,8 @@ export function ActionMenuModal({
   initialConfirmationAction = null,
 }: Props) {
   const colors = useTheme();
+  const { showPopup } = useAppPopup();
+  const modalDismissal = useModalDismissal(visible, onClose);
   const { reduceMotion } = useAccessibilityPreferences();
   const insets = useSafeAreaInsets();
   const { height, width, fontScale } = useWindowDimensions();
@@ -105,26 +109,15 @@ export function ActionMenuModal({
 
   const dismiss = (force = false, afterDismiss?: () => void) => {
     if (runningRef.current && !force) return;
-    if (reduceMotion) {
-      onClose();
-      if (afterDismiss) setTimeout(afterDismiss, 0);
-      return;
-    }
-    Animated.timing(progress, {
-      toValue: 0,
-      duration: 150,
-      useNativeDriver: true,
-    }).start(({ finished }) => {
-      if (finished) {
-        onClose();
-        if (afterDismiss) {
-          // Give React Native one commit to unmount the native Modal before a
-          // destination action presents the next modal/alert.
-          setTimeout(afterDismiss, 0);
-        }
-      }
-    });
+    modalDismissal.dismiss(reduceMotion ? undefined : Animated.timing(progress, {
+      toValue: 0, duration: 150, useNativeDriver: true,
+    }), 150, afterDismiss);
   };
+  const reportHandoffError = (error: unknown) => showPopup({
+    title: "Couldn't complete action",
+    message: error instanceof Error ? error.message : "Please try again.",
+    actions: [{ label: "OK" }],
+  });
 
   const runAction = async (action: ActionMenuItem) => {
     if (runningRef.current) return;
@@ -137,10 +130,7 @@ export function ActionMenuModal({
       setRunning(true);
       setActionError(null);
       dismiss(true, () => {
-        Promise.resolve(action.onPress()).catch(() => {
-          // The menu has already closed, so the destination owns any
-          // action-specific failure presentation.
-        });
+        Promise.resolve().then(() => action.onPress()).catch(reportHandoffError);
       });
       return;
     }
@@ -172,9 +162,7 @@ export function ActionMenuModal({
       setRunning(true);
       setActionError(null);
       dismiss(true, () => {
-        Promise.resolve(confirmedAction.onPress()).catch(() => {
-          // The destination owns errors after this modal is gone.
-        });
+        Promise.resolve().then(() => confirmedAction.onPress()).catch(reportHandoffError);
       });
       return;
     }
@@ -200,6 +188,7 @@ export function ActionMenuModal({
       transparent
       animationType="none"
       onRequestClose={() => dismiss()}
+      onDismiss={modalDismissal.onDismiss}
       statusBarTranslucent
       accessibilityViewIsModal
     >
@@ -506,7 +495,7 @@ export function ActionMenuModal({
 const styles = StyleSheet.create({
   fill: { flex: 1, justifyContent: "flex-end" },
   backdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: "#080B12",
   },
   sheetMotion: {

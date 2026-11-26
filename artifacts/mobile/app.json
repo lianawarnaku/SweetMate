@@ -8,7 +8,6 @@
     "icon": "./assets/images/sweetmate-icon.png",
     "scheme": "sweetmate",
     "userInterfaceStyle": "dark",
-    "newArchEnabled": true,
     "ios": {
       "usesAppleSignIn": true,
       "supportsTablet": false,
@@ -18,7 +17,8 @@
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "SweetMate uses your photo library only when you choose a profile photo.",
         "ITSAppUsesNonExemptEncryption": false
-      }
+      },
+      "deploymentTarget": "16.4"
     },
     "android": {
       "package": "com.homieapplication.homie",
@@ -64,6 +64,20 @@
         {
           "defaultChannel": "nudges"
         }
+      ],
+      [
+        "expo-navigation-bar",
+        {
+          "style": "light"
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "enableSceneSupport": true
+          }
+        }
       ]
     ],
     "experiments": {
@@ -74,10 +88,6 @@
       "eas": {
         "projectId": "66fa0c25-5e31-481a-ae0a-0a057806cf27"
       }
-    },
-    "androidNavigationBar": {
-      "barStyle": "light-content",
-      "enforceContrast": true
     }
   }
 }

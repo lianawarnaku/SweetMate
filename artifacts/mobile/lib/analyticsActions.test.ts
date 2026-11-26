@@ -19,7 +19,7 @@ function callback(name: string, bindings: Record<string, unknown>): (...args: an
   visit(parsed);
   assert(expression, `missing action ${name}`);
   const compiled = ts.transpileModule(`exports.callback = ${expression.getText(parsed)};`, {
-    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+    compilerOptions: { module: ts.ModuleKind.CommonJS, esModuleInterop: false, target: ts.ScriptTarget.ES2022 },
   }).outputText;
   const exports: { callback?: (...args: any[]) => any } = {};
   runInNewContext(compiled, { exports, ...bindings });
@@ -40,7 +40,7 @@ function findAcknowledgement(node: ts.Node) {
 findAcknowledgement(hookParsed);
 assert(acknowledgement);
 const ackExports: { ack?: (...args: any[]) => void } = {};
-runInNewContext(ts.transpileModule(`exports.ack = ${acknowledgement.getText(hookParsed)}`, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, { exports: ackExports, track, scopeRef: { current: "test" }, scope: "test", effectActive: true, loadActivity: async () => {} });
+runInNewContext(ts.transpileModule(`exports.ack = ${acknowledgement.getText(hookParsed)}`, { compilerOptions: { module: ts.ModuleKind.CommonJS, esModuleInterop: false, target: ts.ScriptTarget.ES2022 } }).outputText, { exports: ackExports, track, scopeRef: { current: "test" }, scope: "test", effectActive: true, loadActivity: async () => {} });
 const expense = { id: "expense", paidBy: "payer", settled: false, splits: { payer: 2, a: 2, b: 2 }, version: 1 };
 const expensesRef: { current: any[] } = { current: [expense] };
 let rejectWrite = false;

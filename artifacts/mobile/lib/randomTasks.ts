@@ -40,6 +40,12 @@ export function parseRandomTasksSnapshot(data: unknown, householdId: string): Ra
   return { householdId, serverNow: raw.serverNow, tasks, chores };
 }
 
+/** The Group board only shows tasks still waiting to be claimed or assigned. */
+export function unclaimedRandomTasks(tasks: readonly RandomTask[]): RandomTask[] {
+  return tasks.filter(task => !task.assignedAt && !task.completed)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
 export function randomTaskClaimTime(task: RandomTask, now: number): string {
   if (!task.claimDeadline) return "Assigning randomly…";
   const remaining = Date.parse(task.claimDeadline) - now;

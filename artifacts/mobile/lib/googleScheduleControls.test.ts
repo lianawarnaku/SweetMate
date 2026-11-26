@@ -7,13 +7,13 @@ import ts from "typescript";
 type Element = { type: string; props: Record<string, any> };
 const source = readFileSync(resolve(process.cwd(), "components/GoogleScheduleControls.tsx"), "utf8");
 const compiled = ts.transpileModule(source, { compilerOptions: {
-  module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX,
+  module: ts.ModuleKind.CommonJS, esModuleInterop: false, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX,
 } }).outputText;
 
 // Exercise the actual picker and callbacks with native rendering and network
 // boundaries replaced. In particular, successful OAuth must not unmount the
 // first-time picker before the user saves their selected calendars and tasks.
-function fixture(connected: boolean | null, enabled = false) {
+function fixture(connected: boolean | null, enabled = false, configured = true) {
   const state: any[] = [];
   let cursor = 0, connects = 0;
   const configurations: any[][] = [];
@@ -23,10 +23,10 @@ function fixture(connected: boolean | null, enabled = false) {
     connect: async () => { connects++; connection.connected = true; },
   };
   const schedule = {
-    userId: "member-a", loading: false, error: null as string | null, sharing: false,
+    userId: "member-a", ready: true, configured, loading: false, error: null as string | null, sharing: false,
     prefs: { enabled, calendar_ids: [] as string[], task_list_ids: [] as string[], timezone: "America/New_York" },
     sources: async () => ({ calendars: [{ id: "personal", name: "Personal calendar" }], taskLists: [{ id: "tasks", name: "My tasks" }] }),
-    configure: async (...args: any[]) => { configurations.push(args); schedule.prefs = { ...schedule.prefs, enabled: args[3], calendar_ids: args[0], task_list_ids: args[1] }; },
+    configure: async (...args: any[]) => { configurations.push(args); schedule.configured = true; schedule.prefs = { ...schedule.prefs, enabled: args[3], calendar_ids: args[0], task_list_ids: args[1] }; },
     sync: async () => {}, shareBusy: async () => {},
   };
   const jsx = (type: string, props: Record<string, any>) => ({ type, props });
@@ -104,3 +104,16 @@ assert.equal(settings.render(), null, "stopping imports does not expose a manage
 settings.connection.connected = false;
 action(settings.render(), "Connect your Google schedule");
 console.log("Google schedule controls passed: connected Home stays clear, first-time selection survives OAuth, Settings manages sources, and disconnect restores connection entry.");
+
+const anotherHome = fixture(true, false, false);
+action(anotherHome.render(), "Connect your Google schedule");
+action(anotherHome.render("settings"), "Connect Google Calendar");
+action(anotherHome.render(), "Connect your Google schedule").props.onPress(); await settle();
+assert.equal(anotherHome.connects(), 0, "a new household reuses valid personal OAuth authorization");
+assert.equal(action(anotherHome.render(), "Personal calendar").props.accessibilityState.checked, false, "new household choices start empty");
+action(anotherHome.render(), "Personal calendar").props.onPress();
+action(anotherHome.render(), "Save").props.onPress(); await settle();
+assert.equal(anotherHome.render(), null, "only saving this household's setup hides its Home connection link");
+const loadingHousehold = fixture(true, false, false); loadingHousehold.schedule.ready = false;
+assert.equal(loadingHousehold.render(), null, "loading an existing household must not flash a first-time setup link");
+console.log("New households expose Connect in My Sweet and Settings independently of another home's Google authorization");

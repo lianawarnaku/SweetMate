@@ -16,7 +16,7 @@ function find(node: ts.Node) {
 }
 find(parsed);
 assert(callback);
-const code = ts.transpileModule(`exports.run = ${callback.getText(parsed)};`, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText;
+const code = ts.transpileModule(`exports.run = ${callback.getText(parsed)};`, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS, esModuleInterop: false } }).outputText;
 function fixture(flow: string, gated = false) {
   const calls: any[] = [], errors: string[] = [], busy: unknown[] = [], analytics: any[] = [];
   let successes = 0;

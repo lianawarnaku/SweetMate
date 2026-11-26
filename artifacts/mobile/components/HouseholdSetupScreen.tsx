@@ -19,6 +19,7 @@ import { supabase } from "@/lib/supabase";
 import { reportSupabaseError, reportRuntimeError } from "@/lib/runtimeDiagnostics";
 import { error as hapticError } from "@/lib/haptics";
 import { useSupabaseSession } from "@/hooks/useSupabaseSession";
+import { useAccessibilityPreferences } from "@/hooks/useAccessibilityPreferences";
 import { useOnboardingAnalytics } from "@/hooks/useOnboardingAnalytics";
 import { HOUSEHOLD_SETUP_STEPS } from "@/lib/householdSetup";
 import {
@@ -58,6 +59,7 @@ const HOUSING: { key: HousingType; label: string; description: string; icon: key
   { key: "traditional", label: "Regular dorm", description: "Shared room and communal bathroom", icon: "users" },
   { key: "suite", label: "Suite-style", description: "Private rooms with an en-suite bathroom", icon: "home" },
   { key: "apartment", label: "Apartment", description: "Full kitchen, bathroom, and living area", icon: "grid" },
+  { key: "other", label: "Other", description: "Customize your shared space", icon: "more-horizontal" },
 ];
 const ITEM_SECTIONS = [
   { key: "kitchen", title: "Kitchen", icon: "coffee", items: ["Mini fridge", "Trash can", "Microwave", "Kettle", "Floor", "Coffee machine", "Dishwasher", "Stove"] },
@@ -81,6 +83,7 @@ export function HouseholdSetupScreen({
   resumeExistingHousehold?: boolean;
 } = {}) {
   const colors = useTheme();
+  const { reduceMotion } = useAccessibilityPreferences();
   const insets = useSafeAreaInsets();
   const {
     createHousehold,
@@ -142,6 +145,17 @@ export function HouseholdSetupScreen({
   }>>({});
   const [removedGeneratedKeys, setRemovedGeneratedKeys] = useState<Set<string>>(new Set(resumeExistingHousehold ? savedHomeProfile?.removedGeneratedKeys ?? [] : []));
   const [recurrenceOverrides, setRecurrenceOverrides] = useState<Record<string, PersistedRecurrence>>(resumeExistingHousehold ? savedHomeProfile?.recurrenceOverrides ?? {} : {});
+  const [generatedChoreNames, setGeneratedChoreNames] = useState<Record<string, string>>({});
+  const [renameTarget, setRenameTarget] = useState<{ kind: "generated"; sourceKey: string; title: string } | { kind: "custom"; title: string } | null>(null);
+  const [renameDraft, setRenameDraft] = useState("");
+  const [renameError, setRenameError] = useState<string | null>(null);
+  const generatedTaskOverrides = useMemo(() => {
+    const overrides = { ...(resumeExistingHousehold ? savedHomeProfile?.generatedTaskOverrides : {}) };
+    for (const [sourceKey, title] of Object.entries(generatedChoreNames)) {
+      overrides[sourceKey] = { ...overrides[sourceKey], title };
+    }
+    return overrides;
+  }, [resumeExistingHousehold, savedHomeProfile?.generatedTaskOverrides, generatedChoreNames]);
   const [frequencyTarget, setFrequencyTarget] = useState<{ sourceKey: string; title: string } | null>(null);
   const [frequencyDraft, setFrequencyDraft] = useState<PersistedRecurrence>("weekly");
   const [showCustomFrequency, setShowCustomFrequency] = useState(false);
@@ -166,9 +180,9 @@ export function HouseholdSetupScreen({
       customChoreSettings,
       removedGeneratedKeys: [...removedGeneratedKeys],
       recurrenceOverrides,
-      generatedTaskOverrides: resumeExistingHousehold ? savedHomeProfile?.generatedTaskOverrides : undefined,
+      generatedTaskOverrides,
     }),
-    [householdId, housingType, items, bathroomCount, bedroomCount, itemDifficulties, chores, customChoreSettings, removedGeneratedKeys, recurrenceOverrides, resumeExistingHousehold, savedHomeProfile?.generatedTaskOverrides],
+    [householdId, housingType, items, bathroomCount, bedroomCount, itemDifficulties, chores, customChoreSettings, removedGeneratedKeys, recurrenceOverrides, generatedTaskOverrides],
   );
   const generatedPlan = useMemo(() => setupChores.generatedTasks.map((task) => ({
     ...task,
@@ -202,6 +216,7 @@ export function HouseholdSetupScreen({
           chores: string[];
           customChoreSettings: typeof customChoreSettings;
           recurrenceOverrides: Record<string, PersistedRecurrence>;
+          generatedChoreNames: Record<string, string>;
           removedGeneratedKeys: string[];
         }>;
         if (resumeExistingHousehold && draft.householdId !== householdId) {
@@ -222,6 +237,7 @@ export function HouseholdSetupScreen({
         if (draft.chores) setChores(draft.chores);
         if (draft.customChoreSettings) setCustomChoreSettings(draft.customChoreSettings);
         if (draft.recurrenceOverrides) setRecurrenceOverrides(draft.recurrenceOverrides);
+        if (draft.generatedChoreNames) setGeneratedChoreNames(draft.generatedChoreNames);
         if (draft.removedGeneratedKeys) {
           setRemovedGeneratedKeys(new Set(draft.removedGeneratedKeys));
         }
@@ -247,6 +263,7 @@ export function HouseholdSetupScreen({
       chores,
       customChoreSettings,
       recurrenceOverrides,
+      generatedChoreNames,
       removedGeneratedKeys: [...removedGeneratedKeys],
     };
     void AsyncStorage.setItem(setupDraftKey, JSON.stringify(draft)).catch((draftError) =>
@@ -266,6 +283,7 @@ export function HouseholdSetupScreen({
     items,
     mode,
     recurrenceOverrides,
+    generatedChoreNames,
     removedGeneratedKeys,
     setupDraftKey,
     timezone,
@@ -389,7 +407,7 @@ export function HouseholdSetupScreen({
           housingType, items,
           additionalChores: [...new Set([...(savedHomeProfile?.additionalChores ?? []), ...chores])],
           roomCounts: { ...savedHomeProfile?.roomCounts, bathroom: bathroomCount, bedroom: bedroomCount },
-          removedGeneratedKeys: [...removedGeneratedKeys], recurrenceOverrides,
+          removedGeneratedKeys: [...removedGeneratedKeys], recurrenceOverrides, generatedTaskOverrides,
         }, { preserveOnboarding: true });
         if (setupDraftKey) await AsyncStorage.removeItem(setupDraftKey);
         if (onComplete) onComplete(destination);
@@ -401,7 +419,7 @@ export function HouseholdSetupScreen({
       const completedProfile = {
         housingType, items, additionalChores: chores,
         roomCounts: { bathroom: bathroomCount, bedroom: bedroomCount },
-        removedGeneratedKeys: [...removedGeneratedKeys], recurrenceOverrides,
+        removedGeneratedKeys: [...removedGeneratedKeys], recurrenceOverrides, generatedTaskOverrides,
       };
       const selectedCustomIds = new Set(setupChores.customTasks.map((task) => task.id));
       existingCustomTasks.forEach((task) => {
@@ -419,6 +437,35 @@ export function HouseholdSetupScreen({
       hapticError();
       setError(e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : "We couldn't create your household.");
     } finally { setLoading(false); }
+  };
+
+  const openRename = (target: NonNullable<typeof renameTarget>) => {
+    setRenameTarget(target);
+    setRenameDraft(target.title);
+    setRenameError(null);
+  };
+  const closeRename = () => { Keyboard.dismiss(); setRenameTarget(null); setRenameError(null); };
+  const saveRename = () => {
+    if (!renameTarget) return;
+    const title = renameDraft.trim().replace(/\s+/g, " ");
+    if (!title) { setRenameError("Enter a chore name."); return; }
+    if (renameTarget.kind === "generated") {
+      setGeneratedChoreNames((current) => ({ ...current, [renameTarget.sourceKey]: title }));
+    } else {
+      if (chores.some((chore) => chore !== renameTarget.title && chore.trim().replace(/\s+/g, " ").toLowerCase() === title.toLowerCase())) {
+        setRenameError("A custom chore already uses this name.");
+        return;
+      }
+      setChores((current) => current.map((chore) => chore === renameTarget.title ? title : chore));
+      setCustomChoreSettings((current) => {
+        const next = { ...current };
+        const settings = next[renameTarget.title];
+        delete next[renameTarget.title];
+        if (settings) next[title] = settings;
+        return next;
+      });
+    }
+    closeRename();
   };
 
   const addCustomChore = () => {
@@ -469,7 +516,6 @@ export function HouseholdSetupScreen({
           {resumeExistingHousehold && step === 5 ? "Review the chore suggestions for your home. Saving these details keeps your existing chores and other records." : mode === "join" ? "Enter the invite code a roommate shared with you." : step === 1 ? "Set up your private household and invite your roommates." : step === 3 ? "Review a short list suggested for your home, or skip it for later." : step === 4 ? "Select everything your household shares. Round robin chores will update to clean each item that is selected." : "These chore suggestions come from what is in your Sweet. Remove any you do not want or add your own. Your chart is created only when you choose to set it up."}
         </Text>}
 
-        {resumeExistingHousehold && step < 3 ? <Text style={[styles.reviewMeta, { color: colors.mutedForeground, marginBottom: 16 }]}>Finishing setup for {savedHouseholdName}. Your roommates and saved records stay in this household. You can create or update the chore chart after saving these details.</Text> : null}
         {step === 1 && !householdId && !additionalHousehold && (
           <View style={[styles.segment, { backgroundColor: colors.muted }]}>
             {(["create", "join"] as const).map((item) => (
@@ -627,7 +673,12 @@ export function HouseholdSetupScreen({
                 {generatedPlan.length ? generatedPlan.map((chore) => (
                   <View key={chore.sourceKey} style={[styles.reviewRow, { borderColor: colors.border }]}>
                     <View style={{ flex: 1 }}>
-                      <Text style={[styles.customChoreText, { color: colors.foreground }]}>{chore.title}</Text>
+                      <View style={styles.choreTitleRow}>
+                        <Text style={[styles.customChoreText, { color: colors.foreground }]}>{chore.title}</Text>
+                        <Pressable accessibilityRole="button" accessibilityLabel={`Rename ${chore.title}`} onPress={() => openRename({ kind: "generated", sourceKey: chore.sourceKey, title: chore.title })} style={styles.renameButton}>
+                          <Feather name="edit-2" size={16} color={colors.mutedForeground} />
+                        </Pressable>
+                      </View>
                       <Pressable
                         accessibilityRole="button"
                         accessibilityLabel={`Change recurrence for ${chore.title}`}
@@ -687,16 +738,23 @@ export function HouseholdSetupScreen({
                 <Pressable onPress={addCustomChore} style={[styles.addButton, { backgroundColor: colors.action }]}><Feather name="plus" color={colors.actionForeground} size={18} /></Pressable>
               </View>
               {chores.map((chore) => (
-                <Pressable key={chore} onPress={() => setChores(chores.filter((item) => item !== chore))} style={styles.customChore}>
+                <View key={chore} style={styles.customChore}>
                   <Feather name="check-circle" size={16} color={colors.primary} />
                   <View style={{ flex: 1 }}>
-                    <Text style={[styles.customChoreText, { color: colors.foreground }]}>{chore}</Text>
+                    <View style={styles.choreTitleRow}>
+                      <Text style={[styles.customChoreText, { color: colors.foreground }]}>{chore}</Text>
+                      <Pressable accessibilityRole="button" accessibilityLabel={`Rename ${chore}`} onPress={() => openRename({ kind: "custom", title: chore })} style={styles.renameButton}>
+                        <Feather name="edit-2" size={16} color={colors.mutedForeground} />
+                      </Pressable>
+                    </View>
                     <Text style={[styles.reviewMeta, { color: colors.mutedForeground }]}>
                       {CHORE_RECURRENCE_LABELS[customChoreSettings[chore]?.recurrence ?? "weekly"]}{LEADERBOARD_ENABLED ? ` · ${customChoreSettings[chore]?.points ?? 15} points` : ""} · {customChoreSettings[chore]?.category ?? "other"}
                     </Text>
                   </View>
-                  <Feather name="x" size={16} color={colors.mutedForeground} />
-                </Pressable>
+                  <Pressable accessibilityRole="button" accessibilityLabel={`Remove ${chore}`} onPress={() => setChores(chores.filter((item) => item !== chore))} style={styles.renameButton}>
+                    <Feather name="x" size={16} color={colors.mutedForeground} />
+                  </Pressable>
+                </View>
               ))}
               </> : null}
             </>
@@ -741,6 +799,31 @@ export function HouseholdSetupScreen({
           style={styles.signOut}
         ><Text style={[styles.signOutText, { color: colors.mutedForeground }]}>Signed in with the wrong account? Sign out</Text></Pressable>}
       </ScrollView>
+      <Modal visible={renameTarget !== null} transparent animationType={reduceMotion ? "none" : "fade"} onRequestClose={closeRename}>
+        <KeyboardAvoidingView behavior={KEYBOARD_BEHAVIOR} style={[styles.frequencyOverlay, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 16 }]}>
+          <GlassModalBackdrop onPress={closeRename} accessibilityLabel="Cancel chore rename" />
+          <GlassModalSurface style={styles.frequencySheet}>
+            <View style={styles.frequencyHeader}>
+              <Text accessibilityRole="header" style={[styles.frequencyTitle, { color: colors.foreground }]}>Rename chore</Text>
+              <GlassButton tone="neutral" accessibilityLabel="Close chore name editor" onPress={closeRename} style={{ width: 44 }}>
+                <Feather name="x" size={20} color={colors.foreground} />
+              </GlassButton>
+            </View>
+            <TextInput
+              accessibilityLabel="Chore name"
+              value={renameDraft}
+              onChangeText={(value) => { setRenameDraft(value); setRenameError(null); }}
+              maxLength={120} autoFocus selectTextOnFocus returnKeyType="done" onSubmitEditing={saveRename}
+              style={[styles.renameInput, { color: colors.foreground, backgroundColor: colors.muted, borderColor: colors.border }]}
+            />
+            {renameError && <Text accessibilityRole="alert" style={[styles.reviewMeta, { color: colors.destructive, marginBottom: 12 }]}>{renameError}</Text>}
+            <View style={{ flexDirection: "row", gap: 12 }}>
+              <GlassButton tone="neutral" onPress={closeRename} style={{ flex: 1, borderRadius: 12 }}><Text style={[styles.frequencyOption, { color: colors.foreground }]}>Cancel</Text></GlassButton>
+              <GlassButton onPress={saveRename} disabled={!renameDraft.trim()} accessibilityLabel="Save chore name" style={{ flex: 1, borderRadius: 12 }}><Text style={[styles.frequencyOption, { color: colors.actionForeground }]}>Save</Text></GlassButton>
+            </View>
+          </GlassModalSurface>
+        </KeyboardAvoidingView>
+      </Modal>
       <Modal visible={frequencyTarget !== null} transparent animationType="fade" onRequestClose={() => setFrequencyTarget(null)}>
         <View style={[styles.frequencyOverlay, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 16 }]}>
           <GlassModalBackdrop onPress={() => setFrequencyTarget(null)} accessibilityLabel="Cancel frequency changes" />
@@ -817,6 +900,9 @@ function SelectionCard({ title, subtitle, icon, selected, onPress, colors }: any
 function Chip({ label, selected, onPress, colors }: any) { return <Pressable onPress={onPress} style={[styles.chip, { borderColor: selected ? colors.primary : colors.border, backgroundColor: selected ? colors.primary + "12" : colors.muted }]}><Feather name={selected ? "check" : "plus"} size={14} color={selected ? colors.primary : colors.mutedForeground} /><Text style={[styles.chipText, { color: selected ? colors.primary : colors.foreground }]}>{label}</Text></Pressable>; }
 
 const styles = StyleSheet.create({
+  choreTitleRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  renameButton: { minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" },
+  renameInput: { minHeight: 48, borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, marginVertical: 16, fontFamily: "Inter_500Medium", fontSize: 16 },
   frequencyOverlay: { flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 20 },
   frequencySheet: { width: "100%", maxWidth: 440, maxHeight: "100%", borderRadius: 24, padding: 20 },
   frequencyHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },

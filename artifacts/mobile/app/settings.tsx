@@ -209,8 +209,7 @@ export default function SettingsScreen() {
   const toggleGoogleCalendar = async () => {
     if (googleCalendarBusy) return;
     try {
-      if (googleCalendarConnected) await googleConnection.disconnect();
-      else await googleConnection.connect();
+      await googleConnection.disconnect();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error) {
       reportRuntimeError("toggle Google Calendar connection", error);
@@ -1373,47 +1372,30 @@ export default function SettingsScreen() {
                   {googleCalendarConnected === null
                     ? googleConnection.error ? "Connection unavailable" : "Checking connection…"
                     : googleCalendarConnected
-                      ? "Connected to your Google Calendar"
+                      ? !personalSchedule.ready ? "Checking household setup…"
+                        : !personalSchedule.configured ? "Not connected in this household"
+                        : personalSchedule.prefs?.enabled ? "Connected in this household" : "Importing paused in this household"
                       : "Not connected"}
                 </Text>
               </View>
             </View>
-            <TouchableOpacity
-              disabled={googleCalendarBusy || googleConnection.checking}
-              accessibilityRole="button"
-              accessibilityLabel={googleCalendarConnected ? "Disconnect Google Calendar" : "Connect Google Calendar"}
-              style={[
-                styles.householdSwitchButton,
-                { borderColor: colors.border, opacity: googleCalendarBusy ? 0.6 : 1 },
-              ]}
-              onPress={toggleGoogleCalendar}
-            >
-              <Feather
-                name={googleCalendarConnected ? "x-circle" : "link"}
-                size={17}
-                color={colors.primary}
-              />
-              <Text
-                style={[
-                  styles.householdSwitchButtonText,
-                  { color: colors.foreground },
-                ]}
-              >
-                {googleCalendarBusy
-                  ? "Working…"
-                  : googleCalendarConnected
-                    ? "Disconnect Google Calendar"
-                    : "Connect Google Calendar"}
-              </Text>
-              {!googleCalendarBusy && (
-                <Feather name="chevron-right" size={17} color={colors.mutedForeground} />
-              )}
-            </TouchableOpacity>
-            {googleCalendarConnected && <GoogleScheduleControls
+            <GoogleScheduleControls
               key={`google-schedule-settings:${householdId}:${currentUserId}`}
               placement="settings" schedule={personalSchedule} householdId={householdId}
               day={householdDateKey(new Date(), householdTimezone)}
-            />}
+            />
+            {googleCalendarConnected && personalSchedule.configured && <TouchableOpacity
+              disabled={googleCalendarBusy || googleConnection.checking}
+              accessibilityRole="button"
+              accessibilityLabel="Disconnect Google account everywhere"
+              style={[styles.householdSwitchButton, { borderColor: colors.border, opacity: googleCalendarBusy ? 0.6 : 1 }]}
+              onPress={toggleGoogleCalendar}
+            >
+              <Feather name="x-circle" size={17} color={colors.primary} />
+              <Text style={[styles.householdSwitchButtonText, { color: colors.foreground }]}>
+                {googleCalendarBusy ? "Working…" : "Disconnect Google account everywhere"}
+              </Text>
+            </TouchableOpacity>}
             {googleConnection.error && <Text accessibilityRole="alert" style={{ color: colors.destructive, fontFamily: "Inter_400Regular", fontSize: 13, lineHeight: 19 }}>{googleConnection.error}</Text>}
           </View>
 
@@ -2106,7 +2088,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   switcherBackdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: "rgba(0,0,0,0.38)",
   },
   switcherSheet: {

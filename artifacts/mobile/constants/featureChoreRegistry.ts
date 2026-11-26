@@ -102,6 +102,7 @@ export function buildFeatureChorePlan(
   selections: readonly { roomInstanceId: string; featureId: string }[],
   housingType?: HousingType,
 ): GeneratedChorePlanItem[] {
+  const defaultHousingType = housingType === "other" ? "apartment" : housingType;
   const bySourceKey = new Map<string, GeneratedChorePlanItem>();
   const featureCounts = new Map<string, number>();
   selections.forEach((selection) =>
@@ -116,7 +117,7 @@ export function buildFeatureChorePlan(
           : "";
       bySourceKey.set(sourceKey, {
         ...template,
-        title: `${(housingType && template.housingTitles?.[housingType]) || template.title}${roomSuffix}`,
+        title: `${(defaultHousingType && template.housingTitles?.[defaultHousingType]) || template.title}${roomSuffix}`,
         keepTogetherGroup: template.keepTogetherGroup
           ? `${selection.roomInstanceId}:${selection.featureId}:${template.keepTogetherGroup}`
           : undefined,

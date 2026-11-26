@@ -1,3 +1,5 @@
+import { choreDueLabel } from "@/lib/choreDueLabel";
+import { useModalDismissal } from "@/hooks/useModalDismissal";
 import { deriveCalendarItems } from "@/lib/calendarItems";
 import { formatShoppingSchedule } from "@/lib/shoppingSchedule";
 import { BusyScheduleStatus } from "@/components/BusyScheduleStatus";
@@ -11,7 +13,7 @@ import { ChoreFilterButton } from "@/components/ChoreFilterButton";
 import { SectionDivider } from "@/components/SectionDivider";
 import { CompletionUndoMenu } from "@/components/CompletionUndoMenu";
 import { KEYBOARD_BEHAVIOR } from "@/lib/keyboard";
-import { useIsFocused } from "@react-navigation/native";
+import { useIsFocused } from "expo-router";
 import { houseMonitorCompletionTokens } from "@/lib/houseMonitorSeen";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -79,46 +81,11 @@ function isOverdue(dateStr: string) {
   return isBeforeLocalCalendarDay(dateStr);
 }
 
-function formatDueDate(dateStr: string) {
-  const d = new Date(dateStr);
-  const now = new Date();
-  const diff = Math.round((d.getTime() - now.getTime()) / 86400000);
-  if (choreLocalDateKey(d) < choreLocalDateKey(now)) {
-    return `Overdue · originally due ${d.toLocaleDateString("en-US", {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-    })}`;
-  }
-  if (diff === 0) return "Today";
-  if (diff === 1) return "Tomorrow";
-  return `${diff}d left`;
-}
+const formatDueDate = choreDueLabel;
 
 // ── Calendar / chore-chart helpers ────────────────────────────────────────
 const DOW_LABELS = ["M", "T", "W", "T", "F", "S", "S"];
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-
-const SLOT_ICON_BY_KEY: Record<string, keyof typeof Feather.glyphMap> = {
-  bathroom_heavy: "droplet",
-  bathroom_light: "wind",
-  bathroom: "droplet",
-  kitchen_heavy: "zap",
-  kitchen_light: "coffee",
-  kitchen: "coffee",
-  vacuum_mop: "layers",
-  vacuum: "layers",
-  mop: "layers",
-  laundry: "refresh-cw",
-  trash: "trash-2",
-  dishes: "circle",
-  outdoor: "sun",
-  ad_hoc: "help-circle",
-};
-
-function slotVisualFor(key: string, color: string) {
-  return { icon: SLOT_ICON_BY_KEY[key] ?? "check-square", color };
-}
 
 function startOfWeekMonday(d: Date): Date {
   const dow = d.getDay();
@@ -312,24 +279,21 @@ export default function GroupChoresScreen() {
       }).start();
     }
   }, [showAddChoreModal, addChoreTranslateY]);
+  const choreDismissal = useModalDismissal(showAddChoreModal, () => {
+      setShowAddChoreModal(false);
+      setAddChoreTargetId(null);
+      setEditingChoreId(null);
+  });
   const closeAddChoreSheet = () => {
-    Animated.timing(addChoreTranslateY, {
-      toValue: SCREEN_HEIGHT,
-      duration: 260,
-      useNativeDriver: true,
-    }).start(({ finished }) => {
-      if (finished) {
-        setShowAddChoreModal(false);
-        setAddChoreTargetId(null);
-        setEditingChoreId(null);
-      }
-    });
+    choreDismissal.dismiss(Animated.timing(addChoreTranslateY, {
+      toValue: SCREEN_HEIGHT, duration: 260, useNativeDriver: true,
+    }), 260);
   };
   const addChoreDragHandlers = useDraggableSheet(addChoreTranslateY, () => {
     setShowAddChoreModal(false);
     setAddChoreTargetId(null);
     setEditingChoreId(null);
-  });
+  }, showAddChoreModal);
   const [addChoreTargetId, setAddChoreTargetId] = useState<string | null>(null);
 
   // Which roommates' chore sections are expanded. By default, only the current
@@ -889,12 +853,8 @@ export default function GroupChoresScreen() {
                     <Text style={[styles.weekRangeText, { color: colors.mutedForeground }]}>{weekRange}</Text>
                   </View>
                   {week.rows.map((row) => {
-                    const visual = slotVisualFor(row.category, colors.primary);
                     return (
                       <View key={row.id} style={[styles.assignRow, styles.scheduleRow, { borderTopColor: colors.border }]}>
-                        <View style={[styles.slotIconWrap, { backgroundColor: visual.color + "18" }]}>
-                          <Feather name={visual.icon} size={13} color={visual.color} />
-                        </View>
                         <View style={styles.scheduleRowCopy}>
                           <Text style={[styles.scheduleTitle, { color: colors.foreground }]}>{row.title}</Text>
                           <Text style={[styles.scheduleFrequency, { color: colors.mutedForeground }]}>
@@ -1274,7 +1234,7 @@ export default function GroupChoresScreen() {
             label: "Add to calendar",
             icon: "calendar" as const,
             successMessage: "Added to Google Calendar",
-            runAfterDismiss: calendarDestination == null,
+            runAfterDismiss: true,
             onPress: () => {
               return addChoreToCalendar(actionChore.id);
             },
@@ -1332,7 +1292,7 @@ export default function GroupChoresScreen() {
               onPress={closeAddChoreSheet}
               style={[styles.addChoreCloseBtn, { backgroundColor: colors.muted }]}
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-            >
+             accessibilityRole="button" accessibilityLabel="Close chore editor">
               <Feather name="x" size={22} color={colors.foreground} />
             </TouchableOpacity>
           </View>
@@ -1734,13 +1694,7 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
     borderTopWidth: StyleSheet.hairlineWidth,
   },
-  slotIconWrap: {
-    width: 26,
-    height: 26,
-    borderRadius: 9,
-    alignItems: "center",
-    justifyContent: "center",
-  },
+
   slotLabelText: { flex: 1, fontFamily: "Inter_500Medium", includeFontPadding: false, fontSize: 13 },
   assigneeTag: {
     flexDirection: "row",

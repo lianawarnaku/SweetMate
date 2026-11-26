@@ -57,3 +57,12 @@ export function choreParity(chores: readonly Chore[], rows: readonly ChoreRow[])
     mismatched: [...expected.entries()].filter(([id, row]) => actual.has(id) && rowFingerprint(actual.get(id)!) !== rowFingerprint(row)).map(([id]) => id).sort(),
   };
 }
+
+/** Recover missed live events without dropping edits made during the read. */
+export function mergeChoreSnapshot(local: readonly Chore[], baseline: ReadonlyMap<string, ChoreRow>, remote: readonly ChoreRow[]): Chore[] {
+  const pending = planChoreSync(local, baseline);
+  let merged = remote.map(rowToChore);
+  for (const row of pending.upserts) merged = applyChoreRowEvent(merged, "UPDATE", row);
+  const deleted = new Set(pending.deleteIds);
+  return merged.filter(chore => !deleted.has(chore.id));
+}

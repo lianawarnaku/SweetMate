@@ -1,3 +1,4 @@
+import { useModalDismissal } from "@/hooks/useModalDismissal";
 import { KEYBOARD_BEHAVIOR } from "@/lib/keyboard";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -355,7 +356,10 @@ export default function ExpensesScreen() {
     setDetailVisible(false);
     setDetailConfirmation(null);
   };
+  const detailVisibilityRef = useRef(detailVisible);
+  detailVisibilityRef.current = detailVisible;
   const finishDetailDismiss = () => {
+    if (detailVisibilityRef.current) return;
     const recovered = pendingRecoveryRef.current;
     pendingRecoveryRef.current = null;
     const editing = pendingEditRef.current;
@@ -369,9 +373,11 @@ export default function ExpensesScreen() {
     }
   };
   useEffect(() => {
-    // Android/web remove the non-animated modal in this commit. iOS hands off
-    // only after its native slide dismissal reports completion.
-    if (!detailVisible && Platform.OS !== "ios") finishDetailDismiss();
+    if (detailVisible) return;
+    if (Platform.OS !== "ios") { finishDetailDismiss(); return; }
+    // Native onDismiss is preferred; a missing callback must not strand Edit.
+    const fallback = setTimeout(finishDetailDismiss, 450);
+    return () => clearTimeout(fallback);
   }, [detailVisible]);
 
   const requestExpenseAction = (expense: Expense, action: ExpenseAction, paymentId?: string) => {
@@ -608,28 +614,25 @@ export default function ExpensesScreen() {
     }
   }, [showExpenseModal, iouTranslateY]);
 
-  const closeIou = useCallback(() => {
+  const iouDismissal = useModalDismissal(showExpenseModal, () => {
+    setShowExpenseModal(false);
+    resetModal();
+    submittingIouRef.current = false;
+    setSubmittingIou(false);
+  });
+  const closeIou = () => {
     if (submittingIouRef.current) return;
-    Animated.timing(iouTranslateY, {
-      toValue: SCREEN_HEIGHT,
-      duration: 260,
-      useNativeDriver: true,
-    }).start(({ finished }) => {
-      if (!finished) return;
-      setShowExpenseModal(false);
-      resetModal();
-      submittingIouRef.current = false;
-      setSubmittingIou(false);
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [iouTranslateY]);
+    iouDismissal.dismiss(Animated.timing(iouTranslateY, {
+      toValue: SCREEN_HEIGHT, duration: 260, useNativeDriver: true,
+    }), 260);
+  };
   const iouDragHandlers = useDraggableSheet(iouTranslateY, () => {
     if (submittingIouRef.current) { Animated.spring(iouTranslateY, { toValue: 0, useNativeDriver: true }).start(); return; }
     setShowExpenseModal(false);
     resetModal();
     submittingIouRef.current = false;
     setSubmittingIou(false);
-  });
+  }, showExpenseModal);
 
   const openEditModal = (item: (typeof expenses)[number]) => {
     if (item.voidedAt || !canEditExpense(item)) {
@@ -904,7 +907,7 @@ export default function ExpensesScreen() {
               const completeForMe = relevantToMe && (item.settled || mySharePaid);
               const personalLabel = expensePersonalLabel(item, currentUserId);
               return (
-                <CompletionMotion completed={completeForMe} subtle>
+                <CompletionMotion completed={completeForMe}>
                 <TouchableOpacity
                   activeOpacity={0.8}
                   delayLongPress={450}
@@ -1212,7 +1215,7 @@ export default function ExpensesScreen() {
                         const remaining = expenseRemainingCents(detailExp, personId);
                         const resolved = detailExp.settled || remaining === 0;
                         const isMe = personId === currentUserId;
-                        return <CompletionMotion key={personId} completed={isMe && isOwer && resolved} subtle style={[styles.detailPersonRow, { backgroundColor: resolved ? colors.success + "0C" : colors.card, borderColor: resolved ? colors.success + "40" : colors.border }]}>
+                        return <CompletionMotion key={personId} completed={isMe && isOwer && resolved} style={[styles.detailPersonRow, { backgroundColor: resolved ? colors.success + "0C" : colors.card, borderColor: resolved ? colors.success + "40" : colors.border }]}>
                           <RoommateAvatar name={person.name} color={person.color} size={32} imageUri={person.avatarUri} />
                           <View style={{ flex: 1, minWidth: 0 }}><Text style={[styles.detailPersonName, { color: colors.foreground }]}>{isMe ? "You" : person.name}</Text><CompletionText completed={isOwer && resolved} style={[styles.detailPersonAmount, { color: resolved || !isOwer ? colors.success : isMe ? colors.destructive : colors.mutedForeground }]}>{personId === detailExp.paidBy ? `Covered $${amount.toFixed(2)}` : amount <= 0 ? "No repayment due" : `${paid > 0 ? `$${centsToDollars(paid).toFixed(2)} recorded · ` : ""}${remaining === 0 ? "share paid" : detailExp.voidedAt ? `$${centsToDollars(remaining).toFixed(2)} excluded (voided)` : detailExp.settled ? `$${centsToDollars(remaining).toFixed(2)} settled` : `$${centsToDollars(remaining).toFixed(2)} remaining`}`}</CompletionText></View>
                           {isOwer && !detailExp.voidedAt && !detailExp.settled && remaining > 0 && isMe ? <TouchableOpacity disabled={disabled} accessibilityRole="button" accessibilityLabel="Record a full or partial repayment. No money is transferred." style={[styles.detailMarkPaidBtn, { backgroundColor: colors.action, opacity: disabled ? 0.45 : 1 }]} onPress={() => requestExpenseAction(detailExp, "repay")}><Feather name="check" size={13} color="#fff" /><Text style={styles.detailMarkPaidText}>Record repayment</Text></TouchableOpacity> : null}

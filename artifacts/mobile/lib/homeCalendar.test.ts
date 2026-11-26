@@ -28,7 +28,7 @@ function hooks() {
 }
 function load(name: string, modules: Record<string, any>) {
   const source = readFileSync(resolve(process.cwd(), `hooks/${name}.ts`), "utf8");
-  const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
+  const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, esModuleInterop: false, target: ts.ScriptTarget.ES2022 } }).outputText;
   const exports: any = {};
   runInNewContext(compiled, { exports, require: (key: string) => { assert(key in modules, `Unexpected hook dependency ${key}`); return modules[key]; } });
   return exports[name];
@@ -83,6 +83,12 @@ failed.render("avery", "failed-storage").dismiss(); await settle();
 assert.equal(failed.render("avery", "failed-storage").dismissed, true, "a storage failure must not block the visible layout change");
 assert(errors.includes("save summary dismissal")); failed.unmount(); failWrites = false;
 
+// A real X press still changes presentation before household/storage is ready.
+const transient = dismissal(); transient.render("avery", null); await settle();
+transient.render("avery", null).dismiss();
+assert.equal(transient.render("avery", null).dismissed, true, "session readiness must not leave an invisible summary above an inline calendar");
+transient.unmount();
+
 const react = hooks();
 const timings: { value: number; duration: number }[] = [];
 const hook = load("useFloatingWeekCalendar", {
@@ -123,3 +129,52 @@ assert.equal(calendar.floatingStyle().opacity, 0, "reduced motion must hide with
 assert.equal(calendar.floatingStyle().transform[0].translateY, 0);
 assert.equal(calendar.spacerStyle().height, 0);
 console.log("Home calendar dismissal restoration, account/day isolation, stale storage, failure recovery, attached scroll and spacing tests passed.");
+
+// Execute the actual shared calendar presentation with native host views. An
+// attached week must not retain a Surface, card border, or Calendar divider.
+const presentationSource = readFileSync(resolve(process.cwd(), "components/HomeCalendarPresentation.tsx"), "utf8");
+const presentationCode = ts.transpileModule(presentationSource, { compilerOptions: {
+  module: ts.ModuleKind.CommonJS, esModuleInterop: false, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX,
+} }).outputText;
+type Element = { type: string; key?: string; props: Record<string, any> };
+const jsx = (type: string, props: Element["props"], key?: string): Element => ({ type, props, key });
+const palette = { background: "#101014", border: "#50505A" };
+const presentation: Record<string, (props: Record<string, any>) => Element> = {};
+runInNewContext(presentationCode, { exports: presentation, require: (name: string) => {
+  if (name === "react/jsx-runtime") return { jsx, jsxs: jsx };
+  if (name === "react-native") return { View: "NativeView", StyleSheet: { create: (value: unknown) => value } };
+  if (name === "@/components/Surface") return { Surface: "CardSurface" };
+  if (name === "@/components/SectionDivider") return { SectionDivider: "CalendarDivider" };
+  if (name === "@/constants/colors") return { useTheme: () => palette };
+  if (name === "@/constants/designTokens") return { radii: { card: 22 }, spacing: { md: 12, lg: 16 } };
+  throw Error(`Unexpected presentation dependency ${name}`);
+} });
+const child = jsx("CalendarControls", {});
+const childNodes = (node: Element): Element[] => [node, ...[node.props.children].flat(Infinity)
+  .filter((value): value is Element => Boolean(value && typeof value === "object" && "props" in value)).flatMap(childNodes)];
+let toggles = 0;
+for (const expanded of [true, false]) {
+  const sectionProps = { expanded, count: 3, onToggle: () => { toggles++; }, onLayout: () => {}, children: child };
+  const before = presentation.HomeCalendarSection({ ...sectionProps, dismissed: false });
+  const divider = childNodes(before).find(node => node.type === "CalendarDivider");
+  assert(divider, "the inline section keeps its disclosure control");
+  divider.props.onToggle();
+  assert.equal(childNodes(before).includes(child), expanded, "saved collapsed calendar choices are respected before dismissal");
+  const after = presentation.HomeCalendarSection({ ...sectionProps, dismissed: true });
+  assert.equal(childNodes(after).some(node => node.type === "CalendarDivider"), false, "the horizontal Calendar bar disappears when the summary is dismissed");
+  assert(childNodes(after).includes(child), "dismissing the summary always reveals the week, even if the old section was collapsed");
+  assert.notEqual(before.key, after.key, "iOS receives a new native section identity rather than retaining the old card subtree");
+  assert.equal(after.props.collapsable, false, "native view flattening cannot retain the inline section");
+}
+assert.equal(toggles, 2);
+const body = presentation.HomeCalendarBody({ attached: true, children: child });
+assert.equal(body.type, "NativeView", "the attached week is a header view, not a restyled card");
+assert.equal(body.props.children, child, "calendar controls remain interactive in the header");
+const style = Object.assign({}, ...body.props.style);
+assert.equal(style.backgroundColor, palette.background, "the week joins the screen's top background");
+for (const property of ["borderWidth", "borderRadius", "shadowOpacity", "elevation", "marginBottom"]) {
+  assert.equal(style[property] ?? 0, 0, `${property} cannot leave a card outline in the attached header`);
+}
+const inline = presentation.HomeCalendarBody({ attached: false, children: child });
+assert.equal(inline.type, "CardSurface", "the regular calendar remains a card before the X press");
+console.log("Native calendar presentation passes immediate dismissal, absent session storage, section identity, divider removal and borderless header checks.");

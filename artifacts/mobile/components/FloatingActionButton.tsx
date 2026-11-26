@@ -46,10 +46,12 @@ export function FloatingActionButton({
       onPress={() => {
         if (pressLocked.current) return;
         pressLocked.current = true;
-        onPress();
+        // Schedule unlocking before invoking consumer code: an exception must
+        // not permanently turn every subsequent press into a no-op.
         setTimeout(() => {
           pressLocked.current = false;
         }, 450);
+        onPress();
       }}
     >
       <GlassControlSurface borderless pointerEvents="none" style={[StyleSheet.absoluteFill, { borderRadius: FAB_SIZE / 2 }]} />

@@ -1,6 +1,5 @@
 import { Feather } from "@expo/vector-icons";
-import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
-import { Tabs } from "expo-router";
+import { Tabs, type BottomTabBarProps } from "expo-router/js-tabs";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
@@ -18,18 +17,25 @@ import { useTabBarLayout } from "@/hooks/useTabBarLayout";
 import { useTheme } from "@/constants/colors";
 import { isLeaderboardVisible } from "@/constants/featureAvailability";
 import { useAppContextSelector } from "@/context/AppContext";
+import { useAppPopup } from "@/components/AppPopupProvider";
+import { APP_TABS, isAppTabId, tabAfterHiding } from "@/lib/tabVisibility";
 import { GlassTabBar } from "@/components/LiquidGlass";
 import { SmoothPressable } from "@/components/SmoothPressable";
 import { clampTabIndicatorX, resolveDraggedTabIndex } from "@/lib/tabBarGesture";
 import { tapLight } from "@/lib/haptics";
 
 const TAB_GESTURE_HOLD_MS = 260;
+const TAB_MENU_HOLD_MS = 600;
+const TAB_MENU_MOVE_TOLERANCE = 8;
 
 function ScrollableTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const colors = useTheme();
   const pointsEnabled = useAppContextSelector(
     (context) => context.pointsEnabled,
   );
+  const hiddenTabs = useAppContextSelector((context) => context.hiddenTabs);
+  const setTabHidden = useAppContextSelector((context) => context.setTabHidden);
+  const { showPopup } = useAppPopup();
   const { tabBarBottom } = useTabBarLayout();
   // Expo Router auto-registers every route file, even when its Tabs.Screen
   // configuration is conditionally omitted. Remove the route from the array
@@ -37,9 +43,10 @@ function ScrollableTabBar({ state, descriptors, navigation }: BottomTabBarProps)
   const visibleRoutes = useMemo(
     () =>
       state.routes.filter(
-        (route) => isLeaderboardVisible(pointsEnabled) || route.name !== "leaderboard",
+        (route) => (isLeaderboardVisible(pointsEnabled) || route.name !== "leaderboard") &&
+          (!isAppTabId(route.name) || !hiddenTabs.includes(route.name)),
       ),
-    [pointsEnabled, state.routes],
+    [hiddenTabs, pointsEnabled, state.routes],
   );
   const focusedRouteKey = state.routes[state.index]?.key;
   const preloadedRouteKeys = useRef(new Set<string>());
@@ -52,14 +59,14 @@ function ScrollableTabBar({ state, descriptors, navigation }: BottomTabBarProps)
   const dragActive = useRef(false);
   const draggedIndex = useRef(-1);
   const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const menuTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressConsumed = useRef(false);
+  const longPressedTabKey = useRef<string | null>(null);
   const animationVersion = useRef(0);
   const animationRunning = useRef(false);
   const targetX = useRef(0);
   const previousGeometry = useRef({ width: 0, count: 0, reduceMotion });
-  const focusedVisibleIndex = Math.max(
-    0,
-    visibleRoutes.findIndex((route) => route.key === focusedRouteKey),
-  );
+  const focusedVisibleIndex = visibleRoutes.findIndex((route) => route.key === focusedRouteKey);
   const tabWidth = contentWidth > 0 ? contentWidth / visibleRoutes.length : 0;
   const boundedIndicatorX = useMemo(
     () => indicatorX.interpolate({
@@ -72,7 +79,9 @@ function ScrollableTabBar({ state, descriptors, navigation }: BottomTabBarProps)
 
   const clearHold = useCallback(() => {
     if (holdTimer.current) clearTimeout(holdTimer.current);
+    if (menuTimer.current) clearTimeout(menuTimer.current);
     holdTimer.current = null;
+    menuTimer.current = null;
   }, []);
 
   useEffect(() => {
@@ -174,6 +183,38 @@ function ScrollableTabBar({ state, descriptors, navigation }: BottomTabBarProps)
     return index;
   };
 
+  const requestHideTab = useCallback((name: string) => {
+    if (!isAppTabId(name)) return;
+    const label = APP_TABS.find((tab) => tab.id === name)!.label;
+    if (visibleRoutes.length <= 1) {
+      showPopup({
+        title: "Keep one tab visible",
+        message: "Restore another tab in Settings → App Preferences → App Appearance before hiding this one.",
+        icon: "eye",
+        actions: [{ label: "Got it" }],
+      });
+      return;
+    }
+    showPopup({
+      title: `Hide ${label}?`,
+      message: "You can restore this tab in Settings → App Preferences → App Appearance.",
+      icon: "eye-off",
+      actions: [
+        { label: "Hide tab", primary: true, onPress: () => {
+          if (!setTabHidden(name, true)) {
+            throw new Error("Keep at least one tab visible. Restore another tab in App Appearance first.");
+          }
+          const currentState = navigation.getState();
+          if (currentState.routes[currentState.index]?.name === name) {
+            const next = tabAfterHiding(visibleRoutes, name);
+            if (next) navigation.navigate(next.name, next.params);
+          }
+        } },
+        { label: "Cancel" },
+      ],
+    });
+  }, [navigation, setTabHidden, showPopup, visibleRoutes]);
+
   const indicatorPanResponder = useMemo(
     () =>
       PanResponder.create({
@@ -181,6 +222,7 @@ function ScrollableTabBar({ state, descriptors, navigation }: BottomTabBarProps)
         onMoveShouldSetPanResponder: () => true,
         onPanResponderGrant: () => {
           clearHold();
+          longPressConsumed.current = false;
           const version = ++animationVersion.current;
           animationRunning.current = false;
           dragStartX.current = indicatorXValue.current;
@@ -202,9 +244,27 @@ function ScrollableTabBar({ state, descriptors, navigation }: BottomTabBarProps)
             }
             tapLight();
           }, TAB_GESTURE_HOLD_MS);
+          // The selected icon has a gesture overlay. A stationary hold opens
+          // its menu; moving before this deadline keeps hold-and-slide intact.
+          menuTimer.current = setTimeout(() => {
+            if (version !== animationVersion.current) return;
+            clearHold();
+            longPressConsumed.current = true;
+            dragActive.current = false;
+            settleIndicator(focusedVisibleIndex);
+            const route = visibleRoutes[focusedVisibleIndex];
+            if (route) {
+              navigation.emit({ type: "tabLongPress", target: route.key });
+              requestHideTab(route.name);
+            }
+          }, TAB_MENU_HOLD_MS);
         },
         onPanResponderMove: (_event, gesture) => {
-          if (!dragActive.current || !tabWidth) return;
+          if (Math.abs(gesture.dx) > TAB_MENU_MOVE_TOLERANCE || Math.abs(gesture.dy) > TAB_MENU_MOVE_TOLERANCE) {
+            if (menuTimer.current) clearTimeout(menuTimer.current);
+            menuTimer.current = null;
+          }
+          if (longPressConsumed.current || !dragActive.current || !tabWidth) return;
           const nextX = clampTabIndicatorX(
             dragStartX.current + gesture.dx, tabWidth, visibleRoutes.length,
           );
@@ -217,6 +277,11 @@ function ScrollableTabBar({ state, descriptors, navigation }: BottomTabBarProps)
         },
         onPanResponderRelease: () => {
           clearHold();
+          if (longPressConsumed.current) {
+            dragActive.current = false;
+            settleIndicator(focusedVisibleIndex);
+            return;
+          }
           const wasDragging = dragActive.current;
           dragActive.current = false;
           const index = wasDragging ? draggedIndex.current : focusedVisibleIndex;
@@ -231,7 +296,7 @@ function ScrollableTabBar({ state, descriptors, navigation }: BottomTabBarProps)
       }),
     // Recreate the responder when route geometry changes so its closures match.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [bubbleActivity, clearHold, focusedRouteKey, focusedVisibleIndex, indicatorX, navigation, reduceMotion, settleIndicator, tabWidth, visibleRoutes],
+    [bubbleActivity, clearHold, focusedRouteKey, focusedVisibleIndex, indicatorX, navigation, reduceMotion, requestHideTab, settleIndicator, tabWidth, visibleRoutes],
   );
 
   useEffect(() => {
@@ -274,7 +339,7 @@ function ScrollableTabBar({ state, descriptors, navigation }: BottomTabBarProps)
         style={styles.tabBarContent}
         onLayout={(event) => setContentWidth(event.nativeEvent.layout.width)}
       >
-        {tabWidth > 0 && (
+        {tabWidth > 0 && focusedVisibleIndex >= 0 && (
           <>
             <Animated.View
               pointerEvents="none"
@@ -297,8 +362,10 @@ function ScrollableTabBar({ state, descriptors, navigation }: BottomTabBarProps)
               />
             </Animated.View>
             <Animated.View
-              accessibilityLabel="Drag to switch tabs"
-              accessibilityHint="Press and hold, then slide left or right"
+              testID="selected-tab-gesture"
+              accessible={false}
+              accessibilityElementsHidden={true}
+              importantForAccessibility="no-hide-descendants"
               style={[
                 styles.selectionGestureTarget,
                 {
@@ -322,6 +389,10 @@ function ScrollableTabBar({ state, descriptors, navigation }: BottomTabBarProps)
                 : route.name;
 
           const onPress = () => {
+            if (longPressedTabKey.current === route.key) {
+              longPressedTabKey.current = null;
+              return;
+            }
             const event = navigation.emit({
               type: "tabPress",
               target: route.key,
@@ -336,11 +407,22 @@ function ScrollableTabBar({ state, descriptors, navigation }: BottomTabBarProps)
             <SmoothPressable
               key={route.key}
               accessibilityRole="tab"
-              accessibilityState={focused ? { selected: true } : {}}
+              accessibilityState={{ selected: focused }}
+              aria-selected={focused}
               accessibilityLabel={options.tabBarAccessibilityLabel ?? label}
-              accessibilityHint={focused ? `${label} tab, currently selected` : `Switch to the ${label} tab`}
+              accessibilityHint={`${focused ? "Currently selected. " : ""}Hold to hide, or hold and slide the selected tab to switch tabs`}
+              accessibilityActions={[{ name: "hide", label: `Hide ${label} tab` }]}
+              onAccessibilityAction={(event) => {
+                if (event.nativeEvent.actionName === "hide") requestHideTab(route.name);
+              }}
+              onPressIn={() => { longPressedTabKey.current = null; }}
               onPress={onPress}
-              onLongPress={() => navigation.emit({ type: "tabLongPress", target: route.key })}
+              delayLongPress={TAB_MENU_HOLD_MS}
+              onLongPress={() => {
+                longPressedTabKey.current = route.key;
+                navigation.emit({ type: "tabLongPress", target: route.key });
+                requestHideTab(route.name);
+              }}
               containerStyle={styles.tabItemSlot}
               style={styles.tabItem}
             >

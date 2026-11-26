@@ -151,7 +151,7 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: BRAND_BASE_DARK },
   content: { flex: 1 },
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: BRAND_BASE_DARK,
     alignItems: "center",
     justifyContent: "center",
