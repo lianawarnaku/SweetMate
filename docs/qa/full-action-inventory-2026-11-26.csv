@@ -1,9 +1,6 @@
 kind,file,line,component,label_or_condition,handler,coverage
 control,artifacts/mobile/app/(tabs)/_layout.tsx,407,SmoothPressable,{options.tabBarAccessibilityLabel ?? label},{onPress},source inventory; execution coverage is in the report
-control,artifacts/mobile/app/(tabs)/borrow.tsx,335,HistoryDisclosure,,"{() => {
-                setHistoryPages(1);
-                setShowAllReturned(true);
-              }}",source inventory; execution coverage is in the report
+control,artifacts/mobile/app/(tabs)/borrow.tsx,335,HistoryDisclosure,,{() => { setHistoryPages(1); setShowAllReturned(true); }},source inventory; execution coverage is in the report
 control,artifacts/mobile/app/(tabs)/borrow.tsx,346,HistoryDisclosure,,{() => setShowAllReturned(false)},source inventory; execution coverage is in the report
 control,artifacts/mobile/app/(tabs)/borrow.tsx,359,TouchableOpacity,"""Load more borrowing history""",{() => setHistoryPages((page) => page + 1)},source inventory; execution coverage is in the report
 control,artifacts/mobile/app/(tabs)/borrow.tsx,372,TouchableOpacity,"{`Hide borrowing history, ${returnedBorrows.length} records`}",{() => setShowAllReturned(false)},source inventory; execution coverage is in the report
@@ -23,10 +20,7 @@ control,artifacts/mobile/app/(tabs)/expenses.tsx,793,TouchableOpacity,"""Show am
 control,artifacts/mobile/app/(tabs)/expenses.tsx,822,TouchableOpacity,"""Show amounts owed to you""","{() => scrollToExpense(""owed"")}",source inventory; execution coverage is in the report
 control,artifacts/mobile/app/(tabs)/expenses.tsx,911,TouchableOpacity,,{() => openDetails(item.id)},source inventory; execution coverage is in the report
 control,artifacts/mobile/app/(tabs)/expenses.tsx,977,TouchableOpacity,{`Settle entire IOU for ${item.title}. This does not transfer money.`},"{(event) => { event.stopPropagation(); void performExpenseAction({ expenseId: item.id, action: ""settle"", title: ""Settle entire IOU"", message: ""No money is transferred."", label: ""Settle entire IOU"" }); }}",source inventory; execution coverage is in the report
-control,artifacts/mobile/app/(tabs)/expenses.tsx,1078,HistoryDisclosure,,"{() => {
-                  setHistoryExpanded((value) => !value);
-                  setHistoryPages(1);
-                }}",source inventory; execution coverage is in the report
+control,artifacts/mobile/app/(tabs)/expenses.tsx,1078,HistoryDisclosure,,{() => { setHistoryExpanded((value) => !value); setHistoryPages(1); }},source inventory; execution coverage is in the report
 control,artifacts/mobile/app/(tabs)/expenses.tsx,1095,TouchableOpacity,,{() => openDetails(expense.id)},source inventory; execution coverage is in the report
 control,artifacts/mobile/app/(tabs)/expenses.tsx,1123,TouchableOpacity,,{() => setHistoryPages((page) => page + 1)},source inventory; execution coverage is in the report
 control,artifacts/mobile/app/(tabs)/expenses.tsx,1160,Pressable,"""Close expense details""",{closeDetails},source inventory; execution coverage is in the report
@@ -42,160 +36,62 @@ control,artifacts/mobile/app/(tabs)/expenses.tsx,1201,TouchableOpacity,,"{() => 
 control,artifacts/mobile/app/(tabs)/expenses.tsx,1221,TouchableOpacity,"""Record a full or partial repayment. No money is transferred.""","{() => requestExpenseAction(detailExp, ""repay"")}",source inventory; execution coverage is in the report
 control,artifacts/mobile/app/(tabs)/expenses.tsx,1229,TouchableOpacity,{`Reverse your $${centsToDollars(payment.amountCents).toFixed(2)} repayment record`},"{() => requestExpenseAction(detailExp, ""undo"", payment.id)}",source inventory; execution coverage is in the report
 control,artifacts/mobile/app/(tabs)/expenses.tsx,1235,TouchableOpacity,"""Close expense details""",{closeDetails},source inventory; execution coverage is in the report
-control,artifacts/mobile/app/(tabs)/expenses.tsx,1242,FloatingActionButton,"""Add expense""","{() => {
-          resetModal();
-          setShowExpenseModal(true);
-        }}",source inventory; execution coverage is in the report
+control,artifacts/mobile/app/(tabs)/expenses.tsx,1242,FloatingActionButton,"""Add expense""",{() => { resetModal(); setShowExpenseModal(true); }},source inventory; execution coverage is in the report
 control,artifacts/mobile/app/(tabs)/expenses.tsx,1278,TouchableOpacity,"""Close expense editor""",{closeIou},source inventory; execution coverage is in the report
 control,artifacts/mobile/app/(tabs)/expenses.tsx,1342,TouchableOpacity,,{() => setExpCategory(cat.key)},source inventory; execution coverage is in the report
 control,artifacts/mobile/app/(tabs)/expenses.tsx,1386,TouchableOpacity,,{() => setExpPaidBy(r.id)},source inventory; execution coverage is in the report
 control,artifacts/mobile/app/(tabs)/expenses.tsx,1455,TouchableOpacity,,{recalcEvenSplit},source inventory; execution coverage is in the report
 control,artifacts/mobile/app/(tabs)/expenses.tsx,1569,TouchableOpacity,,{() => toggleParticipant(r.id)},source inventory; execution coverage is in the report
-control,artifacts/mobile/app/(tabs)/expenses.tsx,1620,TouchableOpacity,,"{() => {
-                            if (option.value === ""equal"") recalcEvenSplit();
-                            else { setExpSplits(displayedSplits); setAllocationMode(""exact""); }
-                          }}",source inventory; execution coverage is in the report
+control,artifacts/mobile/app/(tabs)/expenses.tsx,1620,TouchableOpacity,,"{() => { if (option.value === ""equal"") recalcEvenSplit(); else { setExpSplits(displayedSplits); setAllocationMode(""exact""); } }}",source inventory; execution coverage is in the report
 control,artifacts/mobile/app/(tabs)/expenses.tsx,1748,TouchableOpacity,{`Assign remaining amount to ${person.name}`},{() => assignRemainder(id)},source inventory; execution coverage is in the report
 control,artifacts/mobile/app/(tabs)/expenses.tsx,1772,TouchableOpacity,,{() => void retryExpenseSync()},source inventory; execution coverage is in the report
 control,artifacts/mobile/app/(tabs)/expenses.tsx,1785,TouchableOpacity,,{handleSendIOU},source inventory; execution coverage is in the report
 control,artifacts/mobile/app/(tabs)/group.tsx,656,SectionDivider,"""Roommates""",{toggleRoommates},source inventory; execution coverage is in the report
 control,artifacts/mobile/app/(tabs)/group.tsx,687,TouchableOpacity,"{`${rm.id === currentUserId ? ""Your"" : `${rm.name}'s`} status: ${status === ""asleep"" ? ""sleeping"" : status === ""away"" ? ""do not disturb"" : ""home""}`}",{() => cycleRoommateMood(rm.id)},source inventory; execution coverage is in the report
-control,artifacts/mobile/app/(tabs)/group.tsx,709,ChoreFilterButton,"{option === ""active"" ? ""Show this week’s group chores"" : option === ""calendar"" ? ""Show chore calendar and weekly assignments"" : `Show ${archivedHouseholdChores.length} archived group chores`}","{() => {
-                setChoreView(option);
-                setExpandedOverdueSections(new Set());
-              }}",source inventory; execution coverage is in the report
+control,artifacts/mobile/app/(tabs)/group.tsx,709,ChoreFilterButton,"{option === ""active"" ? ""Show this week’s group chores"" : option === ""calendar"" ? ""Show chore calendar and weekly assignments"" : `Show ${archivedHouseholdChores.length} archived group chores`}",{() => { setChoreView(option); setExpandedOverdueSections(new Set()); }},source inventory; execution coverage is in the report
 control,artifacts/mobile/app/(tabs)/group.tsx,740,TouchableOpacity,"""Previous month""",{() => { setMonthOffset((offset) => offset - 1); setSelectedCalendarDate(null); }},source inventory; execution coverage is in the report
 control,artifacts/mobile/app/(tabs)/group.tsx,750,TouchableOpacity,"""Next month""",{() => { setMonthOffset((offset) => offset + 1); setSelectedCalendarDate(null); }},source inventory; execution coverage is in the report
 control,artifacts/mobile/app/(tabs)/group.tsx,780,TouchableOpacity,"{`${date.toLocaleDateString(""en-US"", { weekday: ""long"", month: ""long"", day: ""numeric"", year: ""numeric"" })}${isToday ? "", today"" : """"}. Show this week's chores and shopping`}",{() => setSelectedCalendarDate(dateKey)},source inventory; execution coverage is in the report
-control,artifacts/mobile/app/(tabs)/group.tsx,936,TouchableOpacity,{`${roommate.name}'s chores`},"{() => {
-                      if (longPressedHeaderRef.current === roommate.id) return;
-                      toggleChoreSection(roommate.id);
-                    }}",source inventory; execution coverage is in the report
+control,artifacts/mobile/app/(tabs)/group.tsx,936,TouchableOpacity,{`${roommate.name}'s chores`},{() => { if (longPressedHeaderRef.current === roommate.id) return; toggleChoreSection(roommate.id); }},source inventory; execution coverage is in the report
 control,artifacts/mobile/app/(tabs)/group.tsx,984,TouchableOpacity,,{() => openAddChoreFor(roommate.id)},source inventory; execution coverage is in the report
 control,artifacts/mobile/app/(tabs)/group.tsx,1054,TouchableOpacity,{`${overdueDisplay.hiddenCount} earlier chores hidden for ${roommate.name}`},"{() => setExpandedOverdueSections((current) => new Set([...current, roommate.id]))}",source inventory; execution coverage is in the report
-control,artifacts/mobile/app/(tabs)/group.tsx,1083,TouchableOpacity,"{`${chore.title}. ${chore.skippedAt ? ""Skipped turn. No obligation."" : chore.completed ? ""Completed."" : ""Not completed.""} ${canManageChore(chore) ? ""Double tap to update completion, or use the more actions button to manage."" : ""Double tap to update completion.""}`}","{() => {
-                            if (longPressedChoreRef.current === chore.id) {
-                              longPressedChoreRef.current = null;
-                              return;
-                            }
-                            handleChorePress(chore.id);
-                          }}",source inventory; execution coverage is in the report
-control,artifacts/mobile/app/(tabs)/group.tsx,1148,TouchableOpacity,{`More actions for ${chore.title}`},"{(event) => {
-                              event.stopPropagation();
-                              openChoreActions(chore);
-                            }}",source inventory; execution coverage is in the report
-control,artifacts/mobile/app/(tabs)/group.tsx,1165,TouchableOpacity,{`Show more chores for ${roommate.name}`},"{() =>
-                            setVisibleChoreLimits((current) => ({
-                              ...current,
-                              [roommate.id]: visibleLimit + 20,
-                            }))
-                          }",source inventory; execution coverage is in the report
+control,artifacts/mobile/app/(tabs)/group.tsx,1083,TouchableOpacity,"{`${chore.title}. ${chore.skippedAt ? ""Skipped turn. No obligation."" : chore.completed ? ""Completed."" : ""Not completed.""} ${canManageChore(chore) ? ""Double tap to update completion, or use the more actions button to manage."" : ""Double tap to update completion.""}`}",{() => { if (longPressedChoreRef.current === chore.id) { longPressedChoreRef.current = null; return; } handleChorePress(chore.id); }},source inventory; execution coverage is in the report
+control,artifacts/mobile/app/(tabs)/group.tsx,1148,TouchableOpacity,{`More actions for ${chore.title}`},{(event) => { event.stopPropagation(); openChoreActions(chore); }},source inventory; execution coverage is in the report
+control,artifacts/mobile/app/(tabs)/group.tsx,1165,TouchableOpacity,{`Show more chores for ${roommate.name}`},"{() => setVisibleChoreLimits((current) => ({ ...current, [roommate.id]: visibleLimit + 20, })) }",source inventory; execution coverage is in the report
 control,artifacts/mobile/app/(tabs)/group.tsx,1293,TouchableOpacity,"""Close chore editor""",{closeAddChoreSheet},source inventory; execution coverage is in the report
 control,artifacts/mobile/app/(tabs)/index.tsx,181,TouchableOpacity,"""Dismiss caught-up summary""",{dismiss},source inventory; execution coverage is in the report
 control,artifacts/mobile/app/(tabs)/index.tsx,238,TouchableOpacity,{`Up next: ${chore.title}`},{() => onOpenChore(chore)},source inventory; execution coverage is in the report
 control,artifacts/mobile/app/(tabs)/index.tsx,343,TouchableOpacity,"{`${chore.completed ? ""Mark incomplete"" : ""Mark complete""}: ${chore.title}`}",{handleCheckPress},source inventory; execution coverage is in the report
 control,artifacts/mobile/app/(tabs)/index.tsx,404,TouchableOpacity,"""Task actions""",{onManage},source inventory; execution coverage is in the report
-control,artifacts/mobile/app/(tabs)/index.tsx,1026,TouchableOpacity,"""Previous week""","{() => {
-            if (calendarExpanded) {
-              setSelectedDate((date) => new Date(date.getFullYear(), date.getMonth() - 1, 1, 12));
-            } else {
-              setWeekOffset((value) => value - 1);
-            }
-          }}",source inventory; execution coverage is in the report
-control,artifacts/mobile/app/(tabs)/index.tsx,1039,TouchableOpacity,,"{() => {
-            setCalendarExpanded((value) => !value);
-            if (floatingWeekCalendar) homeListRef.current?.scrollToOffset({ offset: 0, animated: !reduceMotion });
-          }}",source inventory; execution coverage is in the report
-control,artifacts/mobile/app/(tabs)/index.tsx,1056,TouchableOpacity,"""Next week""","{() => {
-            if (calendarExpanded) {
-              setSelectedDate((date) => new Date(date.getFullYear(), date.getMonth() + 1, 1, 12));
-            } else {
-              setWeekOffset((value) => value + 1);
-            }
-          }}",source inventory; execution coverage is in the report
+control,artifacts/mobile/app/(tabs)/index.tsx,1026,TouchableOpacity,"""Previous week""","{() => { if (calendarExpanded) { setSelectedDate((date) => new Date(date.getFullYear(), date.getMonth() - 1, 1, 12)); } else { setWeekOffset((value) => value - 1); } }}",source inventory; execution coverage is in the report
+control,artifacts/mobile/app/(tabs)/index.tsx,1039,TouchableOpacity,,"{() => { setCalendarExpanded((value) => !value); if (floatingWeekCalendar) homeListRef.current?.scrollToOffset({ offset: 0, animated: !reduceMotion }); }}",source inventory; execution coverage is in the report
+control,artifacts/mobile/app/(tabs)/index.tsx,1056,TouchableOpacity,"""Next week""","{() => { if (calendarExpanded) { setSelectedDate((date) => new Date(date.getFullYear(), date.getMonth() + 1, 1, 12)); } else { setWeekOffset((value) => value + 1); } }}",source inventory; execution coverage is in the report
 control,artifacts/mobile/app/(tabs)/index.tsx,1096,TouchableOpacity,"{`${date.toLocaleDateString(""en-US"", { weekday: ""long"", month: ""long"", day: ""numeric"" })}, ${dayItems.length} scheduled ${dayItems.length === 1 ? ""item"" : ""items""}${today ? "", today"" : """"}${selected ? "", selected"" : """"}`}",{() => selectCalendarDate(date)},source inventory; execution coverage is in the report
 control,artifacts/mobile/app/(tabs)/index.tsx,1147,TouchableOpacity,"{`${date.toLocaleDateString(""en-US"", { month: ""long"", day: ""numeric"" })}, ${dayItems.length} scheduled items${today ? "", today"" : """"}${selected ? "", selected"" : """"}`}",{() => selectCalendarDate(date)},source inventory; execution coverage is in the report
 control,artifacts/mobile/app/(tabs)/index.tsx,1273,CollapsibleSectionHeader,"{showPersonalAgenda ? ""My Day"" : ""My Chores""}","{() => toggleHomeSection(""my-chores"")}",source inventory; execution coverage is in the report
-control,artifacts/mobile/app/(tabs)/index.tsx,1285,ChoreFilterButton,"{
-                    f === ""today""
-                      ? ""Show today's chores""
-                      : f === ""done""
-                        ? ""Show chores completed in the last 7 days""
-                        : `Show ${archivedPersonalChoreCount} archived chores`
-                  }",{() => selectFilter(f)},source inventory; execution coverage is in the report
+control,artifacts/mobile/app/(tabs)/index.tsx,1285,ChoreFilterButton,"{ f === ""today"" ? ""Show today's chores"" : f === ""done"" ? ""Show chores completed in the last 7 days"" : `Show ${archivedPersonalChoreCount} archived chores` }",{() => selectFilter(f)},source inventory; execution coverage is in the report
 control,artifacts/mobile/app/(tabs)/index.tsx,1315,TouchableOpacity,{`${hiddenEarlierChoreCount} earlier chores hidden`},{() => setShowEarlierChores(true)},source inventory; execution coverage is in the report
 control,artifacts/mobile/app/(tabs)/index.tsx,1377,CollapsibleSectionHeader,"""Shopping""","{() => toggleHomeSection(""shopping"")}",source inventory; execution coverage is in the report
-control,artifacts/mobile/app/(tabs)/index.tsx,1399,TouchableOpacity,"{`${item.completed ? ""Mark needed"" : ""Mark purchased""}: ${item.name}`}","{() => {
-                        if (heldShoppingItem.current) return;
-                        if (item.completed) {
-                          shoppingFeedback.cancelCompletion(item.id);
-                          tapLight();
-                        } else {
-                          shoppingFeedback.holdCompletion(item.id);
-                          hapticSuccess();
-                        }
-                        toggleShoppingItem(item.id);
-                      }}",source inventory; execution coverage is in the report
-control,artifacts/mobile/app/(tabs)/index.tsx,1494,FloatingActionButton,"""Add chore""","{() => {
-          setEditingChoreId(null);
-          setShowModal(true);
-        }}",source inventory; execution coverage is in the report
+control,artifacts/mobile/app/(tabs)/index.tsx,1399,TouchableOpacity,"{`${item.completed ? ""Mark needed"" : ""Mark purchased""}: ${item.name}`}",{() => { if (heldShoppingItem.current) return; if (item.completed) { shoppingFeedback.cancelCompletion(item.id); tapLight(); } else { shoppingFeedback.holdCompletion(item.id); hapticSuccess(); } toggleShoppingItem(item.id); }},source inventory; execution coverage is in the report
+control,artifacts/mobile/app/(tabs)/index.tsx,1494,FloatingActionButton,"""Add chore""",{() => { setEditingChoreId(null); setShowModal(true); }},source inventory; execution coverage is in the report
 control,artifacts/mobile/app/(tabs)/index.tsx,1584,TouchableOpacity,"""Close chore editor""",{closeAddChore},source inventory; execution coverage is in the report
 control,artifacts/mobile/app/(tabs)/leaderboard.tsx,115,TouchableOpacity,,{() => setLeaderboardPeriod(p)},source inventory; execution coverage is in the report
 control,artifacts/mobile/app/(tabs)/shopping.tsx,529,TouchableOpacity,"{`${list.name}, ${items.length - doneCount} items remaining`}",{() => handleListHeaderPress(list.id)},source inventory; execution coverage is in the report
 control,artifacts/mobile/app/(tabs)/shopping.tsx,542,TouchableOpacity,{`Reorder ${list.name}`},"{Platform.OS === ""web"" ? (event) => { event.stopPropagation(); drag(); } : undefined}",source inventory; execution coverage is in the report
-control,artifacts/mobile/app/(tabs)/shopping.tsx,576,TouchableOpacity,{`Add item to ${list.name}`},"{() => {
-                      setTargetListId(list.id);
-                      setShowShoppingModal(true);
-                    }}",source inventory; execution coverage is in the report
-control,artifacts/mobile/app/(tabs)/shopping.tsx,588,TouchableOpacity,{`More actions for ${list.name}`},"{(event) => {
-                      event.stopPropagation();
-                      openListActions(list.id);
-                    }}",source inventory; execution coverage is in the report
+control,artifacts/mobile/app/(tabs)/shopping.tsx,576,TouchableOpacity,{`Add item to ${list.name}`},{() => { setTargetListId(list.id); setShowShoppingModal(true); }},source inventory; execution coverage is in the report
+control,artifacts/mobile/app/(tabs)/shopping.tsx,588,TouchableOpacity,{`More actions for ${list.name}`},{(event) => { event.stopPropagation(); openListActions(list.id); }},source inventory; execution coverage is in the report
 control,artifacts/mobile/app/(tabs)/shopping.tsx,645,TouchableOpacity,{item.name},{() => openItemActions(item.id)},source inventory; execution coverage is in the report
 control,artifacts/mobile/app/(tabs)/shopping.tsx,663,TouchableOpacity,{`Reorder ${item.name}`},"{Platform.OS === ""web"" ? (event) => { event.stopPropagation(); drag(); } : undefined}",source inventory; execution coverage is in the report
-control,artifacts/mobile/app/(tabs)/shopping.tsx,674,TouchableOpacity,"{`${item.completed ? ""Mark needed"" : ""Mark purchased""}: ${item.name}`}","{(event) => {
-                                    event.stopPropagation();
-                                    if (item.completed) {
-                                      cancelCompletion(item.id);
-                                    } else {
-                                      completionOrderRef.current.set(list.id, items.map((entry) => entry.id));
-                                      holdCompletion(item.id);
-                                    }
-                                    toggleShoppingItem(item.id);
-                                    if (item.completed) tapLight();
-                                    else hapticSuccess();
-                                  }}",source inventory; execution coverage is in the report
+control,artifacts/mobile/app/(tabs)/shopping.tsx,674,TouchableOpacity,"{`${item.completed ? ""Mark needed"" : ""Mark purchased""}: ${item.name}`}","{(event) => { event.stopPropagation(); if (item.completed) { cancelCompletion(item.id); } else { completionOrderRef.current.set(list.id, items.map((entry) => entry.id)); holdCompletion(item.id); } toggleShoppingItem(item.id); if (item.completed) tapLight(); else hapticSuccess(); }}",source inventory; execution coverage is in the report
 control,artifacts/mobile/app/(tabs)/shopping.tsx,717,TouchableOpacity,{`Delete ${item.name}`},{(event) => { event.stopPropagation(); deleteShoppingItem(item.id); }},source inventory; execution coverage is in the report
 control,artifacts/mobile/app/(tabs)/shopping.tsx,742,FloatingActionButton,"""Add shopping list""",{() => setShowNewListModal(true)},source inventory; execution coverage is in the report
 control,artifacts/mobile/app/(tabs)/shopping.tsx,860,Pressable,,{() => setAssignPickerListId(null)},source inventory; execution coverage is in the report
-control,artifacts/mobile/app/(tabs)/shopping.tsx,873,TouchableOpacity,,"{() => {
-                    assignShoppingList(
-                      assignPickerListId!,
-                      selected ? null : r.id
-                    );
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setAssignPickerListId(null);
-                  }}",source inventory; execution coverage is in the report
-control,artifacts/mobile/app/(tabs)/shopping.tsx,912,TouchableOpacity,,"{() => {
-                assignShoppingList(assignPickerListId!, null);
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setAssignPickerListId(null);
-              }}",source inventory; execution coverage is in the report
+control,artifacts/mobile/app/(tabs)/shopping.tsx,873,TouchableOpacity,,"{() => { assignShoppingList( assignPickerListId!, selected ? null : r.id ); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setAssignPickerListId(null); }}",source inventory; execution coverage is in the report
+control,artifacts/mobile/app/(tabs)/shopping.tsx,912,TouchableOpacity,,"{() => { assignShoppingList(assignPickerListId!, null); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setAssignPickerListId(null); }}",source inventory; execution coverage is in the report
 control,artifacts/mobile/app/alerts.tsx,100,TouchableOpacity,"""Back from alerts""","{() => backWithFallback(router, ""/(tabs)"")}",source inventory; execution coverage is in the report
 control,artifacts/mobile/app/alerts.tsx,110,TouchableOpacity,,{markAllAlertsRead},source inventory; execution coverage is in the report
 control,artifacts/mobile/app/alerts.tsx,127,TouchableOpacity,"{`${feedItem.alerts.length} overdue chores${unreadOverdue ? `, ${unreadOverdue} unread` : """"}`}",{() => setOverdueExpanded((value) => !value)},source inventory; execution coverage is in the report
-control,artifacts/mobile/app/alerts.tsx,163,TouchableOpacity,"{`${feedItem.alert.readAt ? """" : ""Unread ""}${feedItem.alert.title}`}","{() => {
-                    markAlertRead(feedItem.id);
-                    if (feedItem.alert.type === ""nudge"") {
-                      const nudgeId = feedItem.alert.id.replace(/^nudge:/, """");
-                      void acknowledgeNudge(nudgeId).catch(() => {
-                        hapticError();
-                      });
-                    } else if (feedItem.alert.relatedEntityType === ""chore-chart"") {
-                      router.push(""/planning?type=chore-chart"" as never);
-                    }
-                  }}",source inventory; execution coverage is in the report
+control,artifacts/mobile/app/alerts.tsx,163,TouchableOpacity,"{`${feedItem.alert.readAt ? """" : ""Unread ""}${feedItem.alert.title}`}","{() => { markAlertRead(feedItem.id); if (feedItem.alert.type === ""nudge"") { const nudgeId = feedItem.alert.id.replace(/^nudge:/, """"); void acknowledgeNudge(nudgeId).catch(() => { hapticError(); }); } else if (feedItem.alert.relatedEntityType === ""chore-chart"") { router.push(""/planning?type=chore-chart"" as never); } }}",source inventory; execution coverage is in the report
 control,artifacts/mobile/app/alerts.tsx,201,TouchableOpacity,,"{() => router.push(""/planning?type=chore-chart"")}",source inventory; execution coverage is in the report
 control,artifacts/mobile/app/alerts.tsx,227,TouchableOpacity,,{() => act(() => approveProposedChart(proposal.id))},source inventory; execution coverage is in the report
 control,artifacts/mobile/app/alerts.tsx,231,TouchableOpacity,,{() => act(() => forceApproveProposedChart(proposal.id))},source inventory; execution coverage is in the report
@@ -207,16 +103,8 @@ control,artifacts/mobile/app/planning.tsx,227,TouchableOpacity,,"{() => { setInp
 control,artifacts/mobile/app/planning.tsx,235,TouchableOpacity,,{() => setInputVisible(true)},source inventory; execution coverage is in the report
 control,artifacts/mobile/app/planning.tsx,354,TouchableOpacity,"{`${checked ? ""Remove"" : ""Mark""} ${item} ${checked ? ""from owned items"" : ""as owned""}`}",{onToggle},source inventory; execution coverage is in the report
 control,artifacts/mobile/app/planning.tsx,380,Pressable,,{() => setShowAllAssignees((current) => !current)},source inventory; execution coverage is in the report
-control,artifacts/mobile/app/planning.tsx,412,TouchableOpacity,"{
-              currentUserAssigned
-                ? `Remove your assignment from ${item}`
-                : `Assign yourself to ${item}`
-            }",{() => onToggleSelfAssignment(!currentUserAssigned)},source inventory; execution coverage is in the report
-control,artifacts/mobile/app/planning.tsx,1016,TouchableOpacity,"{isChoreChart ? ""Back from Chore Chart"" : ""Back from Sweet Essentials""}","{() =>
-              setupMode
-                ? router.replace(""/sweet-setup"" as never)
-                : backWithFallback(router, ""/settings"")
-            }",source inventory; execution coverage is in the report
+control,artifacts/mobile/app/planning.tsx,412,TouchableOpacity,{ currentUserAssigned ? `Remove your assignment from ${item}` : `Assign yourself to ${item}` },{() => onToggleSelfAssignment(!currentUserAssigned)},source inventory; execution coverage is in the report
+control,artifacts/mobile/app/planning.tsx,1016,TouchableOpacity,"{isChoreChart ? ""Back from Chore Chart"" : ""Back from Sweet Essentials""}","{() => setupMode ? router.replace(""/sweet-setup"" as never) : backWithFallback(router, ""/settings"") }",source inventory; execution coverage is in the report
 control,artifacts/mobile/app/planning.tsx,1033,TouchableOpacity,"""How does this work?""",{() => setHowItWorksOpen(true)},source inventory; execution coverage is in the report
 control,artifacts/mobile/app/planning.tsx,1056,TouchableOpacity,"""Finish household setup""","{() => router.push((!homeProfile ? `/sweet-setup?resume=1&household=${householdId}` : ""/settings"") as never)}",source inventory; execution coverage is in the report
 control,artifacts/mobile/app/planning.tsx,1073,TouchableOpacity,"""Retry loading chore settings""","{() => void retryChoreChartConfiguration().catch((error) => setError(error instanceof Error ? error.message : ""Unable to load chore settings.""))}",source inventory; execution coverage is in the report
@@ -228,18 +116,7 @@ control,artifacts/mobile/app/planning.tsx,1235,TouchableOpacity,,{() => deleteCu
 control,artifacts/mobile/app/planning.tsx,1250,TouchableOpacity,,{() => setCustomTaskDifficulty(value)},source inventory; execution coverage is in the report
 control,artifacts/mobile/app/planning.tsx,1265,TouchableOpacity,,{() => setCustomTaskFrequency(value)},source inventory; execution coverage is in the report
 control,artifacts/mobile/app/planning.tsx,1276,TouchableOpacity,,{() => setCustomTaskTime(value)},source inventory; execution coverage is in the report
-control,artifacts/mobile/app/planning.tsx,1284,TouchableOpacity,,"{() => {
-              if (!customTaskTitle.trim()) return;
-              addCustomTask({
-                item: customTaskTitle.trim(),
-                title: customTaskTitle.trim(),
-                difficulty: customTaskDifficulty,
-                frequency: customTaskFrequency,
-                timeOfDay: customTaskTime,
-              });
-              setCustomTaskTitle("""");
-              setCustomTaskDifficulty(3);
-            }}",source inventory; execution coverage is in the report
+control,artifacts/mobile/app/planning.tsx,1284,TouchableOpacity,,"{() => { if (!customTaskTitle.trim()) return; addCustomTask({ item: customTaskTitle.trim(), title: customTaskTitle.trim(), difficulty: customTaskDifficulty, frequency: customTaskFrequency, timeOfDay: customTaskTime, }); setCustomTaskTitle(""""); setCustomTaskDifficulty(3); }}",source inventory; execution coverage is in the report
 control,artifacts/mobile/app/planning.tsx,1307,TouchableOpacity,"""Click here to be the permanent owner of a task""",{() => void openAssignmentPreferences()},source inventory; execution coverage is in the report
 control,artifacts/mobile/app/planning.tsx,1319,TouchableOpacity,"""Discard unsent permanent preferences""",{() => { setAssignmentDraft(null); setError(null); }},source inventory; execution coverage is in the report
 control,artifacts/mobile/app/planning.tsx,1341,TouchableOpacity,,{() => { setResult(null); }},source inventory; execution coverage is in the report
@@ -251,18 +128,7 @@ control,artifacts/mobile/app/planning.tsx,1473,TouchableOpacity,"""Select recomm
 control,artifacts/mobile/app/planning.tsx,1503,TouchableOpacity,{`Select all ${category.title} ${ESSENTIAL_SUBSECTION_LABELS[subsection]}`},"{() => setDraftSubsection(category.id, subsection, true)}",source inventory; execution coverage is in the report
 control,artifacts/mobile/app/planning.tsx,1509,TouchableOpacity,{`Clear all ${category.title} ${ESSENTIAL_SUBSECTION_LABELS[subsection]}`},"{() => setDraftSubsection(category.id, subsection, false)}",source inventory; execution coverage is in the report
 control,artifacts/mobile/app/planning.tsx,1520,TouchableOpacity,"{`${selected ? ""Remove"" : ""Add""} ${entry.label} ${selected ? ""from"" : ""to""} shortlist${owned ? "", already owned"" : """"}`}","{() => setDraftItem(category.id, entry.id, !selected)}",source inventory; execution coverage is in the report
-control,artifacts/mobile/app/planning.tsx,1594,TouchableOpacity,"{
-                    setupMode
-                      ? ""Preview added essentials in Shopping""
-                      : ""View added essentials in Shopping""
-                  }","{() => {
-                    if (setupMode) {
-                      setShoppingPreviewOpen(true);
-                      return;
-                    }
-                    setShortlistOpen(false);
-                    router.push(""/(tabs)/shopping"" as never);
-                  }}",source inventory; execution coverage is in the report
+control,artifacts/mobile/app/planning.tsx,1594,TouchableOpacity,"{ setupMode ? ""Preview added essentials in Shopping"" : ""View added essentials in Shopping"" }","{() => { if (setupMode) { setShoppingPreviewOpen(true); return; } setShortlistOpen(false); router.push(""/(tabs)/shopping"" as never); }}",source inventory; execution coverage is in the report
 control,artifacts/mobile/app/planning.tsx,1618,TouchableOpacity,"""Add selected Sweet Essentials to Shopping""",{addSelectedToShopping},source inventory; execution coverage is in the report
 control,artifacts/mobile/app/planning.tsx,1642,TouchableOpacity,"""Save selected essentials and continue household setup""",{() => void continueHouseholdSetup()},source inventory; execution coverage is in the report
 control,artifacts/mobile/app/planning.tsx,1652,TouchableOpacity,"""Save shortlist""",{() => void saveShortlist()},source inventory; execution coverage is in the report
@@ -271,9 +137,7 @@ control,artifacts/mobile/app/planning.tsx,1780,TouchableOpacity,"""Back to Short
 control,artifacts/mobile/app/planning.tsx,1795,Pressable,"{isChoreChart ? ""Preview chore chart"" : ""Shortlist items""}",{generate},source inventory; execution coverage is in the report
 control,artifacts/mobile/app/settings.tsx,123,TouchableOpacity,"{`${title}, ${open ? ""collapse"" : ""expand""}`}",{() => setOpen((current) => !current)},source inventory; execution coverage is in the report
 control,artifacts/mobile/app/settings.tsx,650,TouchableOpacity,"""Switch household""",{() => setHouseholdSwitcherOpen(true)},source inventory; execution coverage is in the report
-control,artifacts/mobile/app/settings.tsx,744,TouchableOpacity,"{`Remove ${roommate.name} from ${householdName ?? ""this household""}`}","{() =>
-                    confirmRemoveRoommate(roommate.id, roommate.name)
-                  }",source inventory; execution coverage is in the report
+control,artifacts/mobile/app/settings.tsx,744,TouchableOpacity,"{`Remove ${roommate.name} from ${householdName ?? ""this household""}`}","{() => confirmRemoveRoommate(roommate.id, roommate.name) }",source inventory; execution coverage is in the report
 control,artifacts/mobile/app/settings.tsx,779,TouchableOpacity,,{confirmDeleteHousehold},source inventory; execution coverage is in the report
 control,artifacts/mobile/app/settings.tsx,827,TouchableOpacity,"""Open Chore Chart planning""","{() => router.push(""/planning?type=chore-chart"" as never)}",source inventory; execution coverage is in the report
 control,artifacts/mobile/app/settings.tsx,858,TouchableOpacity,"""Open Sweet Essentials""","{() => router.push(""/planning?type=home-checklist"" as never)}",source inventory; execution coverage is in the report
@@ -282,35 +146,15 @@ control,artifacts/mobile/app/settings.tsx,918,TouchableOpacity,,{confirmRestartC
 control,artifacts/mobile/app/settings.tsx,969,TouchableOpacity,"""Close settings""","{() => backWithFallback(router, ""/(tabs)"")}",source inventory; execution coverage is in the report
 control,artifacts/mobile/app/settings.tsx,1011,Pressable,,{() => setHouseholdSwitcherOpen(false)},source inventory; execution coverage is in the report
 control,artifacts/mobile/app/settings.tsx,1047,TouchableOpacity,"""Close household selector""",{() => setHouseholdSwitcherOpen(false)},source inventory; execution coverage is in the report
-control,artifacts/mobile/app/settings.tsx,1081,TouchableOpacity,"{`${membership.name}, ${membership.role}, ${membership.memberCount ?? 1} members${selected ? "", selected"" : """"}`}","{() => {
-                          if (!selected) switchSweet(membership.sweetId);
-                          setHouseholdSwitcherOpen(false);
-                        }}",source inventory; execution coverage is in the report
-control,artifacts/mobile/app/settings.tsx,1144,TouchableOpacity,{`Leave ${membership.name}`},"{(event) => {
-                            event.stopPropagation();
-                            confirm(""leave_household"", `Leave ${membership.name}?`, ""You will lose access to this household’s shared data. Your other households are not affected."", () =>
-                              leaveSweet(membership.sweetId), { confirmText: ""Leave"", destructive: true });
-                          }}",source inventory; execution coverage is in the report
-control,artifacts/mobile/app/settings.tsx,1166,TouchableOpacity,"""Create a household""","{() => {
-                  setHouseholdSwitcherOpen(false);
-                  router.push(""/sweet-setup?mode=create&additional=1"" as never);
-                }}",source inventory; execution coverage is in the report
-control,artifacts/mobile/app/settings.tsx,1188,TouchableOpacity,"""Join a household""","{() => {
-                  setHouseholdSwitcherOpen(false);
-                  router.push(""/sweet-setup?mode=join&additional=1"" as never);
-                }}",source inventory; execution coverage is in the report
+control,artifacts/mobile/app/settings.tsx,1081,TouchableOpacity,"{`${membership.name}, ${membership.role}, ${membership.memberCount ?? 1} members${selected ? "", selected"" : """"}`}",{() => { if (!selected) switchSweet(membership.sweetId); setHouseholdSwitcherOpen(false); }},source inventory; execution coverage is in the report
+control,artifacts/mobile/app/settings.tsx,1144,TouchableOpacity,{`Leave ${membership.name}`},"{(event) => { event.stopPropagation(); confirm(""leave_household"", `Leave ${membership.name}?`, ""You will lose access to this household’s shared data. Your other households are not affected."", () => leaveSweet(membership.sweetId), { confirmText: ""Leave"", destructive: true }); }}",source inventory; execution coverage is in the report
+control,artifacts/mobile/app/settings.tsx,1166,TouchableOpacity,"""Create a household""","{() => { setHouseholdSwitcherOpen(false); router.push(""/sweet-setup?mode=create&additional=1"" as never); }}",source inventory; execution coverage is in the report
+control,artifacts/mobile/app/settings.tsx,1188,TouchableOpacity,"""Join a household""","{() => { setHouseholdSwitcherOpen(false); router.push(""/sweet-setup?mode=join&additional=1"" as never); }}",source inventory; execution coverage is in the report
 control,artifacts/mobile/app/settings.tsx,1224,TouchableOpacity,,{pickImage},source inventory; execution coverage is in the report
 control,artifacts/mobile/app/settings.tsx,1240,TouchableOpacity,,{removePhoto},source inventory; execution coverage is in the report
-control,artifacts/mobile/app/settings.tsx,1297,TouchableOpacity,,"{() => {
-                      setColor(c);
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    }}",source inventory; execution coverage is in the report
+control,artifacts/mobile/app/settings.tsx,1297,TouchableOpacity,,{() => { setColor(c); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }},source inventory; execution coverage is in the report
 control,artifacts/mobile/app/settings.tsx,1389,TouchableOpacity,"""Disconnect Google account everywhere""",{toggleGoogleCalendar},source inventory; execution coverage is in the report
-control,artifacts/mobile/app/settings.tsx,1409,TouchableOpacity,"""Open Quick guide""","{() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              track.quickGuideOpened({ source: ""settings"" });
-              openQuickGuide();
-            }}",source inventory; execution coverage is in the report
+control,artifacts/mobile/app/settings.tsx,1409,TouchableOpacity,"""Open Quick guide""","{() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); track.quickGuideOpened({ source: ""settings"" }); openQuickGuide(); }}",source inventory; execution coverage is in the report
 control,artifacts/mobile/app/settings.tsx,1486,TouchableOpacity,,{handleSignOut},source inventory; execution coverage is in the report
 control,artifacts/mobile/app/settings.tsx,1502,TouchableOpacity,,{confirmDeleteOwnAccount},source inventory; execution coverage is in the report
 control,artifacts/mobile/app/settings.tsx,1548,TouchableOpacity,,{save},source inventory; execution coverage is in the report
@@ -329,24 +173,10 @@ control,artifacts/mobile/app/task-difficulty.tsx,130,TouchableOpacity,,"{() => c
 control,artifacts/mobile/components/ActionMenuModal.tsx,209,Pressable,"""Close action menu""",{() => dismiss()},source inventory; execution coverage is in the report
 control,artifacts/mobile/components/ActionMenuModal.tsx,242,Pressable,"""Close action menu""",{() => dismiss()},source inventory; execution coverage is in the report
 control,artifacts/mobile/components/ActionMenuModal.tsx,316,GlassButton,,{() => setConfirming(null)},source inventory; execution coverage is in the report
-control,artifacts/mobile/components/ActionMenuModal.tsx,332,GlassButton,{confirming.confirmation.confirmLabel},"{() => {
-                        void confirmAction();
-                      }}",source inventory; execution coverage is in the report
-control,artifacts/mobile/components/ActionMenuModal.tsx,397,GlassButton,{action.label},"{() => {
-                          void runAction(action);
-                        }}",source inventory; execution coverage is in the report
+control,artifacts/mobile/components/ActionMenuModal.tsx,332,GlassButton,{confirming.confirmation.confirmLabel},{() => { void confirmAction(); }},source inventory; execution coverage is in the report
+control,artifacts/mobile/components/ActionMenuModal.tsx,397,GlassButton,{action.label},{() => { void runAction(action); }},source inventory; execution coverage is in the report
 control,artifacts/mobile/components/ActionMenuModal.tsx,472,GlassButton,,{() => dismiss()},source inventory; execution coverage is in the report
-control,artifacts/mobile/components/AnalyticsConsentManager.tsx,72,AppSwitch,"{`${row.title}: ${preferences[row.key] ? ""on"" : ""off""}`}","{(value) =>
-              void saveAnalyticsPreferences(userId, {
-                [row.key]: value,
-                noticeVersion: PRIVACY_NOTICE_VERSION,
-                // Renew only the choice being explicitly changed, never revive
-                // an older opt-in for the other category.
-                ...(preferences.noticeVersion !== PRIVACY_NOTICE_VERSION
-                  ? { [row.key === ""productAnalyticsEnabled"" ? ""crashReportingEnabled"" : ""productAnalyticsEnabled""]: false }
-                  : {}),
-              }).catch(() => showPopup({ title: ""Choice couldn't be saved"", message: ""Please try again."", actions: [{ label: ""Got it"", primary: true }] }))
-            }",source inventory; execution coverage is in the report
+control,artifacts/mobile/components/AnalyticsConsentManager.tsx,72,AppSwitch,"{`${row.title}: ${preferences[row.key] ? ""on"" : ""off""}`}","{(value) => void saveAnalyticsPreferences(userId, { [row.key]: value, noticeVersion: PRIVACY_NOTICE_VERSION, // Renew only the choice being explicitly changed, never revive // an older opt-in for the other category. ...(preferences.noticeVersion !== PRIVACY_NOTICE_VERSION ? { [row.key === ""productAnalyticsEnabled"" ? ""crashReportingEnabled"" : ""productAnalyticsEnabled""]: false } : {}), }).catch(() => showPopup({ title: ""Choice couldn't be saved"", message: ""Please try again."", actions: [{ label: ""Got it"", primary: true }] })) }",source inventory; execution coverage is in the report
 control,artifacts/mobile/components/AnalyticsConsentManager.tsx,89,TouchableOpacity,,{openPolicy},source inventory; execution coverage is in the report
 control,artifacts/mobile/components/AppPopupProvider.tsx,98,GlassModalBackdrop,,{popup?.dismissible === false ? undefined : dismissPopup},source inventory; execution coverage is in the report
 control,artifacts/mobile/components/AppPopupProvider.tsx,110,GlassButton,"{action.destructive ? `${action.label}, destructive action` : action.label}","{() => void run(action, popup?.requestId)}",source inventory; execution coverage is in the report
@@ -380,28 +210,12 @@ control,artifacts/mobile/components/ExpenseRequestPanel.tsx,53,TouchableOpacity,
 control,artifacts/mobile/components/ExpenseRequestPanel.tsx,60,TouchableOpacity,,{() => setDiscarding(null)},source inventory; execution coverage is in the report
 control,artifacts/mobile/components/ExpenseRequestPanel.tsx,61,TouchableOpacity,,{() => { onDismiss(request.operationId); setDiscarding(null); }},source inventory; execution coverage is in the report
 control,artifacts/mobile/components/ExpenseRequestPanel.tsx,66,TouchableOpacity,,{() => setLimit((value) => value + 3)},source inventory; execution coverage is in the report
-control,artifacts/mobile/components/FeedbackSection.tsx,164,Pressable,,"{() => {
-          reset();
-          setVisible(true);
-        }}",source inventory; execution coverage is in the report
+control,artifacts/mobile/components/FeedbackSection.tsx,164,Pressable,,{() => { reset(); setVisible(true); }},source inventory; execution coverage is in the report
 control,artifacts/mobile/components/FeedbackSection.tsx,215,Pressable,"""Close feedback form""",{close},source inventory; execution coverage is in the report
 control,artifacts/mobile/components/FeedbackSection.tsx,240,Pressable,,{close},source inventory; execution coverage is in the report
-control,artifacts/mobile/components/FeedbackSection.tsx,263,SmoothPressable,"{
-                          value[0].toUpperCase() + value.slice(1)
-                        }",{() => setCategory(value)},source inventory; execution coverage is in the report
-control,artifacts/mobile/components/FeedbackSection.tsx,367,GlassButton,"{
-                      busy ? ""Sending feedback"" : ""Send Feedback""
-                    }",{submit},source inventory; execution coverage is in the report
-control,artifacts/mobile/components/FloatingActionButton.tsx,40,SmoothPressable,{accessibilityLabel},"{() => {
-        if (pressLocked.current) return;
-        pressLocked.current = true;
-        // Schedule unlocking before invoking consumer code: an exception must
-        // not permanently turn every subsequent press into a no-op.
-        setTimeout(() => {
-          pressLocked.current = false;
-        }, 450);
-        onPress();
-      }}",source inventory; execution coverage is in the report
+control,artifacts/mobile/components/FeedbackSection.tsx,263,SmoothPressable,{ value[0].toUpperCase() + value.slice(1) },{() => setCategory(value)},source inventory; execution coverage is in the report
+control,artifacts/mobile/components/FeedbackSection.tsx,367,GlassButton,"{ busy ? ""Sending feedback"" : ""Send Feedback"" }",{submit},source inventory; execution coverage is in the report
+control,artifacts/mobile/components/FloatingActionButton.tsx,40,SmoothPressable,{accessibilityLabel},"{() => { if (pressLocked.current) return; pressLocked.current = true; // Schedule unlocking before invoking consumer code: an exception must // not permanently turn every subsequent press into a no-op. setTimeout(() => { pressLocked.current = false; }, 450); onPress(); }}",source inventory; execution coverage is in the report
 control,artifacts/mobile/components/GeneratedTasksSheet.tsx,58,GlassModalBackdrop,"{draft ? ""Cancel editing generated chore"" : ""Close generated tasks""}",{close},source inventory; execution coverage is in the report
 control,artifacts/mobile/components/GeneratedTasksSheet.tsx,62,GlassButton,"{draft ? ""Cancel editing generated chore"" : ""Close generated tasks""}",{close},source inventory; execution coverage is in the report
 control,artifacts/mobile/components/GeneratedTasksSheet.tsx,78,GlassButton,{`Difficulty ${difficulty} of 5`},"{() => setDraft((current) => current ? { ...current, difficulty } : null)}",source inventory; execution coverage is in the report
@@ -426,43 +240,21 @@ control,artifacts/mobile/components/HeaderActions.tsx,29,SmoothPressable,"{hasPe
 control,artifacts/mobile/components/HeaderActions.tsx,51,SmoothPressable,"""Open settings""","{() => router.push(""/settings"")}",source inventory; execution coverage is in the report
 control,artifacts/mobile/components/HistoryDisclosure.tsx,19,SectionDivider,"""History""",{onToggle},source inventory; execution coverage is in the report
 control,artifacts/mobile/components/HomeCalendarPresentation.tsx,19,SectionDivider,"""Calendar""",{onToggle},source inventory; execution coverage is in the report
-control,artifacts/mobile/components/HouseholdCompletionControl.tsx,89,SmoothPressable,"{householdSetupDataReady ? complete ? ""Household setup complete"" : ""Household setup incomplete"" : ""Checking household setup""}","{() => {
-            const targetHouseholdId = householdId;
-            showPopup({
-              title: ""Edit household setup?"",
-              message: ""Review and change your home type, shared items, and chore settings. Your current settings will be loaded for you to edit."",
-              icon: ""home"",
-              actions: [
-                { label: ""Cancel"" },
-                { label: ""Edit setup"", primary: true, onPress: () => {
-                  if (activeHouseholdRef.current !== targetHouseholdId) return;
-                  router.push(`/sweet-setup?resume=1&household=${targetHouseholdId}` as never);
-                } },
-              ],
-            });
-          }}",source inventory; execution coverage is in the report
+control,artifacts/mobile/components/HouseholdCompletionControl.tsx,89,SmoothPressable,"{householdSetupDataReady ? complete ? ""Household setup complete"" : ""Household setup incomplete"" : ""Checking household setup""}","{() => { const targetHouseholdId = householdId; showPopup({ title: ""Edit household setup?"", message: ""Review and change your home type, shared items, and chore settings. Your current settings will be loaded for you to edit."", icon: ""home"", actions: [ { label: ""Cancel"" }, { label: ""Edit setup"", primary: true, onPress: () => { if (activeHouseholdRef.current !== targetHouseholdId) return; router.push(`/sweet-setup?resume=1&household=${targetHouseholdId}` as never); } }, ], }); }}",source inventory; execution coverage is in the report
 control,artifacts/mobile/components/HouseholdCompletionControl.tsx,116,SmoothPressable,"{chartStatus.ready ? chartStatus.complete ? ""Chore chart complete"" : ""Chore chart incomplete"" : chartStatus.error ? ""Chore chart status unavailable"" : ""Checking chore chart""}","{() => router.push(""/planning?type=chore-chart"" as never)}",source inventory; execution coverage is in the report
 control,artifacts/mobile/components/HouseholdCompletionControl.tsx,155,SmoothPressable,"""Mark household setup complete""",{completeHousehold},source inventory; execution coverage is in the report
 control,artifacts/mobile/components/HouseholdSetupScreen.tsx,496,Pressable,"""Cancel household setup""",{cancelAdditionalSetup},source inventory; execution coverage is in the report
 control,artifacts/mobile/components/HouseholdSetupScreen.tsx,522,Pressable,,{() => changeMode(item)},source inventory; execution coverage is in the report
 control,artifacts/mobile/components/HouseholdSetupScreen.tsx,550,Pressable,,{() => setTimezone(option.value)},source inventory; execution coverage is in the report
 control,artifacts/mobile/components/HouseholdSetupScreen.tsx,568,SelectionCard,{option.label},{() => setHousingType(option.key)},source inventory; execution coverage is in the report
-control,artifacts/mobile/components/HouseholdSetupScreen.tsx,580,Pressable,"""Browse Sweet Essentials""","{() => {
-                  if (navigationPendingRef.current) return;
-                  navigationPendingRef.current = true;
-                  router.push(`/planning?type=home-checklist&setup=household&housingType=${housingType}` as never);
-                }}",source inventory; execution coverage is in the report
+control,artifacts/mobile/components/HouseholdSetupScreen.tsx,580,Pressable,"""Browse Sweet Essentials""",{() => { if (navigationPendingRef.current) return; navigationPendingRef.current = true; router.push(`/planning?type=home-checklist&setup=household&housingType=${housingType}` as never); }},source inventory; execution coverage is in the report
 control,artifacts/mobile/components/HouseholdSetupScreen.tsx,594,Pressable,"""Skip Sweet Essentials for now""","{() => void goToStep(""items"", ""essentials"", ""skipped"")}",source inventory; execution coverage is in the report
 control,artifacts/mobile/components/HouseholdSetupScreen.tsx,620,Chip,"{`${count} ${count === 1 ? ""bathroom"" : ""bathrooms""}`}",{() => setBathroomCount(count)},source inventory; execution coverage is in the report
 control,artifacts/mobile/components/HouseholdSetupScreen.tsx,633,Chip,"{`${count} ${count === 1 ? ""bedroom"" : ""bedrooms""}`}",{() => setBedroomCount(count)},source inventory; execution coverage is in the report
 control,artifacts/mobile/components/HouseholdSetupScreen.tsx,646,Chip,{item},"{() => toggle(key, items, setItems)}",source inventory; execution coverage is in the report
 control,artifacts/mobile/components/HouseholdSetupScreen.tsx,658,Pressable,,{() => addCustomItem(section.key)},source inventory; execution coverage is in the report
 control,artifacts/mobile/components/HouseholdSetupScreen.tsx,678,Pressable,{`Rename ${chore.title}`},"{() => openRename({ kind: ""generated"", sourceKey: chore.sourceKey, title: chore.title })}",source inventory; execution coverage is in the report
-control,artifacts/mobile/components/HouseholdSetupScreen.tsx,682,Pressable,{`Change recurrence for ${chore.title}`},"{() => {
-                          setFrequencyTarget({ sourceKey: chore.sourceKey, title: chore.title });
-                          setFrequencyDraft(chore.persistedRecurrence);
-                          setShowCustomFrequency([""everyOtherDay"", ""everyThreeDays""].includes(chore.persistedRecurrence));
-                        }}",source inventory; execution coverage is in the report
+control,artifacts/mobile/components/HouseholdSetupScreen.tsx,682,Pressable,{`Change recurrence for ${chore.title}`},"{() => { setFrequencyTarget({ sourceKey: chore.sourceKey, title: chore.title }); setFrequencyDraft(chore.persistedRecurrence); setShowCustomFrequency([""everyOtherDay"", ""everyThreeDays""].includes(chore.persistedRecurrence)); }}",source inventory; execution coverage is in the report
 control,artifacts/mobile/components/HouseholdSetupScreen.tsx,698,Pressable,{`Remove ${chore.title}`},"{() => setRemovedGeneratedKeys((current) => new Set([...current, chore.sourceKey]))}",source inventory; execution coverage is in the report
 control,artifacts/mobile/components/HouseholdSetupScreen.tsx,712,Chip,{`${category.charAt(0).toUpperCase()}${category.slice(1)}`},{() => setCustomCategory(category)},source inventory; execution coverage is in the report
 control,artifacts/mobile/components/HouseholdSetupScreen.tsx,718,Chip,{CHORE_RECURRENCE_LABELS[recurrence]},{() => setCustomRecurrence(recurrence)},source inventory; execution coverage is in the report
@@ -470,26 +262,11 @@ control,artifacts/mobile/components/HouseholdSetupScreen.tsx,733,Chip,{LEADERBOA
 control,artifacts/mobile/components/HouseholdSetupScreen.tsx,738,Pressable,,{addCustomChore},source inventory; execution coverage is in the report
 control,artifacts/mobile/components/HouseholdSetupScreen.tsx,746,Pressable,{`Rename ${chore}`},"{() => openRename({ kind: ""custom"", title: chore })}",source inventory; execution coverage is in the report
 control,artifacts/mobile/components/HouseholdSetupScreen.tsx,754,Pressable,{`Remove ${chore}`},{() => setChores(chores.filter((item) => item !== chore))},source inventory; execution coverage is in the report
-control,artifacts/mobile/components/HouseholdSetupScreen.tsx,765,Pressable,,"{() => {
-              const previous = step === 2 ? ""details"" : step === 3 ? ""home"" : step === 4 ? (resumeExistingHousehold ? ""home"" : ""essentials"") : ""items"";
-              void goToStep(previous);
-              setError(null);
-            }}",source inventory; execution coverage is in the report
+control,artifacts/mobile/components/HouseholdSetupScreen.tsx,765,Pressable,,"{() => { const previous = step === 2 ? ""details"" : step === 3 ? ""home"" : step === 4 ? (resumeExistingHousehold ? ""home"" : ""essentials"") : ""items""; void goToStep(previous); setError(null); }}",source inventory; execution coverage is in the report
 control,artifacts/mobile/components/HouseholdSetupScreen.tsx,772,GlassButton,"""Set up chore chart now""","{() => void submitCreate(""chore-chart"")}",source inventory; execution coverage is in the report
 control,artifacts/mobile/components/HouseholdSetupScreen.tsx,775,Pressable,"""Skip and do later""","{() => void submitCreate(""app"")}",source inventory; execution coverage is in the report
 control,artifacts/mobile/components/HouseholdSetupScreen.tsx,780,Pressable,,"{mode === ""join"" ? submitJoin : step === 5 ? () => void submitCreate() : next}",source inventory; execution coverage is in the report
-control,artifacts/mobile/components/HouseholdSetupScreen.tsx,786,Pressable,,"{async () => {
-            try {
-              const { error: signOutError } = await signOutWithPushCleanup();
-              if (signOutError) {
-                reportSupabaseError(""sign out from household setup"", signOutError);
-                setError(signOutError.message);
-              }
-            } catch (signOutError) {
-              reportRuntimeError(""sign out from household setup"", signOutError);
-              setError(""We couldn't sign you out. Please try again."");
-            }
-          }}",source inventory; execution coverage is in the report
+control,artifacts/mobile/components/HouseholdSetupScreen.tsx,786,Pressable,,"{async () => { try { const { error: signOutError } = await signOutWithPushCleanup(); if (signOutError) { reportSupabaseError(""sign out from household setup"", signOutError); setError(signOutError.message); } } catch (signOutError) { reportRuntimeError(""sign out from household setup"", signOutError); setError(""We couldn't sign you out. Please try again.""); } }}",source inventory; execution coverage is in the report
 control,artifacts/mobile/components/HouseholdSetupScreen.tsx,804,GlassModalBackdrop,"""Cancel chore rename""",{closeRename},source inventory; execution coverage is in the report
 control,artifacts/mobile/components/HouseholdSetupScreen.tsx,808,GlassButton,"""Close chore name editor""",{closeRename},source inventory; execution coverage is in the report
 control,artifacts/mobile/components/HouseholdSetupScreen.tsx,821,GlassButton,,{closeRename},source inventory; execution coverage is in the report
@@ -500,11 +277,7 @@ control,artifacts/mobile/components/HouseholdSetupScreen.tsx,840,GlassButton,,{(
 control,artifacts/mobile/components/HouseholdSetupScreen.tsx,846,GlassButton,,"{() => { setShowCustomFrequency(true); if (![""everyOtherDay"", ""everyThreeDays""].includes(frequencyDraft)) setFrequencyDraft(""everyOtherDay""); }}",source inventory; execution coverage is in the report
 control,artifacts/mobile/components/HouseholdSetupScreen.tsx,854,GlassButton,,{() => setFrequencyDraft(frequency)},source inventory; execution coverage is in the report
 control,artifacts/mobile/components/HouseholdSetupScreen.tsx,863,GlassButton,,{() => setFrequencyTarget(null)},source inventory; execution coverage is in the report
-control,artifacts/mobile/components/HouseholdSetupScreen.tsx,864,GlassButton,,"{() => {
-                if (!frequencyTarget) return;
-                setRecurrenceOverrides((current) => ({ ...current, [frequencyTarget.sourceKey]: frequencyDraft }));
-                setFrequencyTarget(null);
-              }}",source inventory; execution coverage is in the report
+control,artifacts/mobile/components/HouseholdSetupScreen.tsx,864,GlassButton,,"{() => { if (!frequencyTarget) return; setRecurrenceOverrides((current) => ({ ...current, [frequencyTarget.sourceKey]: frequencyDraft })); setFrequencyTarget(null); }}",source inventory; execution coverage is in the report
 control,artifacts/mobile/components/HouseholdSetupScreen.tsx,901,Pressable,,{() => onChange(item)},source inventory; execution coverage is in the report
 control,artifacts/mobile/components/HouseholdSetupScreen.tsx,902,Pressable,,{onPress},source inventory; execution coverage is in the report
 control,artifacts/mobile/components/HouseholdSetupScreen.tsx,903,Pressable,,{onPress},source inventory; execution coverage is in the report
@@ -519,17 +292,11 @@ control,artifacts/mobile/components/ManualChoreForm.tsx,278,TouchableOpacity,,{(
 control,artifacts/mobile/components/ManualChoreForm.tsx,291,TouchableOpacity,,{() => setAllMembers((current) => !current)},source inventory; execution coverage is in the report
 control,artifacts/mobile/components/ManualChoreForm.tsx,305,TouchableOpacity,,{() => toggleParticipant(member.id)},source inventory; execution coverage is in the report
 control,artifacts/mobile/components/ManualChoreForm.tsx,327,TouchableOpacity,,{() => setRecurrence(option.value)},source inventory; execution coverage is in the report
-control,artifacts/mobile/components/ManualChoreForm.tsx,350,TouchableOpacity,,"{() => {
-              setDueDateInput(option.value);
-              setError(null);
-            }}",source inventory; execution coverage is in the report
+control,artifacts/mobile/components/ManualChoreForm.tsx,350,TouchableOpacity,,{() => { setDueDateInput(option.value); setError(null); }},source inventory; execution coverage is in the report
 control,artifacts/mobile/components/ManualChoreForm.tsx,389,TouchableOpacity,,{() => setCategory(option.key)},source inventory; execution coverage is in the report
 control,artifacts/mobile/components/ManualChoreForm.tsx,407,TouchableOpacity,,{() => setPoints(value)},source inventory; execution coverage is in the report
 control,artifacts/mobile/components/ManualChoreForm.tsx,434,TouchableOpacity,,{submit},source inventory; execution coverage is in the report
-control,artifacts/mobile/components/NudgeToast.tsx,144,Pressable,"""Dismiss nudge""","{(event) => {
-          event.stopPropagation();
-          animateDismissal(current.id, 1);
-        }}",source inventory; execution coverage is in the report
+control,artifacts/mobile/components/NudgeToast.tsx,144,Pressable,"""Dismiss nudge""","{(event) => { event.stopPropagation(); animateDismissal(current.id, 1); }}",source inventory; execution coverage is in the report
 control,artifacts/mobile/components/PersonalAgenda.tsx,33,TouchableOpacity,"{`${item.app_completed_at ? ""Mark incomplete"" : ""Complete""} in SweetMate: ${item.title}`}",{onPress},source inventory; execution coverage is in the report
 control,artifacts/mobile/components/PersonalAgenda.tsx,151,ScheduleCheck,,"{() => void update(item, { completed: !item.app_completed_at })}",source inventory; execution coverage is in the report
 control,artifacts/mobile/components/PersonalAgenda.tsx,153,TouchableOpacity,{`View details: ${item.title}`},{() => open(item)},source inventory; execution coverage is in the report
@@ -570,17 +337,8 @@ control,artifacts/mobile/components/SignInScreen.tsx,360,Pressable,"""Share opti
 control,artifacts/mobile/components/SignInScreen.tsx,384,Text,,{openPolicy},source inventory; execution coverage is in the report
 control,artifacts/mobile/components/SignInScreen.tsx,394,TouchableOpacity,"""Continue with Google""","{() => void signInWithSocialProvider(""google"")}",source inventory; execution coverage is in the report
 control,artifacts/mobile/components/SignInScreen.tsx,412,TouchableOpacity,"""Continue with Apple""","{() => void signInWithSocialProvider(""apple"")}",source inventory; execution coverage is in the report
-control,artifacts/mobile/components/SignInScreen.tsx,431,TouchableOpacity,,"{() => {
-              setMode(mode === ""signin"" ? ""signup"" : ""signin"");
-              setShareOptionalData(false);
-              setError(null);
-              setInfo(null);
-              setConfirmationEmail(null);
-            }}",source inventory; execution coverage is in the report
-control,artifacts/mobile/components/SmoothPressable.tsx,49,Pressable,,"{(event) => {
-          if (haptic) tapLight();
-          onPress?.(event);
-        }}",source inventory; execution coverage is in the report
+control,artifacts/mobile/components/SignInScreen.tsx,431,TouchableOpacity,,"{() => { setMode(mode === ""signin"" ? ""signup"" : ""signin""); setShareOptionalData(false); setError(null); setInfo(null); setConfirmationEmail(null); }}",source inventory; execution coverage is in the report
+control,artifacts/mobile/components/SmoothPressable.tsx,49,Pressable,,{(event) => { if (haptic) tapLight(); onPress?.(event); }},source inventory; execution coverage is in the report
 control,artifacts/mobile/components/UpcomingChores.tsx,21,TouchableOpacity,"{`${expanded ? ""Collapse"" : ""Expand""} Upcoming`}",{() => setExpanded((current) => !current)},source inventory; execution coverage is in the report
 control,artifacts/mobile/components/UpcomingChores.tsx,52,TouchableOpacity,"{`Show more upcoming chores, ${chores.length - visibleLimit} remaining`}",{() => setVisibleLimit((current) => current + 20)},source inventory; execution coverage is in the report
 control,artifacts/mobile/components/UserPreferencesPanel.tsx,43,SmoothPressable,,{() => setColorScheme(scheme)},source inventory; execution coverage is in the report
@@ -615,65 +373,25 @@ modal,artifacts/mobile/components/PersonalAgenda.tsx,171,Modal,{selectedItem !==
 modal,artifacts/mobile/components/QuickGuideModal.tsx,105,Modal,{quickGuideOpen},{close},source close callback present; not every modal physically opened
 modal,artifacts/mobile/components/RandomTaskSection.tsx,107,Modal,{draft !== null},{close},source close callback present; not every modal physically opened
 modal,artifacts/mobile/components/ShoppingEditorSheet.tsx,29,Modal,{visible},{close},source close callback present; not every modal physically opened
-popup call,artifacts/mobile/app/(tabs)/_layout.tsx,190,showPopup,"showPopup({
-        title: ""Keep one tab visible"",
-        message: ""Restore another tab in Settings → App Preferences → App Appearance before hiding this one."",
-        icon: ""eye"",
-        actions: [{ label: ""Got it"" }",,source inventory; execution coverage is in the report
-popup call,artifacts/mobile/app/(tabs)/_layout.tsx,198,showPopup,"showPopup({
-      title: `Hide ${label}?`,
-      message: ""You can restore this tab in Settings → App Preferences → App Appearance."",
-      icon: ""eye-off"",
-      actions: [
-        { label: ""Hide tab"", primary: true, on",,source inventory; execution coverage is in the report
+popup call,artifacts/mobile/app/(tabs)/_layout.tsx,190,showPopup,"showPopup({ title: ""Keep one tab visible"", message: ""Restore another tab in Settings → App Preferences → App Appearance before hiding this one."", icon: ""eye"", actions: [{ label: ""Got it"" }",,source inventory; execution coverage is in the report
+popup call,artifacts/mobile/app/(tabs)/_layout.tsx,198,showPopup,"showPopup({ title: `Hide ${label}?`, message: ""You can restore this tab in Settings → App Preferences → App Appearance."", icon: ""eye-off"", actions: [ { label: ""Hide tab"", primary: true, on",,source inventory; execution coverage is in the report
 popup call,artifacts/mobile/app/(tabs)/group.tsx,377,showPopup,"showPopup({ title: ""Not allowed"", message: ""Only the chore creator or Sweet host can delete this chore."", actions: [{ label: ""Got it"", primary: true }] })",,source inventory; execution coverage is in the report
-popup call,artifacts/mobile/app/(tabs)/group.tsx,381,showPopup,"showPopup({ title: ""Delete recurring chore?"", message: ""Completed chores are preserved unless you delete the entire series."", actions: [
-        { label: ""Cancel"" }, { label: ""This occurrence"", onPress: () => remove(""occ",,source inventory; execution coverage is in the report
+popup call,artifacts/mobile/app/(tabs)/group.tsx,381,showPopup,"showPopup({ title: ""Delete recurring chore?"", message: ""Completed chores are preserved unless you delete the entire series."", actions: [ { label: ""Cancel"" }, { label: ""This occurrence"", onPress: () => remove(""occ",,source inventory; execution coverage is in the report
 popup call,artifacts/mobile/app/(tabs)/group.tsx,387,showPopup,"showPopup({ title: ""Delete chore?"", message: ""This will remove the chore for everyone in your Sweet."", actions: [{ label: ""Cancel"" }, { label: ""Delete"", destructive: true, onPress: () => remove(""occurrence"") }] })",,source inventory; execution coverage is in the report
 popup call,artifacts/mobile/app/(tabs)/group.tsx,426,showPopup,"showPopup({ title: ""Couldn't save your choice"", message: ""Please check your connection and try again."", actions: [{ label: ""Got it"", primary: true }] })",,source inventory; execution coverage is in the report
 popup call,artifacts/mobile/app/(tabs)/group.tsx,431,showPopup,"showPopup({ title: ""Where should this chore go?"", message: ios ? ""Choose Google Calendar, Apple Reminders, or both. Your choice is saved."" : ""SweetMate can open this chore in Google Calendar."", dismissible: false, action",,source inventory; execution coverage is in the report
-popup call,artifacts/mobile/app/(tabs)/group.tsx,474,showPopup,"showPopup({
-          title: ""Couldn't add to calendar"",
-          message: error instanceof Error
-            ? error.message
-            : ""Google Calendar could not create the event. Please try again."",
-          acti",,source inventory; execution coverage is in the report
-popup call,artifacts/mobile/app/(tabs)/index.tsx,611,showPopup,"showPopup({
-        title: ""Where should this chore go?"",
-        message: ios ? ""Choose Google Calendar, Apple Reminders, or both. Your choice is saved."" : ""SweetMate can open this chore in Google Calendar."",
-        di",,source inventory; execution coverage is in the report
-popup call,artifacts/mobile/app/(tabs)/index.tsx,675,showPopup,"showPopup({
-          title: ""Couldn't add to calendar"",
-          message: error instanceof Error
-            ? error.message
-            : ""Google Calendar could not create the event. Please try again."",
-          acti",,source inventory; execution coverage is in the report
+popup call,artifacts/mobile/app/(tabs)/group.tsx,474,showPopup,"showPopup({ title: ""Couldn't add to calendar"", message: error instanceof Error ? error.message : ""Google Calendar could not create the event. Please try again."", acti",,source inventory; execution coverage is in the report
+popup call,artifacts/mobile/app/(tabs)/index.tsx,611,showPopup,"showPopup({ title: ""Where should this chore go?"", message: ios ? ""Choose Google Calendar, Apple Reminders, or both. Your choice is saved."" : ""SweetMate can open this chore in Google Calendar."", di",,source inventory; execution coverage is in the report
+popup call,artifacts/mobile/app/(tabs)/index.tsx,675,showPopup,"showPopup({ title: ""Couldn't add to calendar"", message: error instanceof Error ? error.message : ""Google Calendar could not create the event. Please try again."", acti",,source inventory; execution coverage is in the report
 popup call,artifacts/mobile/app/(tabs)/index.tsx,996,showPopup,"showPopup({ title: ""Not allowed"", message: ""Only the chore creator or Sweet host can delete this chore."", actions: [{ label: ""Got it"", primary: true }] })",,source inventory; execution coverage is in the report
-popup call,artifacts/mobile/app/(tabs)/index.tsx,1000,showPopup,"showPopup({ title: ""Delete recurring chore?"", message: ""Choose how much to remove. Completed chores are preserved unless you delete the entire series."", actions: [
-        { label: ""Cancel"" }, { label: ""This occurrence"",",,source inventory; execution coverage is in the report
+popup call,artifacts/mobile/app/(tabs)/index.tsx,1000,showPopup,"showPopup({ title: ""Delete recurring chore?"", message: ""Choose how much to remove. Completed chores are preserved unless you delete the entire series."", actions: [ { label: ""Cancel"" }, { label: ""This occurrence"",",,source inventory; execution coverage is in the report
 popup call,artifacts/mobile/app/(tabs)/index.tsx,1006,showPopup,"showPopup({ title: ""Delete chore?"", message: ""This will remove the chore for everyone in your Sweet."", actions: [{ label: ""Cancel"" }, { label: ""Delete"", destructive: true, onPress: () => remove(""occurrence"") }] })",,source inventory; execution coverage is in the report
-popup call,artifacts/mobile/components/ActionMenuModal.tsx,116,showPopup,"showPopup({
-    title: ""Couldn't complete action"",
-    message: error instanceof Error ? error.message : ""Please try again."",
-    actions: [{ label: ""OK"" }],
-  })",,source inventory; execution coverage is in the report
+popup call,artifacts/mobile/components/ActionMenuModal.tsx,116,showPopup,"showPopup({ title: ""Couldn't complete action"", message: error instanceof Error ? error.message : ""Please try again."", actions: [{ label: ""OK"" }], })",,source inventory; execution coverage is in the report
 popup call,artifacts/mobile/components/AnalyticsConsentManager.tsx,40,showPopup,"showPopup({ title: ""Privacy Policy unavailable"", message: ""Check your connection and try again, or visit sweetmate.info/privacy in a browser."", actions: [{ label: ""Got it"", primary: true }] })",,source inventory; execution coverage is in the report
 popup call,artifacts/mobile/components/AnalyticsConsentManager.tsx,83,showPopup,"showPopup({ title: ""Choice couldn't be saved"", message: ""Please try again."", actions: [{ label: ""Got it"", primary: true }] })",,source inventory; execution coverage is in the report
 popup call,artifacts/mobile/components/AnalyticsConsentManager.tsx,106,showPopup,"showPopup({ title: ""Privacy choices unavailable"", message: ""Optional analytics and crash reporting remain paused. You can retry from Settings."", actions: [{ label: ""Got it"", primary: true }] })",,source inventory; execution coverage is in the report
-popup call,artifacts/mobile/components/HouseholdCompletionControl.tsx,51,showPopup,"showPopup({
-        title: ""No roommates added yet"",
-        message: ""You are the only active member of this household. You can finish setup now and add roommates later."",
-        icon: ""alert-triangle"",
-        actions",,source inventory; execution coverage is in the report
+popup call,artifacts/mobile/components/HouseholdCompletionControl.tsx,51,showPopup,"showPopup({ title: ""No roommates added yet"", message: ""You are the only active member of this household. You can finish setup now and add roommates later."", icon: ""alert-triangle"", actions",,source inventory; execution coverage is in the report
 popup call,artifacts/mobile/components/HouseholdCompletionControl.tsx,63,showPopup,"showPopup({ title: ""Couldn't finish setup"", message: ""Your setup wasn't saved. Please check your connection and try again."", actions: [{ label: ""OK"" }] })",,source inventory; execution coverage is in the report
-popup call,artifacts/mobile/components/HouseholdCompletionControl.tsx,71,showPopup,"showPopup({
-        title: ""Couldn't finish household setup"",
-        message: ""Please check your connection and try again."",
-        icon: ""alert-triangle"",
-        actions: [{ label: ""OK"" }],
-      })",,source inventory; execution coverage is in the report
-popup call,artifacts/mobile/components/HouseholdCompletionControl.tsx,96,showPopup,"showPopup({
-              title: ""Edit household setup?"",
-              message: ""Review and change your home type, shared items, and chore settings. Your current settings will be loaded for you to edit."",
-              ",,source inventory; execution coverage is in the report
+popup call,artifacts/mobile/components/HouseholdCompletionControl.tsx,71,showPopup,"showPopup({ title: ""Couldn't finish household setup"", message: ""Please check your connection and try again."", icon: ""alert-triangle"", actions: [{ label: ""OK"" }], })",,source inventory; execution coverage is in the report
+popup call,artifacts/mobile/components/HouseholdCompletionControl.tsx,96,showPopup,"showPopup({ title: ""Edit household setup?"", message: ""Review and change your home type, shared items, and chore settings. Your current settings will be loaded for you to edit."",",,source inventory; execution coverage is in the report
 popup call,artifacts/mobile/components/PreferencesOnboardingScreen.tsx,52,showPopup,"showPopup({ title: ""Couldn't finish setup"", message: ""Your household is saved. Please try choosing what to do next again."", actions: [{ label: ""OK"" }] })",,source inventory; execution coverage is in the report
