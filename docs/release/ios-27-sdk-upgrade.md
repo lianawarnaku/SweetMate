@@ -68,3 +68,10 @@ Reassess that tradeoff during a future framework upgrade.
 Native compilation and device tests remain outstanding. The active local
 `xcode-select` directory points to Command Line Tools, so the preparation checks
 did not run a local Xcode archive or simulator build.
+
+## Native verification — November 26, 2026
+
+The separately authorized [TestFlight build 54](testflight-54.md) finished native
+compilation. Its signed IPA reports `DTSDKName=iphoneos27.2`, `DTXcode=2720`,
+minimum iOS 16.4, a configured UIKit scene lifecycle and the SweetMate callback
+scheme. Physical-device validation remains outstanding.

@@ -2,6 +2,23 @@
 
 Prepared November 12, 2026 against canonical `homiev2/main`. GitHub redirects `lianawarnaku/homiev2` to the renamed `lianawarnaku/SweetMate` repository (same repository ID).
 
+## November 26 launch-checklist status
+
+- Live HTTP checks: homepage and `/privacy` returned 200; `/support` and
+  `/delete-account` returned 404. The successful privacy response was a reachability
+  check, not a full current policy-content audit.
+- Read-only production secret-name checks confirmed `APPLE_OAUTH_CLIENT_ID` and
+  `APPLE_OAUTH_CLIENT_SECRET` exist. This supersedes the older missing-secret
+  note; it does not verify their values, expiry or physical-device revocation.
+- iOS 27 compilation is complete in signed build 54: `iphoneos27.2`, Xcode 27.2,
+  scene lifecycle and callback scheme verified. See [build 54](testflight-54.md).
+- Remaining public-launch work: Google public access/branding/scope verification,
+  publish missing support/deletion pages and review the live policy, physical
+  iPhone auth/deletion/feature tests, analytics retention/erasure and matching
+  App Store privacy/listing declarations.
+- The optional `auth.sweetmate.info` paid custom domain remains deferred at the
+  owner's request. No purchase or DNS change is authorized by this checklist.
+
 ## Release-polish reminder — November 25, 2026
 
 The owner asked to be reminded of Google OAuth publication and verification when

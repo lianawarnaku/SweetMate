@@ -32,3 +32,10 @@ Household switches synchronously hide the old household's preferences/items. Lat
 ## Rollout
 
 The additive migration is applied to the local QA database only. Apply it to production before distributing an app build that contains this hook. No production migration, production Google account changes, native release, TestFlight build or submission was performed. The canonical Avery/Blake browser previews use the updated export. Existing TestFlight build 52 remains unchanged until a separately authorized release.
+
+## Authorized rollout follow-up
+
+The owner requested a TestFlight release later on November 26. Both new setup
+migrations are now applied to production; core household records were confirmed
+unchanged against private before/after backups. See
+[build 54](../release/testflight-54.md) for rollout and native verification.
