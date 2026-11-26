@@ -51,6 +51,10 @@ sync and reopening. See [the follow-up reproduction, correction and regression
 coverage](shopping-list-deletion-2026-11-26.md). Source inventory and passing tests
 are not evidence that every dynamic control and persistence lifecycle was tested.
 
+The later borrowing report also exposed missing coverage for opening Add after
+account hydration, awaiting real saves and retrying failures, and self-borrowing
+validation after all migrations. See [the borrowing follow-up](borrowing-save-2026-11-26.md).
+
 ## Verification
 
 - `pnpm run typecheck` — passed across workspace projects.

@@ -5,6 +5,7 @@ import { runInNewContext } from "node:vm";
 import ts from "typescript";
 import { expenseRemainingCents } from "./expensePolicy.ts";
 import { normalizeExpenseDate } from "./expenseDate.ts";
+import { isBorrowReturnOwner } from "./borrowValidation.ts";
 import { setShoppingCompletion } from "./shoppingCompletion.ts";
 
 // Run actual AppContext callbacks with local state/vendor substitutes.
@@ -95,7 +96,7 @@ assert.deepEqual(names(), ["shoppingItemCompleted", "shoppingItemReopened"], "sh
 const borrowed = { id: "borrow", borrowedFrom: "owner", borrowedBy: "borrower", returned: false, visibility: "shared" };
 const visibleBorrowItemsRef: { current: any[] } = { current: [borrowed] };
 function borrowAction(currentUserId: string) {
-  return callback("returnBorrowItem", { visibleBorrowItems: [...visibleBorrowItemsRef.current], visibleBorrowItemsRef, currentUserId, householdId: "home", isHost: false, roommates: [], track, setPrivateBorrowItems: () => {}, setBorrowItems: () => {}, persistPrivateBorrowItem: () => {} });
+  return callback("returnBorrowItem", { isBorrowReturnOwner, visibleBorrowItems: [...visibleBorrowItemsRef.current], visibleBorrowItemsRef, currentUserId, householdId: "home", isHost: false, roommates: [], track, setPrivateBorrowItems: () => {}, setBorrowItems: () => {}, persistPrivateBorrowItem: () => {} });
 }
 events.length = 0;
 const request = borrowAction("borrower");

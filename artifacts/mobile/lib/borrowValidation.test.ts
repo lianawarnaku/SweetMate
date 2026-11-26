@@ -2,6 +2,8 @@ import {
   canManageBorrowItem,
   canSaveBorrowDraft,
   hasValidBorrowParticipants,
+  OTHER_BORROW_OWNER,
+  isBorrowReturnOwner,
 } from "./borrowValidation.ts";
 
 function assert(condition: boolean, message: string) {
@@ -83,3 +85,10 @@ assert(
   ),
   "host status must not expose another user's private borrow",
 );
+
+assert(canSaveBorrowDraft({ item: "Charger", ownerId: OTHER_BORROW_OWNER, borrowerId: "user-a", externalOwnerName: "Alex", householdMemberIds: members }), "named outside owners must save");
+assert(!canSaveBorrowDraft({ item: "Charger", ownerId: OTHER_BORROW_OWNER, borrowerId: "user-a", externalOwnerName: "  ", householdMemberIds: members }), "Other requires a name");
+assert(!canSaveBorrowDraft({ item: "Charger", ownerId: OTHER_BORROW_OWNER, borrowerId: "outsider", externalOwnerName: "Alex", householdMemberIds: members }), "Other must not allow an outside borrower");
+assert(!hasValidBorrowParticipants(OTHER_BORROW_OWNER, "user-a", members, "x".repeat(101)), "outside names are bounded");
+assert(isBorrowReturnOwner({ borrowedFrom: OTHER_BORROW_OWNER, creatorId: "user-a" }, "user-a"), "an outside owner's record creator can confirm a return");
+assert(!isBorrowReturnOwner({ borrowedFrom: OTHER_BORROW_OWNER, creatorId: "user-a" }, "user-b"), "Other must not give everyone return approval");

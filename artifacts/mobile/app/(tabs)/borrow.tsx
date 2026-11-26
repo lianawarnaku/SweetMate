@@ -6,11 +6,13 @@ import { KEYBOARD_BEHAVIOR } from "@/lib/keyboard";
 // grabbing a specific named export from a package
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import * as Crypto from "expo-crypto";
 import React, { useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
   KeyboardAvoidingView,
+  Keyboard,
   Modal,
   Platform,
   Pressable,
@@ -38,6 +40,8 @@ import { isBeforeLocalCalendarDay } from "@/lib/choreOccurrences";
 import {
   canManageBorrowItem,
   canSaveBorrowDraft,
+  OTHER_BORROW_OWNER,
+  isBorrowReturnOwner,
 } from "@/lib/borrowValidation";
 
 // Due date for borrowing function
@@ -105,6 +109,8 @@ export default function BorrowScreen() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [item, setItem] = useState("");
   const [borrowedFrom, setBorrowedFrom] = useState("");
+  const [externalOwnerName, setExternalOwnerName] = useState("");
+  const draftIdRef = useRef(Crypto.randomUUID());
   const [borrowedBy, setBorrowedBy] = useState(currentUserId);
   const [borrowedDate, setBorrowedDate] = useState(() => dateInput());
   const [dueDate, setDueDate] = useState(() => dateInput(7));
@@ -159,6 +165,8 @@ export default function BorrowScreen() {
     setItem("");
     setNotes("");
     setBorrowedFrom("");
+    setExternalOwnerName("");
+    draftIdRef.current = Crypto.randomUUID();
     setBorrowedBy(currentUserId);
     setBorrowedDate(dateInput());
     setDueDate(dateInput(7));
@@ -168,14 +176,24 @@ export default function BorrowScreen() {
   };
 
   const closeModal = () => {
+    if (savePendingRef.current) return;
+    Keyboard.dismiss();
     setShowModal(false);
     resetForm();
+  };
+
+  const openAdd = () => {
+    resetForm();
+    savePendingRef.current = false;
+    setSaving(false);
+    setShowModal(true);
   };
 
   const openEdit = (b: BorrowItem) => {
     setEditingId(b.id);
     setItem(b.item);
     setBorrowedFrom(b.borrowedFrom);
+    setExternalOwnerName(b.externalOwnerName ?? "");
     setBorrowedBy(b.borrowedBy ?? currentUserId);
     setBorrowedDate(borrowDateInput(b.borrowedAt));
     setDueDate(borrowDateInput(b.dueDate));
@@ -210,63 +228,38 @@ export default function BorrowScreen() {
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (savePendingRef.current) return;
-    savePendingRef.current = true;
-    setSaving(true);
     const borrowedAt = parseDateInput(borrowedDate);
     const due = parseDateInput(dueDate, true);
-    if (!item.trim() || !borrowedFrom || !borrowedBy) {
-      setFormError("Choose an owner, borrower, and item.");
-      savePendingRef.current = false;
-      setSaving(false);
+    if (!canSaveBorrowDraft({ item, ownerId: borrowedFrom, borrowerId: borrowedBy, externalOwnerName, householdMemberIds: roommates.map(member => member.id) })) {
+      setFormError("Choose an owner, borrower, and item. Enter a name when the owner is Other.");
       return;
     }
-    if (
-      !roommates.some((member) => member.id === borrowedFrom) ||
-      !roommates.some((member) => member.id === borrowedBy) ||
-      !borrowedAt ||
-      !due ||
-      new Date(due) < new Date(borrowedAt)
-    ) {
-      setFormError("Enter valid dates and active Sweetmates.");
-      savePendingRef.current = false;
-      setSaving(false);
+    if (!borrowedAt || !due || new Date(due) < new Date(borrowedAt)) {
+      setFormError("Enter valid dates, with the due date on or after the borrowed date.");
       return;
     }
-    let saved: boolean;
-    if (editingId) {
-      saved = updateBorrowItem(editingId, {
-        item: item.trim(),
-        borrowedFrom,
-        borrowedBy,
-        borrowedAt,
-        dueDate: due,
-        notes: notes.trim() || undefined,
-        visibility: privateEntry ? "private" : "shared",
-      });
-    } else {
-      saved = Boolean(addBorrowItem({
-        item: item.trim(),
-        borrowedBy,
-        borrowedFrom,
-        borrowedAt,
-        dueDate: due,
-        returned: false,
-        notes: notes.trim() || undefined,
-        visibility: privateEntry ? "private" : "shared",
-      }));
-    }
-    if (!saved) {
-      setFormError("This borrowing record could not be saved.");
+    savePendingRef.current = true;
+    setSaving(true);
+    setFormError(null);
+    try {
+      const entry = { item: item.trim(), borrowedFrom, borrowedBy, borrowedAt, dueDate: due,
+        externalOwnerName: borrowedFrom === OTHER_BORROW_OWNER ? externalOwnerName.trim() : undefined,
+        notes: notes.trim() || undefined, visibility: privateEntry ? "private" as const : "shared" as const };
+      const saved = editingId
+        ? await updateBorrowItem(editingId, entry)
+        : await addBorrowItem({ ...entry, returned: false }, draftIdRef.current);
+      if (!saved) throw new Error("This borrowing record could not be saved. Check the participants and try again.");
+      savePendingRef.current = false;
+      closeModal();
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : "This borrowing record could not be saved. Please try again.");
+    } finally {
       savePendingRef.current = false;
       setSaving(false);
-      return;
     }
-    closeModal();
-    savePendingRef.current = false;
-    setSaving(false);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   };
 
   const handleReturn = (id: string) => {
@@ -397,7 +390,7 @@ export default function BorrowScreen() {
             returnedBorrows.length > 0;
           const owner = roommates.find((r) => r.id === borrow.borrowedFrom);
           const borrower = roommates.find((r) => r.id === borrow.borrowedBy);
-          const ownerName = owner?.name ?? borrow.ownerName ?? "Former Sweetmate";
+          const ownerName = borrow.externalOwnerName ?? owner?.name ?? borrow.ownerName ?? "Former Sweetmate";
           const borrowerName = borrower?.name ?? borrow.borrowerName ?? "Former Sweetmate";
           const isSelfBorrow = borrow.borrowedFrom === borrow.borrowedBy;
           const isOverdueItem =
@@ -405,7 +398,7 @@ export default function BorrowScreen() {
           const dueText = borrow.returned
             ? `Returned ${new Date(borrow.returnedAt ?? "").toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
             : formatDue(borrow.dueDate);
-          const isOwner = borrow.borrowedFrom === currentUserId;
+          const isOwner = isBorrowReturnOwner(borrow, currentUserId);
           const isBorrower = borrow.borrowedBy === currentUserId;
           const isPrivate = borrow.visibility === "private";
           const canManage = canManageBorrowItem(
@@ -610,7 +603,7 @@ export default function BorrowScreen() {
 
       <FloatingActionButton
         accessibilityLabel="Add borrowed item"
-        onPress={() => setShowModal(true)}
+        onPress={openAdd}
       />
 
       <ActionMenuModal
@@ -648,8 +641,8 @@ export default function BorrowScreen() {
       />
 
       <Modal visible={showModal} transparent animationType="slide" onRequestClose={closeModal}>
-        <Pressable style={styles.overlay} onPress={closeModal} accessibilityRole="button" accessibilityLabel="Close borrowing editor" />
-        <KeyboardAvoidingView behavior={KEYBOARD_BEHAVIOR} pointerEvents="box-none">
+        <KeyboardAvoidingView behavior={KEYBOARD_BEHAVIOR} style={[styles.editorKeyboard, { paddingTop: insets.top + 12 }]} pointerEvents="box-none">
+        <Pressable style={styles.overlay} onPress={closeModal} disabled={saving} accessibilityRole="button" accessibilityLabel="Close borrowing editor" />
         <Surface
           level="modal"
           style={[
@@ -660,20 +653,16 @@ export default function BorrowScreen() {
           ]}
         >
           <View style={[styles.handle, { backgroundColor: colors.border }]} />
-          <ScrollView
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.sheetContent}
-          >
           <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
             <Text style={[styles.sheetTitle, { color: colors.foreground, flex: 1 }]}>
               {editingId ? "Edit Borrowing Record" : "Log Borrowing Transaction"}
             </Text>
-            <TouchableOpacity onPress={closeModal} accessibilityRole="button" accessibilityLabel="Close borrowing editor" style={{ minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" }}>
+            <TouchableOpacity onPress={closeModal} disabled={saving} accessibilityState={{ disabled: saving }} accessibilityRole="button" accessibilityLabel="Close borrowing editor" style={{ minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" }}>
               <Feather name="x" size={20} color={colors.mutedForeground} />
             </TouchableOpacity>
           </View>
 
+          <ScrollView style={{ flexShrink: 1 }} keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive" showsVerticalScrollIndicator={false} contentContainerStyle={styles.sheetContent}>
           <Text style={[styles.label, { color: colors.mutedForeground }]}>
             Item
           </Text>
@@ -686,6 +675,8 @@ export default function BorrowScreen() {
                 borderColor: colors.border,
               },
             ]}
+            editable={!saving}
+            accessibilityLabel="Borrowed item"
             placeholder="e.g. Phone charger"
             placeholderTextColor={colors.mutedForeground}
             value={item}
@@ -703,6 +694,11 @@ export default function BorrowScreen() {
             {roommates.map((r) => (
                 <TouchableOpacity
                   key={r.id}
+                  disabled={saving}
+                  accessibilityRole="radio"
+                  accessibilityLabel={`Owner: ${r.name}`}
+                  accessibilityState={{ checked: borrowedFrom === r.id, disabled: saving }}
+                  aria-checked={borrowedFrom === r.id}
                   style={[
                     styles.roommateChip,
                     {
@@ -727,7 +723,18 @@ export default function BorrowScreen() {
                   </Text>
                 </TouchableOpacity>
               ))}
+            <TouchableOpacity disabled={saving} accessibilityRole="radio" accessibilityLabel="Owner: Other" aria-checked={borrowedFrom === OTHER_BORROW_OWNER} accessibilityState={{ checked: borrowedFrom === OTHER_BORROW_OWNER, disabled: saving }}
+              onPress={() => setBorrowedFrom(OTHER_BORROW_OWNER)}
+              style={[styles.roommateChip, { backgroundColor: colors.secondary, borderColor: borrowedFrom === OTHER_BORROW_OWNER ? colors.primary : colors.border }]}>
+              <Text style={{ color: borrowedFrom === OTHER_BORROW_OWNER ? colors.foreground : colors.mutedForeground, fontFamily: "Inter_600SemiBold", fontSize: 13 }}>Other</Text>
+            </TouchableOpacity>
           </ScrollView>
+          {borrowedFrom === OTHER_BORROW_OWNER && <>
+            <Text style={[styles.label, { color: colors.mutedForeground }]}>Owner name</Text>
+            <TextInput editable={!saving} accessibilityLabel="Other owner name" value={externalOwnerName} onChangeText={setExternalOwnerName} maxLength={100}
+              placeholder="e.g. Alex or a repair shop" placeholderTextColor={colors.mutedForeground}
+              style={[styles.input, { backgroundColor: colors.secondary, color: colors.foreground, borderColor: colors.border }]} />
+          </>}
 
           <Text style={[styles.label, { color: colors.mutedForeground }]}>
             Borrower
@@ -740,6 +747,11 @@ export default function BorrowScreen() {
             {roommates.map((r) => (
               <TouchableOpacity
                 key={r.id}
+                disabled={saving}
+                accessibilityRole="radio"
+                accessibilityLabel={`Borrower: ${r.name}`}
+                accessibilityState={{ checked: borrowedBy === r.id, disabled: saving }}
+                aria-checked={borrowedBy === r.id}
                 style={[
                   styles.roommateChip,
                   {
@@ -770,6 +782,8 @@ export default function BorrowScreen() {
               <Text style={[styles.label, { color: colors.mutedForeground }]}>Borrowed date</Text>
               <TextInput
                 style={[styles.input, { backgroundColor: colors.secondary, color: colors.foreground, borderColor: colors.border }]}
+                editable={!saving}
+                accessibilityLabel="Borrowed date"
                 value={borrowedDate}
                 onChangeText={setBorrowedDate}
                 placeholder="YYYY-MM-DD"
@@ -780,6 +794,8 @@ export default function BorrowScreen() {
               <Text style={[styles.label, { color: colors.mutedForeground }]}>Due date</Text>
               <TextInput
                 style={[styles.input, { backgroundColor: colors.secondary, color: colors.foreground, borderColor: colors.border }]}
+                editable={!saving}
+                accessibilityLabel="Borrowing due date"
                 value={dueDate}
                 onChangeText={setDueDate}
                 placeholder="YYYY-MM-DD"
@@ -800,6 +816,7 @@ export default function BorrowScreen() {
                 borderColor: colors.border,
               },
             ]}
+            editable={!saving}
             placeholder="Any details..."
             placeholderTextColor={colors.mutedForeground}
             value={notes}
@@ -828,12 +845,13 @@ export default function BorrowScreen() {
             <AppSwitch
               value={privateEntry}
               onValueChange={setPrivateEntry}
-              disabled={editingId !== null}
+              disabled={editingId !== null || saving}
               accessibilityLabel="Private entry"
               accessibilityHint="When enabled, only you can retrieve and view this borrowing entry"
             />
           </View>
 
+          </ScrollView>
           {formError && (
             <InlineFeedback message={formError} tone="error" />
           )}
@@ -848,9 +866,10 @@ export default function BorrowScreen() {
                   item,
                   ownerId: borrowedFrom,
                   borrowerId: borrowedBy,
+                  externalOwnerName,
                   householdMemberIds: roommates.map((member) => member.id),
                 }) && !saving
-                  ? colors.primary
+                  ? colors.action
                   : colors.muted,
               },
             ]}
@@ -860,18 +879,18 @@ export default function BorrowScreen() {
                 item,
                 ownerId: borrowedFrom,
                 borrowerId: borrowedBy,
+                externalOwnerName,
                 householdMemberIds: roommates.map((member) => member.id),
               })
             }
             onPress={handleSave}
           >
             {saving ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color={colors.actionForeground} />
             ) : (
-              <Text style={styles.saveBtnText}>Save</Text>
+              <Text style={[styles.saveBtnText, { color: colors.actionForeground }]}>Save</Text>
             )}
           </TouchableOpacity>
-          </ScrollView>
         </Surface>
         </KeyboardAvoidingView>
       </Modal>
@@ -963,14 +982,19 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   returnBtnText: { fontFamily: "Inter_600SemiBold", includeFontPadding: false, fontSize: 12 },
-  overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.35)" },
+  overlay: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(0,0,0,0.35)" },
+  editorKeyboard: { flex: 1, justifyContent: "flex-end" },
   sheet: {
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 24,
     paddingTop: 12,
     gap: 4,
-    maxHeight: "92%",
+    maxHeight: "100%",
+    width: "100%",
+    maxWidth: 560,
+    alignSelf: "center",
+    flexShrink: 1,
   },
   sheetContent: { paddingBottom: 4 },
   handle: {
@@ -994,6 +1018,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
+    minHeight: 44,
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: 20,

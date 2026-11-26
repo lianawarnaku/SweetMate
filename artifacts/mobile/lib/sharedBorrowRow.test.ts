@@ -10,3 +10,8 @@ assert(JSON.stringify(rowToSharedBorrow(row)) === JSON.stringify(item), "shared 
 assert(row.borrowed_by === "user-2" && row.owner_id === "user-1", "borrow participants must be constrained columns");
 assert(row.entry.visibility === "shared", "normalized shared rows must never become private records");
 console.log("shared borrow normalized row tests passed");
+
+const external = { ...item, borrowedFrom: "other", externalOwnerName: "Alex at work", ownerName: "Alex at work" };
+const externalRow = sharedBorrowToRow(external, "home-1");
+assert(externalRow.borrowed_from === null, "Other must never be inserted into a UUID column");
+assert(JSON.stringify(rowToSharedBorrow(externalRow)) === JSON.stringify(external), "outside owner name must survive server round trips");

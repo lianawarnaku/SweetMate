@@ -59,6 +59,7 @@ import { normalizeExpenseDate } from "@/lib/expenseDate";
 import { summarizeMemberIous } from "@/lib/iouSummary";
 import type { ExpenseSyncStatus } from "@/hooks/useExpenseSync";
 import { allExpenseSharesPaid, expensePaidCents, expenseRemainingCents, expenseOutstandingCents, canonicalExpense, canEditExpense as mayEditExpense, canManageExpense as mayManageExpense, expenseFinancialSignature, hasExpensePayments } from "@/lib/expensePolicy";
+import { saveBorrowRecord } from "@/lib/borrowPersistence";
 import { useNormalizedCollection } from "@/hooks/useNormalizedCollection";
 import {
   rowToShoppingItem,
@@ -89,6 +90,8 @@ import {
 import {
   canManageBorrowItem,
   hasValidBorrowParticipants,
+  OTHER_BORROW_OWNER,
+  isBorrowReturnOwner,
 } from "@/lib/borrowValidation";
 import {
   assignmentsFromRows,
@@ -358,6 +361,7 @@ export interface BorrowItem {
   borrowedFrom: string;
   borrowerName?: string;
   ownerName?: string;
+  externalOwnerName?: string;
   borrowedAt: string;
   dueDate: string;
   returned: boolean;
@@ -654,8 +658,8 @@ interface AppContextType {
   linkShoppingItemsToExpense: (itemIds: string[], expenseId: string) => void;
   pendingIouDraft: PendingIouDraft | null;
   setPendingIouDraft: (draft: PendingIouDraft | null) => void;
-  addBorrowItem: (item: Omit<BorrowItem, "id">) => string | null;
-  updateBorrowItem: (id: string, updates: Partial<Omit<BorrowItem, "id">>) => boolean;
+  addBorrowItem: (item: Omit<BorrowItem, "id">, draftId?: string) => Promise<string | null>;
+  updateBorrowItem: (id: string, updates: Partial<Omit<BorrowItem, "id">>) => Promise<boolean>;
   returnBorrowItem: (id: string) => boolean;
   deleteBorrowItem: (id: string) => Promise<boolean>;
   sendNudge: (toRoommateId: string, choreId: string) => Promise<void>;
@@ -937,6 +941,8 @@ export function AppProvider({
   const [householdComplete, setHouseholdCompleteState] = useState(false);
   const activeSetupHouseholdRef = useRef(householdId);
   activeSetupHouseholdRef.current = householdId;
+  const borrowSaveScopeRef = useRef("");
+  borrowSaveScopeRef.current = `${session?.user.id ?? ""}:${householdId ?? ""}`;
   const [loaded, setLoaded] = useState(false);
   const [cloudReady, setCloudReady] = useState(false);
   const [choresTableReady, setChoresTableReady] = useState(false);
@@ -2307,7 +2313,7 @@ export function AppProvider({
     visibleBorrowItems
       .filter((item) =>
         !item.returned &&
-        (item.borrowedBy === currentUserId || item.borrowedFrom === currentUserId) &&
+        (item.borrowedBy === currentUserId || isBorrowReturnOwner(item, currentUserId)) &&
         new Date(item.dueDate).getTime() <= now.getTime(),
       )
       .forEach((item) => incoming.push({
@@ -2325,7 +2331,7 @@ export function AppProvider({
       .filter((item) =>
         !item.returned &&
         Boolean(item.returnRequestedAt) &&
-        item.borrowedFrom === currentUserId,
+        isBorrowReturnOwner(item, currentUserId),
       )
       .forEach((item) => incoming.push({
         id: `borrowing-return:${item.id}`,
@@ -4147,103 +4153,64 @@ export function AppProvider({
     });
   }, [householdId, session?.user.id]);
 
-  const addBorrowItem = useCallback((item: Omit<BorrowItem, "id">) => {
-    const owner = roommates.find((member) => member.id === item.borrowedFrom);
-    const borrower = roommates.find((member) => member.id === item.borrowedBy);
-    const userId = session?.user.id;
-    if (
-      !userId ||
-      !owner ||
-      !borrower ||
-      !hasValidBorrowParticipants(
-        owner.id,
-        borrower.id,
-        roommates.map((member) => member.id),
-      ) ||
-      !item.item.trim() ||
-      !Number.isFinite(new Date(item.borrowedAt).getTime()) ||
-      !Number.isFinite(new Date(item.dueDate).getTime()) ||
-      (item.householdId && item.householdId !== householdId)
-    ) {
-      return null;
-    }
-    const id = makeId();
-    const now = new Date().toISOString();
-    const entry: BorrowItem = {
-      ...item,
-      id,
-      householdId: householdId ?? undefined,
-      creatorId: userId,
-      ownerId: userId,
-      visibility: item.visibility === "private" ? "private" : "shared",
-      ownerName: owner.name,
-      borrowerName: borrower.name,
-      createdAt: now,
-      updatedAt: now,
-    };
-    if (entry.visibility === "private") {
-      setPrivateBorrowItems((prev) => [...prev, entry]);
-      persistPrivateBorrowItem(entry);
+  const persistAndPublishBorrow = useCallback(async (entry: BorrowItem) => {
+    const scope = `${session?.user.id ?? ""}:${householdId ?? ""}`;
+    if (!session?.user.id || !householdId || entry.householdId !== householdId || borrowSaveScopeRef.current !== scope)
+      throw new Error("Your household changed. Reopen Borrowing and try again.");
+    const saved = await saveBorrowRecord(entry);
+    if (borrowSaveScopeRef.current !== scope) throw new Error("Saved in the previous household. Return there to view this borrowing record.");
+    if (saved.visibility === "private") {
+      setPrivateBorrowItems(previous => [...previous.filter(item => item.id !== saved.id), saved]);
     } else {
-      setBorrowItems((prev) => [...prev, entry]);
+      borrowItemsRef.current = [...borrowItemsRef.current.filter(item => item.id !== saved.id), saved];
+      setBorrowItems(borrowItemsRef.current);
     }
+    return saved;
+  }, [householdId, session?.user.id]);
+
+  const addBorrowItem = useCallback(async (item: Omit<BorrowItem, "id">, draftId?: string) => {
+    const owner = roommates.find(member => member.id === item.borrowedFrom);
+    const borrower = roommates.find(member => member.id === item.borrowedBy);
+    const userId = session?.user.id;
+    if (!userId || !householdId || !borrower ||
+        !hasValidBorrowParticipants(item.borrowedFrom, borrower.id, roommates.map(member => member.id), item.externalOwnerName) ||
+        !item.item.trim() || !Number.isFinite(Date.parse(item.borrowedAt)) || !Number.isFinite(Date.parse(item.dueDate)) ||
+        Date.parse(item.dueDate) < Date.parse(item.borrowedAt) || (item.householdId && item.householdId !== householdId)) return null;
+    const id = draftId ?? makeId();
+    const now = new Date().toISOString();
+    const externalOwnerName = item.borrowedFrom === OTHER_BORROW_OWNER ? item.externalOwnerName!.trim() : undefined;
+    const entry: BorrowItem = {
+      ...item, id, householdId, creatorId: userId, ownerId: userId,
+      visibility: item.visibility === "private" ? "private" : "shared",
+      externalOwnerName, ownerName: externalOwnerName ?? owner?.name, borrowerName: borrower.name,
+      createdAt: visibleBorrowItemsRef.current.find(existing => existing.id === id)?.createdAt ?? now, updatedAt: now,
+    };
+    await persistAndPublishBorrow(entry);
     track.borrowingItemAdded();
     return id;
-  }, [householdId, persistPrivateBorrowItem, roommates, session?.user.id]);
+  }, [householdId, persistAndPublishBorrow, roommates, session?.user.id]);
 
-  const updateBorrowItem = useCallback(
-    (id: string, updates: Partial<Omit<BorrowItem, "id">>): boolean => {
-      const current = visibleBorrowItems.find((item) => item.id === id);
-      if (
-        !current ||
-        !canManageBorrowItem(current, currentUserId, isHost)
-      ) return false;
-      const isPrivate = current.visibility === "private";
-      const ownerId = updates.borrowedFrom ?? current.borrowedFrom;
-      const borrowerId = updates.borrowedBy ?? current.borrowedBy;
-      const owner = roommates.find((member) => member.id === ownerId);
-      const borrower = roommates.find((member) => member.id === borrowerId);
-      const nextItem = updates.item ?? current.item;
-      const borrowedAt = updates.borrowedAt ?? current.borrowedAt;
-      const dueDate = updates.dueDate ?? current.dueDate;
-      if (
-        !owner ||
-        !borrower ||
-        !hasValidBorrowParticipants(
-          owner.id,
-          borrower.id,
-          roommates.map((member) => member.id),
-        ) ||
-        !nextItem.trim() ||
-        !Number.isFinite(new Date(borrowedAt).getTime()) ||
-        !Number.isFinite(new Date(dueDate).getTime())
-      ) return false;
-      const updated: BorrowItem = {
-        ...current,
-        ...updates,
-        id,
-        ownerName: owner.name,
-        borrowerName: borrower.name,
-        creatorId: current.creatorId ?? currentUserId,
-        ownerId: current.ownerId ?? currentUserId,
-        householdId: current.householdId ?? householdId ?? undefined,
-        visibility: isPrivate ? "private" : "shared",
-        updatedAt: new Date().toISOString(),
-      };
-      if (isPrivate) {
-        setPrivateBorrowItems((prev) =>
-          prev.map((item) => item.id === id ? updated : item),
-        );
-        persistPrivateBorrowItem(updated, current);
-      } else {
-        setBorrowItems((prev) =>
-          prev.map((item) => item.id === id ? updated : item),
-        );
-      }
-      return true;
-    },
-    [currentUserId, householdId, isHost, persistPrivateBorrowItem, roommates, visibleBorrowItems],
-  );
+  const updateBorrowItem = useCallback(async (id: string, updates: Partial<Omit<BorrowItem, "id">>): Promise<boolean> => {
+    const current = visibleBorrowItemsRef.current.find(item => item.id === id);
+    if (!current || !canManageBorrowItem(current, currentUserId, isHost)) return false;
+    const ownerId = updates.borrowedFrom ?? current.borrowedFrom;
+    const borrowerId = updates.borrowedBy ?? current.borrowedBy;
+    const owner = roommates.find(member => member.id === ownerId);
+    const borrower = roommates.find(member => member.id === borrowerId);
+    const nextItem = updates.item ?? current.item;
+    const borrowedAt = updates.borrowedAt ?? current.borrowedAt;
+    const dueDate = updates.dueDate ?? current.dueDate;
+    const externalOwnerName = ownerId === OTHER_BORROW_OWNER ? (updates.externalOwnerName ?? current.externalOwnerName)?.trim() : undefined;
+    if (!borrower || !hasValidBorrowParticipants(ownerId, borrower.id, roommates.map(member => member.id), externalOwnerName) ||
+        !nextItem.trim() || !Number.isFinite(Date.parse(borrowedAt)) || !Number.isFinite(Date.parse(dueDate)) || Date.parse(dueDate) < Date.parse(borrowedAt)) return false;
+    await persistAndPublishBorrow({
+      ...current, ...updates, id, externalOwnerName, ownerName: externalOwnerName ?? owner?.name, borrowerName: borrower.name,
+      creatorId: current.creatorId ?? currentUserId, ownerId: current.ownerId ?? currentUserId,
+      householdId: current.householdId ?? householdId ?? undefined,
+      visibility: current.visibility === "private" ? "private" : "shared", updatedAt: new Date().toISOString(),
+    });
+    return true;
+  }, [currentUserId, householdId, isHost, persistAndPublishBorrow, roommates]);
 
   const returnBorrowItem = useCallback((id: string) => {
     const rendered = visibleBorrowItems.find((item) => item.id === id);
@@ -4257,7 +4224,7 @@ export function AppProvider({
     ) return false;
     const isPrivate = current.visibility === "private";
     if (isPrivate && current.ownerId !== currentUserId) return false;
-    const isOwner = current.borrowedFrom === currentUserId;
+    const isOwner = isBorrowReturnOwner(current, currentUserId);
     const isBorrower = current.borrowedBy === currentUserId;
     if (!isPrivate && !isOwner && !isBorrower && !isHost) return false;
     if (current.returned && !isPrivate && !isOwner && !isHost) return false;
