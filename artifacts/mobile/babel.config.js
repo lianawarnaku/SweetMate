@@ -1,6 +1,7 @@
 module.exports = function (api) {
   api.cache(true);
   return {
-    presets: [["babel-preset-expo", { unstable_transformImportMeta: true }]],
+    // Resolve from this package even when Xcode invokes Metro from the workspace.
+    presets: [[require.resolve("babel-preset-expo"), { unstable_transformImportMeta: true }]],
   };
 };
