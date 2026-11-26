@@ -19,7 +19,7 @@ export default function SupportPage() {
         <p>Google sign-in and Calendar connection are separate. Connect Calendar in Settings using the Google account linked to your SweetMate account, then select calendars and Google Tasks lists to sync privately to My Sweet. You can also export a chore with a due date as an all-day event to your primary calendar. Task checkmarks and times you add in SweetMate stay in SweetMate. Roommates see only Busy and its end time if you enable busy sharing. If access expires, reconnect in Settings.</p>
         <p>Disconnect Calendar in Settings or remove SweetMate in your <a href="https://myaccount.google.com/connections">Google Account connections</a>. Disconnecting clears imported entries and stops busy sharing. Previously exported events remain in Google Calendar and can be deleted there.</p>
         <h2>Account and privacy help</h2>
-        <p>Read the <Link href="/privacy">Privacy Policy</Link> or follow the <Link href="/delete-account">account deletion instructions</Link>. Email us if you cannot access your account or a privacy control does not work.</p>
+        <p>Read the <Link href="/privacy">Privacy Policy</Link> or follow the <Link href="/delete-account">account deletion instructions</Link>. Email us if you cannot access your account, a privacy control does not work, or you want access to or deletion of optional analytics records, including separately shared chore and item names.</p>
         <p><Link href="/">Return to SweetMate</Link></p>
       </article>
     </main>

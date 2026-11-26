@@ -32,7 +32,7 @@ import type { Difficulty } from "@/lib/itemDifficulty";
 import { reportSupabaseError, reportRuntimeError } from "@/lib/runtimeDiagnostics";
 import { markVisibleAlertsRead } from "@/lib/alertReadState";
 import { findAssignedLoadDeviations } from "@/lib/chartLoadBalance";
-import { analyticsCountBucket, deleteLocalAnalyticsIdentity, track } from "@/lib/analytics";
+import { analyticsCountBucket, deleteLocalAnalyticsIdentity, prepareItemNameAnalytics, track } from "@/lib/analytics";
 import {
   ESSENTIAL_CATALOG,
   migrateEssentialRecord,
@@ -3528,6 +3528,7 @@ export function AppProvider({
     choresRef.current = updated;
     setChores(updated);
     track.choreCreated({ recurring: Boolean(chore.recurring) });
+    if (!existingOpen && (!chore.creatorId || chore.creatorId === currentUserId)) prepareItemNameAnalytics("chore", "manual", [chore.title])();
     return existingOpen?.id ?? id;
   }, [currentUserId, householdId, isHost, roommates, resolvedHouseholdTimezone, session?.user.id]);
 
@@ -3822,7 +3823,14 @@ export function AppProvider({
     // payload also lets a repeated Send reuse a durable pending create command.
     const { id, creatorId: _creator, createdAt: _created, updatedAt: _updated, version: _version, resolvedAt: _resolved, ...payload } = expense;
     payload.settled = allExpenseSharesPaid(expense);
+    // A shopping conversion can contain another roommate's entries. Only names
+    // authored by this actor are eligible; list titles/peer entries are excluded.
+    const itemIds = new Set(input.shoppingSource?.shoppingItemIds ?? []);
+    const ownItemNames = shoppingItemsRef.current.filter(item => itemIds.has(item.id) && item.addedBy === currentUserId).map(item => item.name);
+    const reportNames = prepareItemNameAnalytics("expense", input.shoppingSource ? "shopping" : "manual",
+      input.shoppingSource ? ownItemNames : [expense.title]);
     const result = await mutateExpense("create", id, payload);
+    reportNames();
     return result.id;
   }, [currentUserId, householdId, roommates, session?.user.id, mutateExpense]);
   const updateExpense = useCallback(async (id: string, updates: Partial<Omit<Expense, "id">>) => {
@@ -4001,7 +4009,8 @@ export function AppProvider({
     recordShoppingVersions("item", [id]);
     setShoppingItems((prev) => withShoppingOrder([...prev, { ...item, id }]));
     track.shoppingItemAdded();
-  }, [recordShoppingVersions]);
+    if (item.addedBy === currentUserId) prepareItemNameAnalytics("shopping", "manual", [item.name])();
+  }, [recordShoppingVersions, currentUserId]);
 
   const addSelectedEssentialsToShopping = useCallback(
     async (selection: EssentialShortlist): Promise<EssentialShoppingTransferResult> => {
@@ -4016,6 +4025,8 @@ export function AppProvider({
         addedBy: currentUserId,
         makeId,
       });
+      const newItemIds = new Set(transfer.createdItemIds);
+      const reportNames = prepareItemNameAnalytics("shopping", "essentials", transfer.items.filter(item => newItemIds.has(item.id)).map(item => item.name));
       if (transfer.createdListIds.length) {
         recordShoppingVersions("list", transfer.createdListIds);
       }
@@ -4039,6 +4050,7 @@ export function AppProvider({
         item_count_bucket: analyticsCountBucket(transfer.createdItemIds.length),
         list_count_bucket: analyticsCountBucket(transfer.createdListIds.length),
       });
+      reportNames();
       return transfer.result;
     },
     [currentUserId, householdId, recordShoppingVersions],
@@ -4490,8 +4502,9 @@ export function AppProvider({
     const id = task.id ?? makeId();
     applyingRemoteRef.current = false;
     mutateCustomTask(id, { ...task, id });
+    if (!customTasks.some(entry => entry.id === id)) prepareItemNameAnalytics("chore", "custom", [task.title])();
     return id;
-  }, [mutateCustomTask]);
+  }, [mutateCustomTask, customTasks]);
 
   const deleteCustomTask = useCallback((id: string) => {
     applyingRemoteRef.current = false;

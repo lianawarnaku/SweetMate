@@ -15,6 +15,8 @@ import {
   analyticsSnapshot,
   loadAnalyticsPreferences,
   PRIVACY_NOTICE_VERSION,
+  ITEM_NAME_NOTICE_VERSION,
+  ITEM_NAME_ANALYTICS_AVAILABLE,
   saveAnalyticsPreferences,
   subscribeAnalytics,
 } from "@/lib/analytics";
@@ -38,13 +40,26 @@ export function AnalyticsPreferencesPanel({ userId }: { userId: string }) {
   const colors = useTheme();
   const { showPopup } = useAppPopup();
   const openPolicy = () => openPrivacyPolicy(() => showPopup({ title: "Privacy Policy unavailable", message: "Check your connection and try again, or visit sweetmate.info/privacy in a browser.", actions: [{ label: "Got it", primary: true }] }));
-  const { preferences } = useAnalyticsPreferences(userId);
+  const { preferences, loaded } = useAnalyticsPreferences(userId);
+  const productAllowed = preferences.productAnalyticsEnabled && preferences.noticeVersion === PRIVACY_NOTICE_VERSION;
+  const isChoiceEnabled = (key: "productAnalyticsEnabled" | "crashReportingEnabled" | "itemNamesEnabled") =>
+    key === "itemNamesEnabled" ? productAllowed && preferences.itemNamesEnabled && preferences.itemNamesNoticeVersion === ITEM_NAME_NOTICE_VERSION
+      : preferences.noticeVersion === PRIVACY_NOTICE_VERSION && preferences[key];
+  const changeChoice = (key: "productAnalyticsEnabled" | "crashReportingEnabled" | "itemNamesEnabled", value: boolean) => {
+    const stale = preferences.noticeVersion !== PRIVACY_NOTICE_VERSION;
+    return saveAnalyticsPreferences(userId, key === "itemNamesEnabled" ? {
+      itemNamesEnabled: value, itemNamesNoticeVersion: ITEM_NAME_NOTICE_VERSION,
+    } : {
+      ...(stale ? { productAnalyticsEnabled: false, crashReportingEnabled: false, itemNamesEnabled: false, itemNamesNoticeVersion: null } : {}),
+      [key]: value, noticeVersion: PRIVACY_NOTICE_VERSION,
+    }).catch(() => showPopup({ title: "Choice couldn't be saved", message: "Please try again.", actions: [{ label: "Got it", primary: true }] }));
+  };
   const rows = [
     {
       key: "productAnalyticsEnabled" as const,
       title: "Product analytics",
       description:
-        "Share app opens, screens visited, active time, setup progress, and feature-use events with PostHog using a random identifier. SweetMate never sends chore titles, shopping items, expense notes, names, email addresses, or invite codes.",
+        "Share app opens, screens visited, active time, setup progress, and feature-use events with PostHog using a random identifier. This choice excludes chore and item names. Expense notes, account names, email addresses, and invite codes are excluded.",
     },
     {
       key: "crashReportingEnabled" as const,
@@ -52,6 +67,11 @@ export function AnalyticsPreferencesPanel({ userId }: { userId: string }) {
       description:
         "Share sanitized crash details with Sentry to help us diagnose failures. Session replay, request data, and personal content are disabled.",
     },
+    ...(ITEM_NAME_ANALYTICS_AVAILABLE ? [{
+      key: "itemNamesEnabled" as const,
+      title: "Share chore and item names",
+      description: "Separately allow PostHog to receive names you add in SweetMate, including chores, shopping items and expense titles, to improve task suggestions and product features. Shared with a random identifier; names can still reveal personal details. Google imports, notes, amounts and automatically copied entries from other roommates are excluded. Off by default; no past entries are uploaded. Requires Product analytics.",
+    }] : []),
   ];
   return (
     <View style={[styles.panel, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -70,19 +90,10 @@ export function AnalyticsPreferencesPanel({ userId }: { userId: string }) {
             </Text>
           </View>
           <AppSwitch
-            value={preferences[row.key]}
-            onValueChange={(value) =>
-              void saveAnalyticsPreferences(userId, {
-                [row.key]: value,
-                noticeVersion: PRIVACY_NOTICE_VERSION,
-                // Renew only the choice being explicitly changed, never revive
-                // an older opt-in for the other category.
-                ...(preferences.noticeVersion !== PRIVACY_NOTICE_VERSION
-                  ? { [row.key === "productAnalyticsEnabled" ? "crashReportingEnabled" : "productAnalyticsEnabled"]: false }
-                  : {}),
-              }).catch(() => showPopup({ title: "Choice couldn't be saved", message: "Please try again.", actions: [{ label: "Got it", primary: true }] }))
-            }
-            accessibilityLabel={`${row.title}: ${preferences[row.key] ? "on" : "off"}`}
+            value={isChoiceEnabled(row.key)}
+            disabled={!loaded || (row.key === "itemNamesEnabled" && !productAllowed)}
+            onValueChange={(value) => { void changeChoice(row.key, value); }}
+            accessibilityLabel={`${row.title}: ${isChoiceEnabled(row.key) ? "on" : "off"}`}
           />
         </View>
       ))}
@@ -114,7 +125,7 @@ const styles = StyleSheet.create({
   row: { minHeight: 76, padding: 14, flexDirection: "row", alignItems: "center", gap: 12 },
   copy: { flex: 1, minWidth: 0 },
   title: { fontFamily: "Inter_600SemiBold", includeFontPadding: false, fontSize: 15 },
-  description: { fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 12, lineHeight: 17, marginTop: 3 },
+  description: { fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 14, lineHeight: 20, marginTop: 3 },
   policyLink: { minHeight: 44, alignItems: "center", justifyContent: "center" },
   policyText: { fontFamily: "Inter_600SemiBold", includeFontPadding: false, fontSize: 13 },
 });

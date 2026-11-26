@@ -1,3 +1,4 @@
+import { prepareItemNameAnalytics } from "@/lib/analytics";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState, Platform } from "react-native";
 import { supabase } from "@/lib/supabase";
@@ -88,9 +89,11 @@ export function useRandomTasks(householdId: string | null, userId: string | null
 
   const create = useCallback(async (input: RandomTaskInput) => {
     if (!householdId || !userId) throw new Error("Select a household to add a random task.");
+    const reportNames = prepareItemNameAnalytics("chore", "random", [input.title]);
     const { error } = await supabase.rpc("create_household_random_task", { target_household_id: householdId, task_id: input.id, task_title: input.title.trim(), task_mode: input.mode });
     if (error) throw error;
     if (currentScope.current !== scope) throw new Error("Your task was saved in the previous household.");
+    reportNames();
     await refresh();
   }, [householdId, userId, scope, refresh]);
   const claim = useCallback(async (taskId: string) => {

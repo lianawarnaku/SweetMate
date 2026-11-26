@@ -380,7 +380,7 @@ export function SignInScreen() {
                 <Text style={[styles.consentCopy, { color: colors.foreground }]}>Help improve SweetMate by sharing product analytics and crash reports. Optional.</Text>
               </Pressable>
               <Text style={[styles.consentDetails, { color: colors.mutedForeground }]}>
-                Household content is excluded. You can change either choice in Settings. Read our{" "}
+                This choice excludes chore and item names. You can manage sharing in Settings. Read our{" "}
                 <Text accessibilityRole="link" onPress={openPolicy} style={[styles.privacyLink, { color: colors.primary }]}>Privacy Statement</Text>.
               </Text>
             </View>

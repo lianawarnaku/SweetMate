@@ -14,7 +14,7 @@ export default function PrivacyPage() {
       <article className="legal-card">
         <p className="eyebrow">Legal</p>
         <h1>Privacy Policy</h1>
-        <p className="updated">Last updated November 24, 2026</p>
+        <p className="updated">Last updated November 26, 2026</p>
         <p>
           SweetMate is operated by Liana Amanthi Warnakulasooriya in Massachusetts,
           United States. This policy explains how SweetMate collects, uses, stores,
@@ -53,7 +53,7 @@ export default function PrivacyPage() {
           permissions, plus offline access. Calendar event access allows viewing
           and editing events. We use it to export chores you select and, when you
           enable importing, to synchronize the calendars and Google Tasks lists
-          you choose. Basic Google sign-in remains separate from these permissions.
+          you choose. The Google connection belongs to your account; importing and Busy sharing are configured separately for each household. Basic Google sign-in remains separate from these permissions.
         </p>
         <p>
           Exported events contain chore titles, due dates, and any provided
@@ -66,8 +66,8 @@ export default function PrivacyPage() {
           Imported events and tasks are stored privately in SweetMate, including
           their titles, dates, available start and end times, and source
           identifiers. Selected calendars and lists sync automatically to organize
-          your day. Task checkmarks and times added in SweetMate stay in SweetMate;
-          they do not update Google Tasks. Imported titles are not shown to your
+          your day. Event and task checkmarks, and times added in SweetMate, stay in SweetMate;
+          they do not change the Google originals. Imported titles are not shown to your
           roommates. If you enable calendar busy sharing for a household, active
           members who show roommate activity see only Busy and its end time during
           a current event or scheduled task. You can turn sharing off in Settings.
@@ -115,26 +115,86 @@ export default function PrivacyPage() {
 
         <h2>Optional analytics and crash reporting</h2>
         <p>
-          Product analytics and Crash reporting are off by default. An optional
-          checkbox at signup enables both; you can change them separately in Settings. With Product analytics
-          enabled, PostHog receives selected app opens, screen visits, active-time
-          measurements, onboarding progress, feature actions, and coarse failure
-          categories with a random identifier, platform, app version, build, and
-          environment. A pre-signup identifier can continue with your account on
-          that device after you opt in. If configured and enabled, Sentry receives
-          sanitized error diagnostics, such as error type, stack trace, affected
-          action, and app version.
+          Product analytics and Crash reporting are off by default. The optional
+          signup checkbox enables these two choices; it does not enable sharing
+          chore or item names. You can change the choices separately in Settings
+          → Privacy &amp; Diagnostics. Declining optional sharing does not prevent
+          you from using SweetMate.
         </p>
         <p>
-          SweetMate configures these integrations without session replay,
-          automatic product event capture, advertising identifiers, or default
-          personal-information collection. The app filters household content,
-          names, emails, invite codes, authentication tokens, and request payloads
-          from the telemetry it sends. Turning a choice off stops future optional
-          collection; it does not automatically erase previously sent records.
-          Contact us to request deletion of those records. Vendor erasure may
-          require separate processing and information to locate records from
-          other devices.
+          With Product analytics enabled, PostHog receives selected app opens,
+          screen visits, active-time measurements, setup progress, feature
+          actions and coarse failure categories, along with a random identifier,
+          platform, app version, build and environment. The identifier is scoped
+          to your account on that device; it is not your email address. It can
+          continue from a pre-signup choice to your account on that device.
+          PostHog’s SDK can also process device/OS, language/timezone and session
+          metadata. Its service receives network requests and may process IP
+          addresses or derive approximate location according to its configuration.
+          Random identifiers do not make these records anonymous.
+        </p>
+        <h2>Separate choice to share chore and item names</h2>
+        <p>
+          When available in your app version, Share chore and item names is a
+          separate, initially off choice in Settings → Privacy &amp; Diagnostics.
+          It requires Product analytics and your explicit agreement to the
+          current name-sharing notice. An earlier analytics choice, the signup
+          checkbox or another household member’s choice does not enable it.
+        </p>
+        <p>
+          If you turn it on, SweetMate sends PostHog the names you newly add in
+          SweetMate: manual chores, custom planner chores, Random Tasks,
+          shopping items, items you select from Sweet Essentials, and manually
+          entered expense titles. An expense created from Shopping can include
+          the names of selected items that you authored; names automatically
+          copied from other members and the shared list title are excluded.
+          The event includes the kind of entry and creation source so we can
+          understand common chores and purchases, improve task suggestions and
+          catalogues, and improve product features. Authorized SweetMate staff
+          can view these names in the analytics service for those purposes.
+        </p>
+        <p>
+          Names are sent with the random analytics identifier and technical
+          metadata above. Free-text names can reveal personal or sensitive
+          details, including details about other people; they are not guaranteed
+          to be anonymous or fully redacted. Do not enable this choice for
+          entries you do not want used for analytics. The app limits names to
+          short labels and skips some obvious email addresses, links and secrets,
+          but those checks cannot reliably remove every personal detail.
+        </p>
+        <p>
+          This choice does not upload past entries, scan your household’s saved
+          records, collect edits or completion text, or include imported Google
+          Calendar/Tasks content. It does not add notes, descriptions, amounts,
+          payment information, account display names, email fields, invite codes,
+          record/household IDs, Google credentials, receipts or profile photos to
+          these name events. Those fields may still be processed separately to
+          provide the app’s normal features as described above. Names from a
+          failed confirmed-save path are not sent; some local create actions are
+          recorded when accepted in the app and may fail to sync later.
+        </p>
+        <p>
+          Turning name sharing off stops new name events. Turning Product
+          analytics off also clears the name-sharing choice; turning Product
+          analytics back on does not turn name sharing back on. Consent is
+          stored per account on each device. This does not erase information
+          already collected while your choice was on. You can request access or
+          deletion at <a href="mailto:support@sweetmate.info">support@sweetmate.info</a>.
+          Provider erasure is a separate process, and identifying records from
+          multiple devices may require additional information. Retention and
+          backups follow the configured provider processes below; we do not
+          promise an unverified fixed retention period.
+        </p>
+        <p>
+          With Crash reporting enabled and configured, Sentry receives sanitized
+          diagnostics such as error type, stack trace, affected action and app
+          version. Chore/item names are not sent to Sentry through the
+          name-sharing feature. SweetMate disables session replay, automatic
+          product-event capture and advertising identifiers in these integrations,
+          and filters request payloads and direct account/contact fields from
+          explicit telemetry. We do not use these records for advertising or sell
+          them. New name collection stays disabled until the matching notice is
+          published and the app offers the separate choice.
         </p>
 
         <h2>Service providers and website requests</h2>

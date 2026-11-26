@@ -112,7 +112,7 @@ assert.equal(count("account_created"), 1);
 await analytics.recordAnalyticsAuthSucceeded("new-user", attempt, { method: "email", mode: "signup" }, true);
 assert.equal(count("account_created"), 1, "duplicate auth callbacks must not double count signup");
 
-const properties = { recurring: true, email: "private", title: "private", invite_code: "private", shopping_item: "private" };
+const properties = { recurring: true, email: "private", title: "private", invite_code: "private", shopping_item: "private", content_label: "private", content: "private" };
 analytics.track.choreCreated(properties);
 analytics.track.choreCreated(properties);
 assert.equal(count("chore_created"), 2);
@@ -120,7 +120,7 @@ assert.equal(count("first_chore_created"), 1);
 const creation = events.find((event) => event.event === "chore_created")!;
 assert.equal(creation.properties.environment, "test");
 assert.equal(creation.properties.analytics_schema_version, 2);
-for (const key of ["email", "title", "invite_code", "shopping_item"]) assert(!(key in creation.properties));
+for (const key of ["email", "title", "invite_code", "shopping_item", "content_label", "content"]) assert(!(key in creation.properties));
 analytics.track.shortlistSaved({ source: "sweet_essentials", category_count: 2, item_count_bucket: "0" });
 assert.equal(events.at(-1)!.properties.item_count_bucket, "0", "approved item aggregate must survive filtering");
 assert.equal(analytics.analyticsCountBucket(0), "0");
@@ -278,3 +278,59 @@ assert.equal(analytics.analyticsSnapshot(null).preferences.productAnalyticsEnabl
 assert.equal(analytics.analyticsSnapshot(null).preferences.crashReportingEnabled, false);
 assert.equal(storage.has("sweetmate:telemetry-preferences:v1:signed-out"), false);
 console.log("analytics consent, signup checkbox, identity, activation, and privacy tests passed");
+
+// The production release gate stays off until the matching public policy is live.
+assert.equal(analytics.ITEM_NAME_ANALYTICS_AVAILABLE, false);
+await assert.rejects(analytics.saveAnalyticsPreferences("release-gated", {
+  ...consent, itemNamesEnabled: true, itemNamesNoticeVersion: analytics.ITEM_NAME_NOTICE_VERSION,
+}), /Name sharing/);
+assert.equal(analytics.prepareItemNameAnalytics("shopping", "manual", ["Milk"])(), 0);
+
+// An explicitly enabled build still needs a separate, current per-account choice.
+const contentExports: any = {};
+runInNewContext(compiled, { exports: contentExports,
+  require: (name: string) => { assert(name in modules); return modules[name]; },
+  process: { env: { EXPO_PUBLIC_POSTHOG_API_KEY: "test-only", EXPO_PUBLIC_APP_ENV: "test", EXPO_PUBLIC_ITEM_NAME_ANALYTICS_ENABLED: "true" } },
+  __DEV__: false, console,
+});
+const content = contentExports as typeof import("./analytics");
+await content.loadAnalyticsPreferences("content-user");
+await content.saveAnalyticsPreferences("content-user", consent);
+const oldAction = content.prepareItemNameAnalytics("chore", "manual", ["Before consent"]);
+assert.equal(content.analyticsSnapshot("content-user").preferences.itemNamesEnabled, false);
+const allowNames = { itemNamesEnabled: true, itemNamesNoticeVersion: content.ITEM_NAME_NOTICE_VERSION };
+await content.saveAnalyticsPreferences("content-user", allowNames);
+assert.equal(oldAction(), 0, "opting in cannot backfill an earlier action");
+const named = () => events.filter(event => event.event === "item_name_added");
+const baselineNames = named().length;
+const reportNames = content.prepareItemNameAnalytics("chore", "manual", ["Wash dishes", "Wash dishes", "   Tidy\nroom  ", "", "a".repeat(121), "test@example.com", "https://private.invalid", "password:secret", "1234567890123456"]);
+assert.equal(reportNames(), 2);
+assert.equal(reportNames(), 0, "an acknowledgement closure is one-shot");
+assert.deepEqual(named().slice(baselineNames).map(event => event.properties.content_label), ["Wash dishes", "Tidy room"]);
+for (const kind of ["expense", "shopping"] as const) assert.equal(content.prepareItemNameAnalytics(kind, "manual", ["Milk"])(), 1);
+assert.equal(content.prepareItemNameAnalytics("chore", "google" as any, ["Private Google event"])(), 0);
+assert.equal(content.prepareItemNameAnalytics("unknown" as any, "manual", ["Unknown"] )(), 0);
+const beforeOff = content.prepareItemNameAnalytics("expense", "manual", ["Awaiting save"]);
+const revokeNames = content.saveAnalyticsPreferences("content-user", { itemNamesEnabled: false });
+assert.equal(beforeOff(), 0, "revocation blocks a pending acknowledgement immediately");
+await revokeNames;
+assert.equal(content.prepareItemNameAnalytics("shopping", "manual", ["Off"])(), 0);
+await content.saveAnalyticsPreferences("content-user", allowNames);
+const switched = content.prepareItemNameAnalytics("expense", "manual", ["Original account"]);
+await content.loadAnalyticsPreferences("other-content-user");
+assert.equal(switched(), 0, "late saves never attribute content to a different account");
+assert.equal(content.analyticsSnapshot("other-content-user").preferences.itemNamesEnabled, false);
+await content.loadAnalyticsPreferences("content-user");
+await content.saveAnalyticsPreferences("content-user", { productAnalyticsEnabled: false });
+assert.equal(content.analyticsSnapshot("content-user").preferences.itemNamesEnabled, false);
+await content.saveAnalyticsPreferences("content-user", consent);
+assert.equal(content.prepareItemNameAnalytics("chore", "manual", ["Still off"])(), 0, "product re-enable does not revive name sharing");
+failNextStorageWrite = true;
+await assert.rejects(content.saveAnalyticsPreferences("content-user", allowNames));
+assert.equal(content.prepareItemNameAnalytics("chore", "manual", ["Failed consent save"])(), 0);
+storage.set("sweetmate:telemetry-preferences:v1:old-content-notice", JSON.stringify({ ...consent, itemNamesEnabled: true, itemNamesNoticeVersion: "old" }));
+await content.loadAnalyticsPreferences("old-content-notice");
+assert.equal(content.prepareItemNameAnalytics("chore", "manual", ["Old notice"])(), 0);
+await content.loadAnalyticsPreferences(null);
+await assert.rejects(content.saveAnalyticsPreferences(null, { ...consent, ...allowNames }), /Name sharing/);
+console.log("Separate name consent, release gate, no backfill, revision/account guards and bounded content filtering passed");

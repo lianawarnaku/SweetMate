@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { runInNewContext } from "node:vm";
 import ts from "typescript";
+import { canonicalExpense, allExpenseSharesPaid } from "./expensePolicy.ts";
 import { expenseRemainingCents } from "./expensePolicy.ts";
 import { normalizeExpenseDate } from "./expenseDate.ts";
 import { isBorrowReturnOwner } from "./borrowValidation.ts";
@@ -25,7 +26,7 @@ function callback(name: string, bindings: Record<string, unknown>): (...args: an
     compilerOptions: { module: ts.ModuleKind.CommonJS, esModuleInterop: false, target: ts.ScriptTarget.ES2022 },
   }).outputText;
   const exports: { callback?: (...args: any[]) => any } = {};
-  runInNewContext(compiled, { exports, ...bindings });
+  runInNewContext(compiled, { exports, prepareItemNameAnalytics: () => () => 0, ...bindings });
   return exports.callback!;
 }
 const events: { event: string; properties?: Record<string, unknown> }[] = [];
@@ -163,3 +164,33 @@ assert.equal(shortlistItemsRef.current.length, 1, "retry flushes existing optimi
 activeSetupHouseholdRef.current = "another-home";
 await assert.rejects(() => transfer({ kitchen: { kettle: true } }), /household changed/);
 console.log("analytics action transition and shortlist acknowledgement tests passed");
+
+// Execute the actual confirmed expense-create callback with mixed-author items.
+const contentAttempts: Array<{ kind: string; source: string; labels: string[]; sent: boolean }> = [];
+let saveExpenseFails = false;
+const createExpense = callback("addExpense", {
+  householdId: "home", session: { user: { id: "a" } }, currentUserId: "a", roommates: [{ id: "a" }, { id: "b" }],
+  canonicalExpense, allExpenseSharesPaid, makeId: () => "expense-new",
+  shoppingItemsRef: { current: [{ id: "mine", name: "My detergent", addedBy: "a" }, { id: "peer", name: "Peer private item", addedBy: "b" }] },
+  prepareItemNameAnalytics: (kind: string, source: string, labels: string[]) => { const attempt = { kind, source, labels: [...labels], sent: false }; contentAttempts.push(attempt); return () => { attempt.sent = true; }; },
+  mutateExpense: async () => { if (saveExpenseFails) throw Error("save failed"); return { id: "expense-new" }; },
+});
+const expenseInput = { title: "My expense", amount: 10, paidBy: "a", sharedWith: ["a", "b"], splits: { a: 5, b: 5 }, date: "2026-11-26", category: "groceries", settled: false };
+await createExpense(expenseInput);
+assert.deepEqual(contentAttempts.at(-1), { kind: "expense", source: "manual", labels: ["My expense"], sent: true });
+await createExpense({ ...expenseInput, title: "Shared list title", shoppingSource: { householdId: "home", shoppingItemIds: ["mine", "peer"] } });
+assert.deepEqual(contentAttempts.at(-1)?.labels, ["My detergent"], "peer-authored items and shared list titles must not piggyback on one person's consent");
+saveExpenseFails = true;
+await assert.rejects(() => createExpense(expenseInput));
+assert.equal(contentAttempts.at(-1)?.sent, false, "expense names must not be reported after a failed confirmed save");
+console.log("Expense name acknowledgement and peer-author exclusion passed");
+
+const shoppingNameAttempts: string[] = [];
+const addItemWithNames = callback("addShoppingItem", {
+  currentUserId: "a", makeId: () => "new-item", recordShoppingVersions: () => {}, withShoppingOrder,
+  setShoppingItems: (next: any) => { next([]); }, track,
+  prepareItemNameAnalytics: (_kind: string, _source: string, labels: string[]) => () => { shoppingNameAttempts.push(...labels); },
+});
+addItemWithNames({ name: "Own item", addedBy: "a" });
+addItemWithNames({ name: "Peer-authored item", addedBy: "b" });
+assert.deepEqual(shoppingNameAttempts, ["Own item"], "manual shopping capture also guards the declared author");

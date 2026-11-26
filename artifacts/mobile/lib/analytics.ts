@@ -9,10 +9,15 @@ import type { AnalyticsScreen } from "@/lib/analyticsLifecycle";
 import { createExternalStoreSnapshotCache } from "@/lib/externalStoreSnapshot";
 
 export const PRIVACY_NOTICE_VERSION = "2026-11-08";
+export const ITEM_NAME_NOTICE_VERSION = "2026-11-26";
+// Release gate: enable only after publishing the matching policy and store disclosures.
+export const ITEM_NAME_ANALYTICS_AVAILABLE = process.env.EXPO_PUBLIC_ITEM_NAME_ANALYTICS_ENABLED === "true";
 
 export type AnalyticsPreferences = {
   productAnalyticsEnabled: boolean;
   crashReportingEnabled: boolean;
+  itemNamesEnabled: boolean;
+  itemNamesNoticeVersion: string | null;
   noticeVersion: string | null;
 };
 
@@ -126,12 +131,14 @@ function enqueue(work: () => Promise<void>) {
 const DEFAULT_PREFERENCES: AnalyticsPreferences = {
   productAnalyticsEnabled: false,
   crashReportingEnabled: false,
+  itemNamesEnabled: false,
+  itemNamesNoticeVersion: null,
   noticeVersion: null,
 };
 const snapshotCache = createExternalStoreSnapshotCache(DEFAULT_PREFERENCES);
 
 const deniedKeys =
-  /(^|_)(email|name|display_name|invite_code|sweet_name|household_name|title|description|note|item|token|password|address|photo|avatar|message|query|url)($|_)/i;
+  /(^|_)(email|name|display_name|invite_code|sweet_name|household_name|title|description|note|item|token|password|address|photo|avatar|message|query|url|label|content)($|_)/i;
 
 function preferenceKey(userId: string) {
   return `${PREFERENCES_PREFIX}:${userId}`;
@@ -342,6 +349,14 @@ export function saveAnalyticsPreferences(
     const previous = preferencesByUser.get(scope) ?? DEFAULT_PREFERENCES;
     previousSaved = previous;
     const next = { ...previous, ...update };
+    if (update.itemNamesEnabled && (!ITEM_NAME_ANALYTICS_AVAILABLE || scope === PREAUTH_SCOPE ||
+      update.itemNamesNoticeVersion !== ITEM_NAME_NOTICE_VERSION || !hasProductConsent(next))) {
+      throw new Error("Name sharing needs a current, separate choice and product analytics enabled.");
+    }
+    if (!hasProductConsent(next)) {
+      next.itemNamesEnabled = false;
+      next.itemNamesNoticeVersion = null;
+    }
     if (hasProductConsent(next) && !hasProductConsent(previous)) pendingConsentGrants.set(scope, { source });
     else if (!hasProductConsent(next)) pendingConsentGrants.delete(scope);
     await AsyncStorage.setItem(preferenceKey(scope), JSON.stringify(next));
@@ -386,6 +401,8 @@ export async function saveSignupAnalyticsConsent(
   const choice = {
     productAnalyticsEnabled: enabled,
     crashReportingEnabled: enabled,
+    itemNamesEnabled: false,
+    itemNamesNoticeVersion: null,
     noticeVersion: PRIVACY_NOTICE_VERSION,
   };
   if (!authenticated) {
@@ -555,6 +572,45 @@ export const track = {
   shortlistSaved: (properties: EventProperties["shortlist_saved"]) =>
     capture("shortlist_saved", properties),
 };
+
+export type ItemNameKind = "chore" | "expense" | "shopping";
+export type ItemNameSource = "manual" | "custom" | "random" | "essentials" | "shopping";
+function hasItemNameConsent() {
+  const preferences = currentPreferences();
+  return ITEM_NAME_ANALYTICS_AVAILABLE && activeUserId !== null && activeUserId !== PREAUTH_SCOPE &&
+    hasProductConsent(preferences) && preferences.itemNamesEnabled &&
+    preferences.itemNamesNoticeVersion === ITEM_NAME_NOTICE_VERSION && appliedRevision === revision && !!posthog;
+}
+
+/** Only explicitly supplied new entry names, never a household or Google snapshot.
+ * Capture consent at action time so delayed saves cannot backfill earlier content.
+ */
+export function prepareItemNameAnalytics(kind: ItemNameKind, source: ItemNameSource, labels: readonly string[]) {
+  if (!hasItemNameConsent() || !["chore", "expense", "shopping"].includes(kind) ||
+    !["manual", "custom", "random", "essentials", "shopping"].includes(source)) return () => 0;
+  const user = activeUserId, consentRevision = revision;
+  // These guards limit size and obvious identifiers; they do not anonymize free text.
+  const names = [...new Set(labels.filter(value => typeof value === "string").map(value =>
+    value.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim(),
+  ))].filter(value => value.length > 0 && value.length <= 120 &&
+    !/https?:\/\/|www\.|[\w.+-]+@[\w.-]+\.[a-z]{2,}|\b\d{12,19}\b|(?:bearer|password|api[_ -]?key)\s*[:=]/i.test(value)).slice(0, 50);
+  let attempted = false;
+  return () => {
+    if (attempted || activeUserId !== user || revision !== consentRevision || !hasItemNameConsent()) return 0;
+    attempted = true;
+    let count = 0;
+    for (const name of names) {
+      try {
+        // Deliberate, separately consented exception to the generic content filter.
+        // Only these fixed fields cross this boundary. Never pass a record object.
+        posthog!.capture("item_name_added", { ...baseProperties(), name_notice_version: ITEM_NAME_NOTICE_VERSION,
+          content_kind: kind, entry_source: source, content_label: name });
+        count++;
+      } catch { /* Optional analytics must never fail an app action. */ }
+    }
+    return count;
+  };
+}
 
 export function captureDiagnosticException(
   error: unknown,

@@ -1,6 +1,6 @@
 # SweetMate analytics and diagnostics
 
-Updated 2026-11-23. The single vendor boundary is
+Updated 2026-11-26. The single vendor boundary is
 `artifacts/mobile/lib/analytics.ts`. New behavior ships only in a new app build;
 this implementation does not release to TestFlight or change remote vendor configuration.
 
@@ -17,7 +17,8 @@ Email-confirmation flows stage the account-scoped choice without initializing
 SDKs. Existing accounts retain their saved choices. Cancelled and failed OAuth
 attempts do not enable collection. A fresh signed-out screen discards legacy
 anonymous consent so another person cannot inherit it. Settings retains separate
-product-analytics and crash-reporting controls for later changes.
+product-analytics and crash-reporting controls for later changes. A separately gated
+name-sharing choice is prepared below; existing consent never enables it.
 
 ## Identity and measurement
 
@@ -60,9 +61,9 @@ All events include platform, app version, build number, environment,
 Feature properties are fixed enums, booleans, aggregate count buckets `0`, `1_5`,
 `6_10`, `11_plus`, category counts, and foreground duration seconds. Item-count
 metadata is explicitly allowed; item text and other sensitive property keys are
-filtered. No names, email addresses, content, household/account IDs, invite codes,
-amounts, tokens, raw routes/query parameters, or free-form error text are sent by
-these explicit events. PostHog SDK technical metadata still applies.
+filtered. These metadata-only events send no names, email addresses, content, household/account IDs, invite codes,
+amounts, tokens, raw routes/query parameters, or free-form error text. The separately consented,
+release-gated name event described below is an explicit content exception; it does not expand these events. PostHog SDK technical metadata still applies.
 
 Session replay, automatic lifecycle capture, and feature-flag preloading are off.
 Screen tracking is explicit and uses an allowlist. Auth/setup gates override the
@@ -167,3 +168,19 @@ The consent boundary explicitly calls `optIn()` when a user enables product
 analytics, clearing the SDK's persisted opt-out state from an earlier disable.
 `pnpm --filter @workspace/mobile test:analytics` exercises consent and identity
 behavior with local SDK/storage stubs and no network requests.
+
+## Separate chore and item name sharing — prepared November 26, 2026
+
+This section supersedes the earlier blanket “no content” description **only** for the separately consented `item_name_added` event. Existing metadata events and Sentry retain their content filter. Base analytics notice `2026-11-08` remains unchanged because its scope has not expanded. The additional name notice is `2026-11-26`.
+
+**Not live:** `EXPO_PUBLIC_ITEM_NAME_ANALYTICS_ENABLED` defaults to false and was not enabled in EAS/production. Existing website source is updated locally, but Sites source credentials still return `project_not_found`. Do not enable the flag or release collection until that policy is published, App Store privacy purposes are reconciled and the owner authorizes the native release. No website, store, vendor configuration or TestFlight release was changed.
+
+- Preferences add `itemNamesEnabled=false` and `itemNamesNoticeVersion=null`. Existing users and the signup checkbox never inherit this new opt-in. Settings offers **Share chore and item names** only in an enabled build and requires current Product analytics consent. Names can still reveal personal/sensitive details, which the setting explicitly explains.
+- Product opt-out clears name consent. Product re-enable does not revive it. Revocation advances the existing consent revision immediately, blocking prepared delayed callbacks before storage completes. Account changes, sign-out, failed preference writes and outdated name notices prevent capture.
+- `prepareItemNameAnalytics` is the single explicit content exception at the existing vendor boundary. It accepts only fixed entry kind/source enums and a list of labels, never a whole record. Its one-shot callback binds both action-time consent and account/revision, so a delayed save cannot backfill a previously unconsented action.
+- Event: `item_name_added`; fields: `content_kind` (`chore`, `expense`, `shopping`), `entry_source` (`manual`, `custom`, `random`, `essentials`, `shopping`), `content_label`, `name_notice_version`, and existing technical base metadata. The existing random analytics ID applies; no record or household identifiers are added. Base schema version remains 2 for unchanged metadata events; distinguish this new event by its own name/notice version.
+- Coverage: newly accepted manual chores, newly added custom planner/setup chores, confirmed Random Task creates, manual shopping creates, confirmed newly selected Essentials transfers, and confirmed expense creates. Shopping-derived expenses include only selected shopping items with `addedBy` matching the current actor, not the list title or peer-authored entries. Realtime loads, chart regeneration from shared tasks, edits, checkoffs, restored data and imported Google events/tasks do not emit name events.
+- Labels are whitespace-normalized, deduplicated within an action, limited to 120 characters and at most 50 per action. Empty/overlong names, obvious email/URL/long-digit/secret patterns are skipped. This is a size/minimization guard, **not reliable anonymization**. Free text may still reveal names or sensitive information. Some accepted local chore/shopping/custom actions are optimistic and may subsequently fail server sync; this measures actions, not a complete inventory or confirmed purchase history.
+- Expense, Random Task and Essentials reports wait for their successful save path. Retried creates can still appear more than once across independent invocations/devices; no record IDs are sent for deduplication. Already-collected events are not automatically erased by opt-out. Provider-side access, retention, queued delivery, backups and deletion must be handled according to actual provider settings and the privacy policy; no unverified retention promise is made.
+
+Useful report: filter `event=item_name_added`, `environment=production`, then break down by `content_kind`, `entry_source` and `content_label`. Results cover only separately opted-in, supported new actions, not all users or all saved records. No dashboard was created, no real names were sent for testing, and no historical backfill was run.
