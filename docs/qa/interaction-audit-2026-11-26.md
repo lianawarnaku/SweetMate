@@ -43,6 +43,14 @@ Live browser widths observed: 786 and 1710 CSS pixels. A requested viewport over
 | Alerts / auth | Restart alert notification and destination, read-all state, sign out, sign-in/sign-up mode controls and optional signup consent toggle. Restored the disposable test account afterward. |
 | Imported schedule | Synthetic event/task detail popups, event completion inside details, task check/undo, time validation, period controls and saved timed task. Synthetic Google data did not require third-party access. |
 
+## Subsequent coverage gap
+
+Build 54's permanent shopping-list deletion was subsequently reported as failing.
+The original live Shopping coverage did not establish deletion surviving two-member
+sync and reopening. See [the follow-up reproduction, correction and regression
+coverage](shopping-list-deletion-2026-11-26.md). Source inventory and passing tests
+are not evidence that every dynamic control and persistence lifecycle was tested.
+
 ## Verification
 
 - `pnpm run typecheck` — passed across workspace projects.

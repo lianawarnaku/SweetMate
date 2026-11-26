@@ -59,7 +59,7 @@ import { normalizeExpenseDate } from "@/lib/expenseDate";
 import { summarizeMemberIous } from "@/lib/iouSummary";
 import type { ExpenseSyncStatus } from "@/hooks/useExpenseSync";
 import { allExpenseSharesPaid, expensePaidCents, expenseRemainingCents, expenseOutstandingCents, canonicalExpense, canEditExpense as mayEditExpense, canManageExpense as mayManageExpense, expenseFinancialSignature, hasExpensePayments } from "@/lib/expensePolicy";
-import { applyNormalizedEvent, planNormalizedSync, type NormalizedRow } from "@/lib/normalizedCollection";
+import { useNormalizedCollection } from "@/hooks/useNormalizedCollection";
 import {
   rowToShoppingItem,
   rowToShoppingList,
@@ -831,133 +831,6 @@ interface SharedHouseholdState {
   customTasks: CustomTask[];
 }
 
-function useNormalizedCollection<
-  T extends { id: string; updatedAt?: string },
-  R extends NormalizedRow,
->({
-  table,
-  householdId,
-  userId,
-  cloudReady,
-  entities,
-  entitiesRef,
-  setEntities,
-  toRow,
-  fromRow,
-}: {
-  table: string;
-  householdId: string | null;
-  userId?: string;
-  cloudReady: boolean;
-  entities: T[];
-  entitiesRef: React.MutableRefObject<T[]>;
-  setEntities: React.Dispatch<React.SetStateAction<T[]>>;
-  toRow: (entity: T, householdId: string, index?: number) => R;
-  fromRow: (row: R) => T;
-}) {
-  const [ready, setReady] = useState(false);
-  const readyRef = useRef(false);
-  const persistedRef = useRef<Map<string, R>>(new Map());
-  const queueRef = useRef<Promise<void>>(Promise.resolve());
-
-  useEffect(() => {
-    readyRef.current = false;
-    setReady(false);
-    persistedRef.current = new Map();
-    if (!cloudReady || !householdId || !userId) return;
-    let active = true;
-    const channel = supabase.channel(`${table}:${householdId}`);
-    const connect = async () => {
-      const { data, error } = await supabase.from(table).select("*").eq("household_id", householdId);
-      if (!active) return;
-      if (error) {
-        reportSupabaseError(`load normalized ${table}`, error, { householdId });
-        return;
-      }
-      const rows = ((data ?? []) as R[]).sort((left, right) =>
-        ((left as R & { sort_order?: number }).sort_order ?? 0) -
-        ((right as R & { sort_order?: number }).sort_order ?? 0),
-      );
-      if (rows.length) {
-        const normalized = rows.map(fromRow);
-        persistedRef.current = new Map(rows.map((row) => [row.id, row]));
-        entitiesRef.current = normalized;
-        setEntities(normalized);
-      } else {
-        const bootstrap = entitiesRef.current.map((entity, index) => toRow(entity, householdId, index));
-        if (bootstrap.length) {
-          const { error: bootstrapError } = await supabase.from(table).upsert(bootstrap, { onConflict: "id" });
-          if (!active) return;
-          if (bootstrapError) {
-            reportSupabaseError(`bootstrap normalized ${table}`, bootstrapError, { householdId, count: bootstrap.length });
-            return;
-          }
-          persistedRef.current = new Map(bootstrap.map((row) => [row.id, row]));
-        }
-      }
-      readyRef.current = true;
-      setReady(true);
-      channel.on(
-        "postgres_changes",
-        { event: "*", schema: "public", table, filter: `household_id=eq.${householdId}` },
-        (payload) => {
-          if (!active) return;
-          const row = (payload.eventType === "DELETE" ? payload.old : payload.new) as R;
-          if (!row?.id) return;
-          if (payload.eventType === "DELETE") persistedRef.current.delete(row.id);
-          else persistedRef.current.set(row.id, row);
-          const next = applyNormalizedEvent(
-            entitiesRef.current,
-            payload.eventType as "INSERT" | "UPDATE" | "DELETE",
-            row,
-            fromRow,
-          );
-          entitiesRef.current = next;
-          setEntities(next);
-        },
-      ).subscribe((status, subscriptionError) => {
-        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-          reportSupabaseError(`subscribe to normalized ${table}`, subscriptionError ?? new Error(status), { householdId, status });
-        }
-      });
-    };
-    void connect().catch((error) => reportRuntimeError(`connect normalized ${table}`, error, { householdId }));
-    return () => {
-      active = false;
-      readyRef.current = false;
-      setReady(false);
-      void supabase.removeChannel(channel);
-    };
-  }, [cloudReady, fromRow, householdId, setEntities, table, toRow, userId]);
-
-  useEffect(() => {
-    if (!ready || !householdId || !userId) return;
-    queueRef.current = queueRef.current.then(async () => {
-      const plan = planNormalizedSync(entities, persistedRef.current, (entity) =>
-        toRow(entity, householdId, entities.indexOf(entity)),
-      );
-      if (plan.upserts.length) {
-        const { error } = await supabase.from(table).upsert(plan.upserts, { onConflict: "id" });
-        if (error) {
-          reportSupabaseError(`persist normalized ${table}`, error, { householdId, count: plan.upserts.length });
-          return;
-        }
-        plan.upserts.forEach((row) => persistedRef.current.set(row.id, row));
-      }
-      if (plan.deleteIds.length) {
-        const { error } = await supabase.from(table).delete().eq("household_id", householdId).in("id", plan.deleteIds);
-        if (error) {
-          reportSupabaseError(`delete normalized ${table}`, error, { householdId, count: plan.deleteIds.length });
-          return;
-        }
-        plan.deleteIds.forEach((id) => persistedRef.current.delete(id));
-      }
-    });
-  }, [entities, householdId, ready, table, toRow, userId]);
-
-  return readyRef;
-}
-
 export function AppProvider({
   children,
   session,
@@ -994,6 +867,10 @@ export function AppProvider({
   shoppingListsRef.current = shoppingLists;
   shoppingItemsRef.current = shoppingItems;
   shoppingSyncMetaRef.current = shoppingSyncMeta;
+  // Only the freshly loaded legacy server document may bootstrap empty tables.
+  // Device caches are never evidence that a deleted server list should exist.
+  const legacyShoppingListsRef = useRef<ShoppingList[]>([]);
+  const legacyShoppingItemsRef = useRef<ShoppingItem[]>([]);
   const [borrowItems, setBorrowItems] = useState<BorrowItem[]>([]);
   const borrowItemsRef = useRef<BorrowItem[]>(borrowItems);
   borrowItemsRef.current = borrowItems;
@@ -1077,6 +954,8 @@ export function AppProvider({
   });
   const shoppingListsTableReadyRef = useNormalizedCollection<ShoppingList, ShoppingListRow>({
     table: "shopping_lists",
+    bootstrapEntitiesRef: legacyShoppingListsRef,
+    deletedIds: () => Object.keys(shoppingSyncMetaRef.current.deletedLists),
     householdId,
     userId: session?.user.id,
     cloudReady,
@@ -1088,6 +967,8 @@ export function AppProvider({
   });
   const shoppingItemsTableReadyRef = useNormalizedCollection<ShoppingItem, ShoppingItemRow>({
     table: "shopping_items",
+    bootstrapEntitiesRef: legacyShoppingItemsRef,
+    deletedIds: () => Object.keys(shoppingSyncMetaRef.current.deletedItems),
     householdId,
     userId: session?.user.id,
     cloudReady: cloudReady && shoppingListsTableReadyRef.current,
@@ -3000,6 +2881,8 @@ export function AppProvider({
     const channel = supabase.channel(`household:${householdId}`);
 
     async function connect() {
+      legacyShoppingListsRef.current = [];
+      legacyShoppingItemsRef.current = [];
       const { data, error } = await supabase
         .from("household_states")
         .select("state")
@@ -3016,6 +2899,8 @@ export function AppProvider({
       if (data?.state) {
         applyingRemoteRef.current = true;
         const remote = data.state as Partial<SharedHouseholdState>;
+        legacyShoppingListsRef.current = remote.shoppingLists ?? [];
+        legacyShoppingItemsRef.current = remote.shoppingItems ?? [];
         applySharedState(remote);
       } else {
         const { error: createError } = await supabase.from("household_states").upsert({
@@ -4088,8 +3973,10 @@ export function AppProvider({
       shoppingItemsRef.current.filter((item) => item.listId === id).map((item) => item.id),
       true,
     );
-    setShoppingLists((prev) => prev.filter((l) => l.id !== id));
-    setShoppingItems((prev) => prev.filter((s) => s.listId !== id));
+    shoppingListsRef.current = shoppingListsRef.current.filter((list) => list.id !== id);
+    shoppingItemsRef.current = shoppingItemsRef.current.filter((item) => item.listId !== id);
+    setShoppingLists(shoppingListsRef.current);
+    setShoppingItems(shoppingItemsRef.current);
   }, [recordShoppingVersions]);
 
   const addShoppingItem = useCallback((item: Omit<ShoppingItem, "id">) => {
@@ -4150,7 +4037,8 @@ export function AppProvider({
 
   const deleteShoppingItem = useCallback((id: string) => {
     recordShoppingVersions("item", [id], true);
-    setShoppingItems((prev) => prev.filter((s) => s.id !== id));
+    shoppingItemsRef.current = shoppingItemsRef.current.filter((item) => item.id !== id);
+    setShoppingItems(shoppingItemsRef.current);
   }, [recordShoppingVersions]);
 
   // Accept the visible order emitted by NestableDraggableFlatList and rewrite
