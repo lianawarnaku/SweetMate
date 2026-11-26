@@ -44,3 +44,11 @@ are not an on-device reproduction. Validate the complete flow on the next
 explicitly authorized native iPhone build, including reduced motion and returning
 from the background. Build 52 cannot receive these local source changes without
 a subsequent native release.
+
+## Build 54 follow-up
+
+The owner subsequently reported the same visible failure in build 54. The signed
+archive contains this earlier correction, so shipping it was insufficient proof
+of the on-device result. A saved compact-mode mismatch and the retained native
+list/header identity were addressed in the [build 54 diagnostic follow-up](../qa/calendar-header-build54-2026-11-26.md).
+The exact native failure remains unconfirmed without an iPhone/simulator check.

@@ -931,13 +931,17 @@ export default function MyChoresScreen() {
   const homeListRef = useRef<FlatList<Chore>>(null);
   const [homeHeaderHeight, setHomeHeaderHeight] = useState(0);
   const [homeListHeight, setHomeListHeight] = useState(0);
-  const floatingWeekCalendar = focusDismissed && !calendarExpanded;
+  // Compact mode also hides My Progress. Its calendar must use the same header
+  // as an explicit X dismissal, including when that choice restores after mount.
+  const calendarHeaderMode = focusDismissed || listView;
+  const homePresentationKey = `${focusKey}:${calendarHeaderMode ? "calendar-header" : "calendar-card"}`;
+  const floatingWeekCalendar = calendarHeaderMode && !calendarExpanded;
   const floatingCalendar = useFloatingWeekCalendar({
     enabled: floatingWeekCalendar, reduceMotion, resetKey: focusKey,
   });
   useEffect(() => {
-    if (focusDismissed) homeListRef.current?.scrollToOffset({ offset: 0, animated: false });
-  }, [focusDismissed, focusKey]);
+    if (calendarHeaderMode) homeListRef.current?.scrollToOffset({ offset: 0, animated: false });
+  }, [calendarHeaderMode, focusKey]);
   const editingChore = editingChoreId
     ? chores.find((chore) => chore.id === editingChoreId)
     : undefined;
@@ -1209,11 +1213,15 @@ export default function MyChoresScreen() {
       </View>
       {/* Keep browser scroll anchoring from reversing the collapsing calendar. */}
       <Reanimated.FlatList
+        // Replace the native header cell as one unit. Replacing only its inner
+        // calendar view leaves the virtualized/reanimated header owner alive.
+        key={homePresentationKey}
+        testID={calendarHeaderMode ? "home-list-calendar-header" : "home-list-calendar-card"}
         style={[{ flex: 1 }, Platform.OS === "web" && { overflowAnchor: "none" } as ViewStyle]}
         ref={homeListRef}
         onLayout={(event) => setHomeListHeight(event.nativeEvent.layout.height)}
         onScroll={floatingCalendar.onScroll}
-        extraData={focusDismissed}
+        extraData={calendarHeaderMode}
         scrollEventThrottle={16}
         itemLayoutAnimation={reduceMotion ? undefined : HOME_COMPLETION_LAYOUT}
         data={expandedHomeSections["my-chores"] && !showPersonalAgenda ? displayedChores : []}
@@ -1226,7 +1234,7 @@ export default function MyChoresScreen() {
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
           <View collapsable={false}>
-            {!listView && !focusDismissed && (todayIncompleteChores.length > 0 || caughtUp) && (
+            {!calendarHeaderMode && (todayIncompleteChores.length > 0 || caughtUp) && (
               <TodayFocusCard
                 key={`${focusKey}:${todayIncompleteChores.length === 0}`}
                 chore={upNextChore}
@@ -1241,7 +1249,7 @@ export default function MyChoresScreen() {
             )}
 
             <HomeCalendarSection
-              dismissed={focusDismissed}
+              dismissed={calendarHeaderMode}
               expanded={expandedHomeSections.schedule}
               count={selectedCalendarItems.length}
               onToggle={() => toggleHomeSection("schedule")}

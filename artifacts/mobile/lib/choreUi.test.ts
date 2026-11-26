@@ -195,12 +195,7 @@ assert(
     sectionDivider.includes("styles.line"),
   "My Sweet section headings must use accessible divider controls",
 );
-assert(
-  home.includes('<HomeCalendarSection') && home.includes('dismissed={focusDismissed}') &&
-    home.includes('expanded={expandedHomeSections.schedule}') && home.includes('const calendarContent = (') &&
-    !home.includes('!listView && expandedHomeSections.schedule'),
-  "calendar must remain available in saved list view as well as dashboard view",
-);
+// Saved compact mode and dismissal are exercised by homeCalendarScreen.test.ts.
 assert(
   !group.includes("styles.activityHeaderIcon, { backgroundColor:"),
   "House Monitor and Roommates heading icons must render without tiles",
