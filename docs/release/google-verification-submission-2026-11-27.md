@@ -1,15 +1,33 @@
 # Google verification submission package
 
-Prepared for homie-502522 / SweetMate Calendar Server. The existing client ID,
-client secret and Supabase callback are preserved. Website publication is complete.
-The current console remains External/Testing; saving scope declarations does not
-make Google access public or mean Google has verified SweetMate.
+Updated November 28 for homie-502522 / SweetMate Calendar Server. The existing
+client ID, client secret and Supabase callback are preserved. Website publication
+is complete. The owner approved publishing at action time; Audience is now
+**External / In production**. The 100-user unverified cap and warning still apply.
+No native build, TestFlight release or purchase was performed.
 
-Publishing the existing OAuth audience and preparing branding do not require a
-new TestFlight build. The owner requested that work on November 28; action-time
-publishing approval and restored browser control are pending. Physical-phone
-acceptance remains a separate native-release gate. See the
-[current vendor/privacy execution record](../privacy/vendor-review-2026-11-28.md).
+The existing logo failed Google's automated identity check. The manual-review
+path opens a combined branding/data-access submission, which requires a real
+YouTube demo URL and scope justification. The 902-character explanation below was
+entered, but cannot be saved while the video is missing. The owner deferred the
+video. A private Google Calendar reminder is confirmed for November 29 at
+10:00 AM Eastern. No appeal or data-access verification was submitted and Google
+approval has not been obtained. Keep the staged browser draft; its contents are also here
+so an interrupted browser does not lose the preparation.
+
+## Entered scope explanation (902 characters; not yet saved)
+
+> SweetMate combines a user's private schedule with household chores. calendar.calendarlist.readonly lets users select calendars. calendar.events.readonly imports titles/times from selected owned/shared calendars; free-busy lacks the schedule details. calendar.events.owned creates a chore copy in the primary calendar only on explicit export; read-only cannot write and app.created cannot target an existing primary calendar. tasks.readonly imports selected Tasks lists/items; SweetMate checkmarks do not edit Google originals. Identity scopes match the connected account. Legacy calendar.events is retained for installed iOS 1.0.0 (54), which requests it for event imports/primary export. Updated source replaces it with readonly+owned; shared-calendar writes are not a feature. Google data is excluded from analytics/ads. Users can disconnect and request deletion under https://sweetmate.info/privacy.
+
+## Prepared branding appeal (not yet submitted)
+
+The uploaded house mark is the existing SweetMate iOS app icon: a black roof over
+four rounded squares. It represents the shared-home product and is paired with
+the SweetMate name. It contains no Google product name or Google trademark.
+Request manual review of the logo-identity finding, with https://sweetmate.info/
+as the public product reference. Do not claim a registered trademark or approval.
+Select the actual applicable appeal-reason option shown in the console; none was
+yet selected or saved in the final form.
 
 ## Scope justification for the next candidate
 
@@ -68,8 +86,8 @@ Google determines whether the demonstration meets its requirements.
 - [ ] Demonstrate the actual requested permissions with real Google consent/API calls, including partial consent, refresh and reconnect. Native acceptance stays on the separate phone release checklist.
 - [ ] Retire/justify the temporary broad legacy scope.
 - [ ] Owner-reviewed demonstration video uploaded and reviewer-accessible URL supplied.
-- [ ] Switch audience to Production and submit truthful branding/scope verification
-  at the appropriate final console step, observing any action-time confirmation.
+- [x] Switch audience to Production with owner action-time approval; live status verified.
+- [ ] Submit truthful branding appeal and scope verification once the actual demo URL is available.
 - [ ] Resolve Google's review requests and receive approval.
 - [ ] Test an external Google account absent from the test-user list, including
   a repeated connection and normal subsequent syncing.

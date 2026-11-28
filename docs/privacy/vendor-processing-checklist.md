@@ -17,14 +17,15 @@ or billing plan was changed. Evidence: [location privacy report](location-privac
 
 - [x] One organization owner and zero pending invitations verified; owner contact retained in the private vendor account
 - [x] US Cloud region verified; current DPA transfer provisions reviewed
-- [ ] Complete DPA countersignature and preserve its signed copy (currently Awaiting signature)
-- [x] Current DPA and subprocessors reviewed; sending an envelope is not a completed signature
+- [x] Corrected DPA names the legal operator; owner countersigned; PostHog shows Signed and a signed-copy Download link. The private agreement/address are not committed.
+- [x] Current DPA and subprocessors reviewed; original unsigned envelope cancelled with owner approval and replaced before signature
 - [x] Current Free plan / Organization default (1 year) retention verified without changing it; person profiles do not share that expiry
 - [x] Session replay, web autocapture, web-vitals and dead-click capture confirmed off
 - [x] No outbound destinations or other connected integrations configured; onboarding examples were not treated as live destinations
 - [x] Production member list audited: one owner, no other members or pending invitations
 - [x] Owner completed individual MFA; authenticated connector verifies is_2fa_enabled=true. No paid organization-wide enforcement was enabled.
-- [ ] Complete deletion drill: one disposable profile and two synthetic events verified; permanent-delete approval pending
+- [x] Owner-authorized deletion drill submitted for one synthetic profile and its two events; person now returns 404. No real analytics history deleted.
+- [ ] Vendor physical event purge remains asynchronous; accepted request/person removal are not proof of storage/backup erasure.
 - [x] Operational privacy contact support@sweetmate.info and the private vendor-owner contact recorded; complete agreement/signature notification review
 
 ## Sentry — currently inactive
@@ -55,8 +56,10 @@ Do not enable Sentry or buy anything just to complete them.
 ## Erasure support queue
 
 November 28 production aggregate: zero pending requests; RLS enabled and ordinary
-clients cannot read the queue. A real PostHog dummy-identifier deletion drill is
-still required; a private queue row is not proof of vendor erasure.
+clients cannot read the queue. The PostHog dummy-identifier drill has now exercised the real vendor API with
+owner approval: one profile queued, event deletion queued, no errors, and subsequent
+person lookup 404. Final event purge remains asynchronous; a private queue row or
+a missing person alone is not proof of physical vendor erasure.
 
 ## Release approval
 

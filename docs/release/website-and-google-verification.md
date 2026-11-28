@@ -1,6 +1,6 @@
 # SweetMate website and Google verification
 
-Current execution status: see [the November 28 readiness record](public-release-readiness-2026-11-27.md). Website publication and backend hardening are complete; the older dated sections below retain historical findings. Google remains Testing and no native release was performed.
+Current execution status: see [the November 28 readiness record](public-release-readiness-2026-11-27.md). Website publication and backend hardening are complete; the older dated sections below retain historical findings. Google is now In production after owner approval; review still requires the deferred real demo video and branding appeal. The corrected PostHog DPA is signed. No native release was performed.
 
 Prepared November 12, 2026 against canonical `homiev2/main`. GitHub redirects `lianawarnaku/homiev2` to the renamed `lianawarnaku/SweetMate` repository (same repository ID).
 

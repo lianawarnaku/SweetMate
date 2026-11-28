@@ -25,13 +25,20 @@
   "google": {
     "project": "homie-502522",
     "observedAudience": "External",
-    "observedStatus": "Testing",
+    "observedStatus": "In production",
     "observedUsers": 1,
-    "observedTestUsers": 1,
-    "publishingApproval": "Pending owner action-time confirmation",
+    "publishingApproval": "Owner confirmed at action time; publishing completed and verified November 28",
     "verificationSubmitted": false,
     "calendarApiEnabled": true,
-    "tasksApiEnabled": true
+    "tasksApiEnabled": true,
+    "brandingAutomaticCheck": "Logo does not uniquely identify brand and identity",
+    "brandingAppeal": "Prepared; combined submission requires real YouTube demo",
+    "scopeJustificationDraftCharacters": 902,
+    "scopeJustificationSaved": false,
+    "demoVideoProvided": false,
+    "videoDeferredByOwner": true,
+    "unverifiedUserCap": 100,
+    "testUsersBeforePublishing": 1
   },
   "posthog": {
     "project": "719267",
@@ -56,15 +63,24 @@
     "outboundDestinationsConfigured": 0,
     "otherIntegrationsConfigured": 0,
     "individualMfaLastObserved": "Enabled; verified by authenticated user-get is_2fa_enabled=true",
-    "dpaStatus": "Awaiting signature; owner sent envelope",
-    "signedCopyAvailable": false,
+    "dpaStatus": "Signed; corrected operator identified and owner countersigned",
+    "signedCopyAvailable": true,
     "testProfileCreated": true,
     "syntheticEventsReceivedInUi": 2,
-    "testProfileDeleteApproval": "Pending",
+    "testProfileDeleteApproval": "Owner explicitly approved deletion of only the disposable profile and its two test events",
     "individualMfaEnabled": true,
     "connectorOwnerCount": 1,
     "connectorGeoipEnabled": false,
-    "connectorLocationFilterEnabled": true
+    "connectorLocationFilterEnabled": true,
+    "unsignedOriginalCancelledWithOwnerApproval": true,
+    "ownerCompletedDpaSignature": true,
+    "signedCopyStoredInGit": false,
+    "testProfileDeleted": true,
+    "testProfileReadAfterDeleteHttpStatus": 404,
+    "syntheticEventsDeletionQueued": true,
+    "syntheticEventsPhysicalPurgeVerified": false,
+    "erasureWorkflowTest": "Passed request acceptance and person removal; final event purge asynchronous",
+    "realAnalyticsHistoryDeleted": false
   },
   "sentry": {
     "status": "Not configured in current production EAS variables",
@@ -84,5 +100,16 @@
     "confirmationSourceAndScriptUnchanged": true,
     "previewAndProductionHttpChecks": "Passed",
     "normalTlsValidation": true
+  },
+  "reminder": {
+    "provider": "Google Calendar",
+    "requestedFor": "2026-11-29T10:00:00-05:00",
+    "timezone": "America/New_York",
+    "visibility": "private",
+    "externalGuests": 0,
+    "popupMinutesBefore": 0,
+    "confirmedByReadBack": true,
+    "codexAutomationCreated": false,
+    "fallbackExplicitlyApprovedByOwner": true
   }
 }

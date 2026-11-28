@@ -1,0 +1,23 @@
+{
+  "date": "2026-11-28",
+  "project": 719267,
+  "scope": "One synthetic test-only person, its Identify entry and one synthetic audit event",
+  "ownerActionTimeApproval": true,
+  "preDeleteSyntheticIdentityVerified": true,
+  "eventsObservedBeforeDelete": 2,
+  "apiResult": {
+    "persons_found": 1,
+    "persons_deleted": 0,
+    "persons_queued_for_deletion": 1,
+    "events_queued_for_deletion": true,
+    "recordings_queued_for_deletion": false,
+    "deletion_errors": []
+  },
+  "subsequentPersonReadHttpStatus": 404,
+  "profileRemoved": true,
+  "physicalEventPurgeVerified": false,
+  "realUserHistoryDeleted": false,
+  "accountOrHouseholdDataChanged": false,
+  "repeatDeletionIssued": false,
+  "limitation": "Request accepted and person removed. Event/storage/backup erasure remains an asynchronous vendor process; acceptance and HTTP 404 do not certify physical purge."
+}

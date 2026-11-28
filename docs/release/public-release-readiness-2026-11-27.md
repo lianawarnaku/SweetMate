@@ -6,23 +6,27 @@ changes below are deployed. **The app is not yet ready for public submission.**
 No purchase, native release build, OTA update, TestFlight distribution or public
 store submission was performed. Installed build 54 is unchanged.
 
-November 28 follow-up: the privacy policy now publishes verified PostHog US/Free
+November 28 follow-up: the privacy policy publishes verified PostHog US/Free
 one-year retention and the currently inactive Sentry configuration. All 19 website
 checks and public HTTP checks passed. PostHog owner/access/replay/location/export
-checks are complete; its DPA is Awaiting signature and the synthetic
-profile's delete approval remains pending. Owner PostHog MFA is now verified enabled
-through the connected service. Both Google APIs are enabled, but Google
-publishing approval remains pending and Audience is still Testing. See the
-[current vendor execution record](../privacy/vendor-review-2026-11-28.md).
+checks are complete, owner MFA is verified enabled, and the corrected DPA is
+**Signed**. Google is now **External / In production** after owner action-time
+approval. Verification is still unsubmitted: the automated logo finding requires
+manual review and the combined form requires a real YouTube demo. The owner has
+deferred that video; a private Calendar reminder is confirmed for November 29 at
+10:00 AM Eastern. The synthetic erasure request was accepted and the profile now
+returns 404; final event purge remains asynchronous. Real analytics history stays
+intact.
+See the [current vendor execution record](../privacy/vendor-review-2026-11-28.md).
 
 ## Current status
 
 | Workstream | Completed and verified | Still required |
 | --- | --- | --- |
-| Public website | Free Cloudflare Pages hosting; privacy, support and account-deletion pages live; homepage/auth confirmation preserved; email DNS preserved | Monitored support handling and actual native confirmation/deletion acceptance; vendor retention details still need verification |
+| Public website | Free Cloudflare Pages hosting; privacy, support and account-deletion pages live; homepage/auth confirmation preserved; email DNS preserved | Monitored support handling and actual native confirmation/deletion acceptance |
 | Authentication | Protected native-session adapter and migration; shared 12–128 password policy; real recovery and secure changes; production minimum 12 and email confirmation on; owner received test recovery email and enrolled Supabase administrator MFA | Native Keychain/Keystore behavior, upgrade/refresh/logout/account switch, genuine signup confirmation, hosted reset and device callback tests; remaining infrastructure MFA/access review |
 | Household/data security | Six migrations deployed through 202611270003; invitation revocation/rejoin approval/rate limits; durable duplicate-safe operations; stale-chart and membership guards; Google credential table denied to ordinary clients | Real-device removal/rejoin and offline/termination acceptance; transition to new host invitation controls; score-concurrency limitation below |
-| Google access | Existing credentials/callback preserved; narrower new Calendar scopes in code/console; compatible backend deployed; scope/identity tests and submission script ready | API enablement/live Tasks check, actual native flow/video, legacy-scope retirement/justification, Production/verification review and an account outside the test list |
+| Google access | Existing credentials/callback preserved; narrower new Calendar scopes in code/console; compatible backend deployed; scope/identity tests and submission script ready; both APIs enabled; Production audience verified | Live Tasks/consent flow and real demo video, legacy-scope rollout, branding appeal/scope review and an account outside the test list |
 | Dependencies | Compatible patches; workspace and website scans show no critical/high matches in reviewed lockfiles | 8 moderate/2 low workspace matches and 1 moderate/1 low website match remain; review actual contexts, do not suppress or call them eliminated |
 | App fixes and local testing | Recovery, pagination, durable retry, invitations, black content surfaces and prior calendar/UI fixes committed; all final checks below passed | Physical iPhone acceptance of actual candidate; native storage/haptics/gestures/accessibility and external providers are not certified by browser personas |
 | Privacy and store preparation | Live policy, privacy worksheets, Google demonstration script, App Store submission checklist and phone checklist prepared; item-name analytics remains off | Remaining vendor access/retention/erasure and Apple credential review; matching final privacy labels, screenshots, reviewer login check and submission |
@@ -88,7 +92,7 @@ These limits remain explicit in the [durable-save audit](../qa/durable-saves-202
 4. Record the actual native demonstration, retire or justify the legacy scope,
    complete [Google production/verification](google-verification-submission-2026-11-27.md),
    and verify an account outside the test-user list. Google's review is external;
-   the current project remains Testing and unrestricted access is not enabled.
+   the audience is In production, but scope verification and unrestricted access remain incomplete.
 5. Reconcile the accepted build with [App Store preparation](app-store-submission-2026-11-27.md),
    finalize screenshots/disclosures/reviewer login, then perform the separately
    authorized submission. Keep item-name analytics disabled until its own consent,

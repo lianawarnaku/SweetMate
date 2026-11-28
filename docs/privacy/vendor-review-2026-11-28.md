@@ -1,8 +1,9 @@
 # Vendor/privacy execution record — November 28, 2026
 
 The owner requested completing Google public access and vendor/privacy work,
-without purchases or a new TestFlight build. This record contains verified facts;
-it does not mark the open console work complete.
+without purchases or a new TestFlight build. This record contains verified facts. Google audience publication and the corrected
+DPA signature are now complete; Google verification still requires the real demo
+video the owner has deferred.
 
 ## Current production configuration
 
@@ -48,9 +49,11 @@ removal from vendor storage or backups. Other-device IDs are not centrally mappe
 - [PostHog DPA](https://posthog.com/dpa) and
   [subprocessors](https://posthog.com/subprocessors): reviewed the current public
   templates/list, including US cloud storage and cross-border arrangements. This
-  does not show a completed agreement. The owner subsequently sent the DPA for
-  signature; the live legal-documents table shows **Awaiting signature** and no
-  signed copy. No countersignature was performed by the agent.
+  does not show a completed agreement. The original owner-created envelope was unsigned. With explicit action-time
+  approval it was cancelled and replaced to identify the legal operator. The owner
+  entered the address privately and completed the signature. PostHog now shows
+  **Signed** and a signed-copy Download link; PandaDoc also offers the signed PDF.
+  No countersignature was performed by the agent.
 - [Sentry DPA](https://sentry.io/legal/dpa/) and
   [subprocessors](https://sentry.io/legal/subprocessors/) were reviewed for future
   activation. No Sentry dashboard, region, agreement or erasure was falsely certified.
@@ -77,11 +80,11 @@ export. No configuration or existing analytics history was changed by these chec
 Created one clearly named **SweetMate privacy audit — disposable test** profile,
 using the existing project ingestion token privately, location disabled and no real
 user data. The provider accepted the batch and the actual person Events tab shows
-exactly two synthetic entries (Identify and the audit event). The real Delete person
-control is ready, but permanent deletion is awaiting action-time owner approval.
-No other person/profile was opened and no real analytics was purged. This is not yet
-a completed erasure drill. An asynchronous vendor deletion must be recorded with
-its actual pending/completed state, not assumed instantaneous.
+exactly two synthetic entries (Identify and the audit event). After specific owner approval, the connected vendor API accepted deletion of
+only this one synthetic profile and its two events: one person found, one queued,
+event deletion queued, no errors. A subsequent lookup returns 404. No real profile
+or historical user analytics was deleted. Final event/storage/backup purge remains
+asynchronous and unverified; person removal is not proof of physical erasure.
 
 ## Public policy update — deployed
 
@@ -104,17 +107,21 @@ Google permissions. No agreement was falsely described as signed.
 
 ## Google and browser state
 
-Observed the existing Google Cloud project's Audience page: **External / Testing**,
-one test user, Publish app control available. Existing credentials/callbacks were
-preserved. Switching to production does not require buying anything or building
-TestFlight. Google requires production status before preparing verification.
+Initially observed External / Testing with one test user. The owner explicitly
+approved the production switch at action time. Publishing completed and the live
+Audience page shows **In production / External**, with a 100-user unverified cap.
+Existing credentials and callbacks were preserved; no app build or purchase was
+needed. Publication is not Google verification or unrestricted access.
 
-The owner was asked for action-time publishing approval because browser policy
-requires it for expanded public access. Approval remains pending. Review still
-requires a genuine end-to-end demonstration with the actual requested scopes;
-Google's own decision cannot be represented as completed by local configuration.
-See [Google verification requirements](https://support.google.com/cloud/answer/13464321)
-and [submission steps](https://support.google.com/cloud/answer/13461325).
+The automated branding check rejected the existing app logo as insufficiently
+distinctive. Selected the manual-review path for the actual existing app icon.
+The combined review form requires scope justification and a real YouTube demo
+before submission. Entered a 902-character, source-checked explanation, including
+the temporary installed-build legacy scope; Save stays disabled without the
+video URL. No placeholder video, synthetic consent footage, false declaration of
+narrow scopes being shipped, or verification submission was provided. The owner
+asked to defer the video; the draft is preserved in the browser and the submission
+package. Google review remains external.
 
 The initial settings load stalled browser control; it later recovered. The request
 to close that temporary tab was withdrawn. A direct PostHog connection was offered and subsequently connected by the owner.
@@ -127,17 +134,22 @@ successful upload; the restored Cloudflare page was inspected before proceeding.
 
 ## Remaining owner/reviewer steps, without a build or purchase
 
-1. The action-time Google publishing approval is still pending. Audience remains
-   Testing. Both Calendar and Tasks APIs are already enabled; no API purchase or
-   new OAuth client is needed. After approval, publish the existing audience and
-   complete the actual branding/scope verification form and truthful demonstration.
-   Google's review/approval and a real outside-test-list account check remain external.
-2. The owner-created DPA envelope is **Awaiting signature**. Review its legal
-   operator/address/email and terms before deciding to countersign. Do not mark it
-   executed, delete/cancel it or resend it without the appropriate instruction.
-3. Approve the pending permanent-delete prompt for only the disposable profile and
-   its two test events, then verify the real vendor deletion status. Real history
-   remains intact and the live production erasure support queue was empty.
+1. Google is now In production and both APIs are enabled. Provide the actual
+   demonstration video and finish the prepared branding appeal/scope submission.
+   The owner deferred the video and requested a reminder for November 29 at
+   10:00 AM Eastern. Codex automation creation was blocked by unavailable approval.
+   The owner approved a private Google Calendar fallback; its confirmed read-back
+   shows the requested Eastern time, a popup at the start, and no external guests.
+   Google's review and a real account outside the test list remain unverified.
+2. The corrected DPA is **Signed** by the owner. Its signed copy is available in
+   PostHog/PandaDoc. Do not publish the private agreement/address in Git.
+3. The disposable-profile erasure request is accepted and the profile now returns
+   404. Its two events remain subject to asynchronous vendor purge. Do not claim
+   physical deletion is complete or issue an unnecessary duplicate delete.
+4. Signed-copy download is available in PostHog/PandaDoc. A download was attempted,
+   but a separate local file was not verified: the download event timed out and
+   browser policy blocked opening the internal downloads manager. No alternate
+   browser surface or cookie/credential extraction was used to bypass that block.
 
 [Sanitized verified state](vendor-review-2026-11-28/verified-state.json),
 [production HTTP checks](vendor-review-2026-11-28/production-http-checks.json),
@@ -160,7 +172,20 @@ GeoIP remains disabled. These reads changed no settings or data.
 Automatic approval review rejected the full project-details operation because
 it would also return a project API token. That request was not needed to finish
 the checks: metadata-only membership/identity and specific privacy-function reads
-were used instead. No broader credential access is requested. The existing
-Google publishing and synthetic-profile deletion approvals remain pending; the
-DPA was last observed Awaiting signature. See the
+were used instead. No broader credential access is requested. The owner subsequently approved Google production publication and completed the
+corrected DPA signature. The owner also explicitly authorized the synthetic-profile deletion; the API
+accepted it and the profile is no longer retrievable. Event purge remains pending;
+the Google demo is deferred. See the
 [sanitized connector evidence](vendor-review-2026-11-28/connector-verification.json).
+
+## November 28 final follow-up
+
+The corrected DPA is Signed; the owner performed its signature. Google audience
+is In production, but the branding appeal/scope request remains unsubmitted until
+the owner supplies the deferred real YouTube demo. The private Calendar reminder
+was created and read back for November 29 at 10:00 AM America/New_York. The real
+erasure workflow accepted the synthetic-only request; person lookup now returns
+404, with final event purge still asynchronous. No purchases, native builds,
+TestFlight submissions, real-user erasure or retention changes occurred.
+
+[Sanitized erasure evidence](vendor-review-2026-11-28/erasure-test-result.json).
