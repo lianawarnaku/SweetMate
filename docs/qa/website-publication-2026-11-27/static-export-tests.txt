@@ -1,0 +1,17 @@
+✔ static index.html works without a framework runtime (2.250041ms)
+✔ static privacy.html works without a framework runtime (0.381ms)
+✔ static support.html works without a framework runtime (0.700125ms)
+✔ static delete-account.html works without a framework runtime (0.251917ms)
+✔ confirmation is the only executable asset and safe headers accompany it (1.459875ms)
+✔ missing token makes no provider request and offers a fresh-link path (0.95375ms)
+✔ valid confirmation uses existing production Auth endpoint and returns to the same app scheme (0.485167ms)
+✔ expired link never shows the app-opening success action (0.378208ms)
+✔ provider/network failure stays recoverable without false success (0.3945ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 43.584792

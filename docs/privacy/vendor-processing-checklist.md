@@ -1,8 +1,19 @@
 # Telemetry vendor processing checklist
 
-Complete and approve this checklist before setting production keys.
+Complete this checklist before public release or enabling additional telemetry.
+Source safeguards do not establish the vendor dashboard retention/access settings.
 
 ## PostHog
+
+November 27, 2026: project 719267 (Default project) IP discarding enabled,
+GeoIP paused, and `SweetMate — discard location metadata` transformation active.
+Its synthetic test cleared IP, geographic person/event fields, timezone and locale.
+Existing history is retained at the owner's explicit request. No retention setting
+or billing plan was changed. Evidence: [location privacy report](location-privacy-2026-11-27.md).
+
+- [x] New IP-derived location enrichment disabled
+- [x] New event IP storage disabled
+- [x] Incoming known geographic/device timezone/locale values filtered
 
 - [ ] Organization/project owner recorded
 - [ ] Hosting region and transfer mechanism confirmed
@@ -29,8 +40,8 @@ Complete and approve this checklist before setting production keys.
 ## Expo / EAS
 
 - [ ] Existing delivery/update processing documented
-- [ ] EAS Observe remains disabled while the app is on Expo SDK 54
-- [ ] Re-review Observe data, retention, and policy disclosures before any SDK 55+ enablement
+- [ ] Confirm EAS Observe is disabled in the production project; the current SDK 57 alone does not establish vendor settings
+- [ ] Review data, retention and policy disclosures before enabling any additional observability service
 
 ## Release approval
 

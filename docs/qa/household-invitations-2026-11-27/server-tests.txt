@@ -1,0 +1,16 @@
+PASS server-generated codes, ordinary admission, active-member idempotence and owner role preservation
+PASS removal revokes old shared codes, blocks the current shared code for the removed account, and immediately denies household data
+PASS only the active host can approve rejoining; approval is consumed by the member, without automatically adding them
+PASS personal invitations are account-bound, single-use/idempotent while active, stored as hashes, and hidden from direct table access
+PASS a later removal invalidates used grants; individually revoked and expired invitations cannot be redeemed
+PASS approval revocation, shared-code rotation, pausing, and resuming revoke outstanding grants without reviving old invitations
+PASS concurrent redemptions create one membership, and removal wins against an in-flight old invitation
+PASS failed join attempts persist across HTTP requests and both legacy and current endpoints share the account rate limit
+PASS transaction-rollback preference cannot erase counters, and admission is rejected inside mutation batches
+PASS lost-acknowledgement retry reuses the grant receipt without issuing another invitation or storing its plaintext token
+PASS host issuance is throttled while individual revocation and emergency pausing stay available
+PASS daily join limits survive short-window resets and session refreshes
+PASS unverified accounts and direct status changes are denied; saved household records and accounts are retained
+PASS 50-member and 20-household caps are enforced by the server, with transactional test fixtures rolled back
+{"passed":14,"localOnly":true,"invitesSent":0}
+Removed only disposable invitation-audit accounts and households.

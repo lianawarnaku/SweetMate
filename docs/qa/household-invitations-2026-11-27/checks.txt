@@ -1,0 +1,12 @@
+Verified locally on 2026-11-27, canonical main checkout.
+Workspace typecheck: passed.
+Mobile tests: 112/112 passed.
+Real Auth/PostgREST/RLS invitation tests: 14/14 groups passed.
+Durable save regression: 82 mutation cases, SIGKILL before send and after commit, followed by receipt replay; passed.
+Expo JavaScript bundles: web, iOS, Android exported locally; no native release build.
+Phone-width browser: 390px viewport and document width; 52px action buttons; no horizontal overflow.
+Browser actions: expand controls, create invitation, approve rejoin, revoke, pause cancellation, confirm pause.
+Copy action: component test; browser clipboard left unchanged.
+Disposable invitation-audit, invitation-visual and termination accounts remaining: zero.
+Task preview stopped; its private fixture/configuration and disposable demo bundle removed.
+Production deployment: none. Purchase: none. TestFlight/EAS submission: none.

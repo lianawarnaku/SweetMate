@@ -1,0 +1,94 @@
+
+> site-creator-vinext-starter@0.1.0 test
+> npm run build && node --test tests/rendered-html.test.mjs
+
+
+> site-creator-vinext-starter@0.1.0 build
+> WRANGLER_LOG_PATH=.wrangler/wrangler.log vinext build
+
+
+  vinext build  (Vite 8.0.13)
+
+[1/5] analyze client references...
+[2K
+transforming...✓ 137 modules transformed.
+rendering chunks...
+✓ built in 232ms
+[2/5] analyze server references...
+[2K
+transforming...✓ 60 modules transformed.
+rendering chunks...
+✓ built in 38ms
+[3/5] build rsc environment...
+[2K
+transforming...✓ 143 modules transformed.
+rendering chunks...
+computing gzip size...
+✓ built in 190ms
+[4/5] build client environment...
+[2K
+transforming...✓ 67 modules transformed.
+rendering chunks...
+computing gzip size...
+✓ built in 87ms
+[5/5] build ssr environment...
+[2K
+transforming...✓ 66 modules transformed.
+rendering chunks...
+computing gzip size...
+✓ built in 111ms
+[0m
+  Route (app)
+  ┌ ? /
+  ├ ? /auth/confirm
+  ├ ? /delete-account
+  ├ ? /privacy
+  └ ? /support
+
+  ? Unknown
+
+  ? Some routes could not be classified. vinext currently uses static analysis
+    and cannot detect dynamic API usage (headers(), cookies(), etc.) at build time.
+    Automatic classification will be improved in a future release.
+
+  Build complete. Run `vinext start` to start the production server.
+
+✔ public HTML is available without sign-in at / (28.41075ms)
+✔ public HTML is available without sign-in at /privacy (4.422209ms)
+✔ public HTML is available without sign-in at /support (2.594292ms)
+✔ public HTML is available without sign-in at /delete-account (3.212417ms)
+✔ public HTML is available without sign-in at /auth/confirm (2.257459ms)
+✔ homepage exposes the actual public privacy and support routes (0.089417ms)
+✔ policy discloses Google, optional telemetry and their distinct choices (0.166833ms)
+✔ support and deletion offer a real assistance route and explain retained records (0.168208ms)
+✔ confirmation source keeps the existing provider and app-opening path (1.632333ms)
+✔ an unknown path remains a genuine 404 (0.521833ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 10
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 100.300792
+
+> site-creator-vinext-starter@0.1.0 test:cloudflare
+> node --test tests/cloudflare-export.test.mjs
+
+✔ static index.html works without a framework runtime (2.684292ms)
+✔ static privacy.html works without a framework runtime (0.777958ms)
+✔ static support.html works without a framework runtime (0.8555ms)
+✔ static delete-account.html works without a framework runtime (0.529666ms)
+✔ confirmation is the only executable asset and safe headers accompany it (1.828916ms)
+✔ missing token makes no provider request and offers a fresh-link path (1.012209ms)
+✔ valid confirmation uses existing production Auth endpoint and returns to the same app scheme (0.614584ms)
+✔ expired link never shows the app-opening success action (0.515333ms)
+✔ provider/network failure stays recoverable without false success (0.466334ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 46.97875

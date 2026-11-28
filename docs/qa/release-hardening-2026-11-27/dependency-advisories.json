@@ -1,0 +1,104 @@
+{
+  "source": "Official npm registry bulk advisory endpoint",
+  "checkedAt": "2026-11-28T04:05:22.130Z",
+  "packages": 919,
+  "counts": {
+    "critical": 0,
+    "high": 0,
+    "moderate": 8,
+    "low": 2,
+    "info": 0
+  },
+  "findings": [
+    {
+      "name": "@babel/core",
+      "severity": "low",
+      "title": "@babel/core: Arbitrary File Read via sourceMappingURL Comment",
+      "url": "https://github.com/advisories/GHSA-4x5r-pxfx-6jf8",
+      "versions": [
+        "7.29.0"
+      ]
+    },
+    {
+      "name": "esbuild",
+      "severity": "low",
+      "title": "esbuild allows arbitrary file read when running the development server on Windows",
+      "url": "https://github.com/advisories/GHSA-g7r4-m6w7-qqqr",
+      "versions": [
+        "0.27.3"
+      ]
+    },
+    {
+      "name": "fast-copy",
+      "severity": "moderate",
+      "title": "fast-copy: Stack exhaustion in fast-copy when copying deeply-nested values",
+      "url": "https://github.com/advisories/GHSA-jggr-w7fw-pc2j",
+      "versions": [
+        "4.0.2"
+      ]
+    },
+    {
+      "name": "minimatch",
+      "severity": "moderate",
+      "title": "minimatch has potential denial of service via globparts amplification",
+      "url": "https://github.com/advisories/GHSA-g3hv-75wg-m249",
+      "versions": [
+        "10.2.6"
+      ]
+    },
+    {
+      "name": "qs",
+      "severity": "moderate",
+      "title": "qs array-limit bypass via bracket-key comma parsing",
+      "url": "https://github.com/advisories/GHSA-x5fp-wj9c-mxmx",
+      "versions": [
+        "6.15.0"
+      ]
+    },
+    {
+      "name": "qs",
+      "severity": "moderate",
+      "title": "qs: Denial of Service via Attacker Controlled isBuffer",
+      "url": "https://github.com/advisories/GHSA-4mjr-xmp4-gh2g",
+      "versions": [
+        "6.15.0"
+      ]
+    },
+    {
+      "name": "qs",
+      "severity": "moderate",
+      "title": "qs has a remotely triggerable DoS: qs.stringify crashes with TypeError on null/undefined entries in comma-format arrays when encodeValuesOnly is set",
+      "url": "https://github.com/advisories/GHSA-q8mj-m7cp-5q26",
+      "versions": [
+        "6.15.0"
+      ]
+    },
+    {
+      "name": "qs",
+      "severity": "moderate",
+      "title": "qs : qs.stringify with arrayFormat 'comma' throws an uncaught TypeError on array elements carrying a non-callable own toString (DoS)",
+      "url": "https://github.com/advisories/GHSA-6pq8-jhm2-2vcw",
+      "versions": [
+        "6.15.0"
+      ]
+    },
+    {
+      "name": "uuid",
+      "severity": "moderate",
+      "title": "uuid: Missing buffer bounds check in v3/v5/v6 when buf is provided",
+      "url": "https://github.com/advisories/GHSA-w5hq-g745-h8pq",
+      "versions": [
+        "3.4.0"
+      ]
+    },
+    {
+      "name": "yaml",
+      "severity": "moderate",
+      "title": "yaml is vulnerable to Stack Overflow via deeply nested YAML collections",
+      "url": "https://github.com/advisories/GHSA-48c2-rrv3-qjmp",
+      "versions": [
+        "2.8.2"
+      ]
+    }
+  ]
+}

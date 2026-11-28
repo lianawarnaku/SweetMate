@@ -1,0 +1,8 @@
+Canonical main, 2026-11-27.
+Workspace typecheck: passed.
+Mobile tests: 112/112 passed.
+Platform renderer regression: exact black content, iOS/Android/web, all dark accents, reduced transparency/native glass availability; passed.
+Local Expo JavaScript exports: web, iOS, Android passed.
+Actual browser after rebuild: 390px viewport/document, task/settings/expense card fills rgb(0,0,0), matching page.
+Existing persona records and sessions preserved. Temporary browser closed; viewport override reset.
+No TestFlight/EAS release, production change or OTA publication.

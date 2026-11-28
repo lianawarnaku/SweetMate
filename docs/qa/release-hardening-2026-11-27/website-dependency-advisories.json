@@ -1,0 +1,33 @@
+{
+  "source": "Official npm registry bulk advisory endpoint",
+  "checkedAt": "2026-11-28T05:20:18.355Z",
+  "packages": 609,
+  "counts": {
+    "critical": 0,
+    "high": 0,
+    "moderate": 1,
+    "low": 1,
+    "info": 0
+  },
+  "findings": [
+    {
+      "name": "esbuild",
+      "severity": "low",
+      "title": "esbuild allows arbitrary file read when running the development server on Windows",
+      "url": "https://github.com/advisories/GHSA-g7r4-m6w7-qqqr",
+      "versions": [
+        "0.27.7"
+      ]
+    },
+    {
+      "name": "fflate",
+      "severity": "moderate",
+      "title": "fflate unzipSync can enter an infinite loop when parsing malformed ZIP64 archives",
+      "url": "https://github.com/advisories/GHSA-px8p-9vwx-vf98",
+      "versions": [
+        "0.7.5",
+        "0.7.3"
+      ]
+    }
+  ]
+}

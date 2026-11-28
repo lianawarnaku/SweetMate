@@ -1,0 +1,14 @@
+{
+  "generatedAt": "2026-11-28T01:51:55.520Z",
+  "sourceConfirmationHash": "6f2effc5643ee5a0482458ba654bb2d57de0656a9c4a2d8bb51b8f27f1324050",
+  "pageHashes": {
+    "/": "f588203ce5786abc266a25842c9aa1eaf57165d8d18eee2c2907d2fd84d2e930",
+    "/privacy": "93bc948cd497efb8477ac3599cf5dc9503d54b63786186cf63f0cb670762d5c6",
+    "/support": "f708bca63a97d3bec7ff92703c08f9302a352faa5404c7de2265cd017696de79",
+    "/delete-account": "30e34c04ccfe6aeceb78f363cd757f7e90f1671097d4a89fc364842e7f38ecfd",
+    "/auth/confirm": "ce8516853c17038d122331d17ddb0dddb8513c14b09cc7ef770eaee02681b1fa",
+    "/qa-nonexistent-page": "0019dfc4b32d63c1392aa264aed2253c1e0c2fb09216f8e2cc269bbfb8bb49b5"
+  },
+  "confirmationScriptHash": "d2533cb13ba773047b7f8e156e41b925a43b9a92b91ee09c5a4d93ee6e6f3063",
+  "frameworkRuntimeUploaded": false
+}

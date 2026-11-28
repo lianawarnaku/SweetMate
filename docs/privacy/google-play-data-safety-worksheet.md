@@ -11,7 +11,7 @@ definitions before submitting.
 | App interactions | Yes when analytics enabled | PostHog processor | Yes | Analytics |
 | Crash logs and diagnostics | Yes when crash reporting enabled | Sentry processor | Yes | App functionality |
 | Device or other identifiers | Opaque app identifier when enabled | PostHog/Sentry processors | Yes | Analytics, diagnostics |
-| Location | Not sent to telemetry vendors | No | N/A | Exclude from telemetry declaration |
+| Location | No GPS collection. New PostHog geographic values are cleared server-side and GeoIP is disabled; existing history retained. App-side safeguards await an authorized release. Other providers’ operational logs still require review. | No new location analytics intended | N/A | Reconcile with the actual production build and vendor configuration before submitting |
 
 Data is encrypted in transit. Users can request account deletion in the app.
 Confirm retention periods, backup deletion, provider regions, and whether each

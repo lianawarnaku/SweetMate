@@ -1,0 +1,13 @@
+{
+  "mutations": 0,
+  "results": [
+    {
+      "route": "calendar/connection",
+      "anonymousStatus": 401
+    },
+    {
+      "route": "submit-feedback",
+      "anonymousStatus": 401
+    }
+  ]
+}

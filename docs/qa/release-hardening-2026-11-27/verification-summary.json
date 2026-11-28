@@ -1,0 +1,71 @@
+{
+  "checkedThrough": "2026-11-28",
+  "scope": "Code, local verification and approved production backend/configuration; no native release",
+  "commits": {
+    "backend": "9f894cb",
+    "calendar": "1f40495",
+    "app": "23f9d08",
+    "website": "93b70cf"
+  },
+  "checks": {
+    "workspaceTypecheck": "passed",
+    "mobileTestPrograms": {
+      "passed": 116,
+      "failed": 0
+    },
+    "localInvitationGroups": {
+      "passed": 14,
+      "failed": 0
+    },
+    "localSqlSuites": {
+      "passed": 11,
+      "failed": 0
+    },
+    "denoFeedbackTests": {
+      "passed": 7,
+      "failed": 0
+    },
+    "websiteRenderedTests": {
+      "passed": 10,
+      "failed": 0
+    },
+    "websiteStaticAndAuthTests": {
+      "passed": 9,
+      "failed": 0
+    },
+    "javascriptExports": {
+      "ios": "passed",
+      "android": "passed",
+      "web": "passed",
+      "nativeBuild": false
+    },
+    "codegenSmoke": "Generated 7 temporary artifacts; tracked generated files preserved; temporary output emitted package-location warning",
+    "productionFunctions": {
+      "calendarConnectionAnonymous": 401,
+      "feedbackAnonymous": 401,
+      "mutations": 0
+    }
+  },
+  "production": {
+    "latestMigration": "202611270003",
+    "newMigrations": 6,
+    "householdsBeforeAndAfter": 16,
+    "activeMembershipsBeforeAndAfter": 20,
+    "accountsBeforeAndAfter": 20,
+    "emailConfirmationRequired": true,
+    "minimumNewPasswordLength": 12,
+    "administratorMfa": "Owner enrolled; enrolled method observed",
+    "backup": "Private schema/data/Auth-schema files; isolated database restore passed"
+  },
+  "remaining": [
+    "Physical native acceptance and genuine signup-confirmation round trip",
+    "Separate authorization for native release and distribution",
+    "Google API enablement/live Tasks check, video, verification and outside-test-account test",
+    "Remaining provider administrator/access/retention/erasure and Apple credential review",
+    "Remaining lower-severity dependencies and score concurrency limitation",
+    "Final App Store disclosures, screenshots, review and submission"
+  ],
+  "purchases": 0,
+  "nativeReleaseBuilds": 0,
+  "storeSubmissions": 0
+}

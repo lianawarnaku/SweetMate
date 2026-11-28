@@ -1,0 +1,17 @@
+[
+  {
+    "platform": "ios",
+    "exit": 0,
+    "output": "/tmp/sweetmate-release-js-ios-20261127"
+  },
+  {
+    "platform": "android",
+    "exit": 0,
+    "output": "/tmp/sweetmate-release-js-android-20261127"
+  },
+  {
+    "platform": "web",
+    "exit": 0,
+    "output": "/tmp/sweetmate-release-js-web-20261127"
+  }
+]

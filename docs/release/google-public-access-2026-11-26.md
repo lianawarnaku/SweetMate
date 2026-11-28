@@ -1,5 +1,11 @@
 # Google public access: November 26, 2026
 
+Historical record: November 27 updates supersede the website and scope-state
+sections below. The website is now on Cloudflare Pages and its privacy/support/
+deletion pages are live. Calendar-list/Tasks/narrow event scopes are saved.
+Google remains Testing. Use the [current submission package](google-verification-submission-2026-11-27.md).
+
+
 This is an implementation audit and submission preparation record, not a claim
 that Google has approved public access. The owner approved the public-access
 plan, prohibited purchases, and separately approved Search Console domain-owner

@@ -1,8 +1,24 @@
 # SweetMate website and Google verification
 
+Current execution status: see [the November 28 readiness record](public-release-readiness-2026-11-27.md). Website publication and backend hardening are complete; the older dated sections below retain historical findings. Google remains Testing and no native release was performed.
+
 Prepared November 12, 2026 against canonical `homiev2/main`. GitHub redirects `lianawarnaku/homiev2` to the renamed `lianawarnaku/SweetMate` repository (same repository ID).
 
-## November 26 launch-checklist status
+## November 27 website publication — current status
+
+The owner approved moving the website to Cloudflare Pages Free after the legacy
+Sites credential failure persisted. Project `sweetmate-website` now serves
+sweetmate.info; Cloudflare reports Active with SSL. Updated `/privacy`, `/support`,
+and `/delete-account` are live, and the homepage/confirmation path are preserved.
+Email and verification DNS records are unchanged. See the
+[publication report](../qa/website-publication-2026-11-27.md) and
+[website publishing workflow](../../homie-web/README.md). The older publication
+blocker below is historical; the old Sites project itself remains inaccessible.
+Google audience/scope verification, vendor retention/erasure, store disclosures
+and physical-device checks remain separate. No name-analytics flag, purchase or
+TestFlight release was enabled by publishing these pages.
+
+## November 26 launch-checklist status — historical
 
 - Live HTTP checks: homepage and `/privacy` returned 200; `/support` and
   `/delete-account` returned 404. The successful privacy response was a reachability
@@ -72,7 +88,7 @@ current implementation and live website state during final release review.
 - `supabase/functions/delete-account/index.ts`, `_shared/account-deletion.ts`, and account-deletion migrations: provider revocation precedes deletion; private data removed; shared financial/borrowing facts anonymized; exported events/reminders remain; telemetry erasure requires separate vendor processing.
 - `artifacts/mobile/lib/analytics.ts`: optional consent, selected events and payload filtering. No retention durations were invented; provider settings must be checked separately.
 
-## Publication blocker
+## Historical Sites publication blocker
 
 The checked-in `homie-web/.openai/hosting.json` identifies
 `appgprj_6a62bd55b224819188110603492229f2`. The original archived local Codex chat,
@@ -105,8 +121,8 @@ On November 12, public DNS showed Cloudflare nameservers, Cloudflare email-routi
 
 - Homepage: https://sweetmate.info/
 - Privacy: https://sweetmate.info/privacy
-- Support: https://sweetmate.info/support (new source; not live yet)
-- Account deletion: https://sweetmate.info/delete-account (new source; not live yet)
+- Support: https://sweetmate.info/support (live on Cloudflare Pages)
+- Account deletion: https://sweetmate.info/delete-account (live on Cloudflare Pages)
 
 After publication, verify these are public without sign-in. Use identical homepage/privacy URLs and SweetMate branding in Google Cloud project homie-502522 and App Store Connect. The November 26 Google console audit confirmed the homepage and privacy URLs.
 The older App Store listing URL checks below remain separate from that audit.

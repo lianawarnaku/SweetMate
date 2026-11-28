@@ -1,0 +1,85 @@
+PASS SIGKILL before send + after commit + receipt replay: create household
+PASS SIGKILL before send + after commit + receipt replay: join household
+PASS SIGKILL before send + after commit + receipt replay: household preferences bootstrap
+PASS SIGKILL before send + after commit + receipt replay: finish setup
+PASS SIGKILL before send + after commit + receipt replay: generated task settings
+PASS SIGKILL before send + after commit + receipt replay: seed difficulty
+PASS SIGKILL before send + after commit + receipt replay: difficulty edit
+PASS SIGKILL before send + after commit + receipt replay: difficulty reset/delete
+PASS SIGKILL before send + after commit + receipt replay: member preference
+PASS SIGKILL before send + after commit + receipt replay: member name/color
+PASS SIGKILL before send + after commit + receipt replay: chore create
+PASS SIGKILL before send + after commit + receipt replay: edit and reassign chore
+PASS SIGKILL before send + after commit + receipt replay: bulk create chores
+PASS SIGKILL before send + after commit + receipt replay: chore complete
+PASS SIGKILL before send + after commit + receipt replay: undo chore
+PASS SIGKILL before send + after commit + receipt replay: household snapshot/points/custom tasks
+PASS SIGKILL before send + after commit + receipt replay: atomic completion + points
+PASS SIGKILL before send + after commit + receipt replay: pickup reward completion transaction
+PASS SIGKILL before send + after commit + receipt replay: household activity and sleep status
+PASS SIGKILL before send + after commit + receipt replay: essential owned preference
+PASS SIGKILL before send + after commit + receipt replay: custom task deletion
+PASS SIGKILL before send + after commit + receipt replay: shopping list create/edit
+PASS SIGKILL before send + after commit + receipt replay: shopping item create/check
+PASS SIGKILL before send + after commit + receipt replay: pin shopping list
+PASS SIGKILL before send + after commit + receipt replay: assign shopping list
+PASS SIGKILL before send + after commit + receipt replay: schedule shopping list
+PASS SIGKILL before send + after commit + receipt replay: reorder shopping list
+PASS SIGKILL before send + after commit + receipt replay: uncheck shopping item
+PASS SIGKILL before send + after commit + receipt replay: assign shopping item
+PASS SIGKILL before send + after commit + receipt replay: edit shopping quantity
+PASS SIGKILL before send + after commit + receipt replay: reorder shopping item
+PASS SIGKILL before send + after commit + receipt replay: mark shopping conversion
+PASS SIGKILL before send + after commit + receipt replay: shopping item delete
+PASS SIGKILL before send + after commit + receipt replay: shopping list delete
+PASS SIGKILL before send + after commit + receipt replay: private borrowing create/edit
+PASS SIGKILL before send + after commit + receipt replay: edit private borrowing
+PASS SIGKILL before send + after commit + receipt replay: private borrowing return
+PASS SIGKILL before send + after commit + receipt replay: private borrowing delete
+PASS SIGKILL before send + after commit + receipt replay: shared borrowing create/return
+PASS SIGKILL before send + after commit + receipt replay: edit shared borrowing
+PASS SIGKILL before send + after commit + receipt replay: return shared borrowing
+PASS SIGKILL before send + after commit + receipt replay: shared borrowing delete
+PASS SIGKILL before send + after commit + receipt replay: essential self assignment
+PASS SIGKILL before send + after commit + receipt replay: essential self unassignment
+PASS SIGKILL before send + after commit + receipt replay: essential shortlist
+PASS SIGKILL before send + after commit + receipt replay: nudge send (server-generated ID)
+PASS SIGKILL before send + after commit + receipt replay: nudge read
+PASS SIGKILL before send + after commit + receipt replay: nudge dismiss
+PASS SIGKILL before send + after commit + receipt replay: nudge remove
+PASS SIGKILL before send + after commit + receipt replay: recurrence occurrence claim
+PASS SIGKILL before send + after commit + receipt replay: propose chart
+PASS SIGKILL before send + after commit + receipt replay: revise chart
+PASS SIGKILL before send + after commit + receipt replay: approve chart owner
+PASS SIGKILL before send + after commit + receipt replay: approve chart member
+PASS SIGKILL before send + after commit + receipt replay: apply approved chart
+PASS SIGKILL before send + after commit + receipt replay: restart chart (one new chart/notification)
+PASS SIGKILL before send + after commit + receipt replay: force approve chart
+PASS SIGKILL before send + after commit + receipt replay: cancel charts
+PASS SIGKILL before send + after commit + receipt replay: restart alert read
+PASS SIGKILL before send + after commit + receipt replay: random task create/assignment
+PASS SIGKILL before send + after commit + receipt replay: random task claim
+PASS SIGKILL before send + after commit + receipt replay: configure Google household calendars
+PASS SIGKILL before send + after commit + receipt replay: Google busy sharing
+PASS SIGKILL before send + after commit + receipt replay: disable Google busy sharing
+PASS SIGKILL before send + after commit + receipt replay: Google event check
+PASS SIGKILL before send + after commit + receipt replay: Google task check
+PASS SIGKILL before send + after commit + receipt replay: Google task undo and time edit
+PASS SIGKILL before send + after commit + receipt replay: Google task clear time
+PASS SIGKILL before send + after commit + receipt replay: disable Google calendar sources
+PASS SIGKILL before send + after commit + receipt replay: chore delete
+PASS SIGKILL before send + after commit + receipt replay: expense create
+PASS SIGKILL before send + after commit + receipt replay: expense update
+PASS SIGKILL before send + after commit + receipt replay: expense repay
+PASS SIGKILL before send + after commit + receipt replay: expense undo_repay
+PASS SIGKILL before send + after commit + receipt replay: expense settle
+PASS SIGKILL before send + after commit + receipt replay: expense reopen
+PASS SIGKILL before send + after commit + receipt replay: expense delete
+PASS SIGKILL before send + after commit + receipt replay: expense restore
+PASS concurrent receipt reuse, changed-payload rejection, account/RLS isolation, anonymous sender protection, batch rollback, whitelist and newer-peer-state preservation
+PASS SIGKILL before send + after commit + receipt replay: leave household
+PASS SIGKILL before send + after commit + receipt replay: rejoin household
+PASS SIGKILL before send + after commit + receipt replay: remove household member
+PASS SIGKILL before send + after commit + receipt replay: delete household
+{"passed":82,"checkpointsPerMutation":3,"localOnly":true}
+Removed only disposable termination-audit accounts and their data.

@@ -1,0 +1,18 @@
+✔ public HTML is available without sign-in at / (26.820708ms)
+✔ public HTML is available without sign-in at /privacy (4.905334ms)
+✔ public HTML is available without sign-in at /support (3.076375ms)
+✔ public HTML is available without sign-in at /delete-account (1.891375ms)
+✔ public HTML is available without sign-in at /auth/confirm (2.20425ms)
+✔ homepage exposes the actual public privacy and support routes (0.084708ms)
+✔ policy discloses Google, optional telemetry and their distinct choices (0.16775ms)
+✔ support and deletion offer a real assistance route and explain retained records (0.182833ms)
+✔ confirmation source keeps the existing provider and app-opening path (2.034083ms)
+✔ an unknown path remains a genuine 404 (0.747375ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 10
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 100.794584

@@ -1,0 +1,8 @@
+Workspace typecheck: passed
+Mobile test programs: 109/109 passed
+Additional actual pickup-callback assertions: passed
+Web, iOS, Android Expo exports: passed locally
+Mutation inventory: 28 RPC names and 12 concrete table-write targets checked; dynamic collection writes use the same whitelist
+Database termination cases: 82 passed
+Provider termination cases: 3 passed with fake providers and real handlers
+No EAS build, production deployment, TestFlight release, purchase, or external message
