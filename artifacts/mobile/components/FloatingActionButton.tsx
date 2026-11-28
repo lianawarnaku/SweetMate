@@ -23,11 +23,13 @@ export function useFloatingActionMetrics() {
 
 export function FloatingActionButton({
   onPress,
+  onLongPress,
   accessibilityLabel,
   accessibilityHint,
   icon = "plus",
 }: {
   onPress: () => void;
+  onLongPress?: () => void;
   accessibilityLabel: string;
   accessibilityHint?: string;
   icon?: keyof typeof Feather.glyphMap;
@@ -43,6 +45,7 @@ export function FloatingActionButton({
       accessibilityHint={accessibilityHint ?? `Opens the ${accessibilityLabel.toLowerCase()} form`}
       containerStyle={[styles.container, { bottom }]}
       style={styles.button}
+      onLongPress={onLongPress}
       onPress={() => {
         if (pressLocked.current) return;
         pressLocked.current = true;

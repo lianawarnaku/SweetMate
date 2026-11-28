@@ -1493,6 +1493,11 @@ export default function MyChoresScreen() {
       />
 
       <AddMenuFab
+        addLabel="Add chore"
+        onPress={() => {
+          setEditingChoreId(null);
+          setShowModal(true);
+        }}
         options={[
           { key: "borrow", label: "Borrowed item", icon: "repeat", onPress: () => router.navigate({ pathname: "/borrow", params: { add: String(Date.now()) } } as never) },
           { key: "shopping", label: "Shopping list", icon: "shopping-cart", onPress: () => router.navigate({ pathname: "/shopping", params: { add: String(Date.now()) } } as never) },

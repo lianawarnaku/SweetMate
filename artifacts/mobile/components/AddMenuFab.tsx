@@ -23,7 +23,16 @@ const MINI_GAP = 12;
 const FAB_SIZE = 56;
 
 /** Floating + that expands into labelled quick-add shortcuts. */
-export function AddMenuFab({ options }: { options: AddMenuOption[] }) {
+export function AddMenuFab({
+  options,
+  onPress,
+  addLabel = "Add",
+}: {
+  options: AddMenuOption[];
+  /** Default tap action; holding the button opens the quick-add menu instead. */
+  onPress: () => void;
+  addLabel?: string;
+}) {
   const colors = useTheme();
   const { bottom } = useFloatingActionMetrics();
   const [open, setOpen] = useState(false);
@@ -67,9 +76,10 @@ export function AddMenuFab({ options }: { options: AddMenuOption[] }) {
       )}
       <FloatingActionButton
         icon={open ? "x" : "plus"}
-        accessibilityLabel={open ? "Close add menu" : "Add"}
-        accessibilityHint={open ? "Hides the quick add options" : "Shows options for what to add"}
-        onPress={() => setOpen((value) => !value)}
+        accessibilityLabel={open ? "Close add menu" : addLabel}
+        accessibilityHint={open ? "Hides the quick add options" : `Opens the ${addLabel.toLowerCase()} form. Press and hold for more options`}
+        onPress={() => (open ? setOpen(false) : onPress())}
+        onLongPress={() => setOpen(true)}
       />
     </>
   );
