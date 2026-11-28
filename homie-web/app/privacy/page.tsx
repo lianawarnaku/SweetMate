@@ -14,7 +14,7 @@ export default function PrivacyPage() {
       <article className="legal-card">
         <p className="eyebrow">Legal</p>
         <h1>Privacy Policy</h1>
-        <p className="updated">Last updated November 26, 2026</p>
+        <p className="updated">Last updated November 27, 2026</p>
         <p>
           SweetMate is operated by Liana Amanthi Warnakulasooriya in Massachusetts,
           United States. This policy explains how SweetMate collects, uses, stores,
@@ -34,6 +34,18 @@ export default function PrivacyPage() {
           maintain service security. Content in a shared household is visible to
           its members according to the app’s access controls. Avoid adding
           information you do not want other members to see.
+        </p>
+
+        <h2>Location</h2>
+        <p>
+          SweetMate does not request or use GPS location or track where you are.
+          Roommate availability statuses are chosen manually; they are not
+          determined from GPS or background location monitoring. Google Calendar event locations are
+          not imported into your SweetMate schedule. Information you voluntarily
+          type into a chore, shopping item or other free-text field may itself
+          contain an address or place; avoid including sensitive information.
+          Ordinary network and security processing by hosting providers is
+          described below and is separate from location analytics.
         </p>
 
         <h2>Google sign-in</h2>
@@ -128,10 +140,15 @@ export default function PrivacyPage() {
           platform, app version, build and environment. The identifier is scoped
           to your account on that device; it is not your email address. It can
           continue from a pre-signup choice to your account on that device.
-          PostHog’s SDK can also process device/OS, language/timezone and session
-          metadata. Its service receives network requests and may process IP
-          addresses or derive approximate location according to its configuration.
-          Random identifiers do not make these records anonymous.
+          PostHog also processes device/OS and session metadata. We have disabled
+          IP-based location enrichment and enabled discarding client IP addresses
+          in our PostHog project. A server-side filter clears geographic fields,
+          device timezone and locale from new incoming analytics. App-side
+          safeguards also prevent these fields being sent in updated versions.
+          Network services necessarily receive an IP address to deliver a request;
+          this does not mean SweetMate uses it to track your location. Historical
+          analytics collected before this change remain subject to our retention
+          and deletion practices. Random identifiers do not make records anonymous.
         </p>
         <h2>Separate choice to share chore and item names</h2>
         <p>

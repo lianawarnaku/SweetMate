@@ -1,98 +1,78 @@
-# vinext-starter
+# SweetMate website
 
-A clean full-stack starter running on
-[vinext](https://github.com/cloudflare/vinext), with optional Cloudflare D1 and
-Drizzle support.
+Public pages: [homepage](https://sweetmate.info/), [privacy](https://sweetmate.info/privacy),
+[support](https://sweetmate.info/support), [account deletion](https://sweetmate.info/delete-account).
 
-## Prerequisites
+The live host is **Cloudflare Pages Free**, project `sweetmate-website`, in the
+existing owner account. The owner approved this migration on November 27, 2026.
+The previous OpenAI Sites project remains intact but cannot issue source-write
+access in the current account. `.openai/hosting.json` is retained as historical
+provenance, not the current deployment destination.
 
-- Node.js `>=22.13.0`
+## Prepare an update
 
-## Quick Start
+Use Node 22.13+ and the pinned lockfile. Install with `npm ci` when dependencies
+are absent. Supply `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+through your local/CI environment: the existing production URL and a publishable
+or anonymous client key only. Never use the service-role key or Google secrets.
+Do not put credentials in shell history or commit `.env` files.
 
-```bash
-npm install
-npm run dev
-npm run build
+```sh
+npm run build:cloudflare
+node --test tests/rendered-html.test.mjs
+npm run test:cloudflare
 ```
 
-This starter does not use `wrangler.jsonc`.
+`out/` is ignored generated output. Upload **only its contents**. The exporter
+server-renders the existing source pages, copies their CSS/fonts/images, removes
+React/server-component boot scripts, and preserves the confirmation API logic by
+compiling the actual effect from `app/auth/confirm/page.tsx` into one small browser
+script. No framework server, database binding or server secret is deployed.
+`outputs/cloudflare-static-manifest.json` records hashes for the generated output.
 
-## Included Shape
+The public client key is intentionally present in the confirmation script; it is
+not a privileged server credential. The script verifies links against the same
+Supabase Auth endpoint and opens the same SweetMate URL scheme after success.
+Missing/expired/provider-failure paths remain recoverable.
 
-- edit site code under `app/`
-- `.openai/hosting.json` declares optional Sites D1 and R2 bindings
-- `vite.config.ts` simulates declared bindings for local development
-- `db/schema.ts` starts intentionally empty
-- `examples/d1/` contains an optional D1 example surface
-- `drizzle.config.ts` supports local migration generation when needed
+## Publish without buying anything
 
-## Workspace Auth Headers
+Open the existing [Cloudflare project](https://dash.cloudflare.com/4054c966d65b34c70c5cdac316de8c5a/pages/view/sweetmate-website).
+Use **Create deployment** and upload the contents of `out/` as a ZIP or folder.
+Do not create another project or enable Workers Paid, Functions, databases, Web
+Analytics or other paid/optional services for these static pages.
 
-OpenAI workspace sites can read the current user's email from
-`oai-authenticated-user-email`.
+An already authenticated Wrangler installation can also use
+`npx wrangler pages deploy out --config wrangler.pages.jsonc --project-name sweetmate-website --branch main`.
+Browser upload is sufficient; generating a new API token is not required.
+Future Git integration would require a separately planned change because this
+is a Direct Upload project.
 
-SIWC-authenticated workspace sites may also receive
-`oai-authenticated-user-full-name` when the user's SIWC profile has a non-empty
-`name` claim. The full-name value is percent-encoded UTF-8 and is accompanied by
-`oai-authenticated-user-full-name-encoding: percent-encoded-utf-8`.
+Check the Pages preview before routing changes, and verify production afterward:
 
-Treat the full name as optional and fall back to email when it is absent:
-
-```tsx
-import { headers } from "next/headers";
-
-export default async function Home() {
-  const requestHeaders = await headers();
-  const email = requestHeaders.get("oai-authenticated-user-email");
-  const encodedFullName = requestHeaders.get("oai-authenticated-user-full-name");
-  const fullName =
-    encodedFullName &&
-    requestHeaders.get("oai-authenticated-user-full-name-encoding") ===
-      "percent-encoded-utf-8"
-      ? decodeURIComponent(encodedFullName)
-      : null;
-
-  const displayName = fullName ?? email;
-  // ...
-}
+```sh
+python3 scripts/verify-published-pages.py https://sweetmate-website.pages.dev preview
+python3 scripts/verify-published-pages.py https://sweetmate.info production
 ```
 
-## Optional Dispatch-Owned ChatGPT Sign-In
+The checker uses normal verified HTTPS, requires the exact uploaded content
+(apart from Cloudflare's known email-address obfuscation), checks security
+headers, and checks a real 404. Email addresses must still decode to working
+mailto links in a browser. Read-only HTTP verification sends no email or account
+mutation. Real inbox delivery and valid-link confirmation need a separately
+authorized disposable-account check.
 
-Import the ready-to-use helpers from `app/chatgpt-auth.ts` when the site needs
-optional or required ChatGPT sign-in:
+## Domain and rollback
 
-- Use `getChatGPTUser()` for optional signed-in UI.
-- Use `requireChatGPTUser(returnTo)` for server-rendered pages that should send
-  anonymous visitors through Sign in with ChatGPT.
-- Use `chatGPTSignInPath(returnTo)` and `chatGPTSignOutPath(returnTo)` for
-  browser links or actions.
-- Pass a same-origin relative `returnTo` path for the destination after sign-in
-  or sign-out. The helper validates and safely encodes it.
-- Mark protected pages with `export const dynamic = "force-dynamic"` because
-  they depend on per-request identity headers.
+Cloudflare custom domain `sweetmate.info` is Active with SSL. Its apex record is
+a proxied CNAME to `sweetmate-website.pages.dev`; nameservers, MX and TXT records
+were preserved. No Supabase/OAuth configuration or app records changed. The
+existing `www` hostname was not added as part of this bounded migration.
 
-Dispatch owns `/signin-with-chatgpt`, `/signout-with-chatgpt`, `/callback`, the
-OAuth cookies, and identity header injection. Do not implement app routes for
-those reserved paths. Routes that do not import and call the helper remain
-anonymous-compatible.
+Ordinary content rollback uses the prior successful Pages deployment in the same
+project. The first migration's prior apex configuration was DNS-only A records
+`172.66.3.26` and `162.159.143.30`, TTL Auto. Returning to the legacy host would
+require a deliberate Pages-domain/DNS rollback and a verified working legacy
+endpoint; do not change email or verification records.
 
-SIWC establishes identity only; it does not prove workspace membership. Use the
-Sites hosting platform's access policy controls for workspace-wide restrictions,
-or enforce explicit server-side membership or allowlist checks.
-
-Use SIWC for account pages, user-specific dashboards, saved records, and write
-actions tied to the current ChatGPT user. Leave public content anonymous.
-
-## Useful Commands
-
-- `npm run dev`: start local development
-- `npm run build`: verify the vinext build output
-- `npm test`: build the starter and verify its rendered loading skeleton
-- `npm run db:generate`: generate Drizzle migrations after schema changes
-
-## Learn More
-
-- [vinext Documentation](https://github.com/cloudflare/vinext)
-- [Drizzle D1 Guide](https://orm.drizzle.team/docs/get-started/d1-new)
+See [migration verification](../docs/qa/website-publication-2026-11-27.md).

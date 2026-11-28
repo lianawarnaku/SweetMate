@@ -1,91 +1,68 @@
 import assert from "node:assert/strict";
-import { access, readFile, readdir } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-const developmentPreviewMeta =
-  /<meta(?=[^>]*\bname=["']codex-preview["'])(?=[^>]*\bcontent=["']development["'])[^>]*>/i;
-const templateRoot = new URL("../", import.meta.url);
-const previewRoot = new URL("../app/_sites-preview/", import.meta.url);
-
-async function render() {
-  const workerUrl = new URL("../dist/server/index.js", import.meta.url);
-  workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
-  const { default: worker } = await import(workerUrl.href);
-
-  return worker.fetch(
-    new Request("http://localhost/", {
-      headers: { accept: "text/html" },
-    }),
-    {
-      ASSETS: {
-        fetch: async () => new Response("Not found", { status: 404 }),
-      },
-    },
-    {
-      waitUntil() {},
-      passThroughOnException() {},
-    },
-  );
+const { default: worker } = await import("../dist/server/index.js");
+const results = new Map();
+async function render(path) {
+  if (!results.has(path)) {
+    results.set(path, (async () => {
+      const response = await worker.fetch(new Request(`https://sweetmate.info${path}`, {
+        headers: { accept: "text/html" },
+      }), { ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) } },
+      { waitUntil() {}, passThroughOnException() {} });
+      return { status: response.status, type: response.headers.get("content-type"), html: await response.text() };
+    })());
+  }
+  return results.get(path);
 }
 
-test("server-renders the starter loading skeleton", async () => {
-  const response = await render();
-  assert.equal(response.status, 200);
-  assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
+for (const [path, title] of [["/", "SweetMate"], ["/privacy", "Privacy Policy"], ["/support", "Support"], ["/delete-account", "Delete your account"], ["/auth/confirm", "One moment"]]) {
+  test(`public HTML is available without sign-in at ${path}`, async () => {
+    const result = await render(path);
+    assert.equal(result.status, 200);
+    assert.match(result.type ?? "", /^text\/html\b/i);
+    assert(result.html.includes(title));
+    assert.doesNotMatch(result.html, /Your site is taking shape|Building your site|codex-preview/);
+  });
+}
 
-  const html = await response.text();
-  assert.match(html, developmentPreviewMeta);
-  assert.match(html, /<title>Your site is taking shape<\/title>/i);
-  assert.match(html, /Building your site/);
-  assert.match(html, /Your site is taking shape/);
-  assert.match(
-    html,
-    /Your first version will appear here automatically when it’s ready\./,
-  );
-  assert.doesNotMatch(html, /Codex/);
-  assert.match(html, /react-loading-skeleton/);
-  assert.match(html, /role="status"/);
+test("homepage exposes the actual public privacy and support routes", async () => {
+  const { html } = await render("/");
+  for (const path of ["/privacy", "/support", "/delete-account"])
+    assert(html.includes(`href="${path}"`), `missing ${path} link`);
+  assert(html.includes("https://testflight.apple.com/join/Ee5PRBzr"));
 });
 
-test("keeps the loading skeleton scoped and disposable", async () => {
-  const [preview, css, page, layout, packageJson, files] = await Promise.all([
-    readFile(new URL("SkeletonPreview.tsx", previewRoot), "utf8"),
-    readFile(new URL("preview.css", previewRoot), "utf8"),
-    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../package.json", import.meta.url), "utf8"),
-    readdir(previewRoot),
-  ]);
+test("policy discloses Google, optional telemetry and their distinct choices", async () => {
+  const { html } = await render("/privacy");
+  for (const phrase of ["November 27, 2026", "Google Calendar and Tasks", "calendar.events", "tasks.readonly", "Limited Use", "PostHog", "Sentry", "off by default", "Separate choice to share chore and item names", "Retention and security", "Account deletion and shared records", "support@sweetmate.info"])
+    assert(html.includes(phrase), `missing disclosure: ${phrase}`);
+  assert(html.includes("not change the Google originals"));
+  assert(html.includes("not guaranteed"));
+  assert.doesNotMatch(html, /\[[A-Z][A-Z _]+\]/, "policy must not publish unresolved bracketed placeholders");
+});
 
-  assert.deepEqual(files.sort(), ["SkeletonPreview.tsx", "preview.css"]);
-  assert.match(preview, /from "react-loading-skeleton"/);
-  assert.match(preview, /baseColor="#eceae7"/);
-  assert.match(preview, /highlightColor="#f9f8f6"/);
-  assert.match(preview, /duration=\{2\.8\}/);
-  assert.match(preview, /sites-skeleton-search-placeholder/);
-  assert.match(packageJson, /"react-loading-skeleton": "3\.5\.0"/);
+test("support and deletion offer a real assistance route and explain retained records", async () => {
+  const support = (await render("/support")).html;
+  const deletion = (await render("/delete-account")).html;
+  assert(support.includes('href="mailto:support@sweetmate.info"'));
+  assert(support.includes('href="/delete-account"'));
+  for (const phrase of ["Deletion is permanent", "imported schedule entries", "Deleted member", "previously exported", "analytics", "verify ownership"])
+    assert(deletion.toLowerCase().includes(phrase.toLowerCase()), `missing deletion explanation: ${phrase}`);
+  assert(deletion.includes("mailto:support@sweetmate.info?subject=SweetMate%20account%20deletion"));
+});
 
-  const shellIndex = preview.indexOf('className="sites-skeleton-shell"');
-  const statusIndex = preview.indexOf('className="sites-skeleton-status"');
-  assert.ok(shellIndex >= 0 && statusIndex > shellIndex);
-  assert.match(css, /position:\s*fixed/);
-  assert.match(css, /inset:\s*0/);
-  assert.match(css, /opacity:\s*0\.52/);
-  assert.match(css, /prefers-reduced-motion:\s*reduce/);
-  assert.doesNotMatch(css, /#020617|canvas|pets|progress/i);
-  assert.doesNotMatch(
-    preview,
-    /loading-spinner|status-mark|status-progress|canvas|cookie|random/i,
-  );
+test("confirmation source keeps the existing provider and app-opening path", async () => {
+  const source = await readFile(new URL("../app/auth/confirm/page.tsx", import.meta.url), "utf8");
+  assert(source.includes("NEXT_PUBLIC_SUPABASE_URL"));
+  assert(source.includes("NEXT_PUBLIC_SUPABASE_ANON_KEY"));
+  assert(source.includes("token_hash"));
+  assert(source.includes("/auth/v1/verify"));
+  assert(source.includes("sweetmate://auth/callback"));
+  assert(source.includes("missing its verification token"));
+});
 
-  assert.match(page, /export const metadata:\s*Metadata/);
-  assert.match(page, /"codex-preview": "development"/);
-  assert.match(page, /<SkeletonPreview \/>/);
-  assert.match(layout, /title:\s*"Starter Project"/);
-  assert.doesNotMatch(layout, /codex-preview|_sites-preview|themeColor|\bViewport\b/);
-  assert.doesNotMatch(css, /(^|\s)(html|body)\s*\{/m);
-
-  await assert.rejects(
-    access(new URL("public/_sites-preview", templateRoot)),
-  );
+test("an unknown path remains a genuine 404", async () => {
+  assert.equal((await render("/qa-nonexistent-page")).status, 404);
 });
