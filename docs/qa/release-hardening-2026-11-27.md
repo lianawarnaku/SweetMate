@@ -90,7 +90,7 @@ forward repair over weakening admission rules or deleting operation receipts.
 
 ## Tests and remaining limits
 
-Final app checks: **116/116 test programs** and all workspace type checks passed,
+Final app checks: **117/117 test programs after integrating remote main** and all workspace type checks passed,
 including the real-handler Google grant/identity and protected-storage tests. The actual
 local invitation audit passed 14 groups, including an old-client displayed-code
 join. Direct local SQL proves anonymous/authenticated credential reads and writes
@@ -192,3 +192,12 @@ Sanitized committed evidence: [verification summary](release-hardening-2026-11-2
 and [source secret scan](release-hardening-2026-11-27/secret-scan.json).
 Screenshots are local-only review evidence because full browser captures may
 contain unrelated tab titles. Raw production backups and credentials stay outside Git.
+
+
+The final integration retained incoming quick-add commits 38ba72c/c07cf4f rather
+than overwriting remote main. A shopping initialization/effect-order regression
+was reproduced and fixed while retaining stable draft IDs; the existing borrowing
+harness now covers quick-add navigation. The final **117/117** suite, workspace
+typechecks and all three fresh JavaScript exports passed on that merged source.
+The unrelated pre-existing full-action-audit edit and local browser artifacts
+remain outside these commits.

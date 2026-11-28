@@ -3,6 +3,7 @@ import { KEYBOARD_BEHAVIOR } from "@/lib/keyboard";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as Crypto from "expo-crypto";
+import { router, useLocalSearchParams } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
@@ -593,6 +594,16 @@ export default function ExpensesScreen() {
     setQueuedIou(false);
     setRecoveryWarning(null);
   };
+
+  // Home's quick-add menu navigates here with a fresh `add` token to open the form.
+  const { add: addToken } = useLocalSearchParams<{ add?: string }>();
+  useEffect(() => {
+    if (!addToken) return;
+    resetModal();
+    setShowExpenseModal(true);
+    router.setParams({ add: undefined } as never);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [addToken]);
 
   // ── Open / close animation for the New IOU sheet ───────────────────────────
   // The sheet is a full-screen overlay driven entirely by a single translateY

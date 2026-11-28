@@ -43,7 +43,7 @@ require the future client update; do not weaken server admission for the old UI.
 | Check | Result |
 | --- | --- |
 | Workspace typechecks | Passed |
-| Mobile test programs | 116/116 passed |
+| Mobile test programs | 117/117 passed after integrating remote main |
 | Local Auth/RLS/RPC invitation audit | 14 groups passed |
 | Local SQL policy/business-rule suites | 11 passed |
 | Deno feedback tests using patched import map | 7/7 passed |
@@ -96,3 +96,15 @@ These limits remain explicit in the [durable-save audit](../qa/durable-saves-202
 
 The patches and local checks reduce known risk. They do not establish that every
 button, account state, network timing, OS version or third-party service is bug-free.
+
+
+### Final integration check
+
+GitHub main also contained quick-add commits **38ba72c** and **c07cf4f**. They were
+merged without a force push, preserving the tap-to-add and long-press menu behavior.
+The import conflict retained both stable shopping draft IDs and navigation hooks.
+A real effect-order regression reproduced the shopping form being immediately
+closed on first mount; navigation handling now follows account/household cleanup.
+The borrowing editor test also exercises the new route. All **117 app test
+programs**, workspace types and fresh iOS/Android/web JavaScript exports passed
+on the combined source. These checks do not claim native visual/device acceptance.

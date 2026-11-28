@@ -1,7 +1,7 @@
 import { Feather, Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as Crypto from "expo-crypto";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   LayoutAnimation,
@@ -139,6 +139,9 @@ export default function ShoppingScreen() {
   const [targetListId, setTargetListId] = useState<string | null>(null);
   const [showShoppingModal, setShowShoppingModal] = useState(false);
   const [showNewListModal, setShowNewListModal] = useState(false);
+
+  // Home's quick-add menu navigates here with a fresh `add` token to open the form.
+  const { add: addToken } = useLocalSearchParams<{ add?: string }>();
   const [newListName, setNewListName] = useState("");
   const [newListSchedule, setNewListSchedule] = useState<ShoppingSchedule | undefined>();
   const listDraftId = useRef<string | null>(null);
@@ -171,6 +174,14 @@ export default function ShoppingScreen() {
     setLayoutHoldIds(new Set());
     setDragActive(false);
   }, [householdId, currentUserId]);
+
+  // Handle navigation after the scope reset so first-mount cleanup cannot close it.
+  useEffect(() => {
+    if (!addToken) return;
+    setShowNewListModal(true);
+    router.setParams({ add: undefined } as never);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [addToken]);
 
   const showFeedback = (message: string) => {
     setFeedback(message);

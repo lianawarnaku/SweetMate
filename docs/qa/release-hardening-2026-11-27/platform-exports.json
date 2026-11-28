@@ -2,16 +2,16 @@
   {
     "platform": "ios",
     "exit": 0,
-    "output": "/tmp/sweetmate-release-js-ios-20261127"
+    "output": "/tmp/sweetmate-release-postmerge-js-ios-20261128"
   },
   {
     "platform": "android",
     "exit": 0,
-    "output": "/tmp/sweetmate-release-js-android-20261127"
+    "output": "/tmp/sweetmate-release-postmerge-js-android-20261128"
   },
   {
     "platform": "web",
     "exit": 0,
-    "output": "/tmp/sweetmate-release-js-web-20261127"
+    "output": "/tmp/sweetmate-release-postmerge-js-web-20261128"
   }
 ]

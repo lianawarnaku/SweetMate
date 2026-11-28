@@ -17,6 +17,9 @@ Use disposable households and items; preserve real household records.
 - [ ] Complete household setup with two users. Edit setup as either member without
   losing records; approve/restart the chart and verify both approval statuses and
   actual due dates. Dismiss/reopen all relevant preview and edit sheets.
+- [ ] Tap My Sweet's plus to add a chore; long press for quick-add choices. Open
+  Shopping, Borrowing and Expenses from it on first visit and on repeated visits;
+  the correct editor stays open and account/household switches close old drafts.
 - [ ] Complete/uncomplete a chore and Google item: immediate jiggle/checkmark,
   consistent row size, correct Day/Night split at 18:00, no false caught-up state.
 - [ ] Delete a disposable shopping list permanently, relaunch and switch accounts;

@@ -10,7 +10,7 @@
   "checks": {
     "workspaceTypecheck": "passed",
     "mobileTestPrograms": {
-      "passed": 116,
+      "passed": 117,
       "failed": 0
     },
     "localInvitationGroups": {
@@ -67,5 +67,20 @@
   ],
   "purchases": 0,
   "nativeReleaseBuilds": 0,
-  "storeSubmissions": 0
+  "storeSubmissions": 0,
+  "postMerge": {
+    "remoteCommitsPreserved": [
+      "38ba72c",
+      "c07cf4f"
+    ],
+    "regression": "Shopping quick-add on first mount was closed by later scope cleanup; actual-effect regression reproduced it and passes after moving request handling after cleanup",
+    "workspaceTypecheck": "passed",
+    "mobileProgramsPassed": 117,
+    "javascriptExports": [
+      "ios",
+      "android",
+      "web"
+    ],
+    "noNativeRelease": true
+  }
 }

@@ -10,6 +10,7 @@ function fixture(initialUser = "avery") {
   const slots: any[] = [], effects: any[] = [], pending: Array<() => void> = []; let cursor = 0, id = 0;
   let failure: string | null = null, release: (() => void) | undefined;
   const saves: any[] = [];
+  const routeParams: { add?: string } = {};
   const context: any = { currentUserId: initialUser, householdId: "home", roommates: [], borrowItems: [], isHost: false,
     addBorrowItem: async (entry: any, draftId: string) => {
       saves.push({ entry, draftId }); if (failure === "throw") throw Error("Connection interrupted. Try again.");
@@ -34,6 +35,7 @@ function fixture(initialUser = "avery") {
     if (name === "react-native") return { View: "View", Text: "Text", TextInput: "TextInput", TouchableOpacity: "Button", Pressable: "Button", ScrollView: "ScrollView", Modal: "Modal", FlatList: "FlatList", KeyboardAvoidingView: "Keyboard", ActivityIndicator: "Spinner", Keyboard: { dismiss: () => {} }, Platform: { OS: "ios" }, StyleSheet: { create: (value: any) => value, absoluteFill: {}, absoluteFillObject: {}, hairlineWidth: 1 } };
     if (name === "@expo/vector-icons") return { Feather: "Icon" };
     if (name === "expo-haptics") return { impactAsync: async () => {}, notificationAsync: async () => {}, ImpactFeedbackStyle: { Light: "light" }, NotificationFeedbackType: { Success: "success" } };
+    if (name === "expo-router") return { useLocalSearchParams: () => routeParams, router: { setParams: (next: any) => Object.assign(routeParams, next) } };
     if (name === "expo-crypto") return { randomUUID: () => `draft-${++id}` };
     if (name === "react-native-safe-area-context") return { useSafeAreaInsets: () => ({ top: 24, bottom: 20 }) };
     if (name === "@/context/AppContext") return { useAppContextSelector: (select: any) => select(context) };
@@ -62,7 +64,7 @@ function fixture(initialUser = "avery") {
     const result = all().find(node => node.type === "Button" && nodes(node).some(child => child.type === "Text" && child.props.children === name));
     assert(result, `missing owner ${name}`); result.props.onPress();
   };
-  return { context, render, button, open, fillItem, owner, find, saves, fail: (value: string | null) => { failure = value; }, resolve: () => release?.(),
+  return { context, routeParams, render, button, open, fillItem, owner, find, saves, fail: (value: string | null) => { failure = value; }, resolve: () => release?.(),
     modal: () => all().find(node => node.type === "Modal")!, text: () => all().filter(node => node.type === "InlineFeedback").map(node => node.props.message).join(" ") };
 }
 const members = [{ id: "avery", name: "Avery", color: "#888" }, { id: "blake", name: "Blake", color: "#777" }];
@@ -97,3 +99,9 @@ const members = [{ id: "avery", name: "Avery", color: "#888" }, { id: "blake", n
   assert.equal(f.saves[0].entry.borrowedFrom, "other"); assert.equal(f.saves[0].entry.externalOwnerName, "Alex at work");
 }
 console.log("Borrowing editor hydration, self-save, exception retry, duplicate taps, pending persistence and Other owner tests passed");
+
+{
+  const f = fixture(); f.context.roommates = members; f.routeParams.add = "from-home";
+  f.render(); assert.equal(f.modal().props.visible, true, "quick-add navigation opens borrowing");
+  assert.equal(f.routeParams.add, undefined, "consume the quick-add request");
+}
