@@ -1,7 +1,14 @@
 import type { SupabaseClient, User } from "npm:@supabase/supabase-js@2.110.0";
 
 const API = "https://www.googleapis.com/calendar/v3";
-const SCOPE = "https://www.googleapis.com/auth/calendar.events";
+const GOOGLE_SCOPE = "https://www.googleapis.com/auth/";
+export function permitsCalendarConnection(scope: string | undefined): boolean {
+  const grants = new Set(scope?.split(/\s+/).filter(Boolean));
+  // Accept existing broad grants while new clients request shared-event reading
+  // and writes confined to calendars owned by the user (exports target primary).
+  return grants.has(GOOGLE_SCOPE + "calendar") || grants.has(GOOGLE_SCOPE + "calendar.events") ||
+    (grants.has(GOOGLE_SCOPE + "calendar.events.readonly") && grants.has(GOOGLE_SCOPE + "calendar.events.owned"));
+}
 export class CalendarFailure extends Error {
   constructor(public code: string, public status: number, message: string, public diagnostic?: { stage: "token_refresh" | "account_verification"; upstreamStatus: number; reason?: string }) { super(message); }
 }
@@ -75,7 +82,7 @@ export function createCalendarService(admin: SupabaseClient, config: Configurati
       if (typeof input?.refreshToken !== "string" || !input.refreshToken || input.refreshToken.length > 4096)
         throw new CalendarFailure("INVALID_CONNECTION", 400, "Google did not grant offline access. Please reconnect.");
       const token = await refresh(input.refreshToken);
-      if (!token.scope?.split(" ").some(scope => scope === SCOPE || scope === "https://www.googleapis.com/auth/calendar"))
+      if (!permitsCalendarConnection(token.scope))
         throw new CalendarFailure("GOOGLE_PERMISSION_DENIED", 403, "Reconnect Google Calendar and allow calendar event access.");
       // Match Supabase Auth's Google OAuth2 endpoint. Older native builds
       // request email/profile without OpenID, so the OpenID-only endpoint can

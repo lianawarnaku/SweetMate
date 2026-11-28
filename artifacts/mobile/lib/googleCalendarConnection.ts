@@ -9,7 +9,8 @@ const CALENDAR_SCOPE = [
   "openid",
   "email",
   "profile",
-  "https://www.googleapis.com/auth/calendar.events",
+  "https://www.googleapis.com/auth/calendar.events.readonly",
+  "https://www.googleapis.com/auth/calendar.events.owned",
   "https://www.googleapis.com/auth/calendar.calendarlist.readonly",
   "https://www.googleapis.com/auth/tasks.readonly",
 ].join(" ");
@@ -31,7 +32,7 @@ export async function isGoogleCalendarConnected(userId?: string): Promise<boolea
 /**
  * Requests Google Calendar access for the signed-in user via Supabase's own
  * OAuth flow (the same Google provider already configured for sign-in),
- * asking for the additional calendar.events scope plus offline access so
+ * asking for the additional Calendar event scopes plus offline access so
  * Google returns a refresh token. That refresh token is sent to our own API
  * server, which stores it per-user — Google is never given our server
  * directly; the mobile app only ever talks to Supabase and to our backend.
