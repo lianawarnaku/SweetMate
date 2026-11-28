@@ -1,0 +1,65 @@
+[
+  {
+    "path": "/",
+    "status": 200,
+    "matchesUploadedAsset": true,
+    "matchesAfterEmailProtection": true,
+    "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src https://eqnogaftebuqfwwelbdx.supabase.co; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'none'",
+    "cacheControl": "public, max-age=0, must-revalidate",
+    "referrerPolicy": "no-referrer"
+  },
+  {
+    "path": "/privacy",
+    "status": 200,
+    "matchesUploadedAsset": true,
+    "matchesAfterEmailProtection": true,
+    "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src https://eqnogaftebuqfwwelbdx.supabase.co; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'none'",
+    "cacheControl": "public, max-age=0, must-revalidate",
+    "referrerPolicy": "no-referrer"
+  },
+  {
+    "path": "/support",
+    "status": 200,
+    "matchesUploadedAsset": true,
+    "matchesAfterEmailProtection": true,
+    "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src https://eqnogaftebuqfwwelbdx.supabase.co; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'none'",
+    "cacheControl": "public, max-age=0, must-revalidate",
+    "referrerPolicy": "no-referrer"
+  },
+  {
+    "path": "/delete-account",
+    "status": 200,
+    "matchesUploadedAsset": true,
+    "matchesAfterEmailProtection": true,
+    "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src https://eqnogaftebuqfwwelbdx.supabase.co; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'none'",
+    "cacheControl": "public, max-age=0, must-revalidate",
+    "referrerPolicy": "no-referrer"
+  },
+  {
+    "path": "/auth/confirm",
+    "status": 200,
+    "matchesUploadedAsset": true,
+    "matchesAfterEmailProtection": true,
+    "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src https://eqnogaftebuqfwwelbdx.supabase.co; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'none'",
+    "cacheControl": "no-store",
+    "referrerPolicy": "no-referrer"
+  },
+  {
+    "path": "/auth-confirm.js",
+    "status": 200,
+    "matchesUploadedAsset": true,
+    "matchesAfterEmailProtection": true,
+    "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src https://eqnogaftebuqfwwelbdx.supabase.co; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'none'",
+    "cacheControl": "public, max-age=0, must-revalidate",
+    "referrerPolicy": "no-referrer"
+  },
+  {
+    "path": "/qa-nonexistent-page",
+    "status": 404,
+    "matchesUploadedAsset": true,
+    "matchesAfterEmailProtection": true,
+    "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src https://eqnogaftebuqfwwelbdx.supabase.co; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'none'",
+    "cacheControl": "no-store",
+    "referrerPolicy": "no-referrer"
+  }
+]

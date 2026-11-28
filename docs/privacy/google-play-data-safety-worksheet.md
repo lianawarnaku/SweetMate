@@ -9,7 +9,7 @@ definitions before submitting.
 | Photos | Yes when selected | Storage provider | Yes | App functionality |
 | User-generated content | Yes | Household members and service providers | Feature-dependent | App functionality |
 | App interactions | Yes when analytics enabled | PostHog processor | Yes | Analytics |
-| Crash logs and diagnostics | Yes when crash reporting enabled | Sentry processor | Yes | App functionality |
+| Crash logs and diagnostics | Current production Sentry configuration is inactive: no DSN verified November 28. Reconcile the actual Android build before declaring collection. | Sentry only if later configured | Yes if enabled | App functionality |
 | Device or other identifiers | Opaque app identifier when enabled | PostHog/Sentry processors | Yes | Analytics, diagnostics |
 | Location | No GPS collection. New PostHog geographic values are cleared server-side and GeoIP is disabled; existing history retained. App-side safeguards await an authorized release. Other providers’ operational logs still require review. | No new location analytics intended | N/A | Reconcile with the actual production build and vendor configuration before submitting |
 

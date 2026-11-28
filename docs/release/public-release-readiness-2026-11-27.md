@@ -6,6 +6,14 @@ changes below are deployed. **The app is not yet ready for public submission.**
 No purchase, native release build, OTA update, TestFlight distribution or public
 store submission was performed. Installed build 54 is unchanged.
 
+November 28 follow-up: the privacy policy now publishes verified PostHog US/Free
+one-year retention and the currently inactive Sentry configuration. All 19 website
+checks and public HTTP checks passed. PostHog owner/access/replay/location/export
+checks are complete; its DPA is Awaiting signature, owner MFA and the synthetic
+profile's delete approval remain pending. Both Google APIs are enabled, but Google
+publishing approval remains pending and Audience is still Testing. See the
+[current vendor execution record](../privacy/vendor-review-2026-11-28.md).
+
 ## Current status
 
 | Workstream | Completed and verified | Still required |

@@ -5,6 +5,12 @@ client secret and Supabase callback are preserved. Website publication is comple
 The current console remains External/Testing; saving scope declarations does not
 make Google access public or mean Google has verified SweetMate.
 
+Publishing the existing OAuth audience and preparing branding do not require a
+new TestFlight build. The owner requested that work on November 28; action-time
+publishing approval and restored browser control are pending. Physical-phone
+acceptance remains a separate native-release gate. See the
+[current vendor/privacy execution record](../privacy/vendor-review-2026-11-28.md).
+
 ## Scope justification for the next candidate
 
 | Scope | User-visible purpose | Restriction |
@@ -21,7 +27,7 @@ acceptance, remove this obsolete declaration before the final narrow-scope revie
 or explicitly justify its continued legacy use to Google. Existing grants remain
 compatible on the backend; do not rotate working credentials to migrate scopes.
 
-## Demonstration script (record the actual tested candidate)
+## Demonstration script (record the actual app and exact permissions)
 
 1. Show SweetMate's name/version and the public homepage, privacy, support and
    deletion URLs. Show the matching project/client, without revealing credentials.
@@ -45,7 +51,10 @@ compatible on the backend; do not rotate working credentials to migrate scopes.
 Use dummy names only. Keep passwords, OAuth/session tokens, reset links, client
 secrets, real calendar details and MFA credentials out of the recording. An
 unlisted YouTube/video URL must be accessible to Google reviewers without a login.
-Do not substitute browser personas or edited footage for a tested native flow.
+Do not present synthetic consent screens, stubbed provider calls or generated
+footage as live OAuth evidence. Identify the demonstrated platform/version
+accurately and show the implementation and exact permissions submitted for review;
+Google determines whether the demonstration meets its requirements.
 
 ## Submission gates
 
@@ -54,8 +63,9 @@ Do not substitute browser personas or edited footage for a tested native flow.
 - [x] Actual Calendar-list and Tasks scopes declared; new narrower event scopes saved.
 - [x] Compatible backend scope policy implemented and tested locally.
 - [x] Compatible Calendar backend deployed; anonymous requests rejected.
-- [ ] Verify Calendar and Tasks APIs are enabled and exercise live imports, including Tasks.
-- [ ] Test the narrower-scope candidate on the owner's phone, including partial consent, refresh and reconnect.
+- [x] Calendar and Tasks APIs both verified in the existing project's Enabled APIs list.
+- [ ] Exercise live imports, including Tasks; enabled APIs alone do not prove syncing.
+- [ ] Demonstrate the actual requested permissions with real Google consent/API calls, including partial consent, refresh and reconnect. Native acceptance stays on the separate phone release checklist.
 - [ ] Retire/justify the temporary broad legacy scope.
 - [ ] Owner-reviewed demonstration video uploaded and reviewer-accessible URL supplied.
 - [ ] Switch audience to Production and submit truthful branding/scope verification

@@ -14,7 +14,7 @@ export default function PrivacyPage() {
       <article className="legal-card">
         <p className="eyebrow">Legal</p>
         <h1>Privacy Policy</h1>
-        <p className="updated">Last updated November 27, 2026</p>
+        <p className="updated">Last updated November 28, 2026</p>
         <p>
           SweetMate is operated by Liana Amanthi Warnakulasooriya in Massachusetts,
           United States. This policy explains how SweetMate collects, uses, stores,
@@ -60,12 +60,16 @@ export default function PrivacyPage() {
 
         <h2>Optional Google Calendar and Tasks connection</h2>
         <p>
-          When you connect Google Calendar in Settings, SweetMate requests
-          calendar.events, calendar.calendarlist.readonly, and tasks.readonly
-          permissions, plus offline access. Calendar event access allows viewing
-          and editing events. We use it to export chores you select and, when you
-          enable importing, to synchronize the calendars and Google Tasks lists
-          you choose. The Google connection belongs to your account; importing and Busy sharing are configured separately for each household. Basic Google sign-in remains separate from these permissions.
+          When you connect Google Calendar in Settings, updated app versions
+          request calendar.events.readonly and calendar.events.owned; older
+          versions request calendar.events. Both also request
+          calendar.calendarlist.readonly and tasks.readonly, plus offline access.
+          Read access imports the calendars and Google Tasks lists you choose.
+          Write access exports selected chores to your primary calendar; SweetMate
+          does not use it to edit shared-calendar events. The Google connection
+          belongs to your account; importing and Busy sharing are configured
+          separately for each household. Basic Google sign-in remains separate
+          from these permissions.
         </p>
         <p>
           Exported events contain chore titles, due dates, and any provided
@@ -199,13 +203,14 @@ export default function PrivacyPage() {
           deletion at <a href="mailto:support@sweetmate.info">support@sweetmate.info</a>.
           Provider erasure is a separate process, and identifying records from
           multiple devices may require additional information. Retention and
-          backups follow the configured provider processes below; we do not
-          promise an unverified fixed retention period.
+          backups follow the provider processes described below. Deleting app
+          data does not by itself erase optional telemetry already sent.
         </p>
         <p>
-          With Crash reporting enabled and configured, Sentry receives sanitized
+          As of November 28, 2026, Sentry crash reporting is not configured in
+          our production environment. If configured later, it will send sanitized
           diagnostics such as error type, stack trace, affected action and app
-          version. Chore/item names are not sent to Sentry through the
+          version only when you enable Crash reporting. Chore/item names are not sent to Sentry through the
           name-sharing feature. SweetMate disables session replay, automatic
           product-event capture and advertising identifiers in these integrations,
           and filters request payloads and direct account/contact fields from
@@ -231,6 +236,14 @@ export default function PrivacyPage() {
         </p>
 
         <h2>Retention and security</h2>
+        <p>
+          PostHog data is hosted in the United States. Our current Free plan keeps
+          analytics events for one year, followed by the provider’s scheduled
+          cleanup. Person profiles and their properties do not expire with events;
+          they remain until deleted. Deletion is asynchronous, and backup copies
+          expire separately. You can ask us to delete analytics associated with
+          your device identifiers; other devices may require their own identifiers.
+        </p>
         <p>
           Account information is kept while needed to provide SweetMate and
           address security, support, or legal requirements. Calendar connection

@@ -36,7 +36,7 @@ test("homepage exposes the actual public privacy and support routes", async () =
 
 test("policy discloses Google, optional telemetry and their distinct choices", async () => {
   const { html } = await render("/privacy");
-  for (const phrase of ["November 27, 2026", "Google Calendar and Tasks", "calendar.events", "tasks.readonly", "Limited Use", "PostHog", "Sentry", "off by default", "Separate choice to share chore and item names", "Retention and security", "Account deletion and shared records", "support@sweetmate.info"])
+  for (const phrase of ["November 28, 2026", "Google Calendar and Tasks", "calendar.events", "calendar.events.readonly", "calendar.events.owned", "tasks.readonly", "Limited Use", "PostHog", "Sentry", "off by default", "Separate choice to share chore and item names", "Retention and security", "Account deletion and shared records", "support@sweetmate.info", "one year", "not configured", "Person profiles"])
     assert(html.includes(phrase), `missing disclosure: ${phrase}`);
   assert(html.includes("not change the Google originals"));
   assert(html.includes("not guaranteed"));
