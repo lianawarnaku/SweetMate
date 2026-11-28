@@ -9,8 +9,9 @@ store submission was performed. Installed build 54 is unchanged.
 November 28 follow-up: the privacy policy now publishes verified PostHog US/Free
 one-year retention and the currently inactive Sentry configuration. All 19 website
 checks and public HTTP checks passed. PostHog owner/access/replay/location/export
-checks are complete; its DPA is Awaiting signature, owner MFA and the synthetic
-profile's delete approval remain pending. Both Google APIs are enabled, but Google
+checks are complete; its DPA is Awaiting signature and the synthetic
+profile's delete approval remains pending. Owner PostHog MFA is now verified enabled
+through the connected service. Both Google APIs are enabled, but Google
 publishing approval remains pending and Audience is still Testing. See the
 [current vendor execution record](../privacy/vendor-review-2026-11-28.md).
 

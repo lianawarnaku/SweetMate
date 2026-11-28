@@ -64,9 +64,9 @@ Recovered the existing native Chrome session without changing browser permission
 or creating credentials. The project is **US Cloud**, **Free**, with inherited
 **Organization default (1 year)** event retention. The member list contains only
 the owner and no outstanding invitations. Granular access controls and enforced
-team MFA are paid features; none were purchased. Individual owner MFA was off at
-the observed Profile page, and the free authenticator Setup was handed to the owner.
-The agent did not generate/view an enrollment secret or recovery codes.
+team MFA are paid features; none were purchased. Individual owner MFA was initially off. The owner completed enrollment, and the
+authenticated connector subsequently verified **is_2fa_enabled=true**. The agent
+did not generate/view an enrollment secret or recovery codes.
 
 Verified replay, web autocapture, web-vitals and dead-click capture are off.
 Discard client IP is on. The GeoIP transformation is Paused and the SweetMate
@@ -100,7 +100,7 @@ Google permissions. No agreement was falsely described as signed.
   and sweetmate.info: homepage/privacy/support/deletion/confirmation/script 200,
   unknown path 404, exact content allowing known email obfuscation, CSP and
   confirmation no-store intact. No DNS or email records changed.
-- No native build, OTA update, new vendor credentials, paid plan or purchase.
+- No native build, OTA update, agent-created vendor credentials, paid plan or purchase.
 
 ## Google and browser state
 
@@ -117,8 +117,9 @@ See [Google verification requirements](https://support.google.com/cloud/answer/1
 and [submission steps](https://support.google.com/cloud/answer/13461325).
 
 The initial settings load stalled browser control; it later recovered. The request
-to close that temporary tab was withdrawn. A direct PostHog connection was offered
-but never confirmed or required once native control recovered. The extension file
+to close that temporary tab was withdrawn. A direct PostHog connection was offered and subsequently connected by the owner.
+Its authenticated metadata reads confirm the existing project, one organization
+owner, enabled MFA and the two privacy transformations' enabled/disabled states. The extension file
 chooser later stalled; the standard native picker uploaded the prepared website
 archive. No extension file permissions were expanded and no browser cookies/session
 storage were extracted through other tools. The interruption was not treated as a
@@ -134,9 +135,7 @@ successful upload; the restored Cloudflare page was inspected before proceeding.
 2. The owner-created DPA envelope is **Awaiting signature**. Review its legal
    operator/address/email and terms before deciding to countersign. Do not mark it
    executed, delete/cancel it or resend it without the appropriate instruction.
-3. The owner must create their own individual PostHog MFA credential using the
-   free Setup control; no paid enforcement upgrade is needed.
-4. Approve the pending permanent-delete prompt for only the disposable profile and
+3. Approve the pending permanent-delete prompt for only the disposable profile and
    its two test events, then verify the real vendor deletion status. Real history
    remains intact and the live production erasure support queue was empty.
 
@@ -149,3 +148,19 @@ information. Raw EAS output was processed privately and the two task-created
 output files were removed. No keys, private address or production records were
 committed. The owned loopback preview server was stopped; app/persona services
 were preserved.
+
+
+## Direct-connector follow-up
+
+The owner connected PostHog. Metadata-only tools confirmed SweetMate's Default
+project **719267**, one organization member with owner level **15**, and enabled
+MFA. Narrow function reads confirmed the location filter remains enabled and
+GeoIP remains disabled. These reads changed no settings or data.
+
+Automatic approval review rejected the full project-details operation because
+it would also return a project API token. That request was not needed to finish
+the checks: metadata-only membership/identity and specific privacy-function reads
+were used instead. No broader credential access is requested. The existing
+Google publishing and synthetic-profile deletion approvals remain pending; the
+DPA was last observed Awaiting signature. See the
+[sanitized connector evidence](vendor-review-2026-11-28/connector-verification.json).

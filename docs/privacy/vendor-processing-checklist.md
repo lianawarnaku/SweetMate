@@ -23,7 +23,7 @@ or billing plan was changed. Evidence: [location privacy report](location-privac
 - [x] Session replay, web autocapture, web-vitals and dead-click capture confirmed off
 - [x] No outbound destinations or other connected integrations configured; onboarding examples were not treated as live destinations
 - [x] Production member list audited: one owner, no other members or pending invitations
-- [ ] Owner completes individual MFA enrollment; paid organization-wide enforcement is not required
+- [x] Owner completed individual MFA; authenticated connector verifies is_2fa_enabled=true. No paid organization-wide enforcement was enabled.
 - [ ] Complete deletion drill: one disposable profile and two synthetic events verified; permanent-delete approval pending
 - [x] Operational privacy contact support@sweetmate.info and the private vendor-owner contact recorded; complete agreement/signature notification review
 

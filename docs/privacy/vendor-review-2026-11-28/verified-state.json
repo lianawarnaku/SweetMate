@@ -39,7 +39,7 @@
     "currentSettingsRead": "Recovered; live account pages inspected",
     "retentionChanged": false,
     "liveDeletionDrillCompleted": false,
-    "directPluginConnection": "Suggested but not needed after native browser recovery; not confirmed connected",
+    "directPluginConnection": "Connected by owner; read-only identity, membership and specific privacy-function checks succeeded",
     "region": "US Cloud",
     "plan": "Free",
     "eventRetention": "Organization default (1 year)",
@@ -55,12 +55,16 @@
     "locationMetadataFilter": "Active",
     "outboundDestinationsConfigured": 0,
     "otherIntegrationsConfigured": 0,
-    "individualMfaLastObserved": "Not enabled; owner enrollment requested",
+    "individualMfaLastObserved": "Enabled; verified by authenticated user-get is_2fa_enabled=true",
     "dpaStatus": "Awaiting signature; owner sent envelope",
     "signedCopyAvailable": false,
     "testProfileCreated": true,
     "syntheticEventsReceivedInUi": 2,
-    "testProfileDeleteApproval": "Pending"
+    "testProfileDeleteApproval": "Pending",
+    "individualMfaEnabled": true,
+    "connectorOwnerCount": 1,
+    "connectorGeoipEnabled": false,
+    "connectorLocationFilterEnabled": true
   },
   "sentry": {
     "status": "Not configured in current production EAS variables",

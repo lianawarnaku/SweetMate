@@ -1,0 +1,32 @@
+{
+  "date": "2026-11-28",
+  "source": "Authenticated PostHog connector, metadata-only checks",
+  "projectId": 719267,
+  "projectName": "Default project",
+  "organizationName": "SweetMate",
+  "organizationMembers": 1,
+  "organizationOwnerLevels": [
+    15
+  ],
+  "membershipPaginationComplete": true,
+  "mfaEnabled": true,
+  "passkeysForMfaEnabled": false,
+  "privacyTransformations": [
+    {
+      "name": "SweetMate \u2014 discard location metadata",
+      "type": "transformation",
+      "enabled": true
+    },
+    {
+      "name": "GeoIP",
+      "type": "transformation",
+      "enabled": false
+    }
+  ],
+  "settingsChanged": false,
+  "analyticsHistoryDeleted": false,
+  "enrollmentSecretsOrRecoveryCodesRead": false,
+  "fullProjectTokenRead": "Automatic approval review rejected the token-bearing project-get operation; metadata and specific function reads were used instead",
+  "purchases": 0,
+  "nativeBuilds": 0
+}
