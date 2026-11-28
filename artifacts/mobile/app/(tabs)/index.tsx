@@ -51,7 +51,8 @@ import { EmptyState } from "@/components/EmptyState";
 import { Surface } from "@/components/Surface";
 import { ActionMenuModal } from "@/components/ActionMenuModal";
 import { useAppPopup } from "@/components/AppPopupProvider";
-import { FloatingActionButton, useFloatingActionMetrics } from "@/components/FloatingActionButton";
+import { AddMenuFab } from "@/components/AddMenuFab";
+import { useFloatingActionMetrics } from "@/components/FloatingActionButton";
 import { HeaderActions } from "@/components/HeaderActions";
 import { MiniHouseMark } from "@/components/BrandMark";
 import { ManualChoreForm } from "@/components/ManualChoreForm";
@@ -1491,12 +1492,21 @@ export default function MyChoresScreen() {
         }}
       />
 
-      <FloatingActionButton
-        accessibilityLabel="Add chore"
-        onPress={() => {
-          setEditingChoreId(null);
-          setShowModal(true);
-        }}
+      <AddMenuFab
+        options={[
+          { key: "borrow", label: "Borrowed item", icon: "repeat", onPress: () => router.navigate({ pathname: "/borrow", params: { add: String(Date.now()) } } as never) },
+          { key: "shopping", label: "Shopping list", icon: "shopping-cart", onPress: () => router.navigate({ pathname: "/shopping", params: { add: String(Date.now()) } } as never) },
+          { key: "expense", label: "Expense", icon: "dollar-sign", onPress: () => router.navigate({ pathname: "/expenses", params: { add: String(Date.now()) } } as never) },
+          {
+            key: "chore",
+            label: "Chore",
+            icon: "check-square",
+            onPress: () => {
+              setEditingChoreId(null);
+              setShowModal(true);
+            },
+          },
+        ]}
       />
 
       <ActionMenuModal

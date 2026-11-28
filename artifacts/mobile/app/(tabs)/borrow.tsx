@@ -7,7 +7,8 @@ import { KEYBOARD_BEHAVIOR } from "@/lib/keyboard";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as Crypto from "expo-crypto";
-import React, { useMemo, useRef, useState } from "react";
+import { router, useLocalSearchParams } from "expo-router";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -188,6 +189,15 @@ export default function BorrowScreen() {
     setSaving(false);
     setShowModal(true);
   };
+
+  // Home's quick-add menu navigates here with a fresh `add` token to open the form.
+  const { add: addToken } = useLocalSearchParams<{ add?: string }>();
+  useEffect(() => {
+    if (!addToken) return;
+    openAdd();
+    router.setParams({ add: undefined } as never);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [addToken]);
 
   const openEdit = (b: BorrowItem) => {
     setEditingId(b.id);

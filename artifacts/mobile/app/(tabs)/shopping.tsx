@@ -1,6 +1,6 @@
 import { Feather, Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   LayoutAnimation,
@@ -138,6 +138,15 @@ export default function ShoppingScreen() {
   const [targetListId, setTargetListId] = useState<string | null>(null);
   const [showShoppingModal, setShowShoppingModal] = useState(false);
   const [showNewListModal, setShowNewListModal] = useState(false);
+
+  // Home's quick-add menu navigates here with a fresh `add` token to open the form.
+  const { add: addToken } = useLocalSearchParams<{ add?: string }>();
+  useEffect(() => {
+    if (!addToken) return;
+    setShowNewListModal(true);
+    router.setParams({ add: undefined } as never);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [addToken]);
   const [newListName, setNewListName] = useState("");
   const [newListSchedule, setNewListSchedule] = useState<ShoppingSchedule | undefined>();
   const [collapsedLists, setCollapsedLists] = useState<Set<string>>(new Set());
