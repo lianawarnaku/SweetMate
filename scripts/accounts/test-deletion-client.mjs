@@ -6,8 +6,8 @@ import {resolve} from 'node:path';
 const root=resolve(import.meta.dirname,'../..');
 const ts=createRequire(root+'/artifacts/mobile/package.json')('typescript');
 const callbackExports={};
-runInNewContext(ts.transpileModule(readFileSync(root+'/artifacts/mobile/lib/oauthCallback.ts','utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}}).outputText,{exports:callbackExports,URL,URLSearchParams});
-const code=ts.transpileModule(readFileSync(root+'/artifacts/mobile/lib/accountDeletion.ts','utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}}).outputText;
+runInNewContext(ts.transpileModule(readFileSync(root+'/artifacts/mobile/lib/oauthCallback.ts','utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS,esModuleInterop:false}}).outputText,{exports:callbackExports,URL,URLSearchParams});
+const code=ts.transpileModule(readFileSync(root+'/artifacts/mobile/lib/accountDeletion.ts','utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS,esModuleInterop:false}}).outputText;
 function fixture({apple=false,browser={type:'success',url:'sweetmate://auth/callback?code=test'},differentAccount=false,serverOk=true}={}){
  const original={user:{id:'me',identities:apple?[{provider:'apple'}]:[]},access_token:'session-only',refresh_token:'session-refresh'};
  let session=original;const calls=[];const removed=[];

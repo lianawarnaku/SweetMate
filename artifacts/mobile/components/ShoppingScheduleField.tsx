@@ -7,8 +7,8 @@ import { localDateKey } from "@/lib/calendarItems";
 import { householdDateKey } from "@/lib/choreTimezone";
 import { formatShoppingSchedule, shoppingMonthDays, shoppingTimeFromClock, type ShoppingSchedule } from "@/lib/shoppingSchedule";
 
-export function ShoppingScheduleField({ value, onChange, onEditingChange, timezone }: {
-  value?: ShoppingSchedule;
+export function ShoppingScheduleField({ value, onChange, onEditingChange, timezone, disabled = false }: {
+  value?: ShoppingSchedule; disabled?: boolean;
   onChange: (value: ShoppingSchedule | undefined) => void;
   onEditingChange: (editing: boolean) => void;
   timezone: string;
@@ -23,6 +23,7 @@ export function ShoppingScheduleField({ value, onChange, onEditingChange, timezo
   const [error, setError] = useState<string | null>(null);
   const close = () => { setOpen(false); onEditingChange(false); Keyboard.dismiss(); };
   const edit = () => {
+    if (disabled) return;
     Keyboard.dismiss();
     const day = value?.date ?? householdDateKey(new Date(), timezone);
     const [h, m] = (value?.time ?? "09:00").split(":").map(Number);
@@ -39,12 +40,12 @@ export function ShoppingScheduleField({ value, onChange, onEditingChange, timezo
   const days = shoppingMonthDays(month);
   return <View style={styles.root}>
     <View style={styles.buttonRow}>
-      <GlassButton tone="neutral" onPress={edit} accessibilityLabel={value ? "Change shopping calendar date and time" : "Add shopping to calendar"} style={styles.calendarButton}>
+      <GlassButton tone="neutral" disabled={disabled} onPress={edit} accessibilityLabel={value ? "Change shopping calendar date and time" : "Add shopping to calendar"} style={styles.calendarButton}>
         <Feather name="calendar" size={18} color={colors.foreground} />
         <Text style={[styles.buttonText, { color: colors.foreground, flexShrink: 1 }]}>{value ? formatShoppingSchedule(value) : "Add to calendar"}</Text>
         {!value && <Feather name="plus" size={16} color={colors.mutedForeground} />}
       </GlassButton>
-      {value && <TouchableOpacity accessibilityRole="button" accessibilityLabel="Remove shopping calendar date and time" onPress={() => { onChange(undefined); close(); }} style={styles.clear}>
+      {value && <TouchableOpacity accessibilityRole="button" accessibilityLabel="Remove shopping calendar date and time" disabled={disabled} onPress={() => { onChange(undefined); close(); }} style={styles.clear}>
         <Feather name="x" size={18} color={colors.mutedForeground} />
       </TouchableOpacity>}
     </View>

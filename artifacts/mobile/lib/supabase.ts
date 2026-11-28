@@ -1,3 +1,6 @@
+import * as Crypto from "expo-crypto";
+import { authStorage } from "./authStorage";
+import { createDurableMutationFetch } from "./durableMutationFetch";
 import { createChorePolicyFetch } from "./chorePolicyFetch";
 // Supabase client — the single, shared instance the rest of the app imports
 // from. Do not `new SupabaseClient(...)` anywhere else; multiple clients each
@@ -24,16 +27,24 @@ if (!supabaseUrl || !supabaseAnonKey) {
   );
 }
 
+export const pendingOperations = createDurableMutationFetch({ baseUrl: supabaseUrl, anonKey: supabaseAnonKey,
+  fetcher: createChorePolicyFetch(supabaseUrl), storage: AsyncStorage, makeId: () => Crypto.randomUUID() });
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  global: { fetch: createChorePolicyFetch(supabaseUrl) },
+  global: { fetch: pendingOperations.fetch },
   auth: {
-    // Persist the session (access + refresh tokens) in AsyncStorage so users
-    // stay signed in across app restarts.
-    storage: AsyncStorage,
+    // Native tokens are AES-GCM encrypted with a key in the OS credential store.
+    // The durable operation journal remains separate and never stores tokens.
+    storage: authStorage,
     autoRefreshToken: true,
     persistSession: true,
     // React Native has no URL bar / OAuth redirect handler, so this must be
     // off; the JS SDK would otherwise try to parse a session out of the URL.
     detectSessionInUrl: false,
   },
+});
+
+// Auth transitions only update in-memory credentials; tokens are never written into the journal.
+supabase.auth.onAuthStateChange((_event, session) => {
+  pendingOperations.setSession(session ? { userId: session.user.id, accessToken: session.access_token } : null);
 });

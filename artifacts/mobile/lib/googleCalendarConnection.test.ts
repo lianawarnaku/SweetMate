@@ -118,7 +118,7 @@ const exportImports: Record<string, any> = {
     return { ok: true, json: async () => ({ success: true, alreadyAdded: false }) };
   } },
   "@react-native-async-storage/async-storage": {},
-  "expo-calendar/legacy": {}, "react-native": {}, "./supabase": {},
+  "expo-crypto": {}, "./durableOperations": {}, "./saveFeedback": {}, "expo-calendar/legacy": {}, "react-native": {}, "./supabase": {},
 };
 runInNewContext(exportJs, { exports: exportModule, require: (name: string) => { strict(name in exportImports); return exportImports[name]; } });
 await exportModule.addChoreToGoogleCalendar({ id: "new", title: "Dishes", dueDate: "2026-11-13T04:59:00.000Z", scheduledDate: "2026-11-12" });

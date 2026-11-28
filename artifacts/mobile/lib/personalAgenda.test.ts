@@ -1,3 +1,4 @@
+import { saveFeedback } from "./saveFeedback.ts";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -34,7 +35,7 @@ function fixture() {
     },
   });
   const useState = (initial: any) => { const slot = cursor++; if (!(slot in state)) state[slot] = typeof initial === "function" ? initial() : initial; return [state[slot], (value: any) => { state[slot] = typeof value === "function" ? value(state[slot]) : value; }]; };
-  const react = { useState, useEffect: () => {}, useRef: (value: any) => useState(() => ({ current: value }))[0], Fragment: "Fragment" };
+  const react = { useState, useEffect: () => {}, useSyncExternalStore: (_subscribe: any, get: any) => get(), useRef: (value: any) => useState(() => ({ current: value }))[0], Fragment: "Fragment" };
   const jsx = (type: Element["type"], props: Element["props"]) => ({ type, props });
   const native = Object.fromEntries(["ActivityIndicator", "KeyboardAvoidingView", "Modal", "ScrollView", "Text", "TextInput", "TouchableOpacity", "View"].map(name => [name, name]));
   const modules: Record<string, any> = {
@@ -42,6 +43,8 @@ function fixture() {
     "react-native": { ...native, StyleSheet: { create: (value: any) => value, absoluteFill: {} }, Linking: { openURL: async (url: string) => { links.push(url); } } },
     "react-native-svg": { default: "Svg", Circle: "Circle" }, "@expo/vector-icons": { Feather: "Feather" },
     "react-native-safe-area-context": { useSafeAreaInsets: () => ({ top: 0, bottom: 0 }) },
+    "@/lib/saveFeedback": { saveFeedback },
+    "@/components/SaveFeedbackNotice": { SaveFeedbackNotice: "SaveFeedbackNotice" },
     "@/components/GlassButton": { GlassButton: "GlassButton" }, "@/components/GlassModalSurface": { GlassModalBackdrop: "GlassModalBackdrop", GlassModalSurface: "GlassModalSurface" },
     "@/components/Surface": { Surface: "Surface" }, "@/components/GlassCheckCircle": { GlassCheckCircle: "GlassCheckCircle" },
     "@/components/CompletionMotion": { CompletionMotion: "CompletionMotion", CompletionText: "CompletionText" },

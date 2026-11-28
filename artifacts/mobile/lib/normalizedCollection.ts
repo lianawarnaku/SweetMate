@@ -27,15 +27,16 @@ export function planNormalizedSync<T, R extends NormalizedRow>(
   persisted: ReadonlyMap<string, R>,
   toRow: (entity: T) => R,
   canonicalize: (row: R) => R = row => row,
+  uncertainIds: ReadonlySet<string> = new Set(),
 ) {
   const rows = entities.map(toRow);
   const localIds = new Set(rows.map((row) => row.id));
   return {
     upserts: rows.filter((row) => {
       const prior = persisted.get(row.id);
-      return !prior || normalizedRowFingerprint(canonicalize(prior)) !== normalizedRowFingerprint(canonicalize(row));
+      return uncertainIds.has(row.id) || !prior || normalizedRowFingerprint(canonicalize(prior)) !== normalizedRowFingerprint(canonicalize(row));
     }),
-    deleteIds: [...persisted.keys()].filter((id) => !localIds.has(id)).sort(),
+    deleteIds: [...new Set([...persisted.keys(), ...uncertainIds])].filter((id) => !localIds.has(id)).sort(),
   };
 }
 

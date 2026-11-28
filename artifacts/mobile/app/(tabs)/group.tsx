@@ -650,7 +650,7 @@ export default function GroupChoresScreen() {
 
         {/* ── Roommates ──────────────────────────────────
             Tap a roommate's emoji to cycle through their vibe:
-              😊 (chill / around)  →  😴 (sleeping)  →  🤫 (do not disturb)  →  😊
+              😊 (available)  →  😴 (sleeping)  →  🤫 (do not disturb)  →  😊
             Sleeping still auto-reverts after 9 hours via AppContext. */}
         {!listView && roommateActivityEnabled ? <View style={styles.activityCard}>
           <SectionDivider
@@ -686,7 +686,7 @@ export default function GroupChoresScreen() {
 
                   <TouchableOpacity
                     accessibilityRole="button"
-                    accessibilityLabel={`${rm.id === currentUserId ? "Your" : `${rm.name}'s`} status: ${status === "asleep" ? "sleeping" : status === "away" ? "do not disturb" : "home"}`}
+                    accessibilityLabel={`${rm.id === currentUserId ? "Your" : `${rm.name}'s`} status: ${status === "asleep" ? "sleeping" : status === "away" ? "do not disturb" : "available"}`}
                     accessibilityHint="Changes this roommate's status"
                     onPress={() => cycleRoommateMood(rm.id)}
                     activeOpacity={0.6}

@@ -186,11 +186,19 @@ assert.equal(contentAttempts.at(-1)?.sent, false, "expense names must not be rep
 console.log("Expense name acknowledgement and peer-author exclusion passed");
 
 const shoppingNameAttempts: string[] = [];
+let shoppingSaveFails = false, shoppingSequence = 0;
 const addItemWithNames = callback("addShoppingItem", {
-  currentUserId: "a", makeId: () => "new-item", recordShoppingVersions: () => {}, withShoppingOrder,
-  setShoppingItems: (next: any) => { next([]); }, track,
+  session: { user: { id: "a" } }, householdId: "home", currentUserId: "a",
+  activeUserIdRef: { current: "a" }, activeSetupHouseholdRef: { current: "home" },
+  shoppingListsRef: { current: [{ id: "list", name: "List" }] }, shoppingItemsRef: { current: [] },
+  shoppingListsTableReadyRef: { current: true, flush: async () => {} },
+  shoppingItemsTableReadyRef: { current: true, flush: async () => { if (shoppingSaveFails) throw Error("offline"); } },
+  makeId: () => `new-item-${++shoppingSequence}`, recordShoppingVersions: () => {}, withShoppingOrder,
+  setShoppingItems: () => {}, track,
   prepareItemNameAnalytics: (_kind: string, _source: string, labels: string[]) => () => { shoppingNameAttempts.push(...labels); },
 });
-addItemWithNames({ name: "Own item", addedBy: "a" });
-addItemWithNames({ name: "Peer-authored item", addedBy: "b" });
-assert.deepEqual(shoppingNameAttempts, ["Own item"], "manual shopping capture also guards the declared author");
+await addItemWithNames({ name: "Own item", addedBy: "a", listId: "list" });
+await addItemWithNames({ name: "Peer-authored item", addedBy: "b", listId: "list" });
+shoppingSaveFails = true;
+await assert.rejects(() => addItemWithNames({ name: "Failed own item", addedBy: "a", listId: "list" }), /offline/);
+assert.deepEqual(shoppingNameAttempts, ["Own item"], "manual shopping capture requires acknowledgement and guards the declared author");

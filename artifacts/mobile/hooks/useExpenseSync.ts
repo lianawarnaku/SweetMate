@@ -1,3 +1,4 @@
+import { fetchAllRows } from "@/lib/pagination";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Crypto from "expo-crypto";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -66,9 +67,11 @@ export function useExpenseSync({ householdId, userId, cloudReady, entitiesRef, s
       ++activityQueries;
       setExpenseActivityLoading(true);
       try {
-        let query = supabase.from("expense_activity").select("*").eq("household_id", householdId);
-        if (expenseId) query = query.eq("expense_id", expenseId);
-        const { data, error } = await expenseRequest(signal => query.order("created_at", { ascending: false }).order("id", { ascending: false }).limit(200).abortSignal(signal));
+        const { data, error } = await expenseRequest(signal => fetchAllRows(() => {
+          let query = supabase.from("expense_activity").select("*").eq("household_id", householdId);
+          if (expenseId) query = query.eq("expense_id", expenseId);
+          return query;
+        }, [{ column: "created_at", ascending: false }, { column: "id", ascending: false }], { signal, isCurrent: () => effectActive && scopeRef.current === scope }));
         if (!effectActive || scopeRef.current !== scope) return;
         if (error) throw error;
         setExpenseActivity(previous => mergeActivity(previous, ((data ?? []) as ActivityRow[]).map(mapActivity)));
@@ -85,7 +88,7 @@ export function useExpenseSync({ householdId, userId, cloudReady, entitiesRef, s
     const engine = new ExpenseSync({
       householdId, userId, storage: AsyncStorage, makeOperationId: () => Crypto.randomUUID(),
       fetch: async () => {
-        const { data, error } = await expenseRequest(signal => supabase.from("expenses").select("*").eq("household_id", householdId).abortSignal(signal));
+        const { data, error } = await expenseRequest(signal => fetchAllRows(() => supabase.from("expenses").select("*").eq("household_id", householdId), undefined, { signal, isCurrent: () => effectActive && scopeRef.current === scope }));
         if (error) throw error;
         return (data ?? []) as ExpenseRow[];
       },

@@ -68,9 +68,10 @@ assert.equal(f.values.get("event"), stamp, "a failed undo restores the successfu
 
 f = fixture();
 saved = f.queue.update(item, true); f.queue.update(item, false);
-f.requests[0].reject(new Error("Old request failed")); await saved;
+f.requests[0].reject(new Error("Old request failed")); await tick();
 assert.equal(f.values.get("event"), null, "a superseded failure cannot undo the newer choice");
-assert.equal(f.requests.length, 1, "a queued choice matching the saved state needs no extra request");
+assert.equal(f.requests.length, 2, "an unacknowledged write may have committed, so undo must explicitly save false");
+assert.equal(f.requests[1].completed, false); f.requests[1].resolve(); await saved;
 
 f = fixture();
 const cancelled = f.queue.update(item, true).catch(error => error);
@@ -82,3 +83,33 @@ f.requests[0].resolve(); await tick();
 assert.equal(f.changes.length, changes, "late results cannot change another account's state");
 assert.equal(f.requests.length, 1, "changing accounts cancels unsent old-account writes");
 console.log("Instant schedule completion tests passed: immediate checks/undo, coalescing, independent rows, stale refreshes, rollback and account isolation.");
+
+f = fixture();
+const ambiguous = f.queue.update(item, true).catch(error => error); f.queue.update(item, false);
+f.requests[0].reject(new Error("Lost check acknowledgement")); await tick();
+f.requests[1].reject(new Error("Lost undo acknowledgement")); await ambiguous;
+assert.equal(f.values.get("event"), null);
+const corrective = f.queue.update(item, false);
+assert.equal(f.requests.length, 3, "retry must still write an uncertain final choice even when it matches the visible rollback value");
+assert.equal(f.requests[2].completed, false); f.requests[2].resolve(); await corrective;
+
+// Journal every superseding choice before an older request finishes; simulate process death.
+{
+  const { DurableOperations } = await import("./durableOperations.ts");
+  const disk = new Map<string,string>(); let sequence=0, value=false;
+  let release!:()=>void; const gate=new Promise<void>(resolve=>release=resolve);
+  const storage={getItem:async(key:string)=>disk.get(key)??null,setItem:async(key:string,raw:string)=>{disk.set(key,raw);}};
+  const journal=new DurableOperations({userId:"actor",storage,makeId:()=>"staged-"+(++sequence),changed:()=>{},send:async()=>{await gate;throw Error("terminated");}});
+  const q=new ScheduleCompletionQueue({save:async()=>{},change:()=>{},settled:()=>{},prepare:async(id,completed)=>{
+    const staged=await journal.prepare({name:"update_personal_schedule_task",rpc:true,method:"POST",body:{task_id:id,completed},query:[],prefer:"",accept:""},"actor:home");
+    return {send:async()=>{await staged.send();}};
+  }});
+  const item={id:"staged-task",app_completed_at:null} as any;
+  const pending=q.update(item,true).catch(()=>{}); q.update(item,false).catch(()=>{});
+  await new Promise(resolve=>setTimeout(resolve,0));
+  assert.deepEqual(JSON.parse([...disk.values()][0]).operations.map((op:any)=>op.request.body.completed),[true,false]);
+  q.dispose();journal.dispose();release();await pending;
+  const restored=new DurableOperations({userId:"actor",storage,makeId:()=>"unused",changed:()=>{},send:async op=>{value=(op.request.body as any).completed;return {status:200,data:null};}});
+  await restored.initialize();assert.equal(value,false);assert.equal(restored.pending.length,0);
+}
+console.log("Google completion superseding undo is durable before the first network acknowledgement");

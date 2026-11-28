@@ -1,3 +1,7 @@
+import { invitationDigest, joinedHousehold } from "@/lib/householdInvitations";
+import { resumePendingReminderExports } from "@/lib/externalTasks";
+import { saveFeedback, saveRequest } from "@/lib/saveFeedback";
+import { fetchAllRows, fetchAllRowsByIds } from "@/lib/pagination";
 import { usePersonalSchedule } from "@/hooks/usePersonalSchedule";
 import { useRandomTasks } from "@/hooks/useRandomTasks";
 import type { RandomTask, RandomTaskInput } from "@/lib/randomTasks";
@@ -22,7 +26,7 @@ import React, {
 import type { Session } from "@supabase/supabase-js";
 import { AppState, InteractionManager, Platform } from "react-native";
 
-import { supabase } from "@/lib/supabase";
+import { supabase, pendingOperations } from "@/lib/supabase";
 import {
   type AppearanceMode,
   type ColorScheme,
@@ -75,7 +79,7 @@ import {
 import { rowToSharedBorrow, sharedBorrowToRow, type SharedBorrowRow } from "@/lib/sharedBorrowRow";
 import { withoutNormalizedCollections } from "@/lib/householdStatePayload";
 import { choreToRow, rowToChore, type ChoreRow } from "@/lib/choreRow";
-import { applyChoreRowEvent, mergeChoreSnapshot, planChoreSync } from "@/lib/choreSync";
+import { applyChoreRowEvent, mergeChoreSnapshot, planChoreSync, sameChoreWrite } from "@/lib/choreSync";
 import { removeMappedReminderIfPresent } from "@/lib/externalTasks";
 import { choreNow } from "@/lib/choreClock";
 import { householdDateKey, householdDueDate } from "@/lib/choreTimezone";
@@ -114,14 +118,10 @@ import {
   type HouseholdSetupStep,
 } from "@/lib/householdSetup";
 
+// Legacy wire values are retained for saved household compatibility. "home"
+// means Available and "away" means Do not disturb; neither represents location.
 export type RoommateStatus = "home" | "away" | "asleep" | "unknown";
 export type LeaderboardPeriod = "weekly" | "alltime";
-
-export interface HomeLocation {
-  latitude: number;
-  longitude: number;
-  radius: number; // meters
-}
 
 export type ChoreCategory =
   | "cleaning"
@@ -158,6 +158,7 @@ export interface SweetMembership {
   joinedAt: string;
   memberCount?: number;
   inviteCode?: string;
+  invitationsEnabled?: boolean;
   timezone?: string;
 }
 
@@ -593,6 +594,7 @@ interface AppContextType {
   householdTimezone: string;
   householdName: string | null;
   inviteCode: string | null;
+  invitationsEnabled: boolean;
   householdLoading: boolean;
   householdError: string | null;
   membersLoading: boolean;
@@ -607,7 +609,6 @@ interface AppContextType {
   removeRoommate: (roommateId: string) => Promise<void>;
   deleteOwnAccount: () => Promise<void>;
   currentUserId: string;
-  setCurrentUser: (id: string) => void;
   roommates: Roommate[];
   chores: Chore[];
   householdChoreSummary: {
@@ -643,11 +644,11 @@ interface AppContextType {
   canEditExpense: (expense: Expense) => boolean;
   canManageExpense: (expense: Expense) => boolean;
   markPersonPaid: (expenseId: string, personId: string, amountCents?: number, date?: string) => Promise<boolean>;
-  addShoppingList: (name: string, plannedDate?: string, plannedTime?: string) => string;
+  addShoppingList: (name: string, plannedDate?: string, plannedTime?: string, draftId?: string) => Promise<string>;
   reorderShoppingLists: (newIds: string[]) => void;
   pinShoppingList: (id: string, pinned: boolean) => void;
   deleteShoppingList: (id: string) => void;
-  addShoppingItem: (item: Omit<ShoppingItem, "id">) => void;
+  addShoppingItem: (item: Omit<ShoppingItem, "id">, draftId?: string) => Promise<string>;
   addSelectedEssentialsToShopping: (
     selection: EssentialShortlist,
   ) => Promise<EssentialShoppingTransferResult>;
@@ -692,8 +693,6 @@ interface AppContextType {
   roommateStatuses: Record<string, RoommateStatus>;
   setRoommateStatus: (id: string, status: RoommateStatus) => void;
   sleepStartedAt: Record<string, number>;
-  homeLocation: HomeLocation | null;
-  setHomeLocation: (loc: HomeLocation | null) => void;
   choreChart: ChoreChartData | null;
   choreChartStartedAt: string | null;
   setChoreChart: (data: ChoreChartData | null, startedAt: string | null) => void;
@@ -830,7 +829,6 @@ interface SharedHouseholdState {
   essentialShortlistUpdatedBy: string | null;
   roommateStatuses: Record<string, RoommateStatus>;
   sleepStartedAt: Record<string, number>;
-  homeLocation: HomeLocation | null;
   choreChart: ChoreChartData | null;
   choreChartStartedAt: string | null;
   homeProfile: HomeProfile | null;
@@ -853,6 +851,11 @@ export function AppProvider({
   const [householdLoading, setHouseholdLoading] = useState(true);
   const [householdError, setHouseholdError] = useState<string | null>(null);
   const [membershipVersion, setMembershipVersion] = useState(0);
+  const [operationRecoveryVersion, setOperationRecoveryVersion] = useState(0);
+  useEffect(() => pendingOperations?.subscribeRecovery(() => {
+    setMembershipVersion(value => value + 1);
+    setOperationRecoveryVersion(value => value + 1);
+  }), []);
   const [roommates, setRoommates] = useState<Roommate[]>([]);
   const roommatesRef = useRef<Roommate[]>(roommates);
   roommatesRef.current = roommates;
@@ -900,7 +903,6 @@ export function AppProvider({
   const [suppressedAlerts, setSuppressedAlerts] = useState<Record<string, boolean>>({});
   const [roommateStatuses, setRoommateStatusesState] = useState<Record<string, RoommateStatus>>({});
   const [sleepStartedAt, setSleepStartedAtState] = useState<Record<string, number>>({});
-  const [homeLocation, setHomeLocationState] = useState<HomeLocation | null>(null);
   const [choreChart, setChoreChartState] = useState<ChoreChartData | null>(null);
   const [choreChartStartedAt, setChoreChartStartedAtState] = useState<string | null>(null);
   const [homeProfile, setHomeProfileState] = useState<HomeProfile | null>(null);
@@ -922,6 +924,7 @@ export function AppProvider({
   const [chartApprovals, setChartApprovals] = useState<ChartApproval[]>([]);
   const [currentMemberRole, setCurrentMemberRole] = useState<"owner" | "member">("member");
   const isHost = currentMemberRole === "owner";
+  const invitationsEnabled = memberships.find(item => item.sweetId === householdId)?.invitationsEnabled !== false;
   const [currentUserId, setCurrentUserIdState] = useState<string>(CURRENT_USER_ID);
   const [pendingIouDraft, setPendingIouDraftState] = useState<PendingIouDraft | null>(null);
   const [colorScheme, setColorScheme] = useState<ColorScheme>("mono");
@@ -943,10 +946,24 @@ export function AppProvider({
   const [quickGuideSource, setQuickGuideSource] = useState<"settings" | "onboarding">("onboarding");
   const [appAlerts, setAppAlerts] = useState<AppAlert[]>([]);
   const [householdComplete, setHouseholdCompleteState] = useState(false);
+  const activeUserIdRef = useRef(session?.user.id);
+  activeUserIdRef.current = session?.user.id;
   const activeSetupHouseholdRef = useRef(householdId);
   activeSetupHouseholdRef.current = householdId;
+  const privateBorrowIntentsRef = useRef(new Map<string, BorrowItem>());
+  const privateBorrowQueuesRef = useRef(new Map<string, Promise<void>>());
   const borrowSaveScopeRef = useRef("");
   borrowSaveScopeRef.current = `${session?.user.id ?? ""}:${householdId ?? ""}`;
+  useLayoutEffect(() => {
+    const scope = session?.user.id && householdId ? `${session.user.id}:${householdId}` : "";
+    privateBorrowIntentsRef.current.clear();
+    privateBorrowQueuesRef.current.clear();
+    saveFeedback.setScope(scope);
+    return () => { if (saveFeedback.getSnapshot().scope === scope) saveFeedback.setScope(""); };
+  }, [session?.user.id, householdId]);
+  useEffect(() => {
+    if (session?.user.id) void resumePendingReminderExports(session.user.id).catch(error => reportRuntimeError("resume reminder exports", error));
+  }, [session?.user.id, householdId]);
   const [loaded, setLoaded] = useState(false);
   const [cloudReady, setCloudReady] = useState(false);
   const [choresTableReady, setChoresTableReady] = useState(false);
@@ -1008,6 +1025,7 @@ export function AppProvider({
     shoppingItemsTableReadyRef.current &&
     sharedBorrowTableReadyRef.current;
   const membershipLoadGenerationRef = useRef(0);
+  const membershipAccountRef = useRef<string | undefined>(undefined);
   const sweetDataCacheRef = useRef<Record<string, SharedHouseholdState>>({});
   const applyingRemoteRef = useRef(false);
   const memberMetadataRef = useRef<Map<string, Roommate>>(new Map());
@@ -1474,6 +1492,7 @@ export function AppProvider({
   useEffect(() => {
     const userId = session?.user.id;
     if (!userId) {
+      membershipAccountRef.current = undefined;
       setMemberships([]);
       setHouseholdId(null);
       setHouseholdName(null);
@@ -1483,15 +1502,17 @@ export function AppProvider({
     }
     let active = true;
     const generation = ++membershipLoadGenerationRef.current;
-    setHouseholdLoading(true);
+    // Refreshing invite metadata must not unmount the open settings form or
+    // discard a personal code that is intentionally held only in memory.
+    if (membershipAccountRef.current !== userId || !householdId) setHouseholdLoading(true);
+    membershipAccountRef.current = userId;
     setHouseholdError(null);
     (async () => {
-      const { data: membershipRows, error } = await supabase
+      const { data: membershipRows, error } = await fetchAllRows(() => supabase
         .from("household_members")
         .select("household_id, user_id, role, status, joined_at")
         .eq("user_id", userId)
-        .eq("status", "active")
-        .order("joined_at", { ascending: true });
+        .eq("status", "active"), [{ column: "joined_at" }, { column: "household_id" }], { isCurrent: () => active && generation === membershipLoadGenerationRef.current });
       if (!active || generation !== membershipLoadGenerationRef.current) return;
       if (error || !membershipRows?.length) {
         if (error) {
@@ -1506,19 +1527,20 @@ export function AppProvider({
         return;
       }
       const sweetIds = membershipRows.map((row) => row.household_id);
-      const [{ data: households, error: householdError }, { data: memberRows }] = await Promise.all([
-        supabase
+      const [{ data: households, error: householdError }, { data: memberRows, error: countError }] = await Promise.all([
+        fetchAllRowsByIds(sweetIds, ids => supabase
         .from("households")
-        .select("id, name, invite_code, timezone")
-        .in("id", sweetIds),
-        supabase
+        .select("id, name, invite_code, timezone, invitations_enabled")
+        .in("id", ids), undefined, { isCurrent: () => active && generation === membershipLoadGenerationRef.current }),
+        fetchAllRowsByIds(sweetIds, ids => supabase
           .from("household_members")
-          .select("household_id")
-          .in("household_id", sweetIds)
-          .eq("status", "active"),
+          .select("household_id, user_id")
+          .in("household_id", ids)
+          .eq("status", "active"), [{ column: "household_id" }, { column: "user_id" }], { isCurrent: () => active && generation === membershipLoadGenerationRef.current }),
       ]);
-      if (householdError) {
-        reportSupabaseError("load Sweets", householdError, { sweetIds });
+      if (!active || generation !== membershipLoadGenerationRef.current) return;
+      if (householdError || countError) {
+        reportSupabaseError("load Sweets", householdError ?? countError, { sweetIds });
         setHouseholdError("We couldn't load your household details. Please try again.");
         if (active) {
           setMemberships([]);
@@ -1548,6 +1570,7 @@ export function AppProvider({
           joinedAt: row.joined_at,
           memberCount: counts.get(row.household_id) ?? 1,
           inviteCode: sweet.invite_code,
+          invitationsEnabled: sweet.invitations_enabled !== false,
           timezone: sweet.timezone ?? "UTC",
         }];
       });
@@ -1576,7 +1599,6 @@ export function AppProvider({
         setEssentialShortlistUpdatedBy(null);
         setRoommateStatusesState({});
         setSleepStartedAtState({});
-        setHomeLocationState(null);
         setChoreChartState(null);
         setChoreChartStartedAtState(null);
         setHomeProfileState(null);
@@ -1618,7 +1640,6 @@ export function AppProvider({
           setEssentialShortlistUpdatedBy(cached.essentialShortlistUpdatedBy ?? null);
           if (cached.roommateStatuses) setRoommateStatusesState(cached.roommateStatuses);
           if (cached.sleepStartedAt) setSleepStartedAtState(cached.sleepStartedAt);
-          setHomeLocationState(cached.homeLocation ?? null);
           setChoreChartState(cached.choreChart ?? null);
           setChoreChartStartedAtState(cached.choreChartStartedAt ?? null);
           setHomeProfileState(cached.homeProfile ?? null);
@@ -1655,6 +1676,10 @@ export function AppProvider({
   useEffect(() => {
     const userId = session?.user.id;
     if (!userId) return;
+    let active = true;
+    const refreshMemberships = () => {
+      if (active) setMembershipVersion((value) => value + 1);
+    };
     const channel = supabase
       .channel(`my-sweet-memberships:${userId}`)
       .on(
@@ -1665,13 +1690,29 @@ export function AppProvider({
           table: "household_members",
           filter: `user_id=eq.${userId}`,
         },
-        () => setMembershipVersion((value) => value + 1),
+        refreshMemberships,
       )
-      .subscribe();
+      .subscribe((status) => {
+        // A revocation may have happened while this client was disconnected.
+        if (status === "SUBSCRIBED") refreshMemberships();
+      });
+    const appState = AppState.addEventListener("change", (state) => {
+      if (state === "active") void (pendingOperations?.retry() ?? Promise.resolve()).finally(refreshMemberships);
+    });
     return () => {
+      active = false;
+      appState.remove();
       void supabase.removeChannel(channel);
     };
   }, [session?.user.id]);
+
+  useEffect(() => {
+    if (!householdId || !session?.user.id) return;
+    let active=true;
+    const channel=supabase.channel(`household-invitation-state:${householdId}`)
+      .on("postgres_changes",{event:"UPDATE",schema:"public",table:"households",filter:`id=eq.${householdId}`},()=>{if(active)setMembershipVersion(value=>value+1);}).subscribe();
+    return ()=>{active=false;void supabase.removeChannel(channel);};
+  },[householdId,session?.user.id]);
 
   const switchSweet = useCallback((sweetId: string) => {
     const membership = memberships.find((item) => item.sweetId === sweetId);
@@ -1695,7 +1736,6 @@ export function AppProvider({
     setEssentialShortlistUpdatedBy(null);
     setRoommateStatusesState({});
     setSleepStartedAtState({});
-    setHomeLocationState(null);
     setChoreChartState(null);
     setChoreChartStartedAtState(null);
     setHomeProfileState(null);
@@ -1726,7 +1766,6 @@ export function AppProvider({
       setEssentialShortlistUpdatedBy(cached.essentialShortlistUpdatedBy ?? null);
       setRoommateStatusesState(cached.roommateStatuses);
       setSleepStartedAtState(cached.sleepStartedAt);
-      setHomeLocationState(cached.homeLocation);
       setChoreChartState(cached.choreChart);
       setChoreChartStartedAtState(cached.choreChartStartedAt);
       setHomeProfileState(cached.homeProfile);
@@ -1743,25 +1782,30 @@ export function AppProvider({
   const [deletedMembers, setDeletedMembers] = useState<Roommate[]>([]);
 
   const refreshMembers = useCallback(async () => {
-    if (!householdId) {
+    const userId = session?.user.id;
+    const inScope = () => activeSetupHouseholdRef.current === householdId && activeUserIdRef.current === userId;
+    if (!householdId || !userId) {
       setRoommates([]);
       setDeletedMembers([]);
       return;
     }
     setMembersLoading(true);
     try {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllRows(() => supabase
         .from("household_members")
-        .select("user_id, display_name, color, role")
+        .select("user_id, display_name, color, role, joined_at")
         .eq("household_id", householdId)
-        .eq("status", "active")
-        .order("joined_at", { ascending: true });
+        .eq("status", "active"), [{ column: "joined_at" }, { column: "user_id" }], { isCurrent: inScope });
       if (error) {
         reportSupabaseError("refresh household members", error, { householdId });
         return;
       }
-      const former = await supabase.from("former_household_members")
-        .select("id, display_name").eq("household_id", householdId);
+      const former = await fetchAllRows(() => supabase.from("former_household_members")
+        .select("id, display_name").eq("household_id", householdId), undefined, { isCurrent: inScope });
+      if (former.error || !inScope()) {
+        if (former.error) reportSupabaseError("refresh former household members", former.error, { householdId });
+        return;
+      }
       setDeletedMembers((former.data ?? []).map((member) => ({
         id: member.id, name: "Deleted member", color: "#808080",
         role: "member" as const, points: 0, weeklyPoints: 0,
@@ -1785,9 +1829,9 @@ export function AppProvider({
         });
       });
     } finally {
-      setMembersLoading(false);
+      if (inScope()) setMembersLoading(false);
     }
-  }, [householdId]);
+  }, [householdId, session?.user.id]);
 
   useEffect(() => {
     if (!householdId) return;
@@ -1831,7 +1875,7 @@ export function AppProvider({
   ) => {
     const { data, error } = await supabase.rpc("create_household", {
       household_name: name.trim(), member_name: displayName.trim(), member_color: color,
-      requested_invite_code: code,
+      requested_invite_code: "", // server generates the code; old installed clients remain compatible
       household_timezone: options?.timezone?.trim() || "UTC",
     });
     if (error) {
@@ -1841,6 +1885,8 @@ export function AppProvider({
     const userId = session?.user.id;
     const createdSweetId = Array.isArray(data) ? data[0]?.household_id : undefined;
     if (!createdSweetId) throw new Error("The new Sweet was created without an identifier.");
+    const issuedCode = Array.isArray(data) ? data[0]?.invite_code : undefined;
+    if (typeof issuedCode !== "string") throw new Error("The new household invitation could not be confirmed.");
     const isFirstSweet = memberships.length === 0;
     if (userId) {
       await AsyncStorage.setItem(activeSweetKey(userId), createdSweetId);
@@ -1861,7 +1907,7 @@ export function AppProvider({
       setBorrowItems([]); setPrivateBorrowItems([]); setNudges([]); setCurrentUserIdState(userId);
       setHouseholdId(createdSweetId);
       setHouseholdName(name.trim());
-      setInviteCode(code);
+      setInviteCode(issuedCode);
       setCurrentMemberRole("owner");
       setMemberships((current) => [
         ...current.filter((membership) => membership.sweetId !== createdSweetId),
@@ -1875,7 +1921,8 @@ export function AppProvider({
           timezone: options?.timezone?.trim() || "UTC",
           joinedAt: new Date().toISOString(),
           memberCount: 1,
-          inviteCode: code,
+          inviteCode: issuedCode,
+          invitationsEnabled: true,
         },
       ]);
     }
@@ -1885,22 +1932,26 @@ export function AppProvider({
   }, [memberships.length, session?.user.id]);
 
   const refreshHousehold = useCallback(() => {
-    setMembershipVersion((value) => value + 1);
+    void (pendingOperations?.retry() ?? Promise.resolve()).finally(() => setMembershipVersion((value) => value + 1));
   }, []);
 
   const joinHousehold = useCallback(async (code: string, displayName: string, color: string) => {
-    const { data, error } = await supabase.rpc("join_household", {
-      code: code.trim(), member_name: displayName.trim(), member_color: color,
+    const actor=session?.user.id;
+    const invitationHash=await invitationDigest(code);
+    const assertActor=()=>{if(!actor||activeUserIdRef.current!==actor)throw new Error("Your account changed. Reopen Join Household before continuing.");};
+    assertActor();
+    const { data, error } = await supabase.rpc("redeem_household_invite", {
+      invitation_hash: invitationHash, member_name: displayName.trim(), member_color: color,
     });
     if (error) {
       reportSupabaseError("join household", error);
       throw error;
     }
+    assertActor();
+    const joinedId = joinedHousehold(data);
     const isFirstSweet = memberships.length === 0;
     if (session?.user.id) {
-      if (typeof data === "string") {
-        await AsyncStorage.setItem(activeSweetKey(session.user.id), data);
-      }
+      await AsyncStorage.setItem(activeSweetKey(session.user.id), joinedId);
       if (isFirstSweet) {
         await AsyncStorage.mergeItem(
           userPreferencesKey(session.user.id),
@@ -1908,6 +1959,7 @@ export function AppProvider({
         );
       }
     }
+    assertActor();
     if (isFirstSweet) setPreferencesOnboardingPending(true);
     if (session?.user.id) setCurrentUserIdState(session.user.id);
     setMembershipVersion((value) => value + 1);
@@ -2014,7 +2066,6 @@ export function AppProvider({
     setEssentialShortlistUpdatedBy(null);
     setRoommateStatusesState({});
     setSleepStartedAtState({});
-    setHomeLocationState(null);
     setChoreChartState(null);
     setChoreChartStartedAtState(null);
     setHomeProfileState(null);
@@ -2164,7 +2215,6 @@ export function AppProvider({
                 essentialShortlistUpdatedBy,
                 roommateStatuses,
                 sleepStartedAt,
-                homeLocation,
                 choreChart,
                 choreChartStartedAt,
                 homeProfile,
@@ -2184,7 +2234,7 @@ export function AppProvider({
       clearTimeout(timer);
       interaction?.cancel();
     };
-  }, [appAlerts, borrowItems, choreChart, choreChartStartedAt, chores, currentUserId, customTasks, customTaskSyncMeta, essentialOwned, essentialShortlist, essentialShortlistUpdatedBy, essentialsAssignees, expenses, homeLocation, homeProfile, householdId, liveChart, loaded, roommateStatuses, roommates, session?.user.id, shoppingItems, shoppingLists, shoppingSyncMeta, sleepStartedAt, suppressedAlerts]);
+  }, [appAlerts, borrowItems, choreChart, choreChartStartedAt, chores, currentUserId, customTasks, customTaskSyncMeta, essentialOwned, essentialShortlist, essentialShortlistUpdatedBy, essentialsAssignees, expenses, homeProfile, householdId, liveChart, loaded, roommateStatuses, roommates, session?.user.id, shoppingItems, shoppingLists, shoppingSyncMeta, sleepStartedAt, suppressedAlerts]);
 
   const upsertInformationalAlerts = useCallback((incoming: AppAlert[]) => {
     if (!incoming.length) return;
@@ -2226,9 +2276,9 @@ export function AppProvider({
     const refresh = async () => {
       const request = ++version;
       try {
-        const { data, error } = await supabase.from("chore_chart_restart_notifications")
+        const { data, error } = await fetchAllRows(() => supabase.from("chore_chart_restart_notifications")
           .select("id, household_id, chart_id, actor_id, actor_name, recipient_id, created_at, read_at")
-          .eq("household_id", householdId).eq("recipient_id", currentUserId).order("created_at", { ascending: false });
+          .eq("household_id", householdId).eq("recipient_id", currentUserId), [{ column: "created_at", ascending: false }, { column: "id", ascending: false }], { isCurrent: () => active && request === version });
         if (!active || request !== version) return;
         if (error) throw error;
         const alerts = chartRestartAlerts((data ?? []) as ChartRestartNotification[], householdId, currentUserId);
@@ -2420,19 +2470,45 @@ export function AppProvider({
     essentialShortlistUpdatedBy,
     roommateStatuses,
     sleepStartedAt,
-    homeLocation,
     choreChart,
     choreChartStartedAt,
     homeProfile,
     liveChart,
     customTasks,
     customTaskSyncMeta,
-  }), [roommates, chores, expenses, shoppingLists, shoppingItems, shoppingSyncMeta, borrowItems, essentialOwned, essentialShortlistUpdatedBy, roommateStatuses, sleepStartedAt, homeLocation, choreChart, choreChartStartedAt, homeProfile, liveChart, customTasks, customTaskSyncMeta]);
+  }), [roommates, chores, expenses, shoppingLists, shoppingItems, shoppingSyncMeta, borrowItems, essentialOwned, essentialShortlistUpdatedBy, roommateStatuses, sleepStartedAt, choreChart, choreChartStartedAt, homeProfile, liveChart, customTasks, customTaskSyncMeta]);
 
   const latestSharedStateRef = useRef(sharedState);
   latestSharedStateRef.current = sharedState;
   const chorePersistenceQueueRef = useRef<Promise<void>>(Promise.resolve());
   const persistedChoreRowsRef = useRef<Map<string, ChoreRow>>(new Map());
+  const uncertainChoreWritesRef = useRef(new Set<string>());
+  const sharedSnapshotAckRef = useRef<{ scope: string; payload: string; uncertain: boolean }>({ scope: "", payload: "", uncertain: false });
+  const persistSharedSnapshot = useCallback((): Promise<void> => {
+    const userId = session?.user.id, target = householdId;
+    if (!userId || !target || !cloudReady) return Promise.reject(new Error("Your household is still loading."));
+    const scope = `${userId}:${target}`;
+    const assertScope = () => { if (activeUserIdRef.current !== userId || activeSetupHouseholdRef.current !== target) throw new Error("Your account or household changed."); };
+    const work = async () => {
+      assertScope();
+      const state = normalizedCollectionsReady ? withoutNormalizedCollections(latestSharedStateRef.current) : latestSharedStateRef.current;
+      const payload = JSON.stringify(state), previous = sharedSnapshotAckRef.current;
+      if (previous.scope === scope && previous.payload === payload && !previous.uncertain) return;
+      sharedSnapshotAckRef.current = { scope, payload: previous.scope === scope ? previous.payload : "", uncertain: true };
+      const { error } = await saveRequest(signal => supabase.from("household_states").upsert({
+        household_key: target, household_id: target, state,
+        updated_by: userId, updated_at: new Date().toISOString(),
+      }).abortSignal(signal));
+      assertScope();
+      if (error) throw error;
+      sharedSnapshotAckRef.current = { scope, payload, uncertain: false };
+    };
+    const operation = saveFeedback.run(scope, "household-state", "Household", () => persistSharedSnapshot(),
+      () => pendingOperations ? work() : chorePersistenceQueueRef.current.then(work, work));
+    chorePersistenceQueueRef.current = operation.catch(() => {});
+    return operation;
+  }, [cloudReady, householdId, normalizedCollectionsReady, session?.user.id]);
+
 
   useEffect(() => {
     if (!householdId || !cloudReady) return;
@@ -2464,7 +2540,9 @@ export function AppProvider({
           );
         })
       : false;
-    if (Array.isArray(next.roommates) && !hasNewerLocalChoreChange) {
+    const progressSaveOutstanding = saveFeedback.getSnapshot().scope === `${activeUserIdRef.current}:${activeSetupHouseholdRef.current}` &&
+      saveFeedback.getSnapshot().issues.some(issue => issue.key === "household-state");
+    if (Array.isArray(next.roommates) && !hasNewerLocalChoreChange && !progressSaveOutstanding) {
       const snapshotById = new Map(next.roommates.map((member) => [member.id, member]));
       memberMetadataRef.current = snapshotById;
       setRoommates((activeMembers) =>
@@ -2582,7 +2660,6 @@ export function AppProvider({
     }
     if (next.roommateStatuses) setRoommateStatusesState(next.roommateStatuses);
     if (next.sleepStartedAt) setSleepStartedAtState(next.sleepStartedAt);
-    if ("homeLocation" in next) setHomeLocationState(next.homeLocation ?? null);
     if ("choreChart" in next) setChoreChartState(next.choreChart ?? null);
     if ("choreChartStartedAt" in next) setChoreChartStartedAtState(next.choreChartStartedAt ?? null);
     if ("homeProfile" in next) setHomeProfileState(next.homeProfile ?? null);
@@ -2634,27 +2711,32 @@ export function AppProvider({
       };
     };
 
+    const overlayPrivateIntent = (incoming: BorrowItem[]) => {
+      const pending = [...privateBorrowIntentsRef.current.values()].filter(entry => entry.householdId === householdId && entry.ownerId === userId);
+      const ids = new Set(pending.map(entry => entry.id));
+      return [...incoming.filter(entry => !ids.has(entry.id)), ...pending];
+    };
     void AsyncStorage.getItem(cacheKey)
       .then((raw) => {
         if (!active || !raw || networkLoaded) return;
         const cached = JSON.parse(raw) as BorrowItem[];
         setPrivateBorrowItems(
-          cached.filter(
+          overlayPrivateIntent(cached.filter(
             (entry) =>
               entry.ownerId === userId &&
               entry.householdId === householdId &&
               entry.visibility === "private",
-          ),
+          )),
         );
       })
       .catch((error) =>
         reportRuntimeError("hydrate private borrowing cache", error, { householdId }),
       );
 
-    void supabase
+    void fetchAllRows(() => supabase
       .from("private_borrow_items")
       .select("id, household_id, owner_id, entry")
-      .eq("household_id", householdId)
+      .eq("household_id", householdId), undefined, { isCurrent: () => active })
       .then(({ data, error }) => {
         if (!active) return;
         networkLoaded = true;
@@ -2663,9 +2745,9 @@ export function AppProvider({
           return;
         }
         setPrivateBorrowItems(
-          (data ?? [])
+          overlayPrivateIntent((data ?? [])
             .map((row) => normalizeRow(row))
-            .filter((entry): entry is BorrowItem => entry !== null),
+            .filter((entry): entry is BorrowItem => entry !== null)),
         );
       });
 
@@ -2683,6 +2765,8 @@ export function AppProvider({
           if (payload.eventType === "DELETE") {
             const deleted = payload.old as { id?: string };
             if (deleted.id) {
+              privateBorrowIntentsRef.current.delete(deleted.id);
+              saveFeedback.discard(`${userId}:${householdId}`, `private-borrow:${deleted.id}`);
               setPrivateBorrowItems((current) =>
                 current.filter((entry) => entry.id !== deleted.id),
               );
@@ -2696,10 +2780,10 @@ export function AppProvider({
             entry: unknown;
           });
           if (!normalized || normalized.householdId !== householdId) return;
-          setPrivateBorrowItems((current) => [
+          setPrivateBorrowItems((current) => overlayPrivateIntent([
             ...current.filter((entry) => entry.id !== normalized.id),
             normalized,
-          ]);
+          ]));
         },
       )
       .subscribe();
@@ -2708,7 +2792,7 @@ export function AppProvider({
       active = false;
       void supabase.removeChannel(channel);
     };
-  }, [householdId, session?.user.id]);
+  }, [householdId, session?.user.id, operationRecoveryVersion]);
 
   useEffect(() => {
     const userId = session?.user.id;
@@ -2739,10 +2823,10 @@ export function AppProvider({
     };
     const channel = supabase.channel(`essential-assignments:${householdId}`);
 
-    void supabase
+    void fetchAllRows(() => supabase
       .from("sweet_essential_item_assignments")
       .select("household_id, section_key, item_id, user_id")
-      .eq("household_id", householdId)
+      .eq("household_id", householdId), [{ column: "section_key" }, { column: "item_id" }, { column: "user_id" }], { isCurrent: () => active })
       .then(({ data, error }) => {
         if (!active) return;
         if (error) {
@@ -2803,7 +2887,7 @@ export function AppProvider({
       active = false;
       void supabase.removeChannel(channel);
     };
-  }, [householdId, session?.user.id]);
+  }, [householdId, session?.user.id, operationRecoveryVersion]);
 
   useEffect(() => {
     const userId = session?.user.id;
@@ -2821,10 +2905,10 @@ export function AppProvider({
     };
     const channel = supabase.channel(`essential-shortlist:${householdId}`);
 
-    void supabase
+    void fetchAllRows(() => supabase
       .from("sweet_essential_shortlist_items")
       .select("household_id, section_key, item_id, added_by")
-      .eq("household_id", householdId)
+      .eq("household_id", householdId), [{ column: "section_key" }, { column: "item_id" }], { isCurrent: () => active })
       .then(({ data, error }) => {
         if (!active) return;
         if (error) {
@@ -2884,7 +2968,7 @@ export function AppProvider({
       active = false;
       void supabase.removeChannel(channel);
     };
-  }, [householdId, session?.user.id]);
+  }, [householdId, session?.user.id, operationRecoveryVersion]);
 
   // Load the shared household document and subscribe to other devices.
   useEffect(() => {
@@ -2973,40 +3057,14 @@ export function AppProvider({
       setCloudReady(false);
       supabase.removeChannel(channel);
     };
-  }, [applySharedState, householdId, loaded, session?.user.id]);
+  }, [applySharedState, householdId, loaded, session?.user.id, operationRecoveryVersion]);
 
-  // Coalesce quick mutations into one update and ignore realtime echoes.
+  // Journal shared mutations as soon as React commits; do not defer them behind a UI timer.
   useEffect(() => {
-    const userId = session?.user.id;
-    if (!loaded || !cloudReady || !userId || !householdId) return;
-    if (applyingRemoteRef.current) {
-      applyingRemoteRef.current = false;
-      return;
-    }
-
-    let interaction: ReturnType<typeof InteractionManager.runAfterInteractions> | null = null;
-    const timer = setTimeout(() => {
-      interaction = InteractionManager.runAfterInteractions(async () => {
-        const { error } = await supabase.from("household_states").upsert({
-          household_key: householdId,
-          household_id: householdId,
-          state: normalizedCollectionsReady
-            ? withoutNormalizedCollections(latestSharedStateRef.current)
-            : latestSharedStateRef.current,
-          updated_by: userId,
-          updated_at: new Date().toISOString(),
-        });
-        if (error) {
-          reportSupabaseError("save shared household state", error, { householdId });
-          console.warn("SweetMate change could not sync:", error.message);
-        }
-      });
-    }, 220);
-    return () => {
-      clearTimeout(timer);
-      interaction?.cancel();
-    };
-  }, [cloudReady, householdId, loaded, normalizedCollectionsReady, session?.user.id, sharedState]);
+    if (!loaded || !cloudReady || !session?.user.id || !householdId) return;
+    if (applyingRemoteRef.current) { applyingRemoteRef.current = false; return; }
+    void persistSharedSnapshot().catch(error => reportRuntimeError("save shared household state", error, { householdId }));
+  }, [cloudReady, householdId, loaded, normalizedCollectionsReady, session?.user.id, sharedState, persistSharedSnapshot]);
 
   // Hydrate chores from normalized rows and subscribe to row-level changes.
   // An empty table is bootstrapped once from the rollback blob, allowing the
@@ -3016,75 +3074,160 @@ export function AppProvider({
     choresTableReadyRef.current = false;
     setChoresTableReady(false);
     persistedChoreRowsRef.current = new Map();
+    uncertainChoreWritesRef.current = new Set();
     if (!loaded || !cloudReady || !userId || !householdId) return;
     let active = true;
     const channel = supabase.channel(`chores:${householdId}`);
 
+    let reading = false,
+      readAgain = false,
+      eventVersion = 0;
+    const inScope = () =>
+      active &&
+      activeSetupHouseholdRef.current === householdId &&
+      activeUserIdRef.current === userId;
     const connect = async () => {
-      const { data, error } = await supabase
-        .from("chores")
-        .select("*")
-        .eq("household_id", householdId)
-        .order("created_at", { ascending: true });
-      if (!active) return;
-      if (error) {
-        reportSupabaseError("load normalized chores", error, { householdId });
+      if (!inScope()) return;
+      if (reading) {
+        readAgain = true;
         return;
       }
-      const rows = (data ?? []) as ChoreRow[];
-      if (rows.length) {
-        const normalized = rows.map(rowToChore);
-        persistedChoreRowsRef.current = new Map(rows.map((row) => [row.id, row]));
-        choresRef.current = normalized;
-        setChores(normalized);
-      } else {
-        const bootstrap = planChoreSync(choresRef.current, new Set()).upserts;
-        if (bootstrap.length) {
-          const { error: bootstrapError } = await supabase
-            .from("chores")
-            .upsert(bootstrap, { onConflict: "id" });
-          if (!active) return;
-          if (bootstrapError) {
-            reportSupabaseError("bootstrap normalized chores", bootstrapError, {
-              householdId,
-              count: bootstrap.length,
-            });
-            return;
+      reading = true;
+      const version = eventVersion;
+      const wasLoaded = choresTableReadyRef.current;
+      const baseline = wasLoaded
+        ? new Map(persistedChoreRowsRef.current)
+        : new Map(
+            choresRef.current.flatMap((chore) => {
+              const row = choreToRow(chore);
+              return row ? [[row.id, row] as const] : [];
+            }),
+          );
+      try {
+        const { data, error } = await fetchAllRows(
+          () =>
+            supabase.from("chores").select("*").eq("household_id", householdId),
+          [{ column: "created_at" }, { column: "id" }],
+          { isCurrent: inScope },
+        );
+        if (!inScope()) return;
+        if (version !== eventVersion) {
+          readAgain = true;
+          return;
+        }
+        if (error) {
+          reportSupabaseError("load normalized chores", error, { householdId });
+          return;
+        }
+        const rows = (data ?? []) as ChoreRow[];
+        if (rows.length || wasLoaded) {
+          const normalized = mergeChoreSnapshot(
+            choresRef.current,
+            baseline,
+            rows,
+            uncertainChoreWritesRef.current,
+          );
+          persistedChoreRowsRef.current = new Map(
+            rows.map((row) => [row.id, row]),
+          );
+          choresRef.current = normalized;
+          setChores(normalized);
+        } else {
+          const bootstrap = planChoreSync(choresRef.current, new Set()).upserts;
+          if (bootstrap.length) {
+            const { error: bootstrapError } = await supabase
+              .from("chores")
+              .upsert(bootstrap, { onConflict: "id" });
+            if (!inScope()) return;
+            if (bootstrapError) {
+              reportSupabaseError(
+                "bootstrap normalized chores",
+                bootstrapError,
+                {
+                  householdId,
+                  count: bootstrap.length,
+                },
+              );
+              return;
+            }
+            persistedChoreRowsRef.current = new Map(
+              bootstrap.map((row) => [row.id, row]),
+            );
           }
-          persistedChoreRowsRef.current = new Map(bootstrap.map((row) => [row.id, row]));
+        }
+        choresTableReadyRef.current = true;
+        setChoresTableReady(true);
+        if (version !== eventVersion) readAgain = true;
+      } finally {
+        reading = false;
+        if (readAgain && inScope()) {
+          readAgain = false;
+          void connect().catch((error) =>
+            reportRuntimeError("refresh normalized chores", error, {
+              householdId,
+            }),
+          );
         }
       }
-      choresTableReadyRef.current = true;
-      setChoresTableReady(true);
+    };
 
-      channel
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "chores", filter: `household_id=eq.${householdId}` },
-          (payload) => {
-            if (!active) return;
-            const row = (payload.eventType === "DELETE" ? payload.old : payload.new) as ChoreRow;
-            if (!row?.id) return;
-            if (payload.eventType === "DELETE") persistedChoreRowsRef.current.delete(row.id);
-            else persistedChoreRowsRef.current.set(row.id, row);
-            const next = applyChoreRowEvent(
-              choresRef.current,
-              payload.eventType as "INSERT" | "UPDATE" | "DELETE",
-              row,
-            );
-            choresRef.current = next;
-            setChores(next);
-          },
-        )
-        .subscribe((status, subscriptionError) => {
-          if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-            reportSupabaseError("subscribe to normalized chores", subscriptionError ?? new Error(status), {
+    channel
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "chores",
+          filter: `household_id=eq.${householdId}`,
+        },
+        (payload) => {
+          if (!inScope()) return;
+          eventVersion++;
+          // Any event during a multi-page read invalidates that candidate.
+          // Before hydration, the next full read supplies the authoritative row.
+          if (!choresTableReadyRef.current) return;
+          const row = (
+            payload.eventType === "DELETE" ? payload.old : payload.new
+          ) as ChoreRow;
+          if (!row?.id) return;
+          const current = choresRef.current.find(chore => chore.id === row.id);
+          const localRow = current ? choreToRow(current) : null;
+          const pending = planChoreSync(choresRef.current, persistedChoreRowsRef.current, uncertainChoreWritesRef.current);
+          const keepLocal = payload.eventType !== "DELETE" && (pending.deleteIds.includes(row.id) ||
+            (pending.upserts.some(value => value.id === row.id) && localRow && !sameChoreWrite(localRow, row)));
+          if (payload.eventType === "DELETE") {
+            persistedChoreRowsRef.current.delete(row.id);
+            uncertainChoreWritesRef.current.delete(row.id);
+          }
+          else persistedChoreRowsRef.current.set(row.id, row);
+          if (keepLocal) return;
+          const next = applyChoreRowEvent(
+            choresRef.current,
+            payload.eventType as "INSERT" | "UPDATE" | "DELETE",
+            row,
+          );
+          choresRef.current = next;
+          setChores(next);
+        },
+      )
+      .subscribe((status, subscriptionError) => {
+        if (status === "SUBSCRIBED")
+          void connect().catch((error) =>
+            reportRuntimeError("reconnect normalized chores", error, {
+              householdId,
+            }),
+          );
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          reportSupabaseError(
+            "subscribe to normalized chores",
+            subscriptionError ?? new Error(status),
+            {
               householdId,
               status,
-            });
-          }
-        });
-    };
+            },
+          );
+        }
+      });
     void connect().catch((error) =>
       reportRuntimeError("connect normalized chores", error, { householdId }),
     );
@@ -3094,54 +3237,76 @@ export function AppProvider({
       setChoresTableReady(false);
       void supabase.removeChannel(channel);
     };
-  }, [cloudReady, householdId, loaded, session?.user.id]);
+  }, [cloudReady, householdId, loaded, session?.user.id, operationRecoveryVersion]);
 
-  // Every local mutation is persisted as row upserts plus explicit deletes.
-  // This covers generated recurrence rows and occurrence/future/series scopes
-  // without relying on a later one-time orphan cleanup.
-  useEffect(() => {
-    if (!choresTableReady || !householdId || !session?.user.id || applyingChartRef.current) return;
-    chorePersistenceQueueRef.current = chorePersistenceQueueRef.current.then(async () => {
+  // Retry persistence of the latest intent, never replay completion/points logic.
+  const persistChoreChanges = useCallback((): Promise<void> => {
+    const userId = session?.user.id;
+    if (!choresTableReadyRef.current || !householdId || !userId || applyingChartRef.current) return Promise.reject(new Error("Chores are still loading. Try again shortly."));
+    const scope = `${userId}:${householdId}`;
+    const assertScope = () => { if (activeSetupHouseholdRef.current !== householdId || activeUserIdRef.current !== userId || !choresTableReadyRef.current) throw new Error("Your account or household changed."); };
+    const persist = async () => {
       // Calculate after earlier queued mutations finish so a rapid create then
       // delete still observes (and removes) the row created by the first job.
-      if (activeSetupHouseholdRef.current !== householdId || !choresTableReadyRef.current) return;
+      assertScope();
       // Include server-created random chores and Realtime changes that arrived
       // while an earlier write was queued; an older render must not delete them.
-      const plan = planChoreSync(choresRef.current, persistedChoreRowsRef.current);
+      const plan = planChoreSync(choresRef.current, persistedChoreRowsRef.current, uncertainChoreWritesRef.current);
       if (plan.upserts.length) {
-        const { data: savedRows, error } = await supabase.from("chores").upsert(plan.upserts, { onConflict: "id" }).select("*");
+        plan.upserts.forEach(row => uncertainChoreWritesRef.current.add(row.id));
+        const { data: savedRows, error } = await (async () => {
+          const saved = await saveRequest(signal => supabase.from("chores").upsert(plan.upserts, { onConflict: "id" }).abortSignal(signal));
+          if (saved.error) return { data: null, error: saved.error };
+          // Write once, then read every saved row without relying on a large
+          // mutation representation or replaying the write for each page.
+          return fetchAllRowsByIds(plan.upserts.map(row => row.id), ids => supabase.from("chores").select("*").eq("household_id", householdId).in("id", ids), undefined,
+            { isCurrent: () => activeSetupHouseholdRef.current === householdId && activeUserIdRef.current === userId && choresTableReadyRef.current });
+        })();
         if (error) {
           reportSupabaseError("persist normalized chores", error, {
             householdId,
             count: plan.upserts.length,
           });
-          return;
+          throw error;
         }
-        if (activeSetupHouseholdRef.current !== householdId) return;
+        assertScope();
         for (const row of (savedRows ?? []) as ChoreRow[]) {
+          const attempted = plan.upserts.find(value => value.id === row.id);
+          const current = choresRef.current.find(value => value.id === row.id);
+          const local = current ? choreToRow(current) : null;
           persistedChoreRowsRef.current.set(row.id, row);
-          choresRef.current = applyChoreRowEvent(choresRef.current, "UPDATE", row);
+          uncertainChoreWritesRef.current.delete(row.id);
+          // A same-millisecond check/undo still has a newer intent. Its older
+          // acknowledgement must not restore the check or revive a deletion.
+          if (attempted && local && sameChoreWrite(local, attempted)) choresRef.current = applyChoreRowEvent(choresRef.current, "UPDATE", row);
         }
         setChores(choresRef.current);
       }
       if (plan.deleteIds.length) {
-        const { error } = await supabase
+        const { error } = await saveRequest(signal => supabase
           .from("chores")
           .delete()
           .eq("household_id", householdId)
-          .in("id", plan.deleteIds);
+          .in("id", plan.deleteIds).abortSignal(signal));
         if (error) {
           reportSupabaseError("delete normalized chores", error, {
             householdId,
             count: plan.deleteIds.length,
           });
-          return;
+          throw error;
         }
-        if (activeSetupHouseholdRef.current !== householdId) return;
-        plan.deleteIds.forEach((id) => persistedChoreRowsRef.current.delete(id));
+        assertScope();
+        plan.deleteIds.forEach((id) => { persistedChoreRowsRef.current.delete(id); uncertainChoreWritesRef.current.delete(id); });
       }
-    });
-  }, [chores, choresTableReady, householdId, session?.user.id]);
+    };
+    const operation = saveFeedback.run(scope, "chores", "Chores", () => persistChoreChanges(), () => pendingOperations ? persist() : chorePersistenceQueueRef.current.then(persist, persist));
+    chorePersistenceQueueRef.current = operation.catch(() => {});
+    return operation;
+  }, [householdId, session?.user.id, operationRecoveryVersion]);
+  useEffect(() => {
+    if (!choresTableReady || !householdId || !session?.user.id || applyingChartRef.current) return;
+    void persistChoreChanges().catch(error => reportRuntimeError("persist chores", error, { householdId }));
+  }, [chores, choresTableReady, householdId, session?.user.id, persistChoreChanges]);
 
   const receiveRandomTaskChores = useCallback((rows: ChoreRow[], target: string) => {
     if (activeSetupHouseholdRef.current !== target || !choresTableReadyRef.current) return;
@@ -3174,23 +3339,21 @@ export function AppProvider({
     const channel = supabase.channel(`nudges:${householdId}`);
 
     const refreshNudges = async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllRows(() => supabase
         .from("nudges")
         .select("id, to_member_id, chore_id, sent_at, seen, seen_at, dismissed_at")
         .eq("household_id", householdId)
-        .is("dismissed_at", null)
-        .order("sent_at", { ascending: false });
+        .is("dismissed_at", null), [{ column: "sent_at", ascending: false }, { column: "id", ascending: false }], { isCurrent: () => active });
       if (!active) return;
       if (error) {
         // Allow the app to remain usable while the additive `seen` migration
         // is being rolled out. The fallback can be removed after every
         // environment has 202607240001.
         if (error.code === "42703") {
-          const legacyResult = await supabase
+          const legacyResult = await fetchAllRows(() => supabase
             .from("nudges")
             .select("id, to_member_id, chore_id, sent_at")
-            .eq("household_id", householdId)
-            .order("sent_at", { ascending: false });
+            .eq("household_id", householdId), [{ column: "sent_at", ascending: false }, { column: "id", ascending: false }], { isCurrent: () => active });
           if (!active) return;
           if (legacyResult.error) {
             reportSupabaseError("load legacy household nudges", legacyResult.error, { householdId });
@@ -3254,7 +3417,7 @@ export function AppProvider({
       setNudgesReady(false);
       void supabase.removeChannel(channel);
     };
-  }, [householdId, session?.user.id]);
+  }, [householdId, session?.user.id, operationRecoveryVersion]);
 
   // Load deterministic-chart configuration and keep it live across roommates.
   useEffect(() => {
@@ -3274,9 +3437,9 @@ export function AppProvider({
     const refresh = async () => {
       const version = ++requestVersion;
       const [difficultyResult, preferenceResult, chartResult] = await Promise.all([
-        supabase.from("item_difficulty").select("id, household_id, category, item, difficulty").eq("household_id", householdId),
-        supabase.from("member_task_preferences").select("id, household_id, member_id, key, value").eq("household_id", householdId),
-        supabase.from("proposed_charts").select("id, household_id, created_by, status, payload, created_at, applied_at").eq("household_id", householdId).in("status", ["pending", "approved"]).order("created_at", { ascending: false }).limit(1).maybeSingle(),
+        fetchAllRows(() => supabase.from("item_difficulty").select("id, household_id, category, item, difficulty").eq("household_id", householdId), undefined, { isCurrent: () => active && version === requestVersion }),
+        fetchAllRows(() => supabase.from("member_task_preferences").select("id, household_id, member_id, key, value").eq("household_id", householdId), undefined, { isCurrent: () => active && version === requestVersion }),
+        supabase.from("proposed_charts").select("id, household_id, created_by, status, payload, created_at, applied_at").eq("household_id", householdId).in("status", ["pending", "approved"]).order("created_at", { ascending: false }).order("id", { ascending: false }).limit(1).maybeSingle(),
       ]);
       if (!active || version !== requestVersion) return;
       if (difficultyResult.error) {
@@ -3319,15 +3482,18 @@ export function AppProvider({
       } as ProposedChart : null;
       setCurrentProposedChartState(chart);
       if (chart) {
-        const { data: approvalRows, error: approvalsError } = await supabase
+        const { data: approvalRows, error: approvalsError } = await fetchAllRows(() => supabase
           .from("proposed_chart_approvals")
           .select("id, proposed_chart_id, member_id, approved, approved_at")
-          .eq("proposed_chart_id", chart.id);
+          .eq("proposed_chart_id", chart.id), undefined, { isCurrent: () => active && version === requestVersion });
         if (approvalsError) {
           reportSupabaseError("load proposed chart approvals", approvalsError, {
             householdId,
             chartId: chart.id,
           });
+          if (!active || version !== requestVersion) return;
+          setChartConfigurationHouseholdId(null);
+          throw new Error("Unable to load all chart approvals. Please try again.");
         }
         if (!active || version !== requestVersion) return;
         setChartApprovals((approvalRows ?? []).map((approval) => ({
@@ -3349,11 +3515,11 @@ export function AppProvider({
           // missed its chore events. "Already applied" must still hydrate it.
           if (hydratedAppliedChartId !== chart.id) {
             const baseline = new Map(persistedChoreRowsRef.current);
-            const { data, error } = await supabase.from("chores").select("*").eq("household_id", householdId);
+            const { data, error } = await fetchAllRows(() => supabase.from("chores").select("*").eq("household_id", householdId), [{ column: "created_at" }, { column: "id" }], { isCurrent: () => active && version === requestVersion });
             if (error) throw error;
             if (!active || version !== requestVersion) return;
             const rows = (data ?? []) as ChoreRow[];
-            const merged = mergeChoreSnapshot(choresRef.current, baseline, rows);
+            const merged = mergeChoreSnapshot(choresRef.current, baseline, rows, uncertainChoreWritesRef.current);
             persistedChoreRowsRef.current = new Map(rows.map(record => [record.id, record]));
             choresRef.current = merged;
             setChores(merged);
@@ -3383,7 +3549,7 @@ export function AppProvider({
             chore_rows: anchors.map(choreToRow),
           }).abortSignal(controller.signal);
           if (error) throw error;
-          const { data, error: loadError } = await supabase.from("chores").select("*").eq("household_id", householdId).abortSignal(controller.signal);
+          const { data, error: loadError } = await fetchAllRows(() => supabase.from("chores").select("*").eq("household_id", householdId), [{ column: "created_at" }, { column: "id" }], { signal: controller.signal, isCurrent: () => active });
           if (loadError) throw loadError;
           if (!active) return;
           const rows = (data ?? []) as ChoreRow[];
@@ -3465,7 +3631,7 @@ export function AppProvider({
       if (refreshChartStateRef.current === refresh) refreshChartStateRef.current = null;
       supabase.removeChannel(channel);
     };
-  }, [choresTableReady, householdId, memberRosterKey, session?.user.id, upsertInformationalAlerts]);
+  }, [choresTableReady, householdId, memberRosterKey, session?.user.id, upsertInformationalAlerts, operationRecoveryVersion]);
 
   const addChore = useCallback((chore: Omit<Chore, "id"> & { id?: string }) => {
     if (applyingChartRef.current) return null;
@@ -3666,7 +3832,7 @@ export function AppProvider({
   // Apply an explicit desired state. Repeated completion intents are no-ops,
   // preventing delayed presses/realtime rerenders from reversing the result or
   // awarding points twice.
-  const setChoreCompleted = useCallback((id: string, completed: boolean) => {
+  const setChoreCompleted = useCallback((id: string, completed: boolean, pickupBy?: string) => {
     if (applyingChartRef.current) return;
     const chore = choresRef.current.find((c) => c.id === id);
     const allowed = Boolean(chore) && permissionsForChore(chore!).canComplete;
@@ -3678,7 +3844,7 @@ export function AppProvider({
       isOwner: isHost,
       allowed,
     });
-    if (!chore || chore.skippedAt || !allowed) return;
+    if (!chore || chore.skippedAt || !allowed || (pickupBy && pickupBy !== currentUserId)) return;
     const transition = choreCompletionTransition(
       chore.completed,
       completed,
@@ -3707,15 +3873,12 @@ export function AppProvider({
     );
     choresRef.current = nextChores;
     setChores(nextChores);
-    const nextRoommates = roommatesRef.current.map((r) =>
-        r.id === chore.assignedTo
-          ? {
-              ...r,
-              points: r.points + delta,
-              weeklyPoints: r.weeklyPoints + delta,
-            }
-          : r
-    );
+    const nextRoommates = roommatesRef.current.map((r) => {
+      const earned = pickupBy && completed
+        ? (r.id === pickupBy ? chore.points + 25 : 0)
+        : (r.id === chore.assignedTo ? delta : 0);
+      return earned ? { ...r, points: r.points + earned, weeklyPoints: r.weeklyPoints + earned } : r;
+    });
     roommatesRef.current = nextRoommates;
     setRoommates(nextRoommates);
 
@@ -3729,27 +3892,19 @@ export function AppProvider({
       roommates: nextRoommates,
     };
     if (cloudReady && householdId && session?.user.id) {
-      chorePersistenceQueueRef.current = chorePersistenceQueueRef.current.then(
-        async () => {
-          const { error } = await supabase.from("household_states").upsert({
-            household_key: householdId,
-            household_id: householdId,
-            state: normalizedCollectionsReady
-              ? withoutNormalizedCollections(latestSharedStateRef.current)
-              : latestSharedStateRef.current,
-            updated_by: session.user.id,
-            updated_at: new Date().toISOString(),
-          });
-          if (error) {
-            reportSupabaseError("save completed chore state", error, {
-              householdId,
-              choreId: id,
-            });
-          }
-        },
-      );
+      if (pendingOperations) {
+        const state = normalizedCollectionsReady ? withoutNormalizedCollections(latestSharedStateRef.current) : latestSharedStateRef.current;
+        const rows = planChoreSync(nextChores, persistedChoreRowsRef.current, uncertainChoreWritesRef.current).upserts;
+        const steps = [
+          { name: "chores", rpc: false, method: "POST", body: rows, query: [["on_conflict", "id"]] as [string, string][], prefer: "resolution=merge-duplicates", accept: "" },
+          { name: "household_states", rpc: false, method: "POST", body: { household_key: householdId, household_id: householdId, state, updated_by: session.user.id, updated_at: completedAt }, query: [] as [string, string][], prefer: "resolution=merge-duplicates", accept: "" },
+        ];
+        void pendingOperations.submitBatch(steps, `${session.user.id}:${householdId}`).then(result => {
+          if (result.status >= 300) throw new Error("Your completion is saved on this device and waiting to sync.");
+        }).catch(error => reportRuntimeError("save completed chore state", error, { householdId, choreId: id }));
+      } else void persistSharedSnapshot().catch(error => reportRuntimeError("save completed chore state", error, { householdId, choreId: id }));
     }
-  }, [activeSweet, cloudReady, currentUserId, householdId, isHost, normalizedCollectionsReady, permissionsForChore, roommates, resolvedHouseholdTimezone, session?.user.id]);
+  }, [activeSweet, cloudReady, currentUserId, householdId, isHost, normalizedCollectionsReady, permissionsForChore, roommates, resolvedHouseholdTimezone, session?.user.id, persistSharedSnapshot]);
 
   const completeChore = useCallback((id: string) => {
     if (applyingChartRef.current) return;
@@ -3757,34 +3912,12 @@ export function AppProvider({
     if (chore) setChoreCompleted(id, !chore.completed);
   }, [setChoreCompleted]);
 
-  const PICKUP_BONUS = 25;
-
   const pickUpChore = useCallback((choreId: string, completedById: string) => {
     if (applyingChartRef.current) return;
     const chore = choresRef.current.find((candidate) => candidate.id === choreId);
     if (!chore || chore.completed || chore.skippedAt) return;
-    setChoreCompleted(choreId, true);
-    setRoommates((prev) =>
-      prev.map((r) => {
-        if (r.id === completedById) {
-          const earned =
-            r.id === chore.assignedTo ? PICKUP_BONUS : chore.points + PICKUP_BONUS;
-          return {
-            ...r,
-            points: r.points + earned,
-            weeklyPoints: r.weeklyPoints + earned,
-          };
-        }
-        if (r.id === chore.assignedTo) {
-          return {
-            ...r,
-            points: r.points - chore.points,
-            weeklyPoints: r.weeklyPoints - chore.points,
-          };
-        }
-        return r;
-      })
-    );
+    // Compute the pickup reward before the completion batch reaches device storage.
+    setChoreCompleted(choreId, true, completedById);
   }, [setChoreCompleted]);
 
   const deleteChore = useCallback((
@@ -3933,19 +4066,28 @@ export function AppProvider({
     setShoppingSyncMeta(next);
   }, [session?.user.id]);
 
-  const addShoppingList = useCallback((name: string, plannedDate?: string, plannedTime?: string) => {
-    const id = makeId();
+  const addShoppingList = useCallback(async (name: string, plannedDate?: string, plannedTime?: string, draftId?: string) => {
+    const actor = session?.user.id, target = householdId;
+    const assertScope = () => {
+      if (!actor || !target || activeUserIdRef.current !== actor || activeSetupHouseholdRef.current !== target)
+        throw new Error("Your account or household changed. Reopen Shopping and try again.");
+    };
+    assertScope();
+    if (!shoppingListsTableReadyRef.current) throw new Error("Shopping is still loading. Please try again.");
+    const id = draftId ?? makeId();
     recordShoppingVersions("list", [id]);
-    setShoppingLists((prev) => {
-      // Insert at the TOP of the unpinned partition.
-      const newList: ShoppingList = { id, name, plannedDate, plannedTime };
-      const pinned = prev.filter((l) => l.pinned);
-      const unpinned = prev.filter((l) => !l.pinned);
-      return withShoppingOrder([...pinned, newList, ...unpinned]);
-    });
+    const existing = shoppingListsRef.current.find(list => list.id === id);
+    const newList: ShoppingList = { ...existing, id, name, plannedDate, plannedTime };
+    const others = shoppingListsRef.current.filter(list => list.id !== id);
+    const next = existing ? shoppingListsRef.current.map(list => list.id === id ? newList : list)
+      : withShoppingOrder([...others.filter(list => list.pinned), newList, ...others.filter(list => !list.pinned)]);
+    shoppingListsRef.current = next;
+    setShoppingLists(next);
+    await shoppingListsTableReadyRef.flush();
+    assertScope();
     track.shoppingListCreated();
     return id;
-  }, [recordShoppingVersions]);
+  }, [recordShoppingVersions, householdId, session?.user.id]);
 
   // Accept whatever id order the DraggableFlatList emits, then re-partition
   // pinned-first / unpinned-second while preserving the user's relative order
@@ -4004,13 +4146,32 @@ export function AppProvider({
     setShoppingItems(shoppingItemsRef.current);
   }, [recordShoppingVersions]);
 
-  const addShoppingItem = useCallback((item: Omit<ShoppingItem, "id">) => {
-    const id = makeId();
+  const addShoppingItem = useCallback(async (item: Omit<ShoppingItem, "id">, draftId?: string) => {
+    const actor = session?.user.id, target = householdId;
+    const assertScope = () => {
+      if (!actor || !target || activeUserIdRef.current !== actor || activeSetupHouseholdRef.current !== target)
+        throw new Error("Your account or household changed. Reopen Shopping and try again.");
+    };
+    assertScope();
+    if (!shoppingListsTableReadyRef.current || !shoppingItemsTableReadyRef.current)
+      throw new Error("Shopping is still loading. Please try again.");
+    if (!shoppingListsRef.current.some(list => list.id === item.listId)) throw new Error("This list is no longer available.");
+    const id = draftId ?? makeId();
+    const reportName = item.addedBy === actor ? prepareItemNameAnalytics("shopping", "manual", [item.name]) : () => {};
     recordShoppingVersions("item", [id]);
-    setShoppingItems((prev) => withShoppingOrder([...prev, { ...item, id }]));
+    const existing = shoppingItemsRef.current.some(entry => entry.id === id);
+    const next = existing ? shoppingItemsRef.current.map(entry => entry.id === id ? { ...entry, ...item, id } : entry)
+      : withShoppingOrder([...shoppingItemsRef.current, { ...item, id }]);
+    shoppingItemsRef.current = next;
+    setShoppingItems(next);
+    await shoppingListsTableReadyRef.flush();
+    assertScope();
+    await shoppingItemsTableReadyRef.flush();
+    assertScope();
     track.shoppingItemAdded();
-    if (item.addedBy === currentUserId) prepareItemNameAnalytics("shopping", "manual", [item.name])();
-  }, [recordShoppingVersions, currentUserId]);
+    reportName();
+    return id;
+  }, [recordShoppingVersions, householdId, session?.user.id]);
 
   const addSelectedEssentialsToShopping = useCallback(
     async (selection: EssentialShortlist): Promise<EssentialShoppingTransferResult> => {
@@ -4152,35 +4313,30 @@ export function AppProvider({
     );
   }, [recordShoppingVersions]);
 
-  const persistPrivateBorrowItem = useCallback((
-    entry: BorrowItem,
-    rollback?: BorrowItem,
-  ) => {
-    const userId = session?.user.id;
-    if (
-      !userId ||
-      !householdId ||
-      entry.ownerId !== userId ||
-      entry.visibility !== "private"
-    ) return;
-    void supabase.from("private_borrow_items").upsert({
-      id: entry.id,
-      household_id: householdId,
-      owner_id: userId,
-      entry,
-      updated_at: entry.updatedAt ?? new Date().toISOString(),
-    }).then(({ error }) => {
-      if (error) {
-        reportSupabaseError("save private borrowing entry", error, { householdId });
-        setPrivateBorrowItems((current) => rollback
-          ? [
-              ...current.filter((candidate) => candidate.id !== entry.id),
-              rollback,
-            ]
-          : current.filter((candidate) => candidate.id !== entry.id),
-        );
-      }
-    });
+  const persistPrivateBorrowItem = useCallback((entry: BorrowItem): Promise<void> => {
+    const userId = session?.user.id, target = householdId;
+    if (!userId || !target || entry.ownerId !== userId || entry.visibility !== "private") return Promise.reject(new Error("This borrowing record is unavailable."));
+    const scope = `${userId}:${target}`, key = `private-borrow:${entry.id}`;
+    privateBorrowIntentsRef.current.set(entry.id, entry);
+    const assertScope = () => { if (activeUserIdRef.current !== userId || activeSetupHouseholdRef.current !== target) throw new Error("Your account or household changed."); };
+    const persist = async () => {
+      assertScope();
+      const desired = privateBorrowIntentsRef.current.get(entry.id);
+      if (!desired) return;
+      const { error } = await saveRequest(signal => supabase.from("private_borrow_items").upsert({
+        id: desired.id, household_id: target, owner_id: userId, entry: desired,
+        updated_at: desired.updatedAt ?? new Date().toISOString(),
+      }).abortSignal(signal));
+      assertScope();
+      if (error) throw error;
+      if (privateBorrowIntentsRef.current.get(entry.id) === desired) privateBorrowIntentsRef.current.delete(entry.id);
+    };
+    const operation = saveFeedback.run(scope, key, "Borrowing", () => {
+      const latest = privateBorrowIntentsRef.current.get(entry.id);
+      return latest ? persistPrivateBorrowItem(latest) : Promise.resolve();
+    }, () => pendingOperations ? persist() : (privateBorrowQueuesRef.current.get(entry.id) ?? Promise.resolve()).then(persist, persist));
+    privateBorrowQueuesRef.current.set(entry.id, operation.catch(() => {}));
+    return operation;
   }, [householdId, session?.user.id]);
 
   const persistAndPublishBorrow = useCallback(async (entry: BorrowItem) => {
@@ -4296,7 +4452,7 @@ export function AppProvider({
       setPrivateBorrowItems((prev) =>
         prev.map((entry) => entry.id === id ? updated : entry),
       );
-      persistPrivateBorrowItem(updated, current);
+      void persistPrivateBorrowItem(updated).catch(error => reportRuntimeError("save private borrowing return", error, { householdId }));
     } else {
       setBorrowItems((prev) =>
         prev.map((entry) => entry.id === id ? updated : entry),
@@ -4391,7 +4547,7 @@ export function AppProvider({
     const previous = essentialShortlist;
     setEssentialShortlist(next);
     setEssentialShortlistUpdatedBy(userId);
-    const { data, error } = await supabase.rpc("save_sweet_essential_shortlist", {
+    const { error } = await supabase.rpc("save_sweet_essential_shortlist", {
       target_household_id: householdId,
       selected_items: shortlistSelectionRows(next),
       removed_items: removedShortlistRows(baseline, next),
@@ -4401,13 +4557,14 @@ export function AppProvider({
       setEssentialShortlist(previous);
       return false;
     }
-    if (Array.isArray(data)) {
-      setEssentialShortlist(
-        migrateEssentialRecord(
-          shortlistFromRows(data as Array<{ section_key: string; item_id: string }>),
-        ),
-      );
-    }
+    // The mutating RPC's SETOF response is capped. Re-read rather than replay
+    // the save or replacing the full shortlist with only its first response page.
+    const { data, error: readError } = await fetchAllRows(() => supabase.from("sweet_essential_shortlist_items")
+      .select("section_key, item_id").eq("household_id", householdId), [{ column: "section_key" }, { column: "item_id" }],
+      { isCurrent: () => activeSetupHouseholdRef.current === householdId && activeUserIdRef.current === userId });
+    if (activeSetupHouseholdRef.current !== householdId || activeUserIdRef.current !== userId) return true;
+    if (readError) { reportSupabaseError("refresh saved Sweet Essential shortlist", readError, { householdId }); return true; }
+    setEssentialShortlist(migrateEssentialRecord(shortlistFromRows(data ?? [])));
     return true;
   }, [essentialShortlist, householdId, session?.user.id]);
 
@@ -4449,7 +4606,7 @@ export function AppProvider({
     });
   }, []);
 
-  // Auto-revert "asleep" → "home" after 9 hours; schedules the next-due timer
+  // Auto-revert Sleeping → Available after 9 hours; schedules the next-due timer
   // and runs an immediate sweep on load (covers app being closed past expiry).
   useEffect(() => {
     if (!loaded) return;
@@ -4481,10 +4638,6 @@ export function AppProvider({
     }, nextExpiry - now);
     return () => clearTimeout(t);
   }, [loaded, sleepStartedAt, roommateStatuses]);
-
-  const setHomeLocation = useCallback((loc: HomeLocation | null) => {
-    setHomeLocationState(loc);
-  }, []);
 
   const setChoreChart = useCallback(
     (data: ChoreChartData | null, startedAt: string | null) => {
@@ -4651,19 +4804,28 @@ export function AppProvider({
   }, [householdId]);
 
   const approveProposedChart = useCallback(async (chartId?: string) => {
+    const target = householdId;
+    const actor = session?.user.id;
+    const assertTarget = () => {
+      if (!target || !actor || activeUserIdRef.current !== actor || activeSetupHouseholdRef.current !== target)
+        throw new Error("Your account or household changed. Reopen the chart in its household.");
+    };
+    assertTarget();
     const targetChartId = chartId ?? currentProposedChart?.id;
     if (!targetChartId) throw new Error("Reopen the latest chart before approving.");
     const { error } = await supabase.rpc("approve_proposed_chart", {
       target_chart_id: targetChartId,
     });
     if (error) {
-      reportSupabaseError("approve proposed chart", error, {
-        chartId: targetChartId,
-      });
+      reportSupabaseError("approve proposed chart", error, { chartId: targetChartId });
+      if (activeUserIdRef.current === actor && activeSetupHouseholdRef.current === target)
+        await refreshChartStateRef.current?.().catch(() => {});
       throw error;
     }
+    assertTarget();
     await refreshChartStateRef.current?.();
-  }, [currentProposedChart]);
+    assertTarget();
+  }, [currentProposedChart, householdId, session?.user.id]);
 
   const forceApproveProposedChart = useCallback(async (chartId?: string) => {
     const targetChartId = chartId ?? currentProposedChart?.id;
@@ -4693,12 +4855,6 @@ export function AppProvider({
     if (activeSetupHouseholdRef.current !== target) throw new Error("The active household changed. Reopen chore planning in its household.");
     await refreshChartStateRef.current?.();
   }, [householdId]);
-
-  const setCurrentUser = useCallback((id: string) => {
-    // Legacy callers may refresh the signed-in profile, but must never
-    // impersonate another household member inside this authenticated session.
-    if (id === session?.user.id) setCurrentUserIdState(id);
-  }, [session?.user.id]);
 
   const setPendingIouDraft = useCallback((draft: PendingIouDraft | null) => {
     setPendingIouDraftState(draft);
@@ -4898,6 +5054,7 @@ export function AppProvider({
     householdTimezone: activeSweet?.timezone ?? "UTC",
     householdName,
     inviteCode,
+    invitationsEnabled,
     householdLoading,
     householdError,
     membersLoading,
@@ -4912,7 +5069,6 @@ export function AppProvider({
     removeRoommate,
     deleteOwnAccount,
     currentUserId,
-    setCurrentUser,
     roommates,
     chores,
     householdChoreSummary,
@@ -4985,8 +5141,6 @@ export function AppProvider({
     roommateStatuses,
     setRoommateStatus,
     sleepStartedAt,
-    homeLocation,
-    setHomeLocation,
     choreChart,
     choreChartStartedAt,
     setChoreChart,
@@ -5007,10 +5161,10 @@ export function AppProvider({
     dismissQuickGuide, visibleAppAlerts, markAlertRead, markAllAlertsRead,
     householdComplete, setHouseholdComplete,
     colorScheme, appearanceMode, pointsEnabled, plantEnabled, hiddenTabs, setTabHidden, roommateActivityEnabled, leaderboardPeriod, householdId, memberships, activeSweet, householdName,
-    inviteCode, householdLoading, householdError, membersLoading, currentMemberRole, householdPreferencesReady, cloudReady,
+    inviteCode, invitationsEnabled, householdLoading, householdError, membersLoading, currentMemberRole, householdPreferencesReady, cloudReady,
     refreshMembers, refreshHousehold, createHousehold, joinHousehold, switchSweet, leaveSweet,
     deleteHousehold, removeRoommate, deleteOwnAccount, currentUserId,
-    setCurrentUser, roommates, chores, householdChoreSummary, expenses, shoppingLists, shoppingItems,
+    roommates, chores, householdChoreSummary, expenses, shoppingLists, shoppingItems,
     visibleBorrowItems, nudges, nudgesReady, addChore, updateChore, addChores, setChoreCompleted, completeChore, pickUpChore, deleteChore,
     addExpense, updateExpense, settleExpense, deleteExpense, restoreExpense, expenseActivity, expenseActivityLoading, expenseActivityError, loadExpenseActivity, canEditExpense, canManageExpense, markPersonPaid, reopenExpense, undoPersonPaid, expenseSync, pendingExpenseIds,
     addShoppingList, reorderShoppingLists, pinShoppingList, deleteShoppingList,
@@ -5022,7 +5176,7 @@ export function AppProvider({
     getChoresByRoommate, getBalances, essentialsAssignees, essentialOwned,
     essentialShortlist, essentialShortlistUpdatedBy, setEssentialOwned, saveEssentialShortlist,
     setEssentialSelfAssignment, suppressedAlerts, suppressAlert, roommateStatuses,
-    setRoommateStatus, sleepStartedAt, homeLocation, setHomeLocation,
+    setRoommateStatus, sleepStartedAt,
     choreChart, choreChartStartedAt, setChoreChart, homeProfile,
   ]);
 

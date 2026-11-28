@@ -1,12 +1,12 @@
+import { newPasswordValidation } from "@/lib/passwordPolicy";
+import { RecoveryEmailScreen } from "@/components/PasswordRecoveryScreen";
 import { KEYBOARD_BEHAVIOR } from "@/lib/keyboard";
 // Email/password sign-in and sign-up UI, shown by AuthGate whenever there's
 // no Supabase session. Toggles between two modes:
 //   - "signin" → supabase.auth.signInWithPassword
 //   - "signup" → supabase.auth.signUp
-// SweetMate's Supabase project auto-confirms new email/password accounts, so
-// signUp normally returns a session and AuthGate opens the app immediately.
-// The confirmation fallback remains only for legacy accounts created before
-// auto-confirm was enabled.
+// New email accounts follow the server confirmation policy; existing sessions
+// and sign-in passwords remain compatible.
 
 import { Feather, FontAwesome } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -55,6 +55,7 @@ function isValidEmail(s: string): boolean {
 
 export function SignInScreen() {
   const colors = useTheme();
+  const [recovering, setRecovering] = useState(false);
   const [shareOptionalData, setShareOptionalData] = useState(false);
   const insets = useSafeAreaInsets();
   const [mode, setMode] = useState<Mode>("signin");
@@ -75,8 +76,9 @@ export function SignInScreen() {
       setError("Please enter a valid email address.");
       return;
     }
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters.");
+    const passwordError = mode === "signup" ? newPasswordValidation(password) : (!password ? "Enter your password." : null);
+    if (passwordError) {
+      setError(passwordError);
       return;
     }
     setLoading(true);
@@ -125,15 +127,14 @@ export function SignInScreen() {
           catch (consentError) { reportRuntimeError("save optional signup privacy choice", consentError); }
         }
         if (data.session) {
-          // Auto-confirm is enabled — the new user is signed in immediately.
+          // Some development servers may return a session immediately.
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           await recordAnalyticsAuthSucceeded(data.session.user.id, analyticsAttempt, { method: "email", mode: "signup" }, true);
         } else {
-          // Defensive fallback for a legacy/unconfirmed account or a remote
-          // configuration mismatch.
+          // Production requires email ownership confirmation before first sign-in.
           setConfirmationEmail(email.trim());
           setInfo(
-            "Your account was created, but SweetMate could not start your session. Try signing in, or resend the confirmation for this account."
+            "Check your email to confirm your account. Then return to SweetMate and sign in."
           );
         }
       }
@@ -245,6 +246,8 @@ export function SignInScreen() {
   const canSubmit = email.trim().length > 0 && password.length > 0 && !busy;
   const openPolicy = () => openPrivacyPolicy(() => setError("Privacy Policy unavailable. Check your connection, or visit sweetmate.info/privacy in a browser."));
 
+  if (recovering) return <RecoveryEmailScreen initialEmail={email} onClose={() => setRecovering(false)} />;
+
   return (
     <KeyboardAvoidingView
       style={[styles.root, { backgroundColor: colors.background }]}
@@ -302,7 +305,7 @@ export function SignInScreen() {
                 borderColor: colors.border,
               },
             ]}
-            placeholder={mode === "signup" ? "At least 6 characters" : "Your password"}
+            placeholder={mode === "signup" ? "At least 12 characters" : "Your password"}
             placeholderTextColor={colors.mutedForeground}
             value={password}
             onChangeText={setPassword}
@@ -312,6 +315,10 @@ export function SignInScreen() {
             textContentType={mode === "signup" ? "newPassword" : "password"}
             editable={!busy}
           />
+
+          {mode === "signin" ? <TouchableOpacity accessibilityRole="button" accessibilityLabel="Forgot password?" disabled={busy} onPress={() => { setPassword(""); setRecovering(true); }} style={styles.resendButton}>
+            <Text style={[styles.resendText, { color: colors.mutedForeground, textDecorationLine: "underline" }]}>Forgot password?</Text>
+          </TouchableOpacity> : null}
 
           {error ? (
             <View style={[styles.banner, { backgroundColor: colors.destructive + "18", borderColor: colors.destructive + "44" }]}>

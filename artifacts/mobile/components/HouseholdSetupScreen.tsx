@@ -531,7 +531,7 @@ export function HouseholdSetupScreen({
           {mode === "join" ? (
             <>
               <Field label="YOUR DISPLAY NAME" icon="user" value={displayName} onChangeText={setDisplayName} placeholder="e.g. Liana" colors={colors} />
-              <Field label="INVITE CODE" icon="key" value={inviteCode} onChangeText={(v: string) => setInviteCode(v.toUpperCase())} placeholder="8-character code" autoCapitalize="characters" colors={colors} />
+              <Field label="INVITE CODE" icon="key" value={inviteCode} onChangeText={(v: string) => setInviteCode(v.toUpperCase())} placeholder="Household or personal invitation code" autoCapitalize="characters" colors={colors} />
               <Text style={[styles.label, { color: colors.mutedForeground }]}>PROFILE COLOR</Text>
               <ColorPicker value={color} onChange={setColor} colors={colors} />
             </>

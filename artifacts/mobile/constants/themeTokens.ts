@@ -220,18 +220,22 @@ export function resolveThemeTokens(mode: AppearanceMode, scheme: ColorScheme) {
     ? "rgba(30,30,33,0.76)"
     : "rgba(255,255,255,0.84)";
   const surfaceModal = dark ? "rgba(24,24,27,0.96)" : "rgba(248,248,251,0.96)";
-  // Content cards keep the normal dark-page appearance without sampling a
-  // changing scene behind them. Glass remains a separate chrome material.
-  const card = dark ? "#1A1A1B" : "#FBFBFC";
-  const cardSubtle = dark ? "#121213" : "#F9F9FB";
-  const cardElevated = dark ? "#18181B" : "#FDFDFE";
-  const surfaceModalOpaque = dark ? "#18181B" : "#F8F8FB";
+  // Dark content uses the exact page black on every platform. Separate gray
+  // fills made lists and nested cards look brighter on the installed app.
+  // Borders and spacing carry grouping; glass remains on controls only.
+  const background = dark ? "#000000" : "#F4F4F7";
+  const card = dark ? background : "#FBFBFC";
+  const cardSubtle = dark ? background : "#F9F9FB";
+  const cardElevated = dark ? background : "#FDFDFE";
+  const surfaceModalOpaque = dark ? background : "#F8F8FB";
+  // Controls keep a distinct, readable fallback with Reduce Transparency or
+  // without native glass. Do not derive this from the content card palette.
+  const controlSurfaceOpaque = dark ? "#18181B" : "#FDFDFE";
   const destructiveSurfaceOpaque = dark ? "#311B1F" : "#FFF0F2";
   const textPrimary = dark ? "#F5F5F7" : "#1A1A1D";
   const textSecondary = dark ? "rgba(255,255,255,0.60)" : "rgba(0,0,0,0.55)";
   const divider = dark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.09)";
   const destructive = dark ? "#FF5A65" : "#C93444";
-  const background = dark ? "#070708" : "#F4F4F7";
 
   return {
     mode,
@@ -242,6 +246,7 @@ export function resolveThemeTokens(mode: AppearanceMode, scheme: ColorScheme) {
     cardSubtle,
     cardElevated,
     surfaceModalOpaque,
+    controlSurfaceOpaque,
     destructiveSurfaceOpaque,
     textPrimary,
     textSecondary,

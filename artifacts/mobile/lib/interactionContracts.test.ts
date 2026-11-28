@@ -11,23 +11,29 @@ function files(path: string): string[] {
 }
 for (const path of [...files("app"), ...files("components")]) {
   const source = ts.createSourceFile(path, readFileSync(path, "utf8"), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-  const childElement = (node: ts.Node): ts.JsxOpeningLikeElement | undefined => {
-    if (ts.isJsxElement(node)) return node.openingElement;
-    if (ts.isJsxSelfClosingElement(node)) return node;
-    if (ts.isJsxExpression(node) && node.expression) return childElement(node.expression);
-    if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken) return childElement(node.right);
-    return undefined;
+  const childElements = (node: ts.Node): ts.JsxOpeningLikeElement[] => {
+    if (ts.isJsxElement(node)) return [node.openingElement];
+    if (ts.isJsxSelfClosingElement(node)) return [node];
+    if (ts.isJsxExpression(node) && node.expression) return childElements(node.expression);
+    if (ts.isParenthesizedExpression(node)) return childElements(node.expression);
+    if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken) return childElements(node.right);
+    if (ts.isConditionalExpression(node)) return [...childElements(node.whenTrue), ...childElements(node.whenFalse)];
+    return [];
   };
   const visit = (node: ts.Node) => {
     if (ts.isJsxElement(node) || ts.isJsxFragment(node)) {
       const keys = new Set<string>();
       for (const child of node.children) {
-        const element = childElement(child);
-        const attribute = element?.attributes.properties.find((prop): prop is ts.JsxAttribute => ts.isJsxAttribute(prop) && prop.name.getText(source) === "key");
-        if (!attribute?.initializer) continue;
-        const key = attribute.initializer.getText(source).replace(/\s/g, "");
-        assert(!keys.has(key), `${path}: duplicate explicit sibling key ${key}`);
-        keys.add(key);
+        // Branches of one conditional are mutually exclusive; compare their
+        // possible keys against other sibling positions, not against each other.
+        const possibleKeys = new Set(childElements(child).flatMap(element => {
+          const attribute = element.attributes.properties.find((prop): prop is ts.JsxAttribute => ts.isJsxAttribute(prop) && prop.name.getText(source) === "key");
+          return attribute?.initializer ? [attribute.initializer.getText(source).replace(/\s/g, "")] : [];
+        }));
+        for (const key of possibleKeys) {
+          assert(!keys.has(key), `${path}: duplicate explicit sibling key ${key}`);
+          keys.add(key);
+        }
       }
     }
     ts.forEachChild(node, visit);

@@ -146,6 +146,46 @@ await analytics.flushAnalytics();
 assert.equal(flushes, 1);
 assert(clientOptions.every((options) => options.enableSessionReplay === false && options.captureAppLifecycleEvents === false && options.defaultOptIn === false));
 assert(optInCalls >= 2);
+// Exercise the actual hooks handed to the pinned SDK, including identity and
+// nested legacy properties. No live vendor event or historical record is used.
+for (const options of clientOptions) {
+  assert.equal(options.disableGeoip, true);
+  const beforeSend = options.before_send as (event: any) => any;
+  assert.equal(beforeSend(null), null);
+  const timestamp = new Date("2026-11-27T12:00:00Z");
+  const event = { event: "privacy_test", timestamp, properties: {
+    token: "test-only", $ip: "192.0.2.1", $geoip_country_name: "Test",
+    $initial_geoip_latitude: 1, $timezone: "Test/Zone", $locale: "en-US",
+    homeLocation: { latitude: 1, longitude: 2 }, recurring: true,
+    nested: [{ city: "Test", frequency: "weekly" }], $geoip_disable: false,
+    $set: { $initial_geoip_city_name: "Test", app_version: "test" },
+  }, $set_once: { longitude: 2, platform: "test" } };
+  const cleaned = beforeSend(event);
+  assert.equal(cleaned.timestamp, timestamp);
+  assert.equal(cleaned.event, "privacy_test");
+  assert.equal(cleaned.properties.token, "test-only");
+  assert.equal(cleaned.properties.recurring, true);
+  assert.equal(cleaned.properties.$geoip_disable, true);
+  assert.equal(cleaned.properties.$ip, undefined);
+  assert.equal(cleaned.properties.$geoip_country_name, undefined);
+  assert.equal(cleaned.properties.$initial_geoip_latitude, undefined);
+  assert.equal(cleaned.properties.$timezone, undefined);
+  assert.equal(cleaned.properties.$locale, undefined);
+  assert.equal(cleaned.properties.homeLocation, undefined);
+  assert.equal(cleaned.properties.nested[0].city, undefined);
+  assert.equal(cleaned.properties.nested[0].frequency, "weekly");
+  assert.equal(cleaned.properties.$set.$initial_geoip_city_name, undefined);
+  assert.equal(cleaned.$set_once.longitude, undefined);
+  assert.equal(cleaned.$set_once.platform, "test");
+  assert.equal(event.properties.$ip, "192.0.2.1", "sanitization must not mutate shared input");
+  const appProperties = (options.customAppProperties as Function)({
+    $timezone: "Test/Zone", $locale: "en-US", $os_name: "test", $app_build: "test",
+  });
+  assert.equal(appProperties.$timezone, undefined);
+  assert.equal(appProperties.$locale, undefined);
+  assert.equal(appProperties.$os_name, "test");
+}
+
 
 // Rapid independent toggles merge. A stale re-enable never initializes a client.
 await Promise.all([

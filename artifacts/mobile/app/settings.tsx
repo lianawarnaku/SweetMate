@@ -1,4 +1,6 @@
+import { HouseholdInvitationControls } from "@/components/HouseholdInvitationControls";
 import { backWithFallback } from "@/lib/navigation";
+import { ChangePasswordSection } from "@/components/PasswordRecoveryScreen";
 import { GoogleScheduleControls } from "@/components/GoogleScheduleControls";
 import { householdDateKey } from "@/lib/choreTimezone";
 import { useHouseholdPlanningStatus } from "@/hooks/useHouseholdPlanningStatus";
@@ -44,48 +46,6 @@ import {
 } from "@/lib/runtimeDiagnostics";
 import { track } from "@/lib/analytics";
 import { useGoogleCalendarConnection } from "@/hooks/useGoogleCalendarConnection";
-import {
-  findRoommateIdByEmail,
-  getStoredEmail,
-  getStoredUsername,
-  hasCredentials,
-  setupCredentials,
-  updatePassword,
-  verifyCredentials,
-} from "@/lib/auth";
-
-function isValidEmail(s: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.trim());
-}
-
-function generateResetCode(): string {
-  return String(Math.floor(100000 + Math.random() * 900000));
-}
-
-function apiBaseUrl(): string {
-  return (
-    process.env.EXPO_PUBLIC_API_URL ??
-    (process.env.EXPO_PUBLIC_DOMAIN
-      ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
-      : "")
-  );
-}
-
-async function sendEmail(
-  to: string,
-  subject: string,
-  body: string,
-): Promise<{ sent: boolean; simulated: boolean; body?: string }> {
-  const url = `${apiBaseUrl()}/api/email/send`;
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ to, subject, body }),
-  });
-  if (!res.ok) throw new Error(`Email API ${res.status}`);
-  return res.json();
-}
-
 const COLOR_PALETTE = [
   "#7B563B",
   "#A66A3F",
@@ -171,12 +131,12 @@ export default function SettingsScreen() {
     roommates,
     currentUserId,
     updateRoommate,
-    setCurrentUser,
     householdName,
     householdId,
     householdTimezone,
     personalSchedule,
     inviteCode,
+    invitationsEnabled,
     householdLoading,
     refreshHousehold,
     deleteHousehold,
@@ -279,7 +239,7 @@ export default function SettingsScreen() {
     confirm(
       `remove-roommate-${roommateId}`,
       `Remove ${roommateName}?`,
-      `${roommateName} will lose access to this household and its shared data. Their Supabase account will remain active, so they can join or create another household.`,
+      `${roommateName} will lose household access. The shared invitation code will be replaced and pending invitations and approvals will be revoked. Returning will require a fresh personal invitation or host approval.`,
       () => {
         void (async () => {
           setRemovingRoommateId(roommateId);
@@ -353,242 +313,6 @@ export default function SettingsScreen() {
     setColor(me?.color ?? COLOR_PALETTE[0]);
     setAvatarUri(me?.avatarUri);
   }, [me?.id]);
-
-  // ── Auth state ──
-  const [currentUsername, setCurrentUsername] = useState<string | null>(null);
-  const [currentEmail, setCurrentEmail] = useState<string | null>(null);
-  const [authOpen, setAuthOpen] = useState(false);
-  const [authPhase, setAuthPhase] = useState<
-    "pick" | "creds" | "forgot" | "reset"
-  >("pick");
-  const [authMode, setAuthMode] = useState<"login" | "setup">("login");
-  const [authRoommateId, setAuthRoommateId] = useState<string | null>(null);
-  const [authUsername, setAuthUsername] = useState("");
-  const [authEmail, setAuthEmail] = useState("");
-  const [authPassword, setAuthPassword] = useState("");
-  const [authError, setAuthError] = useState<string | null>(null);
-  const [authInfo, setAuthInfo] = useState<string | null>(null);
-  const [authLoading, setAuthLoading] = useState(false);
-
-  // Forgot-password flow state
-  const [forgotEmail, setForgotEmail] = useState("");
-  const [resetCodeExpected, setResetCodeExpected] = useState<string | null>(
-    null,
-  );
-  const [resetCodeInput, setResetCodeInput] = useState("");
-  const [resetNewPassword, setResetNewPassword] = useState("");
-  const [resetTargetRoommateId, setResetTargetRoommateId] = useState<
-    string | null
-  >(null);
-  const [resetDemoCode, setResetDemoCode] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    Promise.all([
-      getStoredUsername(currentUserId),
-      getStoredEmail(currentUserId),
-    ])
-      .then(([username, email]) => {
-        if (cancelled) return;
-        setCurrentUsername(username);
-        setCurrentEmail(email);
-      })
-      .catch((error) => {
-        reportRuntimeError("load local profile credentials", error, {
-          currentUserId,
-        });
-        if (!cancelled) {
-          setCurrentUsername(null);
-          setCurrentEmail(null);
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [currentUserId]);
-
-  const resetAuthForm = () => {
-    setAuthRoommateId(null);
-    setAuthUsername("");
-    setAuthEmail("");
-    setAuthPassword("");
-    setAuthError(null);
-    setAuthInfo(null);
-    setForgotEmail("");
-    setResetCodeExpected(null);
-    setResetCodeInput("");
-    setResetNewPassword("");
-    setResetTargetRoommateId(null);
-    setResetDemoCode(null);
-  };
-
-  const openAuth = () => {
-    setAuthPhase("pick");
-    resetAuthForm();
-    setAuthOpen(true);
-  };
-
-  const pickRoommateForAuth = async (id: string) => {
-    setAuthRoommateId(id);
-    setAuthError(null);
-    setAuthInfo(null);
-    setAuthUsername("");
-    setAuthEmail("");
-    setAuthPassword("");
-    const exists = await hasCredentials(id);
-    setAuthMode(exists ? "login" : "setup");
-    setAuthPhase("creds");
-  };
-
-  const submitAuth = async () => {
-    if (!authRoommateId) return;
-    if (authMode === "setup") {
-      if (!authUsername.trim() || !authEmail.trim() || !authPassword.trim()) {
-        setAuthError("Username, email, and password are all required.");
-        return;
-      }
-      if (!isValidEmail(authEmail)) {
-        setAuthError("Please enter a valid email address.");
-        return;
-      }
-      if (authPassword.length < 4) {
-        setAuthError("Password must be at least 4 characters.");
-        return;
-      }
-    } else {
-      if (!authUsername.trim() || !authPassword.trim()) {
-        setAuthError("Username and password are both required.");
-        return;
-      }
-    }
-    setAuthLoading(true);
-    setAuthError(null);
-    try {
-      if (authMode === "login") {
-        const ok = await verifyCredentials(
-          authRoommateId,
-          authUsername.trim(),
-          authPassword,
-        );
-        if (!ok) {
-          setAuthError("Incorrect username or password.");
-          return;
-        }
-      } else {
-        await setupCredentials(
-          authRoommateId,
-          authUsername.trim(),
-          authEmail.trim(),
-          authPassword,
-        );
-        // Fire-and-forget confirmation email — don't block login on this
-        const roommateName =
-          roommates.find((r) => r.id === authRoommateId)?.name ?? "there";
-        sendEmail(
-          authEmail.trim(),
-          "Welcome to SweetMate",
-          `Hi ${roommateName},\n\nYour SweetMate account was just set up on this device with username "${authUsername.trim()}".\n\nIf this wasn't you, sign in and change your password.\n\n— SweetMate`,
-        ).catch(() => {
-          // Email failure is non-blocking; user is already logged in
-        });
-      }
-      setCurrentUser(authRoommateId);
-      setCurrentUsername(authUsername.trim());
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      setAuthOpen(false);
-    } finally {
-      setAuthLoading(false);
-    }
-  };
-
-  // ── Forgot-password flow ──
-  const startForgotFlow = () => {
-    setAuthError(null);
-    setAuthInfo(null);
-    setForgotEmail("");
-    setResetCodeExpected(null);
-    setResetCodeInput("");
-    setResetNewPassword("");
-    setResetTargetRoommateId(null);
-    setResetDemoCode(null);
-    setAuthPhase("forgot");
-  };
-
-  const submitForgot = async () => {
-    setAuthError(null);
-    setAuthInfo(null);
-    if (!forgotEmail.trim() || !isValidEmail(forgotEmail)) {
-      setAuthError("Please enter a valid email address.");
-      return;
-    }
-    setAuthLoading(true);
-    try {
-      const matchedId = await findRoommateIdByEmail(
-        forgotEmail.trim(),
-        roommates.map((r) => r.id),
-      );
-      if (!matchedId) {
-        setAuthError("No account found for that email on this device.");
-        return;
-      }
-      const code = generateResetCode();
-      setResetCodeExpected(code);
-      setResetTargetRoommateId(matchedId);
-      const roommateName =
-        roommates.find((r) => r.id === matchedId)?.name ?? "there";
-      try {
-        const result = await sendEmail(
-          forgotEmail.trim(),
-          "Your SweetMate reset code",
-          `Hi ${roommateName},\n\nYour SweetMate password reset code is:\n\n${code}\n\nThis code is good for one reset. If you didn't request a reset, ignore this email.\n\n— SweetMate`,
-        );
-        if (result.simulated) {
-          setResetDemoCode(code);
-        } else {
-          setResetDemoCode(null);
-        }
-      } catch {
-        // Network/email failure — still let them proceed, show the code in-app
-        setResetDemoCode(code);
-      }
-      setAuthPhase("reset");
-    } finally {
-      setAuthLoading(false);
-    }
-  };
-
-  const submitReset = async () => {
-    setAuthError(null);
-    if (!resetCodeInput.trim() || !resetNewPassword.trim()) {
-      setAuthError("Code and new password are both required.");
-      return;
-    }
-    if (resetCodeInput.trim() !== resetCodeExpected) {
-      setAuthError("That code doesn't match. Try again.");
-      return;
-    }
-    if (resetNewPassword.length < 4) {
-      setAuthError("New password must be at least 4 characters.");
-      return;
-    }
-    if (!resetTargetRoommateId) return;
-    setAuthLoading(true);
-    try {
-      const ok = await updatePassword(resetTargetRoommateId, resetNewPassword);
-      if (!ok) {
-        setAuthError("Couldn't update password — credential is missing.");
-        return;
-      }
-      setCurrentUser(resetTargetRoommateId);
-      const u = await getStoredUsername(resetTargetRoommateId);
-      setCurrentUsername(u);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      setAuthOpen(false);
-      resetAuthForm();
-    } finally {
-      setAuthLoading(false);
-    }
-  };
 
   const topPad = Platform.OS === "web" ? 16 : insets.top;
   const dirty =
@@ -702,10 +426,12 @@ export default function SettingsScreen() {
         <InviteCodeCard
           compact
           inviteCode={inviteCode}
+          paused={!invitationsEnabled}
           loading={householdLoading}
           onRetry={refreshHousehold}
         />
       </View>
+      {isHost && householdId ? <HouseholdInvitationControls householdId={householdId} userId={currentUserId} onChanged={refreshHousehold} /> : null}
       {isHost &&
       roommates.some((roommate) => roommate.id !== currentUserId) ? (
         <View
@@ -1320,6 +1046,8 @@ export default function SettingsScreen() {
             </View>
           </View>
 
+          {session?.user.id ? <ChangePasswordSection key={`password-security:${session.user.id}`} userId={session.user.id} email={session.user.email ?? ""} /> : null}
+
           {collapseHouseholdSection && householdSection}
 
           {!planningStatus.needsAttention && householdPreferencesSection}
@@ -1582,432 +1310,7 @@ export default function SettingsScreen() {
         ]}
       />
 
-      {/* ── Auth modal: pick roommate, then enter credentials ── */}
-      <Modal
-        visible={authOpen}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setAuthOpen(false)}
-      >
-        <Pressable
-          style={styles.authOverlay}
-          onPress={() => setAuthOpen(false)}
-        />
-        <KeyboardAvoidingView
-          behavior={KEYBOARD_BEHAVIOR}
-          pointerEvents="box-none"
-        >
-          <Surface
-            level="modal"
-            style={[
-              styles.authSheet,
-              {
-                paddingBottom: insets.bottom + 24,
-              },
-            ]}
-          >
-            <View
-              style={[styles.authHandle, { backgroundColor: colors.border }]}
-            />
 
-            {authPhase === "pick" ? (
-              <>
-                <Text style={[styles.authTitle, { color: colors.foreground }]}>
-                  Choose roommate
-                </Text>
-                <Text
-                  style={[styles.authSub, { color: colors.mutedForeground }]}
-                >
-                  Pick a roommate to log in as. You'll need their password.
-                </Text>
-                {roommates.map((r) => (
-                  <TouchableOpacity
-                    key={r.id}
-                    style={[
-                      styles.roommateRow,
-                      {
-                        borderColor: colors.border,
-                        backgroundColor: colors.muted,
-                      },
-                    ]}
-                    onPress={() => pickRoommateForAuth(r.id)}
-                  >
-                    <RoommateAvatar
-                      name={r.name}
-                      color={r.color}
-                      size={36}
-                      imageUri={r.avatarUri}
-                    />
-                    <View style={{ flex: 1 }}>
-                      <Text
-                        style={[
-                          styles.roommateRowName,
-                          { color: colors.foreground },
-                        ]}
-                      >
-                        {r.name}
-                        {r.id === currentUserId && (
-                          <Text
-                            style={{
-                              color: colors.mutedForeground,
-                              fontFamily: "Inter_400Regular", includeFontPadding: false,
-                            }}
-                          >
-                            {"  · current"}
-                          </Text>
-                        )}
-                      </Text>
-                    </View>
-                    <Feather
-                      name="chevron-right"
-                      size={18}
-                      color={colors.mutedForeground}
-                    />
-                  </TouchableOpacity>
-                ))}
-              </>
-            ) : authPhase === "creds" ? (
-              <>
-                <Text style={[styles.authTitle, { color: colors.foreground }]}>
-                  {authMode === "setup"
-                    ? `Set up ${roommates.find((r) => r.id === authRoommateId)?.name}'s account`
-                    : `Log in as ${roommates.find((r) => r.id === authRoommateId)?.name}`}
-                </Text>
-                <Text
-                  style={[styles.authSub, { color: colors.mutedForeground }]}
-                >
-                  {authMode === "setup"
-                    ? "Choose a username, email, and password — they'll be encrypted on the device."
-                    : "Enter the username and password for this roommate."}
-                </Text>
-                <Text
-                  style={[styles.fieldLabel, { color: colors.mutedForeground }]}
-                >
-                  Username
-                </Text>
-                <TextInput
-                  style={[
-                    styles.input,
-                    {
-                      backgroundColor: colors.muted,
-                      color: colors.foreground,
-                      borderColor: colors.border,
-                    },
-                  ]}
-                  placeholder="Username"
-                  placeholderTextColor={colors.mutedForeground}
-                  value={authUsername}
-                  onChangeText={setAuthUsername}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  autoFocus
-                />
-                {authMode === "setup" && (
-                  <>
-                    <Text
-                      style={[
-                        styles.fieldLabel,
-                        { color: colors.mutedForeground },
-                      ]}
-                    >
-                      Email
-                    </Text>
-                    <TextInput
-                      style={[
-                        styles.input,
-                        {
-                          backgroundColor: colors.muted,
-                          color: colors.foreground,
-                          borderColor: colors.border,
-                        },
-                      ]}
-                      placeholder="you@example.com"
-                      placeholderTextColor={colors.mutedForeground}
-                      value={authEmail}
-                      onChangeText={setAuthEmail}
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                      keyboardType="email-address"
-                    />
-                  </>
-                )}
-                <Text
-                  style={[styles.fieldLabel, { color: colors.mutedForeground }]}
-                >
-                  Password
-                </Text>
-                <TextInput
-                  style={[
-                    styles.input,
-                    {
-                      backgroundColor: colors.muted,
-                      color: colors.foreground,
-                      borderColor: colors.border,
-                    },
-                  ]}
-                  placeholder="Password"
-                  placeholderTextColor={colors.mutedForeground}
-                  value={authPassword}
-                  onChangeText={setAuthPassword}
-                  secureTextEntry
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                />
-                {authMode === "login" && (
-                  <TouchableOpacity
-                    onPress={startForgotFlow}
-                    style={{ alignSelf: "flex-end" }}
-                  >
-                    <Text style={[styles.linkText, { color: colors.primary }]}>
-                      Forgot password?
-                    </Text>
-                  </TouchableOpacity>
-                )}
-                {authError && (
-                  <Text
-                    style={[
-                      styles.authErrorText,
-                      { color: colors.destructive },
-                    ]}
-                  >
-                    {authError}
-                  </Text>
-                )}
-                <View style={styles.authBtnRow}>
-                  <TouchableOpacity
-                    style={[
-                      styles.authBackBtn,
-                      { backgroundColor: colors.muted },
-                    ]}
-                    onPress={() => setAuthPhase("pick")}
-                  >
-                    <Text
-                      style={[styles.authBtnText, { color: colors.foreground }]}
-                    >
-                      Back
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[
-                      styles.authPrimaryBtn,
-                      {
-                        backgroundColor: colors.action,
-                        opacity: authLoading ? 0.6 : 1,
-                      },
-                    ]}
-                    disabled={authLoading}
-                    onPress={submitAuth}
-                  >
-                    <Text style={[styles.authBtnText, { color: "#fff" }]}>
-                      {authLoading
-                        ? "..."
-                        : authMode === "setup"
-                          ? "Save & Log In"
-                          : "Log In"}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </>
-            ) : authPhase === "forgot" ? (
-              <>
-                <Text style={[styles.authTitle, { color: colors.foreground }]}>
-                  Forgot password
-                </Text>
-                <Text
-                  style={[styles.authSub, { color: colors.mutedForeground }]}
-                >
-                  Enter the email you used when setting up the account. We'll
-                  send a 6-digit reset code there.
-                </Text>
-                <Text
-                  style={[styles.fieldLabel, { color: colors.mutedForeground }]}
-                >
-                  Email
-                </Text>
-                <TextInput
-                  style={[
-                    styles.input,
-                    {
-                      backgroundColor: colors.muted,
-                      color: colors.foreground,
-                      borderColor: colors.border,
-                    },
-                  ]}
-                  placeholder="you@example.com"
-                  placeholderTextColor={colors.mutedForeground}
-                  value={forgotEmail}
-                  onChangeText={setForgotEmail}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  keyboardType="email-address"
-                  autoFocus
-                />
-                {authError && (
-                  <Text
-                    style={[
-                      styles.authErrorText,
-                      { color: colors.destructive },
-                    ]}
-                  >
-                    {authError}
-                  </Text>
-                )}
-                <View style={styles.authBtnRow}>
-                  <TouchableOpacity
-                    style={[
-                      styles.authBackBtn,
-                      { backgroundColor: colors.muted },
-                    ]}
-                    onPress={() => setAuthPhase("creds")}
-                  >
-                    <Text
-                      style={[styles.authBtnText, { color: colors.foreground }]}
-                    >
-                      Back
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[
-                      styles.authPrimaryBtn,
-                      {
-                        backgroundColor: colors.action,
-                        opacity: authLoading ? 0.6 : 1,
-                      },
-                    ]}
-                    disabled={authLoading}
-                    onPress={submitForgot}
-                  >
-                    <Text style={[styles.authBtnText, { color: "#fff" }]}>
-                      {authLoading ? "Sending..." : "Send reset code"}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </>
-            ) : (
-              <>
-                <Text style={[styles.authTitle, { color: colors.foreground }]}>
-                  Reset password
-                </Text>
-                <Text
-                  style={[styles.authSub, { color: colors.mutedForeground }]}
-                >
-                  Enter the 6-digit code from your email and choose a new
-                  password.
-                </Text>
-                {resetDemoCode && (
-                  <View
-                    style={[
-                      styles.demoCodeBox,
-                      {
-                        backgroundColor: colors.warning + "15",
-                        borderColor: colors.warning + "55",
-                      },
-                    ]}
-                  >
-                    <Feather
-                      name="alert-circle"
-                      size={14}
-                      color={colors.warning}
-                    />
-                    <Text
-                      style={[styles.demoCodeText, { color: colors.warning }]}
-                    >
-                      Demo mode (no email service configured). Your code:{" "}
-                      <Text style={{ fontFamily: "Inter_700Bold" }}>
-                        {resetDemoCode}
-                      </Text>
-                    </Text>
-                  </View>
-                )}
-                <Text
-                  style={[styles.fieldLabel, { color: colors.mutedForeground }]}
-                >
-                  Reset code
-                </Text>
-                <TextInput
-                  style={[
-                    styles.input,
-                    {
-                      backgroundColor: colors.muted,
-                      color: colors.foreground,
-                      borderColor: colors.border,
-                    },
-                  ]}
-                  placeholder="123456"
-                  placeholderTextColor={colors.mutedForeground}
-                  value={resetCodeInput}
-                  onChangeText={setResetCodeInput}
-                  keyboardType="number-pad"
-                  maxLength={6}
-                  autoFocus
-                />
-                <Text
-                  style={[styles.fieldLabel, { color: colors.mutedForeground }]}
-                >
-                  New password
-                </Text>
-                <TextInput
-                  style={[
-                    styles.input,
-                    {
-                      backgroundColor: colors.muted,
-                      color: colors.foreground,
-                      borderColor: colors.border,
-                    },
-                  ]}
-                  placeholder="At least 4 characters"
-                  placeholderTextColor={colors.mutedForeground}
-                  value={resetNewPassword}
-                  onChangeText={setResetNewPassword}
-                  secureTextEntry
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                />
-                {authError && (
-                  <Text
-                    style={[
-                      styles.authErrorText,
-                      { color: colors.destructive },
-                    ]}
-                  >
-                    {authError}
-                  </Text>
-                )}
-                <View style={styles.authBtnRow}>
-                  <TouchableOpacity
-                    style={[
-                      styles.authBackBtn,
-                      { backgroundColor: colors.muted },
-                    ]}
-                    onPress={() => setAuthPhase("forgot")}
-                  >
-                    <Text
-                      style={[styles.authBtnText, { color: colors.foreground }]}
-                    >
-                      Back
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[
-                      styles.authPrimaryBtn,
-                      {
-                        backgroundColor: colors.action,
-                        opacity: authLoading ? 0.6 : 1,
-                      },
-                    ]}
-                    disabled={authLoading}
-                    onPress={submitReset}
-                  >
-                    <Text style={[styles.authBtnText, { color: "#fff" }]}>
-                      {authLoading ? "..." : "Reset & Log In"}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </>
-            )}
-          </Surface>
-        </KeyboardAvoidingView>
-      </Modal>
     </View>
   );
 }
@@ -2414,27 +1717,6 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_600SemiBold", includeFontPadding: false,
     fontSize: 12,
   },
-
-  // ── Auth modal ──
-  authOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.35)",
-  },
-  authSheet: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 20,
-    gap: 10,
-  },
-  authHandle: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    alignSelf: "center",
-    marginBottom: 6,
-  },
-  authTitle: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 20 },
-  authSub: { fontFamily: "Inter_400Regular", includeFontPadding: false, fontSize: 13, marginBottom: 8 },
   roommateRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -2445,44 +1727,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   roommateRowName: { fontFamily: "Inter_600SemiBold", includeFontPadding: false, fontSize: 14 },
-  authErrorText: {
-    fontFamily: "Inter_500Medium", includeFontPadding: false,
-    fontSize: 12,
-    marginTop: 2,
-  },
-  authBtnRow: { flexDirection: "row", gap: 8, marginTop: 12 },
-  authBackBtn: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 10,
-    alignItems: "center",
-  },
-  authPrimaryBtn: {
-    flex: 2,
-    paddingVertical: 12,
-    borderRadius: 10,
-    alignItems: "center",
-  },
-  authBtnText: { fontFamily: "Inter_700Bold", includeFontPadding: false, fontSize: 14 },
   linkText: {
     fontFamily: "Inter_500Medium", includeFontPadding: false,
     fontSize: 12,
     marginTop: 2,
     textDecorationLine: "underline",
-  },
-  demoCodeBox: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-  },
-  demoCodeText: {
-    flex: 1,
-    fontFamily: "Inter_500Medium", includeFontPadding: false,
-    fontSize: 12,
-    lineHeight: 17,
   },
 });

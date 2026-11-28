@@ -26,6 +26,7 @@ export function PreferencesOnboardingScreen() {
     householdId,
     householdName,
     inviteCode,
+    invitationsEnabled,
     householdLoading,
     refreshHousehold,
   } = useAppContext();
@@ -72,6 +73,7 @@ export function PreferencesOnboardingScreen() {
         </Text>
         <InviteCodeCard
           inviteCode={inviteCode}
+          paused={!invitationsEnabled}
           loading={householdLoading}
           onRetry={refreshHousehold}
         />

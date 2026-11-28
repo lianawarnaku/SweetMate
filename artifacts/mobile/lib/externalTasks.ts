@@ -1,3 +1,6 @@
+import * as Crypto from "expo-crypto";
+import { DurableOperations } from "./durableOperations";
+import { saveFeedback } from "./saveFeedback";
 import { calendarFetch } from "./calendarTransport";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Calendar from "expo-calendar/legacy";
@@ -136,6 +139,7 @@ function taskFingerprint(chore: ExternalTaskChore) {
 function reminderDetails(chore: ExternalTaskChore): Calendar.Reminder {
   const notes = [
     "Added from SweetMate",
+    `SweetMate chore: ${encodeURIComponent(chore.id)}`,
     chore.assignedToName ? `Assigned to: ${chore.assignedToName}` : null,
     chore.category ? `Category: ${chore.category}` : null,
     chore.recurrence ? `Repeats: ${chore.recurrence}` : null,
@@ -297,7 +301,13 @@ async function exportOne(
     }
   }
 
-  const externalId = await createReminder(calendarId, chore);
+  // EventKit may have committed before the app died, leaving no local mapping.
+  // Reconcile the stable marker before creating anything; a failed lookup never creates blindly.
+  const marker = `SweetMate chore: ${encodeURIComponent(chore.id)}`;
+  const reminders = await Calendar.getRemindersAsync([calendarId], null, null, null);
+  const existing = reminders.find(reminder => reminder.notes?.split("\n").includes(marker));
+  const externalId = existing?.id ?? await createReminder(calendarId, chore);
+  if (existing) await Calendar.updateReminderAsync(externalId, reminderDetails(chore));
   await AsyncStorage.setItem(
     key,
     JSON.stringify({
@@ -306,7 +316,7 @@ async function exportOne(
       fingerprint,
     } satisfies StoredExternalTask),
   );
-  return "created";
+  return existing ? "updated" : "created";
 }
 
 export async function updateMappedReminderIfPresent(
@@ -407,6 +417,36 @@ export async function carryMappedReminderToNextOccurrence(
   }
 }
 
+const reminderEngines = new Map<string, DurableOperations>();
+function reminderEngine(userScope: string) {
+  const existing = reminderEngines.get(userScope); if (existing) return existing;
+  let ticket: ReturnType<typeof saveFeedback.begin> = null;
+  const engine = new DurableOperations({ userId: userScope, storage: AsyncStorage,
+    storageKey: `@sweetmate/reminder-outbox/v1/${encodeURIComponent(userScope)}`, makeId: () => Crypto.randomUUID(),
+    changed: (operations, saving) => {
+      const scope = saveFeedback.getSnapshot().scope;
+      const relevant = operations.filter(op => op.scope === scope);
+      if (!relevant.length) { saveFeedback.finish(ticket); return; }
+      ticket = saveFeedback.begin(scope, "reminders", "Reminders", () => engine.retry(true), "Your reminder export is saved on this device. Retry to finish it.");
+      if (!saving) saveFeedback.finish(ticket, true);
+    },
+    send: async operation => {
+      const session = (await supabase.auth.getSession()).data.session;
+      if (session?.user.id !== userScope) throw new Error("Return to the original account to finish this export.");
+      const permission = await Calendar.getRemindersPermissionsAsync();
+      if (!permission.granted) return { status: 403, data: null };
+      const calendarId = await getOrCreateReminderList();
+      const outcome = await exportOne(userScope, calendarId, operation.request.body as ExternalTaskChore);
+      return { status: 200, data: outcome };
+    },
+  });
+  reminderEngines.set(userScope, engine); return engine;
+}
+/** Resume only already-authorized exports; never open a permission prompt at launch. */
+export async function resumePendingReminderExports(userScope: string) {
+  if (Platform.OS === "ios") await reminderEngine(userScope).initialize();
+}
+
 export async function exportChoresToExternalTasks(
   userScope: string,
   chores: ExternalTaskChore[],
@@ -421,7 +461,7 @@ export async function exportChoresToExternalTasks(
   }
 
   await requireReminderPermission();
-  const calendarId = await getOrCreateReminderList();
+  const engine = reminderEngine(userScope);
   const result: ExternalTaskExportResult = {
     created: 0,
     updated: 0,
@@ -431,7 +471,10 @@ export async function exportChoresToExternalTasks(
 
   for (const chore of chores) {
     try {
-      const outcome = await exportOne(userScope, calendarId, chore);
+      const scope = saveFeedback.getSnapshot().scope.startsWith(`${userScope}:`) ? saveFeedback.getSnapshot().scope : `${userScope}:account`;
+      const response = await engine.submit({ name: "reminder-export", method: "POST", rpc: false, body: chore, query: [], prefer: "", accept: "" }, scope);
+      if (response.status >= 300) throw new Error("Allow Reminders access in Settings, then Retry your saved export.");
+      const outcome = response.data as "created" | "updated" | "unchanged";
       result[outcome] += 1;
     } catch (error) {
       result.failures.push({

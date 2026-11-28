@@ -88,13 +88,16 @@ for (const [os, available, api] of platforms) {
   for (const reduced of [false, true, false]) {
     view.reduce(reduced);
     const context = `${os}, native=${available}/${api}, reduced=${reduced}`;
-    solid(view.surface({ children: child }), view.colors.card, `${context}: default`);
-    solid(view.surface({ level: "subtle", children: child }), view.colors.cardSubtle, `${context}: subtle`);
-    solid(view.surface({ level: "elevated", children: child }), view.colors.cardElevated, `${context}: elevated`);
+    // Resolve the real component fill against the page, not merely against
+    // another token that could regress back to charcoal on every platform.
+    assert.equal(view.colors.background, "#000000", `${context}: dark page is black`);
+    solid(view.surface({ children: child }), view.colors.background, `${context}: default`);
+    solid(view.surface({ level: "subtle", children: child }), view.colors.background, `${context}: task/list row matches page`);
+    solid(view.surface({ level: "elevated", children: child }), view.colors.background, `${context}: nested card matches page`);
     solid(view.chip({ children: child }), view.colors.card, `${context}: chip`);
     solid(view.surface({ level: "modal", children: child }), view.colors.surfaceModalOpaque, `${context}: modal`);
     solid(view.sheet({ children: child }), view.colors.surfaceModalOpaque, `${context}: sheet`);
-    solid(view.popup({ children: child }), view.colors.surfaceModalOpaque, `${context}: popup`);
+    solid(view.popup({ children: child }), view.colors.background, `${context}: popup matches page`);
     solid(view.popup({ destructive: true, children: child }), view.colors.destructiveSurfaceOpaque, `${context}: destructive popup`);
   }
   assert.equal(view.calls(), 0, "solid cards must never query native glass availability");
@@ -102,6 +105,11 @@ for (const [os, available, api] of platforms) {
 for (const mode of ["dark", "light"] as const) {
   for (const scheme of Object.keys(colorSchemes) as (keyof typeof colorSchemes)[]) {
     const view = renderer("web", false, false, mode, scheme);
+    if (mode === "dark") {
+      for (const name of ["card", "cardSubtle", "cardElevated", "surfaceModalOpaque"] as const)
+        assert.equal(view.colors[name], "#000000", `${scheme}/${name}: accents cannot turn content gray`);
+      assert.notEqual(view.colors.controlSurfaceOpaque, view.colors.background, "opaque control fallback stays distinct from black content");
+    }
     solid(view.surface({ children: child }), view.colors.card, `${mode}/${scheme}: card`);
     solid(view.surface({ level: "subtle", children: child }), view.colors.cardSubtle, `${mode}/${scheme}: subtle`);
     solid(view.surface({ level: "elevated", children: child }), view.colors.cardElevated, `${mode}/${scheme}: elevated`);
@@ -152,6 +160,6 @@ for (const [os, available, api] of platforms) {
   view.reduce(true);
   const fallback = nodes(view.control({ pointerEvents: "none", children: child }));
   assert(!fallback.some(node => node.type === "GlassView" || node.type === "BlurView" || flatten(node.props.style).backdropFilter), "reducing transparency removes blur from floating controls");
-  assert(fallback.some(node => flatten(node.props.style).backgroundColor === view.colors.cardElevated), "floating controls keep an opaque semantic fill when transparency is reduced");
+  assert(fallback.some(node => flatten(node.props.style).backgroundColor === view.colors.controlSurfaceOpaque), "floating controls keep a distinct opaque fill when transparency is reduced");
 }
-console.log("surface appearance renderer tests passed: all content/cards/sheets stay solid and button/navigation controls retain accessible glass.");
+console.log("Surface appearance passed: exact black content on iOS/Android/web, all dark accents and transparency settings; buttons/navigation keep glass and distinct opaque fallbacks.");

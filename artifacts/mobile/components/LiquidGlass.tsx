@@ -76,7 +76,9 @@ export function GlassSurface({ children, style, variant = "regular", material = 
   // Blur only the background layer so labels and icons remain sharp.
   // A dense modal tint prevents the underlying page showing through the text.
   const opaqueFallback = reduceTransparency || Platform.OS === "android";
-  const fill = opaqueFallback ? opaqueFill : baseColor;
+  const fill = opaqueFallback
+    ? isSheet ? opaqueFill : colors.controlSurfaceOpaque
+    : baseColor;
   return (
     <View {...props} style={surfaceStyle}>
       {!opaqueFallback && Platform.OS !== "web" && (

@@ -137,6 +137,20 @@ const DEFAULT_PREFERENCES: AnalyticsPreferences = {
 };
 const snapshotCache = createExternalStoreSnapshotCache(DEFAULT_PREFERENCES);
 
+// Block geography at the final SDK boundary as well as at app event creation.
+// This also removes legacy super/person properties restored by the SDK.
+const locationKeys = /(^|_)(ip|geoip|latitude|longitude|lat|lng|lon|location|coordinates|city|region|country|continent|postal|postcode|zipcode|timezone|locale)($|_)/i;
+function isLocationKey(key: string) {
+  return locationKeys.test(key.replace(/^\$/, "").replace(/([a-z])([A-Z])/g, "$1_$2"));
+}
+function withoutLocationMetadata<T>(value: T): T {
+  if (Array.isArray(value)) return value.map(withoutLocationMetadata) as T;
+  if (!value || Object.prototype.toString.call(value) !== "[object Object]") return value;
+  return Object.fromEntries(Object.entries(value)
+    .filter(([key]) => !isLocationKey(key))
+    .map(([key, entry]) => [key, withoutLocationMetadata(entry)])) as T;
+}
+
 const deniedKeys =
   /(^|_)(email|name|display_name|invite_code|sweet_name|household_name|title|description|note|item|token|password|address|photo|avatar|message|query|url|label|content)($|_)/i;
 
@@ -155,7 +169,7 @@ function notify() {
 function safeProperties(input: Record<string, SafeValue>) {
   const output: Record<string, SafeValue> = {};
   for (const [key, value] of Object.entries(input)) {
-    if (deniedKeys.test(key) && !["item_count_bucket", "item_type"].includes(key)) {
+    if (isLocationKey(key) || (deniedKeys.test(key) && !["item_count_bucket", "item_type"].includes(key))) {
       if (__DEV__) console.warn(`[analytics] blocked sensitive property key: ${key}`);
       continue;
     }
@@ -221,6 +235,15 @@ async function applyPreferences(userId: string, expectedRevision: number) {
       enableSessionReplay: false,
       defaultOptIn: false,
       preloadFeatureFlags: false,
+      disableGeoip: true,
+      customAppProperties: (properties) => withoutLocationMetadata(properties),
+      before_send: (event) => {
+        if (!event) return null;
+        const cleaned = withoutLocationMetadata(event);
+        // Explicitly disable enrichment even if a caller supplies an override.
+        cleaned.properties = { ...cleaned.properties, $geoip_disable: true };
+        return cleaned;
+      },
     });
     await posthog.optIn();
     if (expectedRevision !== revision) return;

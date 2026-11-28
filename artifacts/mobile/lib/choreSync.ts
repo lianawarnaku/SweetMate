@@ -20,16 +20,21 @@ function rowFingerprint(row: ChoreRow): string {
   return JSON.stringify(sortedJson(normalized));
 }
 
+/** A server timestamp alone does not change the user's desired chore values. */
+export function sameChoreWrite(left: ChoreRow, right: ChoreRow): boolean {
+  return rowFingerprint({ ...left, updated_at: "2000-01-01T00:00:00.000Z" }) === rowFingerprint({ ...right, updated_at: "2000-01-01T00:00:00.000Z" });
+}
+
 /** Plan writes only for changed chores; removals remain explicit. */
-export function planChoreSync(chores: readonly Chore[], persisted: ReadonlyMap<string, ChoreRow> | ReadonlySet<string>): ChoreSyncPlan {
+export function planChoreSync(chores: readonly Chore[], persisted: ReadonlyMap<string, ChoreRow> | ReadonlySet<string>, uncertainIds: ReadonlySet<string> = new Set()): ChoreSyncPlan {
   const localRows = chores.map(choreToRow).filter((row): row is ChoreRow => row !== null);
   const localIds = new Set(localRows.map((row) => row.id));
   const upserts = localRows.filter((row) => {
     if (!(persisted instanceof Map)) return true;
     const previous = persisted.get(row.id);
-    return !previous || rowFingerprint(previous) !== rowFingerprint(row);
+    return uncertainIds.has(row.id) || !previous || rowFingerprint(previous) !== rowFingerprint(row);
   });
-  return { upserts, deleteIds: [...persisted.keys()].filter((id) => !localIds.has(id)).sort() };
+  return { upserts, deleteIds: [...new Set([...persisted.keys(), ...uncertainIds])].filter((id) => !localIds.has(id)).sort() };
 }
 
 export function applyChoreRowEvent(chores: Chore[], eventType: ChoreRowEvent, row: ChoreRow): Chore[];
@@ -59,8 +64,8 @@ export function choreParity(chores: readonly Chore[], rows: readonly ChoreRow[])
 }
 
 /** Recover missed live events without dropping edits made during the read. */
-export function mergeChoreSnapshot(local: readonly Chore[], baseline: ReadonlyMap<string, ChoreRow>, remote: readonly ChoreRow[]): Chore[] {
-  const pending = planChoreSync(local, baseline);
+export function mergeChoreSnapshot(local: readonly Chore[], baseline: ReadonlyMap<string, ChoreRow>, remote: readonly ChoreRow[], uncertainIds: ReadonlySet<string> = new Set()): Chore[] {
+  const pending = planChoreSync(local, baseline, uncertainIds);
   let merged = remote.map(rowToChore);
   for (const row of pending.upserts) merged = applyChoreRowEvent(merged, "UPDATE", row);
   const deleted = new Set(pending.deleteIds);

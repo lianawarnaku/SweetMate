@@ -9,14 +9,21 @@ import { supabase } from "@/lib/supabase";
 import { registerPushDevice, unregisterPushDevice } from "@/lib/pushRegistration";
 import { reportRuntimeError } from "@/lib/runtimeDiagnostics";
 
-Notifications.setNotificationHandler({ handleNotification: async () => ({
+if (Platform.OS === "ios") Notifications.setNotificationHandler({ handleNotification: async () => ({
   // The existing NudgeToast is the foreground presentation.
   shouldShowBanner: false, shouldShowList: false, shouldPlaySound: false, shouldSetBadge: false,
 }) });
 export function PushNotificationManager({ userId }: { userId: string | null }) {
   const switchSweet = useAppContextSelector(context => context.switchSweet);
   useEffect(() => {
-    if (!userId || !Device.isDevice) return;
+    if (!userId) return;
+    // Android keeps realtime/in-app nudges only. Do not request notification
+    // permission, initialize an FCM token, or register background push listeners.
+    if (Platform.OS === "android") {
+      void unregisterPushDevice().catch(error => reportRuntimeError("disable Android push registration", error));
+      return;
+    }
+    if (!Device.isDevice) return;
     let active = true;
     let busy = false;
     let retry: ReturnType<typeof setTimeout> | undefined;
@@ -24,9 +31,6 @@ export function PushNotificationManager({ userId }: { userId: string | null }) {
       if (busy || !active) return;
       busy = true;
       try {
-        if (Platform.OS === "android") await Notifications.setNotificationChannelAsync("nudges", {
-          name: "Chore nudges", importance: Notifications.AndroidImportance.DEFAULT,
-        });
         let permission = await Notifications.getPermissionsAsync();
         if (permission.status === "undetermined" && permission.canAskAgain) permission = await Notifications.requestPermissionsAsync();
         if (!active) return;

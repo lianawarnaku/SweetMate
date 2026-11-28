@@ -289,8 +289,8 @@ assert(
   "chore realtime reconciliation must use indexed lookup instead of scanning the list per record",
 );
 assert(
-  context.includes('reportSupabaseError("save completed chore state"') &&
-    context.includes("chorePersistenceQueueRef.current.then(") &&
+  context.includes('reportRuntimeError("save completed chore state"') &&
+    context.includes("void persistSharedSnapshot()") &&
     context.includes("chores: nextChores") &&
     context.includes("roommates: nextRoommates"),
   "completion must immediately persist the combined canonical chore and score state",

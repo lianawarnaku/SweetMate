@@ -21,6 +21,7 @@ type InviteCodeCardProps = {
   loading?: boolean;
   onRetry?: () => void;
   compact?: boolean;
+  paused?: boolean;
 };
 
 export function InviteCodeCard({
@@ -28,6 +29,7 @@ export function InviteCodeCard({
   loading = false,
   onRetry,
   compact = false,
+  paused = false,
 }: InviteCodeCardProps) {
   const colors = useTheme();
   const [status, setStatus] = useState<string | null>(null);
@@ -98,6 +100,8 @@ export function InviteCodeCard({
           <ActivityIndicator color={colors.primary} />
           <Text style={[styles.stateText, { color: colors.mutedForeground }]}>Loading invite code…</Text>
         </View>
+      ) : paused ? (
+        <Text style={[styles.stateText,{color:colors.mutedForeground}]}>Invitations are paused. The host can enable them in Settings.</Text>
       ) : inviteCode ? (
         <>
           <Text
@@ -167,8 +171,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     textAlign: "center",
     fontFamily: "Inter_700Bold", includeFontPadding: false,
-    fontSize: 27,
-    letterSpacing: 4,
+    fontSize: 23,
+    letterSpacing: 2,
   },
   actions: { flexDirection: "row", gap: 10 },
   actionSlot: { flex: 1 },

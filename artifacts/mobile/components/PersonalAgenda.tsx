@@ -1,4 +1,6 @@
-import React, { useEffect, useRef, useState } from "react";
+import { saveFeedback } from "@/lib/saveFeedback";
+import { SaveFeedbackNotice } from "@/components/SaveFeedbackNotice";
+import React, { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { ActivityIndicator, AppState, KeyboardAvoidingView, Linking, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, type StyleProp, type ViewStyle } from "react-native";
 import Svg, { Circle } from "react-native-svg";
 import { Feather } from "@expo/vector-icons";
@@ -33,7 +35,7 @@ function ScheduleCheck({ item, now, pending, disabled, onPress, style }: {
   return <TouchableOpacity accessibilityRole="checkbox"
     accessibilityLabel={`${item.app_completed_at ? "Mark incomplete" : "Complete"} in SweetMate: ${item.title}`}
     accessibilityHint={item.app_completed_at ? "Completed in SweetMate." : timed ? `Time block ${Math.round(progress * 100)} percent elapsed. Completion is tracked in SweetMate.` : "Completion is tracked in SweetMate."}
-    aria-checked={Boolean(item.app_completed_at)} accessibilityState={{ checked: Boolean(item.app_completed_at), busy: pending, disabled }}
+    aria-checked={Boolean(item.app_completed_at)} aria-busy={pending} accessibilityState={{ checked: Boolean(item.app_completed_at), busy: pending, disabled }}
     disabled={disabled} onPress={onPress} activeOpacity={0.75} hitSlop={4} style={[styles.check, style]}>
     <View pointerEvents="none" style={styles.ring}>
       <GlassCheckCircle size={SCHEDULE_CHECK_SIZE} state={item.app_completed_at ? "checked" : "idle"} />
@@ -45,8 +47,8 @@ function ScheduleCheck({ item, now, pending, disabled, onPress, style }: {
   </TouchableOpacity>;
 }
 
-export function PersonalAgenda({ items, chores, day, timezone, renderChore, onUpdateItem }: {
-  items: PersonalScheduleItem[]; chores: Chore[]; day: string; timezone: string;
+export function PersonalAgenda({ items, chores, day, timezone, renderChore, onUpdateItem, saveScope = "" }: {
+  items: PersonalScheduleItem[]; chores: Chore[]; day: string; timezone: string; saveScope?: string;
   renderChore: (chore: Chore) => React.ReactNode; onUpdateItem: (id: string, update: TaskScheduleUpdate) => Promise<void>;
 }) {
   const colors = useTheme();
@@ -66,6 +68,8 @@ export function PersonalAgenda({ items, chores, day, timezone, renderChore, onUp
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [updatingIds, setUpdatingIds] = useState<Set<string>>(() => new Set());
+  const saveSnapshot = useSyncExternalStore(saveFeedback.subscribe, saveFeedback.getSnapshot, saveFeedback.getSnapshot);
+  const retryPendingIds = new Set(saveSnapshot.scope === saveScope ? saveSnapshot.issues.filter(issue => issue.phase === "pending" && issue.key.startsWith("schedule:")).map(issue => issue.key.slice("schedule:".length)) : []);
   const working = useRef(false);
   const pendingIntents = useRef(new Map<string, { completed: boolean; token: number }>());
   const nextIntent = useRef(0);
@@ -73,7 +77,7 @@ export function PersonalAgenda({ items, chores, day, timezone, renderChore, onUp
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   const viewScope = `${day}:${timezone}`;
   const currentView = useRef(viewScope); currentView.current = viewScope;
-  const selectedPending = selectedId !== null && updatingIds.has(selectedId);
+  const selectedPending = selectedId !== null && (updatingIds.has(selectedId) || retryPendingIds.has(selectedId));
   const feedback = useCompletionFeedback(`personal-agenda:${day}:${timezone}`);
   const visible = scheduleItemsForDay(items, day, timezone).filter((item) => !item.app_completed_at || scheduleDateKey(new Date(item.app_completed_at), timezone) === day);
   const active = visible.some((item) => scheduleItemProgress(item, now));
@@ -103,7 +107,7 @@ export function PersonalAgenda({ items, chores, day, timezone, renderChore, onUp
           !(failure && typeof failure === "object" && "name" in failure && failure.name === "AbortError")) {
         feedback.cancelCompletion(item.id);
         hapticError();
-        setError(failure && typeof failure === "object" && "message" in failure ? String(failure.message) : "This item could not be saved. Please try again.");
+        if (!saveScope) setError(failure && typeof failure === "object" && "message" in failure ? String(failure.message) : "This item could not be saved. Please try again.");
       }
     }
     finally {
@@ -148,7 +152,7 @@ export function PersonalAgenda({ items, chores, day, timezone, renderChore, onUp
           const timeLabel = scheduleTimeLabel(item, timezone);
           const liveLabel = progress ? `Happening now · ${remaining >= 60 ? `${Math.ceil(remaining / 60)}h` : `${remaining}m`} left` : null;
           return <MyDayRow key={item.id} completed={Boolean(item.app_completed_at)}>
-            <ScheduleCheck item={item} now={now} pending={updatingIds.has(item.id)} disabled={saving}
+            <ScheduleCheck item={item} now={now} pending={updatingIds.has(item.id) || retryPendingIds.has(item.id)} disabled={saving}
               onPress={() => void update(item, { completed: !item.app_completed_at })} />
             <TouchableOpacity accessibilityRole="button" accessibilityLabel={`View details: ${item.title}`}
               accessibilityHint={`${timeLabel}${liveLabel ? `. ${liveLabel}` : ""}. Opens item details in SweetMate`}
@@ -178,7 +182,7 @@ export function PersonalAgenda({ items, chores, day, timezone, renderChore, onUp
             {selectedItem && <>
               <Text style={[styles.meta, { color: colors.foreground }]}>{scheduleDateLabel(selectedItem, timezone)} · {scheduleTimeLabel(selectedItem, timezone)}</Text>
               <CompletionMotion completed={Boolean(selectedItem.app_completed_at)} style={styles.row}>
-                <ScheduleCheck item={selectedItem} now={now} pending={updatingIds.has(selectedItem.id)} disabled={saving} onPress={() => void update(selectedItem, { completed: !selectedItem.app_completed_at })} />
+                <ScheduleCheck item={selectedItem} now={now} pending={updatingIds.has(selectedItem.id) || retryPendingIds.has(selectedItem.id)} disabled={saving} onPress={() => void update(selectedItem, { completed: !selectedItem.app_completed_at })} />
                 <Text style={[styles.meta, { color: colors.foreground }]}>{selectedItem.app_completed_at ? "Completed in SweetMate" : "Mark complete in SweetMate"}</Text>
               </CompletionMotion>
             </>}
@@ -200,6 +204,7 @@ export function PersonalAgenda({ items, chores, day, timezone, renderChore, onUp
               onPress={() => void Linking.openURL(selectedItem.link!).catch(() => setError("This Google item could not open."))}>
               <Text style={[styles.meta, { color: colors.mutedForeground, textDecorationLine: "underline" }]}>Open in Google</Text>
             </TouchableOpacity>}
+            {selectedId && saveScope && <SaveFeedbackNotice inline scope={saveScope} onlyKey={`schedule:${selectedId}`} />}
             {error && <Text accessibilityRole="alert" style={[styles.meta, { color: colors.destructive }]}>{error}</Text>}
           </ScrollView>
           <View style={styles.row}>

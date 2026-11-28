@@ -11,5 +11,7 @@ const NORMALIZED_KEYS = [
 export function withoutNormalizedCollections<T extends object>(state: T) {
   const payload = { ...state } as Record<string, unknown>;
   NORMALIZED_KEYS.forEach((key) => delete payload[key]);
+  // Ignore obsolete coordinates from old caches; never upload them again.
+  delete payload.homeLocation;
   return payload;
 }

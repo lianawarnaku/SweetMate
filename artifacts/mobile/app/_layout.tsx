@@ -1,3 +1,5 @@
+import { AppSaveFeedback } from "@/components/SaveFeedbackNotice";
+import { PasswordRecoveryBoundary } from "@/components/PasswordRecoveryScreen";
 import { PushNotificationManager } from "@/components/PushNotificationManager";
 import {
   BarlowCondensed_400Regular,
@@ -124,6 +126,7 @@ export default function RootLayout() {
                 <NavigationThemeProvider>
                   <WebThemeFocusStyles />
                   <ThemedStatusBar launching={launching} />
+                  <PasswordRecoveryBoundary onLaunchStateChange={setLaunching}>
                   <AppPopupProvider>
                     {!launching && (
                       <AnalyticsConsentManager session={session} />
@@ -182,14 +185,17 @@ export default function RootLayout() {
                             name="auth/callback"
                             options={{ headerShown: false }}
                           />
+                          <Stack.Screen name="auth/reset-password" options={{ headerShown: false }} />
                           <Stack.Screen name="+not-found" />
                         </Stack>
                         {!launching && <QuickGuideModal />}
                         {!launching && <NudgeToast />}
+                        {!launching && <AppSaveFeedback />}
                         {!launching && <ChoreChartApplyingOverlay />}
                       </>
                     </AuthGate>
                   </AppPopupProvider>
+                  </PasswordRecoveryBoundary>
                 </NavigationThemeProvider>
               </ThemedAppSurface>
             </AppProvider>

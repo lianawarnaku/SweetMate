@@ -14,7 +14,7 @@ function fixture(savedList = false, savedDismissal = false, reduceMotion = false
   let cursor = 0;
   const storage = new Map<string, string>();
   if (savedList) storage.set("sweetmate:pinch-list-view:v1:avery:home", "list");
-  if (savedDismissal) storage.set("sweetmate:home-summary-dismissed:v1:home:avery", new Date().toISOString().slice(0, 10));
+  if (savedDismissal) storage.set("sweetmate:home-summary-dismissed:v1:home:avery", choreLocalDateKey(new Date()));
   const useState = (initial: any) => { const index = cursor++; if (!(index in slots)) slots[index] = typeof initial === "function" ? initial() : initial;
     return [slots[index], (next: any) => { slots[index] = typeof next === "function" ? next(slots[index]) : next; }]; };
   const react = { useState, useRef: (value: any) => useState(() => ({ current: value }))[0], useMemo: (fn: any) => fn(), useCallback: (fn: any) => fn,
@@ -25,7 +25,7 @@ function fixture(savedList = false, savedDismissal = false, reduceMotion = false
   const motion: any = { duration: () => motion, delay: () => motion, easing: () => motion, reduceMotion: () => motion };
   const animation = { start: () => {}, stop: () => {} };
   class Value { value: number; constructor(value: number) { this.value = value; } setValue(value: number) { this.value = value; } addListener() { return "listener"; } removeListener() {} interpolate() { return 0; } }
-  const context = { personalSchedule: { prefs: null, items: [], ready: true, loading: false, configured: false }, currentUserId: "avery", householdId: "home", householdTimezone: "UTC", activeSweet: {}, chores: [] as any[], roommates: [{ id: "avery", name: "Avery" }], expenses: [], shoppingLists: [], shoppingItems: [], pointsEnabled: false, isHost: true };
+  const context = { personalSchedule: { prefs: null, items: [], ready: true, loading: false, configured: false }, currentUserId: "avery", householdId: "home", householdTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone, activeSweet: {}, chores: [] as any[], roommates: [{ id: "avery", name: "Avery" }], expenses: [], shoppingLists: [], shoppingItems: [], pointsEnabled: false, isHost: true };
   const passthrough = (items: any) => items;
   const empty = () => [];
   const modules: Record<string, any> = {
@@ -128,7 +128,7 @@ async function settle() { for (let i = 0; i < 20; i++) await Promise.resolve(); 
 {
   const f = fixture();
   const now = new Date(), yesterday = new Date(now.getTime() - 86400000);
-  const finished = { id: "finished-today", title: "Finished today", assignedTo: "avery", householdId: "home", completed: true, completedAt: now.toISOString(), dueDate: now.toISOString(), scheduledDate: householdDateKey(now, "UTC") };
+  const finished = { id: "finished-today", title: "Finished today", assignedTo: "avery", householdId: "home", completed: true, completedAt: now.toISOString(), dueDate: now.toISOString(), scheduledDate: householdDateKey(now, f.context.householdTimezone) };
   f.context.chores = [finished]; f.render(); await settle();
   assert.equal(f.summary()!.props.completedCount, 1, "completed work must remain in today's progress numerator");
   assert.equal(f.summary()!.props.totalCount, 1, "checking off the last chore must show 1/1, not 0/0");

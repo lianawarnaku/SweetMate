@@ -1,3 +1,4 @@
+import { saveFeedback } from "./saveFeedback.ts";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
@@ -50,7 +51,7 @@ visit(ast);
 const live = fixture(), applyingRemoteRef = { current: true };
 const emptyShopping = { listVersions: {}, itemVersions: {}, deletedLists: {}, deletedItems: {} };
 const exports: any = {};
-const bindings: any = { exports, customTasks: [], prepareItemNameAnalytics: () => () => 0, applyingRemoteRef, makeId: () => "real-context-task", mutateCustomTask: (id: string, value: any) => live.render().mutate(id, value),
+const bindings: any = { exports, saveFeedback, activeUserIdRef: { current: "actor" }, activeSetupHouseholdRef: { current: "home" }, customTasks: [], prepareItemNameAnalytics: () => () => 0, applyingRemoteRef, makeId: () => "real-context-task", mutateCustomTask: (id: string, value: any) => live.render().mutate(id, value),
   applyRemoteCustomTasks: (items: any, meta: any) => live.render().applyRemote(items, meta),
   choresTableReadyRef: { current: true }, choresRef: { current: [] }, shoppingSyncMetaRef: { current: emptyShopping }, EMPTY_SHOPPING_SYNC_META: emptyShopping,
   shoppingListsTableReadyRef: { current: true }, shoppingItemsTableReadyRef: { current: true }, sharedBorrowTableReadyRef: { current: true }, setShoppingSyncMeta: () => {} };

@@ -47,6 +47,7 @@ export async function clearDeletedAccountStorage(userId:string){
   const keys=await AsyncStorage.getAllKeys();
   // Preserve other signed-in people's device data and all unrelated app keys.
   await AsyncStorage.multiRemove(keys.filter(key=>key.startsWith(`sweetmate:user:${userId}:`) ||
+    key===`@sweetmate/reminder-outbox/v1/${encodeURIComponent(userId)}` || key===`sweetmate:operations:v1:${userId}` || key.startsWith(`sweetmate:expenses:outbox:v1:${userId}:`) ||
     key===`sweetmate:user-preferences:v1:${userId}` || key===`sweetmate:analytics-id:v1:${userId}` ||
     key===`sweetmate:telemetry-preferences:v1:${userId}` || key===`sweetmate:analytics-first:v1:${userId}` ||
     key.startsWith(`@sweetmate/external-task/v1/${encodeURIComponent(userId)}/`) || key===`@sweetmate/external-task-destination/v1/${encodeURIComponent(userId)}` || key==='homebase_data_v7'));

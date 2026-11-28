@@ -1,5 +1,6 @@
 import { Feather, Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import * as Crypto from "expo-crypto";
 import { router } from "expo-router";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -140,13 +141,15 @@ export default function ShoppingScreen() {
   const [showNewListModal, setShowNewListModal] = useState(false);
   const [newListName, setNewListName] = useState("");
   const [newListSchedule, setNewListSchedule] = useState<ShoppingSchedule | undefined>();
+  const listDraftId = useRef<string | null>(null);
+  const itemDraftId = useRef<string | null>(null);
   const [collapsedLists, setCollapsedLists] = useState<Set<string>>(new Set());
   const [assignPickerListId, setAssignPickerListId] = useState<string | null>(null);
   const [actionListId, setActionListId] = useState<string | null>(null);
   const [actionItemId, setActionItemId] = useState<string | null>(null);
   const [undoList, setUndoList] = useState<{ id: string; householdId: string | null } | null>(null);
-  const shoppingScopeRef = useRef({ householdId, shoppingLists, shoppingItems });
-  shoppingScopeRef.current = { householdId, shoppingLists, shoppingItems };
+  const shoppingScopeRef = useRef({ householdId, currentUserId, shoppingLists, shoppingItems });
+  shoppingScopeRef.current = { householdId, currentUserId, shoppingLists, shoppingItems };
   const [feedback, setFeedback] = useState<string | null>(null);
   const completedLongPressRef = useRef<string | null>(null);
   const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -156,6 +159,9 @@ export default function ShoppingScreen() {
   }, []);
 
   useEffect(() => {
+    listDraftId.current = null; itemDraftId.current = null;
+    setShowNewListModal(false); setShowShoppingModal(false);
+    setNewListName(""); setShopName(""); setTargetListId(null);
     setActionListId(null);
     setActionItemId(null);
     setUndoList(null);
@@ -164,7 +170,7 @@ export default function ShoppingScreen() {
     completionOrderRef.current.clear();
     setLayoutHoldIds(new Set());
     setDragActive(false);
-  }, [householdId]);
+  }, [householdId, currentUserId]);
 
   const showFeedback = (message: string) => {
     setFeedback(message);
@@ -181,11 +187,13 @@ export default function ShoppingScreen() {
     });
   };
 
-  const handleAddShopItem = () => {
+  const handleAddShopItem = async () => {
     if (!shopName.trim() || !targetListId) return;
     const itemName = shopName.trim();
     const listName = shoppingLists.find((list) => list.id === targetListId)?.name;
-    addShoppingItem({
+    const scope = shoppingScopeRef.current;
+    itemDraftId.current ??= Crypto.randomUUID();
+    await addShoppingItem({
       name: itemName,
       quantity: shopQty.trim() || "1",
       addedBy: currentUserId,
@@ -193,7 +201,10 @@ export default function ShoppingScreen() {
       listId: targetListId,
       neededByDate: shopSchedule?.date,
       neededByTime: shopSchedule?.time,
-    });
+    }, itemDraftId.current);
+    if (shoppingScopeRef.current.householdId !== scope.householdId || shoppingScopeRef.current.currentUserId !== scope.currentUserId)
+      throw new Error("Your account or household changed. Reopen Shopping and try again.");
+    itemDraftId.current = null;
     setShopName("");
     setShopQty("1");
     setShopSchedule(undefined);
@@ -203,14 +214,20 @@ export default function ShoppingScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
-  const handleAddList = () => {
+  const handleAddList = async () => {
     if (!newListName.trim()) return;
     const listName = newListName.trim();
-    addShoppingList(
+    const scope = shoppingScopeRef.current;
+    listDraftId.current ??= Crypto.randomUUID();
+    await addShoppingList(
       listName,
       newListSchedule?.date,
       newListSchedule?.time,
+      listDraftId.current,
     );
+    if (shoppingScopeRef.current.householdId !== scope.householdId || shoppingScopeRef.current.currentUserId !== scope.currentUserId)
+      throw new Error("Your account or household changed. Reopen Shopping and try again.");
+    listDraftId.current = null;
     setNewListName("");
     setNewListSchedule(undefined);
     setShowNewListModal(false);
@@ -928,12 +945,12 @@ export default function ShoppingScreen() {
         visible={showShoppingModal} name={shopName} onNameChange={setShopName}
         quantity={shopQty} onQuantityChange={setShopQty}
         schedule={shopSchedule} onScheduleChange={setShopSchedule} timezone={householdTimezone}
-        onSave={handleAddShopItem} onClose={() => { setShowShoppingModal(false); setTargetListId(null); }}
+        onSave={handleAddShopItem} onClose={() => { if (itemDraftId.current) deleteShoppingItem(itemDraftId.current); itemDraftId.current = null; setShowShoppingModal(false); setTargetListId(null); }}
       />
       <ShoppingEditorSheet
         visible={showNewListModal} name={newListName} onNameChange={setNewListName}
         schedule={newListSchedule} onScheduleChange={setNewListSchedule} timezone={householdTimezone}
-        onSave={handleAddList} onClose={() => setShowNewListModal(false)}
+        onSave={handleAddList} onClose={() => { if (listDraftId.current) deleteShoppingList(listDraftId.current); listDraftId.current = null; setShowNewListModal(false); }}
       />
 
     </View>

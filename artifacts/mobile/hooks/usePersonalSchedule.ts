@@ -1,6 +1,8 @@
+import { saveFeedback, saveRequest } from "@/lib/saveFeedback";
+import { fetchAllRows } from "@/lib/pagination";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState, Platform } from "react-native";
-import { supabase } from "@/lib/supabase";
+import { supabase, pendingOperations } from "@/lib/supabase";
 import type { BusyActivity, PersonalScheduleItem, SchedulePreferences, ScheduleSources, TaskScheduleUpdate } from "@/lib/personalSchedule";
 
 import { ScheduleCompletionQueue } from "@/lib/scheduleCompletionQueue";
@@ -35,8 +37,12 @@ export function usePersonalSchedule(userId: string | null, householdId: string |
   if (!completions.current || completions.current.scope !== scope) {
     completions.current?.queue.dispose();
     completions.current = { scope, queue: new ScheduleCompletionQueue({
+      prepare: pendingOperations ? async (id, completed) => {
+        const staged = await pendingOperations.prepareRpc("update_personal_schedule_task", { task_id: id, completed }, scope);
+        return { send: async () => { const result = await staged.send(); if (result.status >= 300) throw result.data; } };
+      } : undefined,
       save: async (id, completed) => {
-        const { error } = await supabase.rpc("update_personal_schedule_task", { task_id: id, completed });
+        const { error } = await saveRequest(signal => supabase.rpc("update_personal_schedule_task", { task_id: id, completed }).abortSignal(signal));
         if (error) throw error;
       },
       change: (id, completedAt) => {
@@ -55,7 +61,7 @@ export function usePersonalSchedule(userId: string | null, householdId: string |
     const [householdPrefs, syncPrefs, items, sharing] = await Promise.all([
       supabase.from("member_schedule_preferences").select("user_id,household_id,enabled,calendar_ids,task_list_ids,timezone").eq("user_id", userId).eq("household_id", householdId).maybeSingle(),
       supabase.from("personal_schedule_preferences").select("synced_at,sync_error").eq("user_id", userId).maybeSingle(),
-      supabase.from("personal_schedule_items").select("*").eq("user_id", userId),
+      fetchAllRows(() => supabase.from("personal_schedule_items").select("*").eq("user_id", userId), undefined, { isCurrent: () => current.current === scope && request === version.current }),
       householdId ? supabase.from("member_schedule_sharing").select("enabled").eq("user_id", userId).eq("household_id", householdId).maybeSingle() : Promise.resolve({ data: null, error: null }),
     ]);
     if (current.current !== scope || request !== version.current) return;
@@ -82,18 +88,19 @@ export function usePersonalSchedule(userId: string | null, householdId: string |
     let active = true;
     const reload = () => { if (active) void refresh().catch((failure) => { if (active) setError(failure.message ?? "Your schedule could not load."); }); };
     reload();
+    const stopRecovery = pendingOperations?.subscribeRecovery(reload);
     const onFocus = () => { reload(); if (enabled) void sync().catch(() => {}); };
     const listener = AppState.addEventListener("change", (value) => { if (value === "active") onFocus(); });
     if (Platform.OS === "web" && typeof window !== "undefined") window.addEventListener("focus", onFocus);
     const poll = setInterval(onFocus, 60_000);
-    return () => { active = false; clearInterval(poll); listener.remove(); if (Platform.OS === "web" && typeof window !== "undefined") window.removeEventListener("focus", onFocus); };
+    return () => { active = false; stopRecovery?.(); clearInterval(poll); listener.remove(); if (Platform.OS === "web" && typeof window !== "undefined") window.removeEventListener("focus", onFocus); };
   }, [userId, enabled, refresh, sync]);
   useEffect(() => { if (enabled) void sync().catch(() => {}); }, [enabled, sync]);
   useEffect(() => {
     if (!userId || !householdId || !showActivity) return;
     let active = true;
     const reload = async () => {
-      const { data, error } = await supabase.rpc("get_household_schedule_activity", { target_household_id: householdId });
+      const { data, error } = await fetchAllRows<BusyActivity>(() => supabase.rpc("get_household_schedule_activity", { target_household_id: householdId }), [{ column: "member_id" }], { isCurrent: () => active && current.current === scope });
       if (active && !error) setBusyState({ userId, householdId, rows: data ?? [] });
     };
     void reload();
@@ -114,13 +121,15 @@ export function usePersonalSchedule(userId: string | null, householdId: string |
     if (error) throw error;
     await refresh();
   }, [householdId, scope, refresh]);
-  const updateTask = useCallback(async (id: string, update: TaskScheduleUpdate) => {
+  const updateTask = useCallback(async (id: string, update: TaskScheduleUpdate): Promise<void> => {
     if (current.current !== scope) throw Object.assign(new Error("The schedule account changed."), { name: "AbortError" });
     if (typeof update.completed === "boolean" && Object.keys(update).every(key => key === "completed")) {
       const snapshot = stateRef.current;
       const item = snapshot?.userId === userId && snapshot.householdId === householdId ? snapshot.items.find(item => item.id === id) : null;
       if (!item) throw new Error("This schedule item is unavailable. Refresh and try again.");
-      await completions.current!.queue.update(item, update.completed);
+      await saveFeedback.run(scope, `schedule:${id}`, "Google schedule", () => updateTask(id, update),
+        () => completions.current!.queue.update(item, update.completed!),
+        "Google schedule save not confirmed. The previous checkmark was restored.");
       return;
     }
     const { error } = await supabase.rpc("update_personal_schedule_task", { task_id: id, completed: update.completed ?? null,
@@ -129,7 +138,7 @@ export function usePersonalSchedule(userId: string | null, householdId: string |
     await refresh();
   }, [refresh, userId, householdId, scope]);
   const sources = useCallback(async (): Promise<ScheduleSources> => googleScheduleRequest("sources"), []);
-  return { userId, items: inScope ? state!.items : EMPTY, prefs: inScope ? state!.prefs : null,
+  return { userId, saveScope: scope, items: inScope ? state!.items : EMPTY, prefs: inScope ? state!.prefs : null,
     configured: inScope && state!.prefs !== null,
     sharing: state?.userId === userId && state.householdId === householdId ? state.shareBusy : false,
     activity: showActivity && busyState?.householdId === householdId && busyState?.userId === userId ? busyState.rows : [],

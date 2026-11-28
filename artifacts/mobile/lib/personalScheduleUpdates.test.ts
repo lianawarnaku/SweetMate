@@ -3,6 +3,8 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { runInNewContext } from "node:vm";
 import ts from "typescript";
+import { fetchAllRows } from "./pagination.ts";
+import { saveFeedback, saveRequest } from "./saveFeedback.ts";
 import { ScheduleCompletionQueue } from "./scheduleCompletionQueue.ts";
 import type { PersonalScheduleItem } from "./personalSchedule.ts";
 
@@ -22,23 +24,25 @@ function fixture() {
   const writes: { id: string; completed: boolean; finish: (error?: Error) => void }[] = [];
   const useState = (initial: any) => { const index = cursor++; if (!(index in state)) state[index] = typeof initial === "function" ? initial() : initial; return [state[index], (value: any) => { state[index] = typeof value === "function" ? value(state[index]) : value; }]; };
   const react = { useState, useRef: (value: any) => useState(() => ({ current: value }))[0], useEffect: () => {}, useCallback: (fn: any) => fn };
-  const read = (table: string, user: string, household: string) => {
+  const read = (table: string, user: string, household: string, after?: string, count = 250) => {
     queries.push(table);
-    const data = table === "personal_schedule_items" ? serverItems.filter(item => item.user_id === user)
+    const data = table === "personal_schedule_items" ? serverItems.filter(item => item.user_id === user && (!after || item.id > after)).sort((a,b) => a.id < b.id ? -1 : 1).slice(0,count)
       : table === "personal_schedule_preferences" ? { synced_at: null, sync_error: null }
       : table === "member_schedule_preferences" ? preferences.has(household) ? { user_id: user, household_id: household, ...preferences.get(household) } : null : { enabled: false };
     const result = { data: JSON.parse(JSON.stringify(data)), error: null };
     return holdReads ? new Promise<any>(resolve => reads.push(() => resolve(result))) : Promise.resolve(result);
   };
   const from = (table: string) => {
-    let user = "me", household = "home";
+    let user = "me", household = "home", after: string | undefined, count = 250;
     const builder: any = { select: () => builder, eq: (column: string, value: string) => { if (column === "user_id") user = value; if (column === "household_id") household = value; return builder; },
-      maybeSingle: () => read(table, user, household), then: (yes: any, no: any) => read(table, user, household).then(yes, no) };
+      order: () => builder, gt: (_key: string, value: string) => { after = value; return builder; }, limit: (value: number) => { count = value; return builder; }, maybeSingle: () => read(table, user, household), then: (yes: any, no: any) => read(table, user, household, after, count).then(yes, no) };
     return builder;
   };
   const modules: Record<string, any> = {
     react, "react-native": { AppState: {}, Platform: { OS: "ios" } },
     "@/lib/scheduleCompletionQueue": { ScheduleCompletionQueue },
+    "@/lib/pagination": { fetchAllRows },
+    "@/lib/saveFeedback": { saveFeedback, saveRequest },
     "@/lib/supabase": { supabase: { from, auth: { getSession: async () => ({ data: { session: { access_token: "fixture-token" } } }) }, rpc: (name: string, update: any) => {
       if (name === "configure_household_schedule") {
         configurations.push(update);
@@ -46,10 +50,11 @@ function fixture() {
         return Promise.resolve({ error: null });
       }
       assert.equal(name, "update_personal_schedule_task");
-      return new Promise(resolve => writes.push({ id: update.task_id, completed: update.completed, finish: error => {
+      const request = new Promise(resolve => writes.push({ id: update.task_id, completed: update.completed, finish: error => {
         if (!error) serverItems = serverItems.map(item => item.id === update.task_id ? { ...item, app_completed_at: update.completed ? "2026-11-25T17:00:00.000Z" : null } : item);
         resolve({ error: error ?? null });
       } }));
+      return Object.assign(request, { abortSignal: () => request });
     } } },
   };
   const exports: any = {};

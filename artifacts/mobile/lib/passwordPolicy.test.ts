@@ -1,0 +1,11 @@
+import assert from "node:assert/strict";
+import { newPasswordValidation } from "./passwordPolicy.ts";
+import { readFileSync } from "node:fs";
+assert.match(newPasswordValidation("a".repeat(11))!, /12/);
+assert.equal(newPasswordValidation("a".repeat(12)), null);
+assert.equal(newPasswordValidation("a".repeat(128)), null);
+assert.match(newPasswordValidation("a".repeat(129))!, /128/);
+const screen = readFileSync("components/SignInScreen.tsx", "utf8");
+assert(screen.includes('mode === "signup" ? newPasswordValidation(password)'));
+assert(!screen.includes('password.length < 6'), "legacy sign-in is delegated to Auth, independent of the new-account policy");
+console.log("Signup/recovery password boundaries and legacy sign-in compatibility passed.");

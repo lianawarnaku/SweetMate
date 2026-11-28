@@ -6,18 +6,22 @@ import ts from "typescript";
 const compile = (path: string) => ts.transpileModule(readFileSync(resolve(process.cwd(), path), "utf8"), { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS, esModuleInterop: false } }).outputText;
 
 // Verify the actual singleton client uses persistent storage and token renewal.
-const storage = { marker: "device-storage" }, client = { marker: "singleton" };
+const protectedStorage = { marker: "protected-auth" };
+const storage = { marker: "device-storage" }, client = { marker: "singleton", auth: { onAuthStateChange: () => {} } };
 let clientOptions: any, clientCreations = 0;
 const clientModule: any = {};
 runInNewContext(compile("lib/supabase.ts"), { exports: clientModule, process: { env: { EXPO_PUBLIC_SUPABASE_URL: "https://test.invalid", EXPO_PUBLIC_SUPABASE_ANON_KEY: "public-test-key" } }, require: (name: string) => {
+  if (name === "./authStorage") return { authStorage: protectedStorage };
   if (name === "./chorePolicyFetch") return { createChorePolicyFetch: () => () => {} };
   if (name === "@react-native-async-storage/async-storage") return { default: storage };
   if (name === "react-native-url-polyfill/auto") return {};
   if (name === "@supabase/supabase-js") return { createClient: (_url: string, _key: string, options: any) => { clientCreations++; clientOptions = options; return client; } };
+  if (name === "expo-crypto") return { randomUUID: () => "test-operation" };
+  if (name === "./durableMutationFetch") return { createDurableMutationFetch: (options: any) => ({ fetch: options.fetcher, setSession: () => {} }) };
   throw new Error(name);
 } });
 assert.equal(clientCreations, 1); assert.equal(clientModule.supabase, client);
-assert.equal(clientOptions.auth.storage, storage);
+assert.equal(clientOptions.auth.storage, protectedStorage);
 assert.equal(clientOptions.auth.persistSession, true);
 assert.equal(clientOptions.auth.autoRefreshToken, true);
 assert.equal(clientOptions.auth.detectSessionInUrl, false, "native callbacks are explicitly exchanged by the app");

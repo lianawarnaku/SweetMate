@@ -1,3 +1,4 @@
+import { fetchAllRows } from "@/lib/pagination";
 import { router } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import React, { useRef, useState } from "react";
@@ -35,11 +36,11 @@ export function HouseholdCompletionControl({ compact = false, chartStatus }: {
     try {
       // Realtime/local state may still contain only the host immediately after
       // someone joins. Confirm against the active roster before warning.
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllRows(() => supabase
         .from("household_members")
         .select("user_id")
         .eq("household_id", targetHouseholdId)
-        .eq("status", "active");
+        .eq("status", "active"), [{ column: "user_id" }], { isCurrent: () => activeHouseholdRef.current === targetHouseholdId });
       if (activeHouseholdRef.current !== targetHouseholdId) return;
       if (error) throw error;
       if (!data?.length) throw new Error("The active household roster is unavailable.");
